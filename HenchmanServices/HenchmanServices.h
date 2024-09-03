@@ -194,6 +194,8 @@ public:
     std::string GetExportsPath();
     std::string GetLogsPath();
     bool isInternetConnected();
+    bool FileInUse(std::string);
+    bool ProcessExists(std::string);
 	std::vector<std::string> Explode(const std::string&, std::string&, int = 0);
 	std::optional<SSL*> ConnectWithSMTP();
 	SC_HANDLE *GetServiceController();

@@ -341,7 +341,7 @@ const char* GetMimeTypeFromFileName(char* szFileExt)
 	return MimeTypes[0][1];   //if does not match any,  "application/octet-stream" is returned
 }
 
-bool ProcessExists(std::string exeFileName) {
+bool HenchmanService::ProcessExists(std::string exeFileName) {
 	
 	bool ContinueLoop;
 	HANDLE SnapshotHandle;
@@ -360,7 +360,6 @@ bool ProcessExists(std::string exeFileName) {
 		std::transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
 			 result = true;
-			 ContinueLoop = false;
 		}
 		else {
 			ContinueLoop = Process32Next(SnapshotHandle, &ProcessEntry32);
@@ -370,7 +369,7 @@ bool ProcessExists(std::string exeFileName) {
 	return result;
 }
 
-bool FileInUse(std::string fileName) {
+bool HenchmanService::FileInUse(std::string fileName) {
 	HANDLE fileRes;
 	struct stat buffer;
 	std::cout << "Checking if: " << fileName << " is being used" << std::endl;
@@ -765,6 +764,52 @@ void HenchmanService::SendEmail(SSL* &ssl, std::vector<std::string>&attachments)
 	}
 }
 
+
+//int GetExitCodeProcess() {
+//
+//}
+
+bool ShellExecuteApp(std::string appName, std::string params)
+{
+	SHELLEXECUTEINFO SEInfo;
+	DWORD ExitCode;
+	std::string exeFile = appName;
+	std::string paramStr = params;
+	std::string StartInString;
+
+	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
+	HWND windowHandle;
+	char newWindowTitle[1024];
+	char oldWindowTitle[1024];
+
+	GetConsoleTitle(oldWindowTitle, sizeof(oldWindowTitle));
+	
+	printf(oldWindowTitle);
+	printf("\n");
+	Sleep(5000);
+	windowHandle = FindWindow(NULL, oldWindowTitle);
+
+	//std::fill_n(SEInfo, sizeof(SEInfo), NULL);
+	SEInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+	SEInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+	SEInfo.hwnd = windowHandle;
+	SEInfo.lpVerb = NULL;
+	SEInfo.lpDirectory = NULL;
+	SEInfo.lpFile = exeFile.c_str();
+	SEInfo.lpParameters = paramStr.c_str();
+	SEInfo.nShow = paramStr == "" ? SW_NORMAL : SW_HIDE;
+	if(ShellExecuteEx(&SEInfo)){
+		do {
+			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
+			std::cout << ExitCode << std::endl;
+		} while (ExitCode != STILL_ACTIVE);
+		return true;
+	}
+
+	return false;
+}
+
+
 int main() {
 	HenchmanService service;
 	CSimpleIni ini;
@@ -783,14 +828,15 @@ int main() {
 		std::cout << hse.what();
 	}
 	for(auto i : explodedString) std::cout << i << std::endl;
-	ProcessExists("HenchmanServices") ? std::cout << "Yes It Does" : std::cout << "No It Does Not";
+	service.ProcessExists("HenchmanServices") ? std::cout << "Yes It Does" : std::cout << "No It Does Not";
 	std::cout << std::endl;
 	char buff[1024];
 	int byteLength = GetCurrentDirectory(sizeof(buff), buff);
 	std::string currDir = buff;
 	currDir.resize(byteLength);
-	FileInUse(currDir + "\\HenchmanServices.exe") ? std::cout << "Yes It Is" : std::cout << "No It Is Not";
+	service.FileInUse(currDir + "\\HenchmanServices.exe") ? std::cout << "Yes It Is" : std::cout << "No It Is Not";
 	std::cout << std::endl;
+	std::cout << "Reading ini file: " << std::string(currDir + "\\service.ini") << std::endl;
 	SI_Error rc = ini.LoadFile(std::string(currDir + "\\service.ini").c_str());
 	if (rc < 0) {
 		std::cerr << "Failed to Load INI File" << std::endl;
@@ -800,9 +846,10 @@ int main() {
 	username = ini.GetValue("SMTP", "username", "");
 	password = ini.GetValue("SMTP", "password", "");
 	if (service.isInternetConnected() && service.setMailLogin(username, password)) {
-		service.ConnectWithSMTP();
+		//service.ConnectWithSMTP();
 	}
-
+	ShellExecuteApp("HenchmanServices.exe", "") ? std::cout << "Successfully excecuted" << std::endl : std::cout << "Failed to excecute" << std::endl;
 	explodedString.clear();
+	Sleep(5000);
 	return 0;
 }
