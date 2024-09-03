@@ -387,9 +387,9 @@ bool HenchmanService::setMailLogin(std::string username, std::string password) {
 	mail_username = username;
 	mail_password = password;
 	if (mail_username.length() <= 1 || mail_password.length() <= 1) {
-		return 1;
+		return false;
 	}
-	return 0;
+	return true;
 }
 
 std::optional<SSL*> HenchmanService::ConnectWithSMTP() {
@@ -769,18 +769,7 @@ int main() {
 	HenchmanService service;
 	CSimpleIni ini;
 	ini.SetUnicode();
-	SI_Error rc = ini.LoadFile(".\\service.ini");
-
-	if (rc < 0) {
-		std::cerr << "Failed to Load INI File" << std::endl;
-	}
 	
-	const char * username;
-	const char * password;
-	username = ini.GetValue("SMTP", "username", "");
-	password = ini.GetValue("SMTP", "password", "");
-	service.setMailLogin(username, password);
-
 	std::cout << "Export path: " << service.GetExportsPath() << std::endl;
 	//service.app_path = "C:\\FPC\\Kaptap.exe";
 	std::cout << "Logs path: " << service.GetLogsPath() << std::endl;
@@ -802,8 +791,15 @@ int main() {
 	currDir.resize(byteLength);
 	FileInUse(currDir + "\\HenchmanServices.exe") ? std::cout << "Yes It Is" : std::cout << "No It Is Not";
 	std::cout << std::endl;
-	
-	if (service.isInternetConnected()) {
+	SI_Error rc = ini.LoadFile(std::string(currDir + "\\service.ini").c_str());
+	if (rc < 0) {
+		std::cerr << "Failed to Load INI File" << std::endl;
+	}
+	const char* username;
+	const char* password;
+	username = ini.GetValue("SMTP", "username", "");
+	password = ini.GetValue("SMTP", "password", "");
+	if (service.isInternetConnected() && service.setMailLogin(username, password)) {
 		service.ConnectWithSMTP();
 	}
 
