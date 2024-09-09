@@ -6,8 +6,8 @@
 # Add source to this project's executable.
 add_executable(HenchmanServices "HenchmanServices.cpp")
 
-target_include_directories(HenchmanServices PRIVATE "." ${OPENSSL_INCLUDE_DIR})
-target_link_libraries(HenchmanServices PRIVATE HenchmanServiceException OpenSSL::applink ${OPENSSL_CRYPTO_LIBRARY} ${OPENSSL_SSL_LIBRARY} SimpleIni)
+target_include_directories(HenchmanServices PRIVATE "include" ${OPENSSL_INCLUDE_DIR})
+target_link_libraries(HenchmanServices PRIVATE HenchmanServiceException OpenSSL::applink ${OPENSSL_CRYPTO_LIBRARY} ${OPENSSL_SSL_LIBRARY} SimpleIni SQLiteCpp sqlite3 SQLiteManager)
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET HenchmanServices PROPERTY CXX_STANDARD 20)

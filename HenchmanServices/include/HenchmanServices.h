@@ -1,6 +1,9 @@
 ﻿// HenchmanServices.h : Include file for standard system include files,
 // or project specific include files.
 
+#ifndef HENCHMAN_SERVICE_H
+#define HENCHMAN_SERVICE_H
+
 #pragma once
 
 #include <openssl/ssl.h>
@@ -25,27 +28,37 @@
 #include <filesystem>
 #include <algorithm>
 #include <cstdio>
-
+#include <netlistmgr.h>
+//#include <tchar.h>
+#include <strsafe.h>
 #include <TlHelp32.h>
-
 #include "SimpleIni.h"
 
-
 #include "HenchmanServiceException.h"
+#include "SQLiteManager.h"
 
+#pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
 
+using namespace std;
 // TODO: Reference additional headers your program requires here.
-#define SERVICE_NAME			L"HenchmanService"
-#define SERVICE_DISPLAY_NAME	L"HenchmanTRAK Product Service"
+#define SERVICE_NAME			"HenchmanService"
+#define SERVICE_DISPLAY_NAME	"HenchmanTRAK Product Service"
 #define SERVICE_DESIRED_ACCESS	SERVICE_ALL_ACCESS
 #define SERVICE_TYPE			SERVICE_WIN32_OWN_PROCESS
 #define SERVICE_START_TYPE		SERVICE_AUTO_START
 #define SERVICE_ERROR_CONTROL	SERVICE_ERROR_NORMAL
-#define SERVICE_DEPENDENCIES	L""
-#define SERVICE_ACCOUNT			L"NT AUTHORITY\\LocalService"
+#define SERVICE_DEPENDENCIES	""
+//#define SERVICE_ACCOUNT			L"NT AUTHORITY\\LocalService"
 #define SERVICE_PASSWORD        NULL
 #define CRLF "\r\n"
+
+SERVICE_STATUS		  g_ServiceStatus = { 0 };
+SERVICE_STATUS_HANDLE g_StatusHandle = NULL;
+HANDLE				  g_ServiceStopEvent = INVALID_HANDLE_VALUE;
+
+SC_HANDLE schSCManager;
+SC_HANDLE schService;
 
 const char MimeTypes[][2][128] =
 {
@@ -139,18 +152,17 @@ const char MimeTypes[][2][128] =
     {"flv", "video/x-flv"}
 };
 
-const std::string base64_chars =
+const string base64_chars =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 "abcdefghijklmnopqrstuvwxyz"
 "0123456789+/";
 
 
 class HenchmanService {
-    static std::string mail_username;
-    static std::string mail_password;
 
-	static SC_HANDLE schSCManager;
-	static SC_HANDLE schService;
+    static string mail_username;
+    static string mail_password;
+
 	static clock_t tmr1;
 	static clock_t tmrkabTRAK;
 	static clock_t tmrcribTRAK;
@@ -164,39 +176,45 @@ class HenchmanService {
 	bool report;
 	bool update;
 
-	static std::vector<std::string> _empty_argument;
+	static vector<string> _empty_argument;
 
 	void ServiceExecute();
 	void Tmr1Timer();
 	char *GetLogPath();
 	
-	void WriteLog(std::string&);
 	void tmrkabTRAKTimer(class TObject Sender);
 	void tmrcribTRAKTimer(class TObject Sender);
 	void ServiceStart(class TService, bool& Started);
 	void ServiceStop(class TService, bool& Started);
 	void ServicePause(class TService, bool& Started);
 	void ServiceCreate();
-	void SendEmail( SSL*& , std::vector<std::string> & = _empty_argument);
-	bool Contain(std::string, std::string);
-	std::string ShowCerts(SSL* ssl);
-	void sslError(SSL*, int, std::string, std::stringstream&);
-	SSL_CTX* InitCTX(void);
-
+	void SendEmail( SSL*& , vector<string> & = _empty_argument);
 private:
 	
 public:
-    bool setMailLogin(std::string, std::string);
-    static std::stringstream logx;
-    static std::string app_path;
-    void WriteToLog(std::string);
-    void WriteToError(std::string);
-    std::string GetExportsPath();
-    std::string GetLogsPath();
-    bool isInternetConnected();
-    bool FileInUse(std::string);
-    bool ProcessExists(std::string);
-	std::vector<std::string> Explode(const std::string&, std::string&, int = 0);
-	std::optional<SSL*> ConnectWithSMTP();
+    bool setMailLogin(string, string);
+    static stringstream logx;
+    static string app_path;
+    void WriteToLog(string);
+    void WriteToError(string);
+	vector<string> Explode(const string&, string&, int = 0);
+	void ConnectWithSMTP();
 	SC_HANDLE *GetServiceController();
 };
+
+void DoInstallSvc();
+void __stdcall DoStartSvc(const char* sService = SERVICE_NAME);
+void __stdcall DoStopSvc(const char* sService = SERVICE_NAME);
+bool __stdcall StopDependentServices();
+void __stdcall DoDeleteSvc(const char* sService = SERVICE_NAME);
+void ReportSvcStatus(
+    DWORD dwCurrentState,
+    DWORD dwWin32ExitCode,
+    DWORD dwWaitHint
+);
+DWORD GetSvcStatus(const char* sMachine, const char* sService = SERVICE_NAME);
+void WINAPI SvcCtrlHandler(DWORD CtrlCode);
+void WINAPI SvcMain();
+void SvcInit();
+
+#endif

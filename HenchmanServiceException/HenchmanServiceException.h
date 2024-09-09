@@ -3,13 +3,13 @@
 #pragma once
 
 #include <iostream>
+using namespace std;
 
-
-class HenchmanServiceException : public std::exception {
+class HenchmanServiceException : public exception {
 private:
-	std::string errorMessage;
+	string errorMessage;
 public:
-	HenchmanServiceException(std::string msg);
+	HenchmanServiceException(string msg);
 	const char * what() const override;
 };
 

@@ -1,19 +1,32 @@
-﻿// HenchmanServices.cpp : Defines the entry point for the application.
-//
+﻿/// <summary>
+/// Main Service for HenchmanTRAK Entry Point.
+/// This script has the role of installing, controlling and managing the HenchmanService.
+/// It must;
+///  - allow the Service to be installed
+///  - allow the Service to be started
+///  - allow the Service to be stopped
+///  - allow the Service to be deleted
+///  - connect the various features from other scripts into a centralised point
+///  - run the main Service Function
+///  - manage the registry associacted with the Service
+///  - manage the ini files associated with the Service
+/// </summary>
 
 #include "HenchmanServices.h"
+using namespace std;
 
-std::stringstream HenchmanService::logx;
+
+stringstream HenchmanService::logx;
 SOCKET HenchmanService::mailSocket = INVALID_SOCKET;
 SSL_CTX* HenchmanService::ctx;
 SSL* HenchmanService::ssl;
 struct addrinfo* HenchmanService::mailAddrInfo = NULL;
-std::string HenchmanService::app_path = "";
-std::string HenchmanService::mail_username = "";
-std::string HenchmanService::mail_password = "";
+string HenchmanService::app_path = "";
+string HenchmanService::mail_username = "";
+string HenchmanService::mail_password = "";
 
-std::string HenchmanService::GetExportsPath() {
-	std::string exportsPath;
+string GetExportsPath(string app_path = "") {
+	string exportsPath;
 	int _results = 0;
 	char buff[1024];
 
@@ -28,14 +41,14 @@ std::string HenchmanService::GetExportsPath() {
 	}
 
 	exportsPath.append("\\exports\\");
-	if (!std::filesystem::is_directory(exportsPath.c_str())) {
-		std::filesystem::create_directory(exportsPath.c_str());
+	if (!filesystem::is_directory(exportsPath.c_str())) {
+		filesystem::create_directory(exportsPath.c_str());
 	}
 	return exportsPath;
 }
 
-std::string HenchmanService::GetLogsPath() {
-	std::string logsPath;
+string GetLogsPath(string app_path = "") {
+	string logsPath;
 	int _results = 0;
 	char buff[1024];
 	if (app_path == "") {
@@ -48,19 +61,19 @@ std::string HenchmanService::GetLogsPath() {
 		logsPath = app_path.substr(0, app_path.find_last_of("/\\"));
 	}
 	logsPath.append("\\logs\\");
-	if (!std::filesystem::is_directory(logsPath.c_str())) {
-		std::filesystem::create_directory(logsPath.c_str());
+	if (!filesystem::is_directory(logsPath.c_str())) {
+		filesystem::create_directory(logsPath.c_str());
 	}
 	return logsPath;
 }
 
-void HenchmanService::WriteToLog(std::string log) {
+void HenchmanService::WriteToLog(string log) {
 	if (log == "") {
 		log = logx.str();
 	}
-	std::string logDir = GetLogsPath();
+	string logDir = GetLogsPath();
 	logDir.append("log.txt");
-	std::fstream fs(logDir.c_str(), std::ios::out | std::ios_base::app);
+	 fstream fs(logDir.c_str(), ios::out | ios_base::app);
 	if (fs) {
 		time_t timer = time(NULL);
 		struct tm currDateTime = *localtime(&timer);
@@ -72,16 +85,16 @@ void HenchmanService::WriteToLog(std::string log) {
 		fs << log << '\n';
 		fs.close();
 	}
-	logx.str(std::string());
+	logx.str(string());
 }
 
-void HenchmanService::WriteToError(std::string log) {
+void HenchmanService::WriteToError(string log) {
 	if (log == "") {
 		log = logx.str();
 	}
-	std::string logDir = GetLogsPath();
+	string logDir = GetLogsPath();
 	logDir.append("error.txt");
-	std::fstream fs(logDir.c_str(), std::ios::out | std::ios_base::app);
+	fstream fs(logDir.c_str(), ios::out | ios_base::app);
 	if (fs) {
 		time_t timer = time(NULL);
 		struct tm currDateTime = *localtime(&timer);
@@ -93,23 +106,23 @@ void HenchmanService::WriteToError(std::string log) {
 		fs << log << '\n';
 		fs.close();
 	}
-	logx.str(std::string());
+	logx.str(string());
 }
 
-std::vector<std::string> HenchmanService::Explode(const std::string &Seperator, std::string &s, int limit) {
+vector<string> HenchmanService::Explode(const string &Seperator, string &s, int limit) {
 	if (s == "")
 		throw HenchmanServiceException("No String was Provided");
 	if (limit < 0)
 		throw HenchmanServiceException("Invalid Integer Provided");
-	std::vector<std::string>results;
+	vector<string>results;
 	if (Seperator == "") {
 		results.push_back(s);
 	}
 	else {
 		size_t pos = 0;
-		std::string token;
-		while ((pos = s.find(Seperator)) != std::string::npos and (limit == 0 ? true : results.size() <= limit)) {
-			std::cout << results.size() << std::endl;
+		string token;
+		while ((pos = s.find(Seperator)) != string::npos and (limit == 0 ? true : results.size() <= limit)) {
+			cout << results.size() << endl;
 			token = s.substr(0, pos);
 			results.push_back(token);
 			s.erase(0, pos + Seperator.length());
@@ -120,13 +133,13 @@ std::vector<std::string> HenchmanService::Explode(const std::string &Seperator, 
 	return results;
 }
 
-void Check(int iStatus, std::string szFunction)
+void Check(int iStatus, string szFunction)
 {
 	if ((iStatus != SOCKET_ERROR) && (iStatus))
-		std::cout << "No error duing call to " << szFunction.c_str() << ": " << iStatus << std::endl;
+		cout << "No error duing call to " << szFunction.c_str() << ": " << iStatus << endl;
 	return;
 
-	std::cout << "Error during call to " << szFunction.c_str() << ": " << iStatus << " - " << GetLastError() << std::endl;
+	cout << "Error during call to " << szFunction.c_str() << ": " << iStatus << " - " << GetLastError() << endl;
 }
 
 long int microseconds() {
@@ -136,89 +149,125 @@ long int microseconds() {
 	return ms;
 }
 
-bool HenchmanService::isInternetConnected() {
+bool checkForInternetConnection() {
+	string loghash = to_string(microseconds());
+	bool returnState = false;
+	if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) {
+		INetworkListManager* pNetworkListManager = NULL;
+		VARIANT_BOOL isConnected;
+		//logx << "\n--- " << loghash << " ---\r\n\n";
+		if (SUCCEEDED(CoCreateInstance(CLSID_NetworkListManager, NULL, CLSCTX_ALL, IID_INetworkListManager, (LPVOID*)&pNetworkListManager))) {
+			//logx << "--- " << "Successfully created instance of network list manager." << " ---" << endl;
+			//IEnumNetworkConnections* pEnum;
+			//logx << "\n--- " << loghash << " ---\r\n\n";
+			if (SUCCEEDED(pNetworkListManager->get_IsConnectedToInternet(&isConnected))) {
+				//logx << "--- " << "Confirming existance of internet connection" << " ---" << endl;
+				//logx << "\n--- " << loghash << " ---\r\n\n";
+				if (!isConnected) {
+					//logx << "--- " << "No Internet Connection." << " ---" << endl;
+					goto Exit;
+				}
+				//logx << "--- " << "Internet Connection was Confirmed." << " ---" << endl;
+				returnState = isConnected;
+				goto Exit;
+			}
+			//logx << "--- " << "Could not confirm existance of internet connection" << " ---" << endl;
+			printf("internet not connected");
+			goto Exit;
+		}
+		//logx << "--- " << "Failed to create instance of network list manager." << " ---" << endl;
+		goto Exit;
+	}
+Exit:
+	CoUninitialize();
+	/*cout << logx.str();
+	WriteToLog(logx.str());*/
+	return returnState;
+}
+
+bool isInternetConnected() {
 	WSADATA wsaData;
 	int iResult;
-	std::string loghash = std::to_string(microseconds());
+	string loghash = to_string(microseconds());
 	SOCKET ConnectionCheck = INVALID_SOCKET;
 	struct sockaddr_in clientService;
 
 	struct addrinfo* httpAddrInfo = NULL;
 	struct addrinfo hints;
 
-
 	try {
 		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 		if (iResult != NO_ERROR) {
 			printf("WSAStartup failed: %d\n", iResult);
-			return 1;
+			return false;
 		}
 
 		ZeroMemory(&hints, sizeof(hints));
 		hints.ai_protocol = IPPROTO_TCP;
 
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Getting Address Info" << "---\r\n" << std::endl;
+		//logx << "\n--- " << loghash << " ---\r\n" << endl;
+		//logx << "--- " << "Getting Address Info" << " ---\r\n" << endl;
 		iResult = getaddrinfo("www.google.com", "https", &hints, &httpAddrInfo);
 		if (iResult != NO_ERROR) {
 			printf("getaddrinfo failed with error: %d\n", iResult);
 			freeaddrinfo(httpAddrInfo);
 			WSACleanup();
-			return 1;
+			return false;
 		}
 
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Setting up Network Check Socket" << "---\r\n" << std::endl;
+		//logx << "\n--- " << loghash << " ---\r\n" << endl;
+		//logx << "--- " << "Setting up Network Check Socket" << " ---\r\n" << endl;
 		ConnectionCheck = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (ConnectionCheck == INVALID_SOCKET) {
 			printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
 			closesocket(ConnectionCheck);
 			freeaddrinfo(httpAddrInfo);
 			WSACleanup();
-			return 1;
+			return false;
 		}
 		
 		clientService.sin_family = AF_INET;
 		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
 		clientService.sin_port = htons(IPPORT_HTTPS);
 		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)httpAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Connecting to Google.com via Socket" << "---\r\n" << std::endl;
+		//logx << "\n--- " << loghash << " ---\r\n" << endl;
+		//logx << "---" << "Connecting to Google.com via Socket" << "---\r\n" << endl;
 		iResult = connect(ConnectionCheck, (SOCKADDR*)&clientService, sizeof(clientService));
 		if (iResult == SOCKET_ERROR) {
 			printf("Unable to connect to server: %ld\n", WSAGetLastError());
 			closesocket(ConnectionCheck);
 			freeaddrinfo(httpAddrInfo);
 			WSACleanup();
-			return 1;
+			return false;
 		}
 		else {
-			logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << clientService.sin_port << std::endl;
+			cout << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << clientService.sin_port << endl;
 		}
-		std::cout << logx.str();
-		WriteToLog(logx.str());
+		//cout << logx.str();
+		//WriteToLog(logx.str());
 		closesocket(ConnectionCheck);
 		freeaddrinfo(httpAddrInfo);
 		WSACleanup();
 	}
-	catch (std::exception& e) {
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		std::cout << logx.str();
-		WriteToError(logx.str());
-		return 1;
+	catch (exception& e) {
+		//logx << "\n---" << loghash << "---\r\n" << endl;
+		//cout << logx.str();
+		//WriteToError(logx.str());
+		return false;
 	}
+	return true;
 }
 
-bool HenchmanService::Contain(std::string str, std::string search) {
-	//std::cout << "searching: " << str.data() << " for: " << search.data() << std::endl;
-	std::size_t found = str.find(search);
-	if (found != std::string::npos) {
+bool Contain(string str, string search) {
+	//cout << "searching: " << str.data() << " for: " << search.data() << endl;
+	size_t found = str.find(search);
+	if (found != string::npos) {
 		return 1;
 	}
 	return 0;
 }
 
-std::string HenchmanService::ShowCerts(SSL* ssl)
+string ShowCerts(SSL* ssl)
 {
 	X509* cert;
 	char* line = {};
@@ -226,7 +275,7 @@ std::string HenchmanService::ShowCerts(SSL* ssl)
 	cert = SSL_get_peer_certificate(ssl);	// get the server's certificate
 	if (cert != NULL)
 	{
-		std::string log = "Server certificates:\n";
+		string log = "Server certificates:\n";
 		line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
 		log.append("Subject: ").append(line);
 		//free(line);							// free the malloc'ed string
@@ -242,7 +291,7 @@ std::string HenchmanService::ShowCerts(SSL* ssl)
 }
 
 // InitCTX - initialize the SSL engine.
-SSL_CTX* HenchmanService::InitCTX(void)
+SSL_CTX* InitCTX(void)
 {
 	const SSL_METHOD* method;
 	SSL_CTX* ctx;
@@ -261,69 +310,69 @@ SSL_CTX* HenchmanService::InitCTX(void)
 	return ctx;
 }
 
-void HenchmanService::sslError(SSL* ssl, int received, std::string microtime, std::stringstream& logi) {
+void sslError(SSL* ssl, int received, string microtime, stringstream& logi) {
 	const int err = SSL_get_error(ssl, received);
 	// const int st = ERR_get_error();
 	if (err == SSL_ERROR_NONE) {
 		// OK send
-		// std::cout<<"SSL_ERROR_NONE:"<<SSL_ERROR_NONE<<std::endl;
+		// cout<<"SSL_ERROR_NONE:"<<SSL_ERROR_NONE<<endl;
 		// SSL_shutdown(ssl);        
 	}
 	else if (err == SSL_ERROR_WANT_READ) {
-		logi << "[SSL_ERROR_WANT_READ]" << SSL_ERROR_WANT_READ << std::endl;
-		logi << logi.str() << "--[" << microtime << "]--" << std::endl;
-		std::cerr << logi.str() << std::endl;
-		WriteToError(logi.str());
+		logi << "[SSL_ERROR_WANT_READ]" << SSL_ERROR_WANT_READ << endl;
+		logi << logi.str() << "--[" << microtime << "]--" << endl;
+		cerr << logi.str() << endl;
+		//WriteToError(logi.str());
 		SSL_shutdown(ssl);
 		//kill(getpid(), SIGKILL);
 	}
 	else if (SSL_ERROR_SYSCALL) {
-		logi << errno << " Received " << received << std::endl;
-		logi << "[SSL_ERROR_SYSCALL] " << SSL_ERROR_SYSCALL << std::endl;
-		logi << logi.str() << "--[" << microtime << "]--" << std::endl;
-		WriteToError(logi.str());
-		std::cerr << logi.str() << std::endl;
+		logi << errno << " Received " << received << endl;
+		logi << "[SSL_ERROR_SYSCALL] " << SSL_ERROR_SYSCALL << endl;
+		logi << logi.str() << "--[" << microtime << "]--" << endl;
+		//WriteToError(logi.str());
+		cerr << logi.str() << endl;
 		SSL_shutdown(ssl);
 		//kill(getpid(), SIGKILL);
 	}
 }
 
-char* base64(std::string string) {
+char* base64(string string) {
 	// Credit to mtrw from Stackoverflow
 	const auto pl = 4 * ((string.size() + 2) / 3);
 	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
 	const auto ol = EVP_EncodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
-	if (pl != ol) { std::cerr << "Whoops, encode predicted " << pl << " but we got " << ol << "\n"; }
+	if (pl != ol) { cerr << "Whoops, encode predicted " << pl << " but we got " << ol << "\n"; }
 	return output;
 }
 
-std::string fileBasename(std::string path) {
-	std::string filename = path.substr(path.find_last_of("/\\") + 1);
+string fileBasename(string path) {
+	string filename = path.substr(path.find_last_of("/\\") + 1);
 	return filename;
 	// without extension
-	// std::string::size_type const p(base_filename.find_last_of('.'));
-	// std::string file_without_extension = base_filename.substr(0, p);
+	// string::size_type const p(base_filename.find_last_of('.'));
+	// string file_without_extension = base_filename.substr(0, p);
 }
 
-std::string get_file_contents(const char* filename)
+string get_file_contents(const char* filename)
 {
 	
-	if (std::ifstream is{ filename, std::ios::binary | std::ios::ate })
+	if (ifstream is{ filename, ios::binary | ios::ate })
 	{
 		auto size = is.tellg();
-		std::string str(size, '\0'); // construct string to stream size
+		string str(size, '\0'); // construct string to stream size
 		is.seekg(0);
 		is.read(&str[0], size);
 		/*if (is)
-			std::cout << str << '\n';*/
+			cout << str << '\n';*/
 		return str.c_str();
 	}
 	throw(errno);
 }
 
-std::string GetFileExtension(const std::string& FileName)
+string GetFileExtension(const string& FileName)
 {
-	if (FileName.find_last_of(".") != std::string::npos)
+	if (FileName.find_last_of(".") != string::npos)
 		return FileName.substr(FileName.find_last_of(".") + 1);
 	return "";
 }
@@ -341,7 +390,7 @@ const char* GetMimeTypeFromFileName(char* szFileExt)
 	return MimeTypes[0][1];   //if does not match any,  "application/octet-stream" is returned
 }
 
-bool HenchmanService::ProcessExists(std::string exeFileName) {
+bool ProcessExists(string exeFileName) {
 	
 	bool ContinueLoop;
 	HANDLE SnapshotHandle;
@@ -352,12 +401,12 @@ bool HenchmanService::ProcessExists(std::string exeFileName) {
 	ContinueLoop = Process32First(SnapshotHandle, &ProcessEntry32);
 	bool result = true;
 	while (ContinueLoop) {
-		std::string targetEXE = exeFileName;
-		std::transform(targetEXE.begin(), targetEXE.end(), targetEXE.begin(), ::toupper);
-		std::string processEXE =ProcessEntry32.szExeFile;
-		std::transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
-		std::string processEXEFileName = fileBasename(ProcessEntry32.szExeFile);
-		std::transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
+		string targetEXE = exeFileName;
+		transform(targetEXE.begin(), targetEXE.end(), targetEXE.begin(), ::toupper);
+		string processEXE =ProcessEntry32.szExeFile;
+		transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
+		string processEXEFileName = fileBasename(ProcessEntry32.szExeFile);
+		transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
 			 result = true;
 		}
@@ -369,20 +418,20 @@ bool HenchmanService::ProcessExists(std::string exeFileName) {
 	return result;
 }
 
-bool HenchmanService::FileInUse(std::string fileName) {
+bool FileInUse(string fileName) {
 	HANDLE fileRes;
 	struct stat buffer;
-	std::cout << "Checking if: " << fileName << " is being used" << std::endl;
-	if (std::filesystem::exists(fileName)) {
-		std::cout << "Target File Exists" << std::endl;
+	cout << "Checking if: " << fileName << " is being used" << endl;
+	if (filesystem::exists(fileName)) {
+		cout << "Target File Exists" << endl;
 		fileRes = CreateFile(fileName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 		return (fileRes == INVALID_HANDLE_VALUE);
 	}
-	std::cout << "Target File Does Not Exists Or Could Not Be Found" << std::endl;
+	cout << "Target File Does Not Exists Or Could Not Be Found" << endl;
 	return false;
 }
 
-bool HenchmanService::setMailLogin(std::string username, std::string password) {
+bool HenchmanService::setMailLogin(string username, string password) {
 	mail_username = username;
 	mail_password = password;
 	if (mail_username.length() <= 1 || mail_password.length() <= 1) {
@@ -391,13 +440,13 @@ bool HenchmanService::setMailLogin(std::string username, std::string password) {
 	return true;
 }
 
-std::optional<SSL*> HenchmanService::ConnectWithSMTP() {
+void HenchmanService::ConnectWithSMTP() {
 	WSADATA wsaData;
 	int iResult;
-	std::string loghash = std::to_string(microseconds());
+	string loghash = to_string(microseconds());
 
 	struct sockaddr_in clientService;
-	std::vector<std::string> files;
+	vector<string> files;
 	
 	ctx = InitCTX();
 	
@@ -405,15 +454,15 @@ std::optional<SSL*> HenchmanService::ConnectWithSMTP() {
 	int buffLen = sizeof(buff);
 
 	struct addrinfo hints;
-	std::string reply;
+	string reply;
 	int iProtocolPort;
 	try {
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Socket Setup" << "---\r\n" << std::endl;
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Socket Setup" << "---\r\n" << endl;
 		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
 		if (iResult != NO_ERROR) {
 			printf("WSAStartup failed: %d\n", iResult);
-			return std::nullopt;
+			return;
 		}
 
 		ZeroMemory(&hints, sizeof(hints));
@@ -421,57 +470,57 @@ std::optional<SSL*> HenchmanService::ConnectWithSMTP() {
 		hints.ai_socktype = SOCK_STREAM;
 		hints.ai_protocol = IPPROTO_TCP;
 
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Getting Address Info" << "---\r\n" << std::endl;
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Getting Address Info" << "---\r\n" << endl;
 		iResult = getaddrinfo("mail.henchmantrak.com", "smtp", &hints, &mailAddrInfo);
 		if (iResult != NO_ERROR) {
 			printf("getaddrinfo failed with error: %d\n", iResult);
 			WSACleanup();
-			return std::nullopt;
+			return;
 		}
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Setting up SMTP Mail Socket" << "---\r\n" << std::endl;
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Setting up SMTP Mail Socket" << "---\r\n" << endl;
 		mailSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (mailSocket == INVALID_SOCKET) {
 			printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
 			WSACleanup();
-			return std::nullopt;
+			return;
 		}
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Getting Mail Service Port" << "---\r\n" << std::endl;
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Getting Mail Service Port" << "---\r\n" << endl;
 		LPSERVENT lpServEntry = getservbyname("mail", 0);
 		if (!lpServEntry) {
-			logx << "using IPPORT_SMTP" << std::endl;
+			logx << "using IPPORT_SMTP" << endl;
 			iProtocolPort = htons(IPPORT_SMTP);
 			//iProtocolPort = 465;
 		}
 		else {
-			logx << "using port provided from lpServEntry" << std::endl;
+			logx << "using port provided from lpServEntry" << endl;
 			iProtocolPort = lpServEntry->s_port;
 		}
-		std::cout << "Connecting on port: " << iProtocolPort << std::endl;
+		cout << "Connecting on port: " << iProtocolPort << endl;
 
 		clientService.sin_family = AF_INET;
 		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
 		clientService.sin_port = iProtocolPort;
 		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)mailAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Connecting to Mail Socket" << "---\r\n" << std::endl;
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Connecting to Mail Socket" << "---\r\n" << endl;
 		iResult = connect(mailSocket, (SOCKADDR*)&clientService, sizeof(clientService));
 		if (iResult == SOCKET_ERROR) {
 			printf("Unable to connect to server: %ld\n", WSAGetLastError());
 			WSACleanup();
-			return std::nullopt;
+			return;
 		}
 		else {
-			logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << iProtocolPort << std::endl;
+			logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << iProtocolPort << endl;
 		}
 		
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "---" << "Initiating communication through SMTP" << "---\r\n" << std::endl;
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Initiating communication through SMTP" << "---\r\n" << endl;
 		char szMsgLine[255] = "";
 		sprintf(szMsgLine, "HELO %s%s", "mail.henchmantrak.com", CRLF);
-		std::string E1 = "ehlo ";
+		string E1 = "ehlo ";
 		E1.append("mail.henchmantrak.com");
 		E1.append(CRLF);
 		char* hello = (char*)E1.c_str();
@@ -481,7 +530,7 @@ std::optional<SSL*> HenchmanService::ConnectWithSMTP() {
 		iResult = recv(mailSocket, buff, sizeof(buff), 0);
 		reply = buff;
 		reply.resize(iResult);
-		logx << "[Server] [" << iResult << "] " << buff << std::endl;
+		logx << "[Server] [" << iResult << "] " << buff << endl;
 		logx.adjustfield;
 
 		memset(buff, 0, sizeof buff);
@@ -489,29 +538,29 @@ std::optional<SSL*> HenchmanService::ConnectWithSMTP() {
 
 		// send ehlo command
 		send(mailSocket, hello, strlen(hello), 0);
-		logx << "[HELO] " << hello << " " << iResult << std::endl;
+		logx << "[HELO] " << hello << " " << iResult << endl;
 
 		iResult = recv(mailSocket, buff, sizeof(buff), 0);
 		reply = buff;
 		reply.resize(iResult);
-		logx << "[Server] [" << iResult << "] " << reply << std::endl;
+		logx << "[Server] [" << iResult << "] " << reply << endl;
 
-		while (!Contain(std::string(buff), "250 ")) {
+		while (!Contain(string(buff), "250 ")) {
 			iResult = recv(mailSocket, buff, sizeof(buff), 0);
-			if (Contain(std::string(buff), "501 ") || Contain(std::string(buff), "503 ")) {
-				logx << "---" << loghash << "---\r\n" << std::endl;
-				std::cout << logx.str();
+			if (Contain(string(buff), "501 ") || Contain(string(buff), "503 ")) {
+				logx << "\n---" << loghash << "---\r\n" << endl;
+				cout << logx.str();
 				WriteToError(logx.str());
-				return std::nullopt;
+				return;
 			}
 		}
 
-		if (!Contain(std::string(buff), "STARTTLS")) {
-			logx << "[EXTERNAL_SERVER_NO_TLS] " << "mail.henchmantrak.com" << " " << buff << "[CLOSING_CONNECTION]" << std::endl;
-			logx << "---" << loghash << "---\r\n" << std::endl;
-			std::cout << logx.str();
+		if (!Contain(string(buff), "STARTTLS")) {
+			logx << "[EXTERNAL_SERVER_NO_TLS] " << "mail.henchmantrak.com" << " " << buff << "[CLOSING_CONNECTION]" << endl;
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			cout << logx.str();
 			WriteToError(logx.str());
-			return std::nullopt;
+			return;
 		}
 
 		memset(buff, 0, sizeof buff);
@@ -520,44 +569,44 @@ std::optional<SSL*> HenchmanService::ConnectWithSMTP() {
 
 		// starttls connecion
 		send(mailSocket, hellotls, strlen(hellotls), 0);
-		logx << "[STARTTLS] " << hellotls << std::endl;
+		logx << "[STARTTLS] " << hellotls << endl;
 
 		iResult = recv(mailSocket, buff1, sizeof(buff1), 0);
 		reply = buff1;
 		reply.resize(iResult);
-		logx << "[Server] " << iResult << " " << buff << std::endl;
+		logx << "[Server] " << iResult << " " << buff << endl;
 
 		ctx = InitCTX();
 		ssl = SSL_new(ctx);
 		SSL_set_fd(ssl, mailSocket);
 
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		logx << "Connection....smtp" << std::endl;
-		std::cout << "Connection to smtp via tls" << std::endl;
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "Connection....smtp" << endl;
+		cout << "Connection to smtp via tls" << endl;
 
 		if (SSL_connect(ssl) == -1) {
 			// ERR_print_errors_fp(stderr);            
-			logx << "[TLS_SMTP_ERROR]" << std::endl;
-			logx << "---" << loghash << "---\r\n" << std::endl;
-			std::cout << logx.str();
+			logx << "[TLS_SMTP_ERROR]" << endl;
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			cout << logx.str();
 			WriteToError(logx.str());
-			return std::nullopt;
+			return;
 		}
 		else {
 			// char *msg = (char*)"{\"from\":[{\"name\":\"Zenobiusz\",\"email\":\"email@eee.ddf\"}]}";
-			logx << "---" << loghash << "---\r\n" << std::endl;
-			logx << "Connected with " << SSL_get_cipher(ssl) << " encryption" << std::endl;
-			std::string cert = ShowCerts(ssl);
-			std::cout << cert << std::endl;
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			logx << "Connected with " << SSL_get_cipher(ssl) << " encryption" << endl;
+			string cert = ShowCerts(ssl);
+			cout << cert << endl;
 
-			std::vector<std::string> attachments;
-			for (const auto& entry : std::filesystem::directory_iterator(GetExportsPath())) {
-				std::cout << entry.path().string() << std::endl;
+			vector<string> attachments;
+			for (const auto& entry : filesystem::directory_iterator(GetExportsPath())) {
+				cout << entry.path().string() << endl;
 				attachments.push_back(entry.path().string());
 			}
-			logx << "---" << loghash << "---\r\n" << std::endl;
-			logx << "---" << "Generating and sending Email" << "---\r\n" << std::endl;
-			std::cout << logx.str();
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			logx << "---" << "Generating and sending Email" << "---\r\n" << endl;
+			cout << logx.str();
 			WriteToLog(logx.str());
 			SendEmail(ssl, attachments);
 		}
@@ -568,18 +617,18 @@ std::optional<SSL*> HenchmanService::ConnectWithSMTP() {
 		freeaddrinfo(mailAddrInfo);
 		WSACleanup();
 	}
-	catch (std::exception& e) {
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		std::cout << logx.str();
+	catch (exception& e) {
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		cout << logx.str();
 		WriteToError(logx.str());
-		return std::nullopt;
+		return;
 	}
-	logx.str(std::string());
+	logx.str(string());
 }
 
-void HenchmanService::SendEmail(SSL* &ssl, std::vector<std::string>&attachments) {
+void HenchmanService::SendEmail(SSL* &ssl, vector<string>&attachments) {
 
-	std::string loghash = std::to_string(microseconds());
+	string loghash = to_string(microseconds());
 		
 	char buff[1024];
 	int buffLen = sizeof(buff);
@@ -587,87 +636,87 @@ void HenchmanService::SendEmail(SSL* &ssl, std::vector<std::string>&attachments)
 	try {
 		if (SSL_connect(ssl) == -1) {
 			// ERR_print_errors_fp(stderr);            
-			logx << "[TLS_SMTP_ERROR]" << std::endl;
-			logx << "---" << loghash << "---\r\n" << std::endl;
-			std::cout << logx.str();
+			logx << "[TLS_SMTP_ERROR]" << endl;
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			cout << logx.str();
 			return;
 		}
 		else {
 			buff[0] = '\0';
-			std::ostringstream f0;
+			ostringstream f0;
 			f0 << "EHLO " << "mail.henchmantrak.com" << "\r\n";
-			std::string f00 = f0.str();
+			string f00 = f0.str();
 			char* helo = (char*)f00.c_str();
-			logx << "SEND TO SERVER " << helo << std::endl;
+			logx << "SEND TO SERVER " << helo << endl;
 			SSL_write(ssl, helo, strlen(helo));
 			int bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << std::endl;
-			if (!Contain(std::string(buff), "250")) return;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "250")) return;
 			counter++;
 
 			buff[0] = '\0';
-			std::ostringstream f1;
+			ostringstream f1;
 			f1 << "AUTH PLAIN ";
-			std::string f2;
-			using namespace std::string_literals;
+			string f2;
+			using namespace string_literals;
 			f2 = mail_username + "\0"s + mail_username + "\0"s + mail_password;
 			f1 << base64(f2);
 			f1 << " \r\n";
-			std::string f11 = f1.str();
+			string f11 = f1.str();
 			char* auth = f11.data();
-			logx << "SEND TO SERVER " << auth<< std::endl;
+			logx << "SEND TO SERVER " << auth<< endl;
 			SSL_write(ssl, auth, strlen(auth));
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << std::endl;
-			if (!Contain(std::string(buff), "235"))return;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "235"))return;
 			counter++;
 
 			buff[0] = '\0';
-			std::ostringstream f4;
+			ostringstream f4;
 			f4 << "mail from: <" << "test@henchmantrak.com" << ">\r\n";
-			std::string f44 = f4.str();
+			string f44 = f4.str();
 			char* fromemail = (char*)f44.c_str();
-			logx << "SEND TO SERVER " << fromemail << std::endl;
+			logx << "SEND TO SERVER " << fromemail << endl;
 			SSL_write(ssl, fromemail, strlen(fromemail));
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << std::endl;
-			if (!Contain(std::string(buff), "250"))return;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "250"))return;
 			counter++;
 
 
 			buff[0] = '\0';
-			std::string rcpt = "rcpt to: <";
+			string rcpt = "rcpt to: <";
 			rcpt.append("wjaco.swanepoel@gmail.com").append(">\r\n");
 			char* rcpt1 = (char*)rcpt.c_str();
-			logx << "SEND TO SERVER " << rcpt1 << std::endl;
+			logx << "SEND TO SERVER " << rcpt1 << endl;
 			SSL_write(ssl, rcpt1, strlen(rcpt1));
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << std::endl;
-			if (!Contain(std::string(buff), "250"))return;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "250"))return;
 			counter++;
 
 			buff[0] = '\0';
 			char* data = (char*)"DATA\r\n";
-			logx << "SEND TO SERVER " << data << std::endl;
+			logx << "SEND TO SERVER " << data << endl;
 			SSL_write(ssl, data, strlen(data));
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << std::endl;
-			if (!Contain(std::string(buff), "354"))return;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "354"))return;
 			counter++;
 
-			std::string Encoding = "iso-8859-2"; // charset: utf-8, utf-16, iso-8859-2, iso-8859-1
+			string Encoding = "iso-8859-2"; // charset: utf-8, utf-16, iso-8859-2, iso-8859-1
 			Encoding = "utf-8";
 
-			std::string subject = "Testin Mailer";
-			std::string msg = "This is a test Message";
+			string subject = "Testin Mailer";
+			string msg = "This is a test Message";
 			
 			// add html page layout
-			std::stringstream msghtml;
+			stringstream msghtml;
 			
 			msghtml << "<!DOCTYPE html>\n";
 			msghtml << "<HTML lang = 'en'>\n";
@@ -676,16 +725,16 @@ void HenchmanService::SendEmail(SSL* &ssl, std::vector<std::string>&attachments)
 			
 			// 
 			// add atachments
-			//std::vector<std::string> files = Explode(", ", attachments);
+			//vector<string> files = Explode(", ", attachments);
 
-			std::stringstream attachmentSection;
-			std::vector<std::string>files = attachments;
+			stringstream attachmentSection;
+			vector<string>files = attachments;
 			if (files.size() > 0) {
 				for (unsigned int i = 0;i < files.size();i++) {
-					std::string path = files.at(i);
-					std::string filename = fileBasename(path);
-					std::string fc = base64(get_file_contents(path.c_str()));
-					std::string extension = GetFileExtension(filename);
+					string path = files.at(i);
+					string filename = fileBasename(path);
+					string fc = base64(get_file_contents(path.c_str()));
+					string extension = GetFileExtension(filename);
 					const char* mimetype = GetMimeTypeFromFileName((char*)extension.c_str());
 					if (!(extension == "csv"))
 						continue;
@@ -703,7 +752,7 @@ void HenchmanService::SendEmail(SSL* &ssl, std::vector<std::string>&attachments)
 
 			msghtml << "</body>\n";
 			
-			std::stringstream m;
+			stringstream m;
 			m << "X-Priority: " << "1" << "\r\n";
 			m << "From: " << "willem.swanepoel@henchmantools.com" << "\r\n";
 			m << "To: " << "wjaco.swanepoel@gmail.com" << "\r\n";
@@ -729,70 +778,64 @@ void HenchmanService::SendEmail(SSL* &ssl, std::vector<std::string>&attachments)
 			m << "\r\n.\r\n";
 
 			// create mime message string
-			std::string mimemsg = m.str();
-			logx << "Email body being sent: " << mimemsg.data() << std::endl;
+			string mimemsg = m.str();
+			logx << "Email body being sent: " << mimemsg.data() << endl;
 			char* mdata = mimemsg.data();
 			SSL_write(ssl, mdata, strlen(mdata));
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << std::endl;
-			logx << "---" << loghash << "---" << std::endl << std::endl;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			logx << "\n---" << loghash << "---" << endl << endl;
 			counter++;
 
 			// send log
-			std::cout << logx.str();
+			cout << logx.str();
 			WriteToLog(logx.str());
-			if (!Contain(std::string(buff), "250"))return;
+			if (!Contain(string(buff), "250"))return;
 
 			char* qdata = (char*)"quit\r\n";
 			SSL_write(ssl, qdata, strlen(qdata));
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << std::endl;
-			if (!Contain(std::string(buff), "221"))return;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "221"))return;
 
 			SSL_free(ssl);
 			return;
 		}
 
 	}
-	catch (std::exception& e) {
-		logx << "---" << loghash << "---\r\n" << std::endl;
-		std::cout << logx.str();
+	catch (exception& e) {
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		cout << logx.str();
 		WriteToError(logx.str());
 		return;
 	}
 }
 
-
-//int GetExitCodeProcess() {
-//
-//}
-
-bool ShellExecuteApp(std::string appName, std::string params)
+int ShellExecuteApp(string appName, string params)
 {
 	SHELLEXECUTEINFO SEInfo;
 	DWORD ExitCode;
-	std::string exeFile = appName;
-	std::string paramStr = params;
-	std::string StartInString;
+	string exeFile = appName;
+	string paramStr = params;
+	string StartInString;
 
 	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
-	HWND windowHandle;
-	char newWindowTitle[1024];
-	char oldWindowTitle[1024];
+	//HWND windowHandle;
+	//char newWindowTitle[1024];
+	//char oldWindowTitle[1024];
 
-	GetConsoleTitle(oldWindowTitle, sizeof(oldWindowTitle));
-	
-	printf(oldWindowTitle);
-	printf("\n");
+	//GetConsoleTitle(oldWindowTitle, sizeof(oldWindowTitle));
+	//
+	//printf(oldWindowTitle);
+	//printf("\n");
 	Sleep(5000);
-	windowHandle = FindWindow(NULL, oldWindowTitle);
 
-	//std::fill_n(SEInfo, sizeof(SEInfo), NULL);
+	//fill_n(SEInfo, sizeof(SEInfo), NULL);
 	SEInfo.cbSize = sizeof(SHELLEXECUTEINFO);
 	SEInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-	SEInfo.hwnd = windowHandle;
+	SEInfo.hwnd = NULL;
 	SEInfo.lpVerb = NULL;
 	SEInfo.lpDirectory = NULL;
 	SEInfo.lpFile = exeFile.c_str();
@@ -801,54 +844,742 @@ bool ShellExecuteApp(std::string appName, std::string params)
 	if(ShellExecuteEx(&SEInfo)){
 		do {
 			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
-			std::cout << ExitCode << std::endl;
+			cout << ExitCode << endl;
 		} while (ExitCode != STILL_ACTIVE);
-		return true;
+		return 1;
 	}
 
-	return false;
+	return 0;
 }
 
+int InstallMySQL() 
+{
+	if (ShellExecuteApp("C:\\wamp\\bin\\mysql\\mysql5.6.17\\bin\\mysqld.exe", "--install-manual wampmysql64"))
+		return 1;
+	return 0;
+}
+
+int InstallApache()
+{
+	if (ShellExecuteApp("C:\\wamp\\bin\\apache\\apache2.4.9\\bin\\httpd.exe", "-k install -n wampapache64"))
+		return 1;
+	return 0;
+}
+
+int InstallOnlineOfflineScript()
+{
+	if (ShellExecuteApp("C:\\wamp\\bin\\php\\php5.5.12\\php-win.exe", "-c C:\\wamp\\scripts\\onlineOffline.php"))
+		return 1;
+	return 0;
+}
+
+void DoInstallSvc()
+{
+	TCHAR szUnquotedPath[MAX_PATH];
+
+	if (!GetModuleFileName(NULL, szUnquotedPath, MAX_PATH))
+	{
+		printf("Cannot install service (%d)\n", GetLastError());
+		return;
+	}
+
+	TCHAR szPath[MAX_PATH];
+	StringCbPrintf(szPath, MAX_PATH, TEXT("\"%s\""), szUnquotedPath);
+
+	schSCManager = OpenSCManagerA(
+		NULL,					// local computer
+		NULL,					// ServiceActive database
+		SC_MANAGER_ALL_ACCESS	// full access rights
+	);
+
+	if (schSCManager == NULL) {
+		printf("OpenSCManager failed (%d)\n", GetLastError());
+		return;
+	}
+
+	schService = CreateServiceA(
+		schSCManager,				// SCM database 
+		SERVICE_NAME,				// name of service 
+		SERVICE_DISPLAY_NAME,		// service name to display 
+		SERVICE_ALL_ACCESS,			// desired access 
+		SERVICE_WIN32_OWN_PROCESS,	// service type 
+		SERVICE_AUTO_START,			// start type 
+		SERVICE_ERROR_NORMAL,		// error control type 
+		szPath,						// path to service's binary 
+		NULL,						// no load ordering group 
+		NULL,						// no tag identifier 
+		NULL,						// no dependencies 
+		NULL,						// LocalSystem account 
+		NULL						// no password 
+	);
+
+	if (schService == NULL) {
+		printf("CreateService failed (%d)\n", GetLastError());
+		CloseServiceHandle(schSCManager);
+		return;
+	}
+	printf("Service installed successfully\n");
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schSCManager);
+}
+
+void __stdcall DoStartSvc(const char* sService)
+{
+	SERVICE_STATUS_PROCESS ssStatus;
+	DWORD dwOldCheckPoint;
+	DWORD dwStartTickCount;
+	DWORD dwWaitTime;
+	DWORD dwBytesNeeded;
+
+	// Get ServiceManager Handle
+	schSCManager = OpenSCManagerA(
+		NULL,					// local computer
+		NULL,					// servicesActive database
+		SC_MANAGER_ALL_ACCESS	// full access rights
+	);
+
+	if (schSCManager == NULL)
+	{
+		printf("OpenSCManager failed (%d)\n", GetLastError());
+		return;
+	}
+
+	// Get ServiceHandle
+	schService = OpenServiceA(
+		schSCManager,		// SCM database
+		sService,		// Name of Service
+		SERVICE_ALL_ACCESS	// Level of access
+	);
+
+	if (schService == NULL)
+	{
+		printf("OpenService failed (%d)\n", GetLastError());
+		CloseServiceHandle(schSCManager);
+		return;
+	}
+
+	// Check service status to ensure it is not stopped
+	if (!QueryServiceStatusEx(
+		schService,						// service handler
+		SC_STATUS_PROCESS_INFO,			// information level
+		(LPBYTE)&ssStatus,				// address of structure
+		sizeof(SERVICE_STATUS_PROCESS),	// size of structure
+		&dwBytesNeeded					// size needed if buffer is too small
+	))
+	{
+		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+		goto Exit;
+		/*CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return;*/
+	}
+
+	// Check service is not already running
+	if (ssStatus.dwCurrentState != SERVICE_STOPPED && ssStatus.dwCurrentState != SERVICE_STOP_PENDING)
+	{
+		printf("Cannot start the service because it is already running\n");
+		goto Exit;
+		/*CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return;*/
+	}
+
+	// Save tickCount and initial checkPoint
+	dwStartTickCount = GetTickCount64();
+	dwOldCheckPoint = ssStatus.dwCheckPoint;
+
+	// Wait for service to stop
+	while (ssStatus.dwCurrentState == SERVICE_STOP_PENDING)
+	{
+		// Ensure wait time does not exceed waitHint. Recommended 1/10 of waitHint
+		dwWaitTime = ssStatus.dwWaitHint / 10;
+
+		// Ensure wait time is no shorter than 1 second or creater than 10.
+		if (dwWaitTime < 1000)
+			dwWaitTime = 1000;
+		else if (dwWaitTime > 10000)
+			dwWaitTime = 10000;
+		Sleep(dwWaitTime);
+
+		// Check if service has stopped pending.
+		if (!QueryServiceStatusEx(
+			schService,
+			SC_STATUS_PROCESS_INFO,
+			(LPBYTE)&ssStatus,
+			sizeof(SERVICE_STATUS_PROCESS),
+			&dwBytesNeeded
+		))
+		{
+			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+			goto Exit;
+			/*CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			return;*/
+		}
+		// update tickCount and checkPoint
+		if (ssStatus.dwCheckPoint > dwOldCheckPoint)
+		{
+			dwStartTickCount = GetTickCount64();
+			dwOldCheckPoint = ssStatus.dwCheckPoint;
+		}
+		if (GetTickCount64() - dwStartTickCount > ssStatus.dwWaitHint)
+		{
+			printf("Timeout: Waiting for service to stop\n");
+			goto Exit;
+			/*CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			return;*/
+		}
+	}
+
+	if (!StartServiceA(
+		schService,
+		0,
+		NULL
+	))
+	{
+		printf("StartService failed (%d)\n", GetLastError());
+		goto Exit;
+		/*DoStopSvc();
+		DoDeleteSvc();*/
+	}
+	printf("Service start pending...\n");
+
+	// Check the status until the service is no longer start pending. 
+	if (!QueryServiceStatusEx(
+		schService,                     // handle to service 
+		SC_STATUS_PROCESS_INFO,         // info level
+		(LPBYTE)&ssStatus,             // address of structure
+		sizeof(SERVICE_STATUS_PROCESS), // size of structure
+		&dwBytesNeeded))              // if buffer too small
+	{
+		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+		/*CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return;*/
+		goto Exit;
+	}
+
+	// update tickCount and checkPoint
+	dwStartTickCount = GetTickCount64();
+	dwOldCheckPoint = ssStatus.dwCheckPoint;
+
+	while (ssStatus.dwCurrentState == SERVICE_START_PENDING)
+	{
+		dwWaitTime = ssStatus.dwWaitHint / 10;
+		if (dwWaitTime < 1000)
+			dwWaitTime = 1000;
+		else if (dwWaitTime > 10000)
+			dwWaitTime = 10000;
+		Sleep(dwWaitTime);
+
+		if (!QueryServiceStatusEx(
+			schService,
+			SC_STATUS_PROCESS_INFO,
+			(LPBYTE)&ssStatus,
+			sizeof(SERVICE_STATUS_PROCESS),
+			&dwBytesNeeded
+		))
+		{
+			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+			break;
+		}
+
+		// update tickCount and checkPoint
+		if (ssStatus.dwCheckPoint > dwOldCheckPoint)
+		{
+			dwStartTickCount = GetTickCount64();
+			dwOldCheckPoint = ssStatus.dwCheckPoint;
+		}
+		if (GetTickCount64() - dwStartTickCount > ssStatus.dwWaitHint)
+		{
+			break;
+		}
+	}
+
+	// Check if the service is running.
+	if (!ssStatus.dwCurrentState == SERVICE_RUNNING)
+	{
+		printf("Service not started. \n");
+		printf("  Current State: %d\n", ssStatus.dwCurrentState);
+		printf("  Exit Code: %d\n", ssStatus.dwWin32ExitCode);
+		printf("  Check Point: %d\n", ssStatus.dwCheckPoint);
+		printf("  Wait Hint: %d\n", ssStatus.dwWaitHint);
+		//DoDeleteSvc();
+	}
+	else
+	{
+		printf("Service started successfully.\n");
+	}
+
+Exit:
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schSCManager);
+	return;
+}
+
+void __stdcall DoStopSvc(const char* sService)
+{
+	SERVICE_STATUS_PROCESS ssp;
+	DWORD dwStartTime = GetTickCount64();
+	DWORD dwBytesNeeded;
+	DWORD dwTimeout = (30*1000); // 30-second time-out
+	DWORD dwWaitTime;
+
+
+	// Get a handle to the SCM database. 
+	schSCManager = OpenSCManager(
+		NULL,                    // local computer
+		NULL,                    // ServicesActive database 
+		SC_MANAGER_ALL_ACCESS);  // full access rights 
+
+	if (NULL == schSCManager)
+	{
+		printf("OpenSCManager failed (%d)\n", GetLastError());
+		return;
+	}
+
+	// Get a handle to the service.
+	schService = OpenService(
+		schSCManager,					// SCM database 
+		sService,					// name of service 
+		SERVICE_STOP |
+		SERVICE_QUERY_STATUS |
+		SERVICE_ENUMERATE_DEPENDENTS
+	);
+
+	if (schService == NULL)
+	{
+		printf("OpenService failed (%d)\n", GetLastError());
+		CloseServiceHandle(schSCManager);
+		return;
+	}
+
+	// Make sure the service is not already stopped.
+	if (!QueryServiceStatusEx(
+		schService,
+		SC_STATUS_PROCESS_INFO,
+		(LPBYTE)&ssp,
+		sizeof(SERVICE_STATUS_PROCESS),
+		&dwBytesNeeded
+	))
+	{
+		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+		goto stop_cleanup;
+	}
+
+	if (ssp.dwCurrentState == SERVICE_STOPPED)
+	{
+		printf("Service is already stopped.\n");
+		goto stop_cleanup;
+	}
+
+	// If a stop is pending, wait for it.
+	while (ssp.dwCurrentState == SERVICE_STOP_PENDING)
+	{
+		printf("Service stop pending...\n");
+
+		dwWaitTime = ssp.dwWaitHint / 10;
+		if (dwWaitTime < 1000)
+			dwWaitTime = 1000;
+		else if (dwWaitTime > 10000)
+			dwWaitTime = 10000;
+		Sleep(dwWaitTime);
+
+		if (!QueryServiceStatusEx(
+			schService,
+			SC_STATUS_PROCESS_INFO,
+			(LPBYTE)&ssp,
+			sizeof(SERVICE_STATUS_PROCESS),
+			&dwBytesNeeded
+		))
+		{
+			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+			goto stop_cleanup;
+		}
+
+		if (ssp.dwCurrentState == SERVICE_STOPPED)
+		{
+			printf("Service stopped successfully.\n");
+			goto stop_cleanup;
+		}
+
+		if (GetTickCount64() - dwStartTime > dwTimeout)
+		{
+			printf("Service stop timed out.\n");
+			goto stop_cleanup;
+		}
+	}
+
+	// If the service is running, dependencies must be stopped first.
+	StopDependentServices();
+
+	// Send a stop code to the service.
+	if (!ControlService(
+		schService,
+		SERVICE_CONTROL_STOP,
+		(LPSERVICE_STATUS)&ssp
+	))
+	{
+		printf("ControlService failed (%d)\n", GetLastError());
+		goto stop_cleanup;
+	}
+
+	// Wait for the service to stop.
+	while (ssp.dwCurrentState != SERVICE_STOPPED)
+	{
+		Sleep(ssp.dwWaitHint / 10);
+		if (!QueryServiceStatusEx(
+			schService,
+			SC_STATUS_PROCESS_INFO,
+			(LPBYTE)&ssp,
+			sizeof(SERVICE_STATUS_PROCESS),
+			&dwBytesNeeded
+		))
+		{
+			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+			goto stop_cleanup;
+		}
+
+		if (ssp.dwCurrentState == SERVICE_STOPPED)
+			break;
+
+		if (GetTickCount64() - dwStartTime > dwTimeout)
+		{
+			printf("Wait timed out\n");
+			goto stop_cleanup;
+		}
+	}
+	printf("Service stopped successfully\n");
+
+stop_cleanup:
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schSCManager);
+	return;
+}
+
+bool __stdcall StopDependentServices()
+{
+	DWORD i;
+	DWORD dwBytesNeeded;
+	DWORD dwCount;
+
+	LPENUM_SERVICE_STATUS   lpDependencies = NULL;
+	ENUM_SERVICE_STATUS     ess;
+	SC_HANDLE               hDepService;
+	SERVICE_STATUS_PROCESS  ssp;
+
+
+	DWORD dwStartTime = GetTickCount64();
+	DWORD dwTimeout = (30*1000); // 30-second time-out
+
+	// Pass a zero-length buffer to get the required buffer size.
+	if (EnumDependentServices(schService, SERVICE_ACTIVE,
+		lpDependencies, 0, &dwBytesNeeded, &dwCount))
+	{
+		// If the Enum call succeeds, then there are no dependent
+		// services, so do nothing.
+		return TRUE;
+	}
+	else
+	{
+		if (GetLastError() != ERROR_MORE_DATA)
+			return FALSE; // Unexpected error
+
+		// Allocate a buffer for the dependencies.
+		lpDependencies = (LPENUM_SERVICE_STATUS)HeapAlloc(
+			GetProcessHeap(), HEAP_ZERO_MEMORY, dwBytesNeeded);
+
+		if (!lpDependencies)
+			return FALSE;
+
+		__try {
+			// Enumerate the dependencies.
+			if (!EnumDependentServices(schService, SERVICE_ACTIVE,
+				lpDependencies, dwBytesNeeded, &dwBytesNeeded,
+				&dwCount))
+				return FALSE;
+
+			for (i = 0; i < dwCount; i++)
+			{
+				ess = *(lpDependencies + i);
+				// Open the service.
+				hDepService = OpenService(schSCManager,
+					ess.lpServiceName,
+					SERVICE_STOP | SERVICE_QUERY_STATUS);
+
+				if (!hDepService)
+					return FALSE;
+
+				__try {
+					// Send a stop code.
+					if (!ControlService(hDepService,
+						SERVICE_CONTROL_STOP,
+						(LPSERVICE_STATUS)&ssp))
+						return FALSE;
+
+					// Wait for the service to stop.
+					while (ssp.dwCurrentState != SERVICE_STOPPED)
+					{
+						Sleep(ssp.dwWaitHint);
+						if (!QueryServiceStatusEx(
+							hDepService,
+							SC_STATUS_PROCESS_INFO,
+							(LPBYTE)&ssp,
+							sizeof(SERVICE_STATUS_PROCESS),
+							&dwBytesNeeded))
+							return FALSE;
+
+						if (ssp.dwCurrentState == SERVICE_STOPPED)
+							break;
+
+						if (GetTickCount() - dwStartTime > dwTimeout)
+							return FALSE;
+					}
+				}
+				__finally
+				{
+					// Always release the service handle.
+					CloseServiceHandle(hDepService);
+				}
+			}
+		}
+		__finally
+		{
+			// Always free the enumeration buffer.
+			HeapFree(GetProcessHeap(), 0, lpDependencies);
+		}
+	}
+	return TRUE;
+}
+
+void __stdcall DoDeleteSvc(const char* sService)
+{
+	SERVICE_STATUS ssStatus;
+
+	// Get a handle to the SCM database. 
+	schSCManager = OpenSCManager(
+		NULL,                    // local computer
+		NULL,                    // ServicesActive database 
+		SC_MANAGER_ALL_ACCESS);  // full access rights 
+
+	if (NULL == schSCManager)
+	{
+		printf("OpenSCManager failed (%d)\n", GetLastError());
+		return;
+	}
+
+	// Get a handle to the service.
+	schService = OpenService(
+		schSCManager,	// SCM database 
+		sService,		// name of service 
+		DELETE			// need delete access 
+	);
+
+	if (schService == NULL)
+	{
+		printf("OpenService failed (%d)\n", GetLastError());
+		CloseServiceHandle(schSCManager);
+		return;
+	}
+
+	// Delete the service.
+	if (!DeleteService(schService))
+	{
+		printf("DeleteService failed (%d)\n", GetLastError());
+	}
+	else printf("Service deleted successfully\n");
+
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schSCManager);
+}
+
+void ReportSvcStatus(
+	DWORD dwCurrentState,
+	DWORD dwWin32ExitCode,
+	DWORD dwWaitHint
+)
+{
+	static DWORD dwCheckPoint = 1;
+
+	// Fill in the SERVICE_STATUS structure.
+
+	g_ServiceStatus.dwCurrentState = dwCurrentState;
+	g_ServiceStatus.dwWin32ExitCode = dwWin32ExitCode;
+	g_ServiceStatus.dwWaitHint = dwWaitHint;
+
+	if (dwCurrentState == SERVICE_START_PENDING)
+		g_ServiceStatus.dwControlsAccepted = 0;
+	else g_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+
+	if ((dwCurrentState == SERVICE_RUNNING) ||
+		(dwCurrentState == SERVICE_STOPPED))
+		g_ServiceStatus.dwCheckPoint = 0;
+	else g_ServiceStatus.dwCheckPoint = dwCheckPoint++;
+
+	// Report the status of the service to the SCM.
+	SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
+}
+
+DWORD GetSvcStatus(const char* sMachine, const char* sService)
+{
+	SERVICE_STATUS_PROCESS ssStatus;
+	DWORD dwBytesNeeded;
+	// Get ServiceManager Handle
+	schSCManager = OpenSCManagerA(
+		sMachine,			// local computer
+		NULL,				// servicesActive database
+		SC_MANAGER_CONNECT	// full access rights
+	);
+	if (schSCManager == NULL)
+	{
+		printf("OpenSCManager failed (%d)\n", GetLastError());
+		return 0;
+	}
+
+	// Get ServiceHandle
+	schService = OpenServiceA(
+		schSCManager,			// SCM database
+		sService,				// Name of Service
+		SERVICE_QUERY_STATUS	// Level of access
+	);
+	if (schService == NULL)
+	{
+		printf("OpenService failed (%d)\n", GetLastError());
+		CloseServiceHandle(schSCManager);
+		return 0;
+	}
+
+	if (!QueryServiceStatusEx(
+		schService,						// service handler
+		SC_STATUS_PROCESS_INFO,			// information level
+		(LPBYTE)&ssStatus,				// address of structure
+		sizeof(SERVICE_STATUS_PROCESS),	// size of structure
+		&dwBytesNeeded					// size needed if buffer is too small
+	))
+	{
+		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+		//goto Exit;
+	}
+	CloseServiceHandle(schService);
+	CloseServiceHandle(schSCManager);
+	return ssStatus.dwCurrentState;
+}
+
+void WINAPI SvcCtrlHandler(DWORD CtrlCode)
+{
+	switch (CtrlCode)
+	{
+	case SERVICE_CONTROL_STOP:
+		ReportSvcStatus(CtrlCode, NO_ERROR, 0);
+
+		SetEvent(g_ServiceStopEvent);
+		ReportSvcStatus(g_ServiceStatus.dwCurrentState, NO_ERROR, 0);
+		return;
+	case SERVICE_CONTROL_INTERROGATE:
+		break;
+	default:
+		break;
+	}
+}
+
+void WINAPI SvcMain()
+{
+	g_StatusHandle = RegisterServiceCtrlHandlerA(
+		SERVICE_NAME,
+		SvcCtrlHandler
+	);
+
+	if(!g_StatusHandle)
+	{
+		return;
+	}
+	ZeroMemory(&g_ServiceStatus, sizeof(g_ServiceStatus));
+	g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+	g_ServiceStatus.dwServiceSpecificExitCode = 0;
+
+	ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
+
+	SvcInit();
+}
+
+void SvcInit()
+{
+	g_ServiceStopEvent = CreateEventA(
+		NULL,
+		TRUE,
+		FALSE,
+		NULL
+	);
+
+	if (g_ServiceStopEvent == NULL)
+	{
+		ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
+		return;
+	}
+
+	ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+
+	// Do Work Here
+
+	while (1)
+	{
+		WaitForSingleObject(
+			g_ServiceStopEvent,
+			INFINITE
+		);
+
+		ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+		return;
+	}
+
+}
 
 int main() {
 	HenchmanService service;
+	SQLite_Manager SQLiteM;
+	SQLiteM.ToggleConsoleLogging();
 	CSimpleIni ini;
 	ini.SetUnicode();
 	
-	std::cout << "Export path: " << service.GetExportsPath() << std::endl;
+	cout << "Export path: " << GetExportsPath() << endl;
 	//service.app_path = "C:\\FPC\\Kaptap.exe";
-	std::cout << "Logs path: " << service.GetLogsPath() << std::endl;
-	std::vector<std::string> explodedString;
+	cout << "Logs path: " << GetLogsPath() << endl;
+	vector<string> explodedString;
 	try {
-		std::string s = "Hello World Jack Son";
+		string s = "Hello World Jack Son";
 		explodedString = service.Explode(" ", s, 1);
 	}
 	catch (const HenchmanServiceException& hse) {
-		std::cout << "An Exception in HenchmanService Occured:" << std::endl;
-		std::cout << hse.what();
+		cout << "An Exception in HenchmanService Occured:" << endl;
+		cout << hse.what();
 	}
-	for(auto i : explodedString) std::cout << i << std::endl;
-	service.ProcessExists("HenchmanServices") ? std::cout << "Yes It Does" : std::cout << "No It Does Not";
-	std::cout << std::endl;
+	for(auto i : explodedString) cout << i << endl;
+	ProcessExists("HenchmanServices") ? cout << "Yes It Does" : cout << "No It Does Not";
+	cout << endl;
 	char buff[1024];
 	int byteLength = GetCurrentDirectory(sizeof(buff), buff);
-	std::string currDir = buff;
+	string currDir = buff;
 	currDir.resize(byteLength);
-	service.FileInUse(currDir + "\\HenchmanServices.exe") ? std::cout << "Yes It Is" : std::cout << "No It Is Not";
-	std::cout << std::endl;
-	std::cout << "Reading ini file: " << std::string(currDir + "\\service.ini") << std::endl;
-	SI_Error rc = ini.LoadFile(std::string(currDir + "\\service.ini").c_str());
+	FileInUse(currDir + "\\HenchmanServices.exe") ? cout << "Yes It Is" : cout << "No It Is Not";
+	cout << endl;
+	cout << "Reading ini file: " << string(currDir + "\\service.ini") << endl;
+	SI_Error rc = ini.LoadFile(string(currDir + "\\service.ini").c_str());
 	if (rc < 0) {
-		std::cerr << "Failed to Load INI File" << std::endl;
+		cerr << "Failed to Load INI File" << endl;
 	}
-	const char* username;
-	const char* password;
-	username = ini.GetValue("SMTP", "username", "");
-	password = ini.GetValue("SMTP", "password", "");
-	if (service.isInternetConnected() && service.setMailLogin(username, password)) {
+	const char* username = ini.GetValue("Email", "Username", "");
+	const char* password = ini.GetValue("Email", "Password", "");
+	if (checkForInternetConnection() && isInternetConnected() && service.setMailLogin(username, password)) {
+		cout << "Able to send mail" << endl;
 		//service.ConnectWithSMTP();
 	}
-	ShellExecuteApp("HenchmanServices.exe", "") ? std::cout << "Successfully excecuted" << std::endl : std::cout << "Failed to excecute" << std::endl;
+	//ShellExecuteApp("HenchmanServices.exe", "") ? cout << "Successfully excecuted" << endl : cout << "Failed to excecute" << endl;
+	/*InstallMySQL();
+	InstallApache();
+	InstallOnlineOfflineScript();*/
+	cout << "Checking DB" << endl;
+	SQLiteM.InitDB();
 	explodedString.clear();
 	Sleep(5000);
 	return 0;
