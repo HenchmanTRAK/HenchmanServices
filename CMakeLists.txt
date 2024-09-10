@@ -39,7 +39,7 @@ FetchContent_Declare(
 FetchContent_Declare(
 	SQLiteCpp
 	GIT_REPOSITORY "https://github.com/SRombauts/SQLiteCpp.git"
-	GIT_TAG 3.3.2
+	GIT_TAG master
 )
 
 #FetchContent_GetProperties(SimpleIni)
@@ -51,8 +51,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SimpleIni SQLiteCpp)
 
 option(SQLITECPP_BUILD_TESTS "Build and run tests." ON)
-option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." ON)
+#option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." ON)
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
+option(SQLITECPP_RUN_CPPLINT "Run c++ lint" OFF)
 
 # Include sub-projects.
 #add_subdirectory ("simpleini-4.22")
@@ -65,5 +66,10 @@ add_subdirectory (HenchmanServiceSQLiteManager)
 add_subdirectory (HenchmanServices)
 
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
-install(TARGETS HenchmanServices RUNTIME_DEPENDENCIES PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" POST_EXCLUDE_REGEXES ".*system32/.*\\.dll")
+install(
+	TARGETS HenchmanServices 
+	RUNTIME_DEPENDENCIES 
+		PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" 
+		POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" 
+)
 install (FILES service.ini DESTINATION bin)

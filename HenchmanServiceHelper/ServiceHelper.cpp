@@ -8,7 +8,6 @@ long int microseconds()
 	return ms;
 }
 
-
 bool Contain(string str, string search) 
 {
 	//cout << "searching: " << str.data() << " for: " << search.data() << endl;
@@ -18,7 +17,6 @@ bool Contain(string str, string search)
 	}
 	return 0;
 }
-
 
 string fileBasename(string path) 
 {
@@ -50,4 +48,67 @@ string GetFileExtension(const string& FileName)
 	if (FileName.find_last_of(".") != string::npos)
 		return FileName.substr(FileName.find_last_of(".") + 1);
 	return "";
+}
+
+char* base64(string string)
+{
+	// Credit to mtrw from Stackoverflow
+	const auto pl = 4 * ((string.size() + 2) / 3);
+	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
+	const auto ol = EVP_EncodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
+	if (pl != ol) { cerr << "Whoops, encode predicted " << pl << " but we got " << ol << "\n"; }
+	return output;
+}
+
+char* decodeBase64(string string)
+{
+	const auto pl = (3 * (string.size() / 4));
+	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
+	const auto ol = EVP_DecodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
+	if (pl != ol) { cerr << "Whoops, decode predicted " << pl << " but we got " << ol << "\n"; }
+	return output;
+}
+
+string GetExportsPath(string app_path) 
+{
+	string exportsPath;
+	int _results = 0;
+	char buff[1024];
+
+	if (app_path == "") {
+		do {
+			_results = GetCurrentDirectory(sizeof(buff), buff);
+			exportsPath = buff;
+		} while (_results > exportsPath.length() && exportsPath.data());
+	}
+	else {
+		exportsPath = app_path.substr(0, app_path.find_last_of("/\\"));
+	}
+
+	exportsPath.append("\\exports\\");
+	if (!filesystem::is_directory(exportsPath.c_str())) {
+		filesystem::create_directory(exportsPath.c_str());
+	}
+	return exportsPath;
+}
+
+string GetLogsPath(string app_path) 
+{
+	string logsPath;
+	int _results = 0;
+	char buff[1024];
+	if (app_path == "") {
+		do {
+			_results = GetCurrentDirectory(sizeof(buff), buff);
+			logsPath = buff;
+		} while (_results > logsPath.length() && logsPath.data());
+	}
+	else {
+		logsPath = app_path.substr(0, app_path.find_last_of("/\\"));
+	}
+	logsPath.append("\\logs\\");
+	if (!filesystem::is_directory(logsPath.c_str())) {
+		filesystem::create_directory(logsPath.c_str());
+	}
+	return logsPath;
 }

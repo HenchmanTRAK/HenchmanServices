@@ -6,13 +6,10 @@
 # Add source to this project's executable.
 add_executable(HenchmanServices "HenchmanServices.cpp")
 
-target_include_directories(HenchmanServices PRIVATE "include" ${OPENSSL_INCLUDE_DIR})
+target_include_directories(HenchmanServices PRIVATE "include")
 target_link_libraries(HenchmanServices PRIVATE 
 	HenchmanServiceException 
 	ServiceHelper
-	OpenSSL::applink 
-	${OPENSSL_CRYPTO_LIBRARY} 
-	${OPENSSL_SSL_LIBRARY} 
 	SimpleIni 
 	SQLiteCpp 
 	sqlite3 

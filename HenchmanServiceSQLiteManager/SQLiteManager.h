@@ -3,13 +3,14 @@
 
 #pragma once
 
-#include <iostream>
 #include <Windows.h>
 //#include <sqlite3.h>
 #include <sstream>
-#include <filesystem>
 
+#include <sqlite3.h>
 #include <SQLiteCpp/SQLiteCpp.h>
+
+#include "ServiceHelper.h"
 
 using namespace std;
 
@@ -22,6 +23,7 @@ class SQLite_Manager
 public:
 	// Creates the database file and marks it as hidden.
 	SQLite_Manager(string db_dir = "", string db_name = "");
+	~SQLite_Manager();
 	// Toggles whether functions should output debug text or not.
 	void ToggleConsoleLogging();
 	// Ensures the sqlite database was successfully created. 

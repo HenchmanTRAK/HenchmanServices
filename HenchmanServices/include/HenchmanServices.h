@@ -6,34 +6,33 @@
 
 #pragma once
 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/crypto.h>
+//#include <openssl/ssl.h>
+//#include <openssl/err.h>
+//#include <openssl/crypto.h>
 #include <Ws2tcpip.h>
-#include <windows.h>
-#include <iomanip>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <ctime>
-#include <iostream>
+#include <Windows.h>
+//#include <iomanip>
+//#include <sstream>
+//#include <string>
+//#include <vector>
+//#include <ctime>
+//#include <iostream>
 #include <WinSock2.h>
-#include <WinUser.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <malloc.h>
-#include <sys/types.h>
-#include <optional>
-#include <fstream>
-#include <filesystem>
-#include <algorithm>
-#include <cstdio>
+//#include <WinUser.h>
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <malloc.h>
+//#include <sys/types.h>
+//#include <optional>
+//#include <fstream>
+//#include <algorithm>
+//#include <cstdio>
 #include <netlistmgr.h>
 //#include <tchar.h>
 #include <strsafe.h>
 #include <TlHelp32.h>
-#include "SimpleIni.h"
 
+#include "SimpleIni.h"
 #include "HenchmanServiceException.h"
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
@@ -166,7 +165,7 @@ class HenchmanService {
     static string mail_username;
     static string mail_password;
 
-    static SQLite_Manager SQLiteM;
+    static SQLite_Manager *SQLiteM;
 
 	static clock_t tmr1;
 	static clock_t tmrkabTRAK;
@@ -181,8 +180,6 @@ class HenchmanService {
 	/*bool report = false;
 	bool update = false;*/
 
-	static vector<string> _empty_argument;
-
 	void ServiceExecute();
 	void Tmr1Timer();
 	char *GetLogPath();
@@ -193,11 +190,12 @@ class HenchmanService {
 	void ServiceStop(class TService, bool& Started);
 	void ServicePause(class TService, bool& Started);
 	void ServiceCreate();
-	void SendEmail( SSL*& , vector<string> & = _empty_argument);
+	void SendEmail( SSL*& , vector<string>);
 private:
 
 public:
     HenchmanService();
+    ~HenchmanService();
     bool setMailLogin(string &, string &);
     static stringstream logx;
     static string app_path;
@@ -205,6 +203,8 @@ public:
     void WriteToError(string);
 	vector<string> Explode(const string&, string&, int = 0);
 	void ConnectWithSMTP();
+    bool checkForInternetConnection();
+    bool isInternetConnected();
 	SC_HANDLE *GetServiceController();
 };
 

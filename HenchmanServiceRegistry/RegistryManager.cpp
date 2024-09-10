@@ -38,7 +38,7 @@ void SetVal(HKEY hKey, LPCTSTR lpValue, DWORD data, DWORD type)
 string GetStrVal(HKEY hKey, LPCTSTR lpValue, DWORD type)
 {
 	DWORD buffSize = 1024;
-	char data[1024];
+	char data[1024] = "\0";
 	string reply;
 	//cout << lpValue << endl;
 	//LONG nError = RegQueryValueEx(hKey, lpValue, NULL, &type, (LPBYTE)data, &buffSize);
@@ -53,7 +53,7 @@ string GetStrVal(HKEY hKey, LPCTSTR lpValue, DWORD type)
 	else {
 		//cout << "data: " << data << bool(nError == ERROR_FILE_NOT_FOUND) << endl;
 		reply = data;
-		reply.resize(buffSize - 1);
+		reply.resize(buffSize);
 		//cout << "reply: " << reply << endl;
 
 	}
@@ -63,7 +63,8 @@ string GetStrVal(HKEY hKey, LPCTSTR lpValue, DWORD type)
 
 DWORD GetVal(HKEY hKey, LPCTSTR lpValue, DWORD type)
 {
-	DWORD data;		DWORD size = sizeof(data);
+	DWORD size = sizeof(DWORD);
+	DWORD data = 0;
 	LONG nError = RegQueryValueEx(hKey, lpValue, NULL, &type, (LPBYTE)&data, &size);
 
 	if (nError == ERROR_FILE_NOT_FOUND)

@@ -5,6 +5,7 @@ target_include_directories(SQLiteManager PUBLIC ".")
 target_link_libraries(SQLiteManager PRIVATE 
 	SQLiteCpp 
 	sqlite3
+	ServiceHelper
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

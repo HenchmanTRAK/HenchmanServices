@@ -31,6 +31,14 @@ SQLite_Manager::SQLite_Manager(string db_dir, string db_name)
 	}
 }
 
+SQLite_Manager::~SQLite_Manager()
+{
+	//cout << "Deconstructing SQLite_Manager" << endl;
+	dbName.clear();
+	dbDir.clear();
+	logToConsole = NULL;
+}
+
 void SQLite_Manager::ToggleConsoleLogging() {
 	logToConsole = !logToConsole;
 }

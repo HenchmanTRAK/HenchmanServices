@@ -13,7 +13,6 @@
 #include "HenchmanServices.h"
 using namespace std;
 
-
 stringstream HenchmanService::logx;
 SOCKET HenchmanService::mailSocket = INVALID_SOCKET;
 SSL_CTX* HenchmanService::ctx;
@@ -22,158 +21,7 @@ struct addrinfo* HenchmanService::mailAddrInfo = NULL;
 string HenchmanService::app_path = "";
 string HenchmanService::mail_username = "";
 string HenchmanService::mail_password = "";
-SQLite_Manager HenchmanService::SQLiteM;
-
-string GetExportsPath(string app_path = "") {
-	string exportsPath;
-	int _results = 0;
-	char buff[1024];
-
-	if (app_path == "") {
-		do {
-			_results = GetCurrentDirectory(sizeof(buff), buff);
-			exportsPath = buff;
-		} while (_results > exportsPath.length() && exportsPath.data());
-	}
-	else {
-		exportsPath = app_path.substr(0, app_path.find_last_of("/\\"));
-	}
-
-	exportsPath.append("\\exports\\");
-	if (!filesystem::is_directory(exportsPath.c_str())) {
-		filesystem::create_directory(exportsPath.c_str());
-	}
-	return exportsPath;
-}
-
-string GetLogsPath(string app_path = "") {
-	string logsPath;
-	int _results = 0;
-	char buff[1024];
-	if (app_path == "") {
-		do {
-			_results = GetCurrentDirectory(sizeof(buff), buff);
-			logsPath = buff;
-		} while (_results > logsPath.length() && logsPath.data());
-	}
-	else {
-		logsPath = app_path.substr(0, app_path.find_last_of("/\\"));
-	}
-	logsPath.append("\\logs\\");
-	if (!filesystem::is_directory(logsPath.c_str())) {
-		filesystem::create_directory(logsPath.c_str());
-	}
-	return logsPath;
-}
-
-bool checkForInternetConnection() {
-	string loghash = to_string(microseconds());
-	bool returnState = false;
-	if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) {
-		INetworkListManager* pNetworkListManager = NULL;
-		VARIANT_BOOL isConnected;
-		//logx << "\n--- " << loghash << " ---\r\n\n";
-		if (SUCCEEDED(CoCreateInstance(CLSID_NetworkListManager, NULL, CLSCTX_ALL, IID_INetworkListManager, (LPVOID*)&pNetworkListManager))) {
-			//logx << "--- " << "Successfully created instance of network list manager." << " ---" << endl;
-			//IEnumNetworkConnections* pEnum;
-			//logx << "\n--- " << loghash << " ---\r\n\n";
-			if (SUCCEEDED(pNetworkListManager->get_IsConnectedToInternet(&isConnected))) {
-				//logx << "--- " << "Confirming existance of internet connection" << " ---" << endl;
-				//logx << "\n--- " << loghash << " ---\r\n\n";
-				if (!isConnected) {
-					//logx << "--- " << "No Internet Connection." << " ---" << endl;
-					goto Exit;
-				}
-				//logx << "--- " << "Internet Connection was Confirmed." << " ---" << endl;
-				returnState = isConnected;
-				goto Exit;
-			}
-			//logx << "--- " << "Could not confirm existance of internet connection" << " ---" << endl;
-			printf("internet not connected");
-			goto Exit;
-		}
-		//logx << "--- " << "Failed to create instance of network list manager." << " ---" << endl;
-		goto Exit;
-	}
-Exit:
-	CoUninitialize();
-	/*cout << logx.str();
-	WriteToLog(logx.str());*/
-	return returnState;
-}
-
-bool isInternetConnected() {
-	WSADATA wsaData;
-	int iResult;
-	string loghash = to_string(microseconds());
-	SOCKET ConnectionCheck = INVALID_SOCKET;
-	struct sockaddr_in clientService;
-
-	struct addrinfo* httpAddrInfo = NULL;
-	struct addrinfo hints;
-
-	try {
-		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-		if (iResult != NO_ERROR) {
-			printf("WSAStartup failed: %d\n", iResult);
-			return false;
-		}
-
-		ZeroMemory(&hints, sizeof(hints));
-		hints.ai_protocol = IPPROTO_TCP;
-
-		//logx << "\n--- " << loghash << " ---\r\n" << endl;
-		//logx << "--- " << "Getting Address Info" << " ---\r\n" << endl;
-		iResult = getaddrinfo("www.google.com", "https", &hints, &httpAddrInfo);
-		if (iResult != NO_ERROR) {
-			printf("getaddrinfo failed with error: %d\n", iResult);
-			freeaddrinfo(httpAddrInfo);
-			WSACleanup();
-			return false;
-		}
-
-		//logx << "\n--- " << loghash << " ---\r\n" << endl;
-		//logx << "--- " << "Setting up Network Check Socket" << " ---\r\n" << endl;
-		ConnectionCheck = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if (ConnectionCheck == INVALID_SOCKET) {
-			printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
-			closesocket(ConnectionCheck);
-			freeaddrinfo(httpAddrInfo);
-			WSACleanup();
-			return false;
-		}
-
-		clientService.sin_family = AF_INET;
-		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
-		clientService.sin_port = htons(IPPORT_HTTPS);
-		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)httpAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
-		//logx << "\n--- " << loghash << " ---\r\n" << endl;
-		//logx << "---" << "Connecting to Google.com via Socket" << "---\r\n" << endl;
-		iResult = connect(ConnectionCheck, (SOCKADDR*)&clientService, sizeof(clientService));
-		if (iResult == SOCKET_ERROR) {
-			printf("Unable to connect to server: %ld\n", WSAGetLastError());
-			closesocket(ConnectionCheck);
-			freeaddrinfo(httpAddrInfo);
-			WSACleanup();
-			return false;
-		}
-		else {
-			cout << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << clientService.sin_port << endl;
-		}
-		//cout << logx.str();
-		//WriteToLog(logx.str());
-		closesocket(ConnectionCheck);
-		freeaddrinfo(httpAddrInfo);
-		WSACleanup();
-	}
-	catch (exception& e) {
-		//logx << "\n---" << loghash << "---\r\n" << endl;
-		//cout << logx.str();
-		//WriteToError(logx.str());
-		return false;
-	}
-	return true;
-}
+SQLite_Manager *HenchmanService::SQLiteM;
 
 string ShowCerts(SSL* ssl)
 {
@@ -218,7 +66,8 @@ SSL_CTX* InitCTX(void)
 	return ctx;
 }
 
-void sslError(SSL* ssl, int received, string microtime, stringstream& logi) {
+void sslError(SSL* ssl, int received, string microtime, stringstream& logi) 
+{
 	const int err = SSL_get_error(ssl, received);
 	// const int st = ERR_get_error();
 	if (err == SSL_ERROR_NONE) {
@@ -245,25 +94,6 @@ void sslError(SSL* ssl, int received, string microtime, stringstream& logi) {
 	}
 }
 
-char* base64(string string) 
-{
-	// Credit to mtrw from Stackoverflow
-	const auto pl = 4 * ((string.size() + 2) / 3);
-	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
-	const auto ol = EVP_EncodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
-	if (pl != ol) { cerr << "Whoops, encode predicted " << pl << " but we got " << ol << "\n"; }
-	return output;
-}
-
-char* decodeBase64(string string)
-{
-	const auto pl = (3 * (string.size() / 4));
-	auto output = reinterpret_cast<char*>(calloc(pl+1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
-	const auto ol = EVP_DecodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
-	if (pl != ol) { cerr << "Whoops, decode predicted " << pl << " but we got " << ol << "\n"; }
-	return output;
-}
-
 const char* GetMimeTypeFromFileName(char* szFileExt)
 {
 	// cout << "EXT " << szFileExt;
@@ -277,16 +107,15 @@ const char* GetMimeTypeFromFileName(char* szFileExt)
 	return MimeTypes[0][1];   //if does not match any,  "application/octet-stream" is returned
 }
 
-bool ProcessExists(string exeFileName) {
-
-	bool ContinueLoop;
+bool ProcessExists(string exeFileName) 
+{
 	HANDLE SnapshotHandle;
-	PROCESSENTRY32 ProcessEntry32;
-
 	SnapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	PROCESSENTRY32 ProcessEntry32;
+	ZeroMemory(&ProcessEntry32, sizeof(ProcessEntry32));
 	ProcessEntry32.dwSize = sizeof(ProcessEntry32);
-	ContinueLoop = Process32First(SnapshotHandle, &ProcessEntry32);
-	bool result = true;
+	bool ContinueLoop = Process32First(SnapshotHandle, &ProcessEntry32);
+	bool result = false;
 	while (ContinueLoop) {
 		string targetEXE = exeFileName;
 		transform(targetEXE.begin(), targetEXE.end(), targetEXE.begin(), ::toupper);
@@ -307,7 +136,7 @@ bool ProcessExists(string exeFileName) {
 
 bool FileInUse(string fileName) {
 	HANDLE fileRes;
-	struct stat buffer;
+	//struct stat buffer;
 	cout << "Checking if: " << fileName << " is being used" << endl;
 	if (filesystem::exists(fileName)) {
 		cout << "Target File Exists" << endl;
@@ -315,6 +144,7 @@ bool FileInUse(string fileName) {
 		return (fileRes == INVALID_HANDLE_VALUE);
 	}
 	cout << "Target File Does Not Exists Or Could Not Be Found" << endl;
+	CloseHandle(fileRes);
 	return false;
 }
 
@@ -328,7 +158,7 @@ int ShellExecuteApp(string appName, string params)
 
 	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
 
-	Sleep(5000);
+	Sleep(2500);
 
 	//fill_n(SEInfo, sizeof(SEInfo), NULL);
 	ZeroMemory(&SEInfo,sizeof(SEInfo));
@@ -426,6 +256,7 @@ void DoInstallSvc()
 void __stdcall DoStartSvc(const char* sService)
 {
 	SERVICE_STATUS_PROCESS ssStatus;
+	ZeroMemory(&ssStatus, sizeof(ssStatus));
 	DWORD dwOldCheckPoint;
 	DWORD dwStartTickCount;
 	DWORD dwWaitTime;
@@ -598,7 +429,7 @@ void __stdcall DoStartSvc(const char* sService)
 	}
 
 	// Check if the service is running.
-	if (!ssStatus.dwCurrentState == SERVICE_RUNNING)
+	if (ssStatus.dwCurrentState != SERVICE_RUNNING)
 	{
 		printf("Service not started. \n");
 		printf("  Current State: %d\n", ssStatus.dwCurrentState);
@@ -621,6 +452,7 @@ Exit:
 void __stdcall DoStopSvc(const char* sService)
 {
 	SERVICE_STATUS_PROCESS ssp;
+	ZeroMemory(&ssp, sizeof(ssp));
 	DWORD dwStartTime = GetTickCount64();
 	DWORD dwBytesNeeded;
 	DWORD dwTimeout = (30 * 1000); // 30-second time-out
@@ -768,6 +600,7 @@ bool __stdcall StopDependentServices()
 	ENUM_SERVICE_STATUS     ess;
 	SC_HANDLE               hDepService;
 	SERVICE_STATUS_PROCESS  ssp;
+	ZeroMemory(&ssp, sizeof(ssp));
 
 
 	DWORD dwStartTime = GetTickCount64();
@@ -856,6 +689,7 @@ bool __stdcall StopDependentServices()
 void __stdcall DoDeleteSvc(const char* sService)
 {
 	SERVICE_STATUS ssStatus;
+	ZeroMemory(&ssStatus, sizeof(ssStatus));
 
 	// Get a handle to the SCM database. 
 	schSCManager = OpenSCManager(
@@ -924,6 +758,7 @@ void ReportSvcStatus(
 DWORD GetSvcStatus(const char* sMachine, const char* sService)
 {
 	SERVICE_STATUS_PROCESS ssStatus;
+	ZeroMemory(&ssStatus, sizeof(ssStatus));
 	DWORD dwBytesNeeded;
 	// Get ServiceManager Handle
 	schSCManager = OpenSCManagerA(
@@ -1073,17 +908,17 @@ HenchmanService::HenchmanService()
 		SetStrVal(hKey, "DatabaseName", databaseName, REG_SZ);
 	}
 	//cout << installDir + "\\" << endl << databaseName << endl;
-	SQLiteM = SQLite_Manager(installDir + "\\", databaseName.data());
-
+	SQLiteM = new SQLite_Manager(installDir + "\\", databaseName.data());
+	
 	//SQLiteM.ToggleConsoleLogging();
 	
-	SQLiteM.InitDB();
+	SQLiteM->InitDB();
 
 	string tableName = "TestTable";
 	vector<string> cols;
 	cols.push_back("username TEXT NOT NULL");
 	cols.push_back("password TEXT NOT NULL");
-	SQLiteM.CreateTable(tableName, cols);
+	SQLiteM->CreateTable(tableName, cols);
 
 	//cout << "Reading ini file: " << string(installDir + "\\service.ini") << endl;
 	SI_Error rc = ini.LoadFile(string(installDir + "\\service.ini").c_str());
@@ -1106,13 +941,19 @@ HenchmanService::HenchmanService()
 	RegCloseKey(hKey);
 }
 
+HenchmanService::~HenchmanService()
+{
+	//cout << "Deconstructing HenchmanService" << endl;
+	delete SQLiteM;
+}
+
 void HenchmanService::WriteToLog(string log) {
 	if (log == "") {
 		log = logx.str();
 	}
 	string logDir = GetLogsPath();
 	logDir.append("log.txt");
-	 fstream fs(logDir.c_str(), ios::out | ios_base::app);
+	fstream fs(logDir.c_str(), ios::out | ios_base::app);
 	if (fs) {
 		time_t timer = time(NULL);
 		struct tm currDateTime = *localtime(&timer);
@@ -1182,7 +1023,7 @@ bool HenchmanService::setMailLogin(string &username, string &password) {
 	vector<string> cols;
 	cols.push_back(username);
 	cols.push_back(password);
-	SQLiteM.AddRow(tableName, cols);
+	SQLiteM->AddRow(tableName, cols);
 	cols.clear();
 	return true;
 }
@@ -1193,6 +1034,7 @@ void HenchmanService::ConnectWithSMTP() {
 	string loghash = to_string(microseconds());
 
 	struct sockaddr_in clientService;
+	ZeroMemory(&clientService, sizeof(clientService));
 	vector<string> files;
 	
 	ctx = InitCTX();
@@ -1222,6 +1064,7 @@ void HenchmanService::ConnectWithSMTP() {
 		iResult = getaddrinfo("mail.henchmantrak.com", "smtp", &hints, &mailAddrInfo);
 		if (iResult != NO_ERROR) {
 			printf("getaddrinfo failed with error: %d\n", iResult);
+			freeaddrinfo(mailAddrInfo);
 			WSACleanup();
 			return;
 		}
@@ -1230,6 +1073,7 @@ void HenchmanService::ConnectWithSMTP() {
 		mailSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (mailSocket == INVALID_SOCKET) {
 			printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
+			freeaddrinfo(mailAddrInfo);
 			WSACleanup();
 			return;
 		}
@@ -1257,6 +1101,7 @@ void HenchmanService::ConnectWithSMTP() {
 		if (iResult == SOCKET_ERROR) {
 			printf("Unable to connect to server: %ld\n", WSAGetLastError());
 			WSACleanup();
+			freeaddrinfo(mailAddrInfo);
 			return;
 		}
 		else {
@@ -1298,6 +1143,9 @@ void HenchmanService::ConnectWithSMTP() {
 				logx << "\n---" << loghash << "---\r\n" << endl;
 				cout << logx.str();
 				WriteToError(logx.str());
+				freeaddrinfo(mailAddrInfo);
+				closesocket(mailSocket);
+				WSACleanup();
 				return;
 			}
 		}
@@ -1307,6 +1155,9 @@ void HenchmanService::ConnectWithSMTP() {
 			logx << "\n---" << loghash << "---\r\n" << endl;
 			cout << logx.str();
 			WriteToError(logx.str());
+			closesocket(mailSocket);
+			freeaddrinfo(mailAddrInfo);
+			WSACleanup();
 			return;
 		}
 
@@ -1337,6 +1188,9 @@ void HenchmanService::ConnectWithSMTP() {
 			logx << "\n---" << loghash << "---\r\n" << endl;
 			cout << logx.str();
 			WriteToError(logx.str());
+			freeaddrinfo(mailAddrInfo);
+			closesocket(mailSocket);
+			WSACleanup();
 			return;
 		}
 		else {
@@ -1373,11 +1227,11 @@ void HenchmanService::ConnectWithSMTP() {
 	logx.str(string());
 }
 
-void HenchmanService::SendEmail(SSL* &ssl, vector<string>&attachments) {
+void HenchmanService::SendEmail(SSL* &ssl, vector<string> attachments) {
 
 	string loghash = to_string(microseconds());
 		
-	char buff[1024];
+	char buff[1024] = "\0";
 	int buffLen = sizeof(buff);
 	int counter = 1;
 	try {
@@ -1560,6 +1414,117 @@ void HenchmanService::SendEmail(SSL* &ssl, vector<string>&attachments) {
 	}
 }
 
+bool  HenchmanService::checkForInternetConnection() 
+{
+	string loghash = to_string(microseconds());
+	bool returnState = false;
+	if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) {
+		INetworkListManager* pNetworkListManager = NULL;
+		VARIANT_BOOL isConnected;
+		logx << "\n--- " << loghash << " ---\r\n\n";
+		if (SUCCEEDED(CoCreateInstance(CLSID_NetworkListManager, NULL, CLSCTX_ALL, IID_INetworkListManager, (LPVOID*)&pNetworkListManager))) {
+			logx << "--- " << "Successfully created instance of network list manager." << " ---" << endl;
+
+			logx << "\n--- " << loghash << " ---\r\n\n";
+			if (SUCCEEDED(pNetworkListManager->get_IsConnectedToInternet(&isConnected))) {
+				logx << "--- " << "Confirming existance of internet connection" << " ---" << endl;
+				logx << "\n--- " << loghash << " ---\r\n\n";
+				if (!isConnected) goto Exit;
+
+				logx << "--- " << "Internet Connection was Confirmed." << " ---" << endl;
+				returnState = isConnected;
+				goto Exit;
+			}
+			logx << "--- " << "Could not confirm existance of internet connection" << " ---" << endl;
+			printf("internet not connected");
+			goto Exit;
+		}
+		logx << "--- " << "Failed to create instance of network list manager." << " ---" << endl;
+		goto Exit;
+	}
+Exit:
+	CoUninitialize();
+	cout << logx.str();
+	WriteToLog(logx.str());
+	return returnState;
+}
+
+bool  HenchmanService::isInternetConnected() 
+{
+	WSADATA wsaData;
+	int iResult;
+	string loghash = to_string(microseconds());
+	SOCKET ConnectionCheck = INVALID_SOCKET;
+	struct sockaddr_in clientService;
+	ZeroMemory(&clientService, sizeof(clientService));
+	struct addrinfo* httpAddrInfo = NULL;
+	struct addrinfo hints;
+
+	try {
+		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+		if (iResult != NO_ERROR) {
+			printf("WSAStartup failed: %d\n", iResult);
+			return false;
+		}
+
+		ZeroMemory(&hints, sizeof(hints));
+		hints.ai_protocol = IPPROTO_TCP;
+
+		logx << "\n--- " << loghash << " ---\r\n" << endl;
+		logx << "--- " << "Getting Address Info" << " ---\r\n" << endl;
+		iResult = getaddrinfo("www.google.com", "https", &hints, &httpAddrInfo);
+		if (iResult != NO_ERROR) {
+			printf("getaddrinfo failed with error: %d\n", iResult);
+			freeaddrinfo(httpAddrInfo);
+			
+			WSACleanup();
+			return false;
+		}
+
+		logx << "\n--- " << loghash << " ---\r\n" << endl;
+		logx << "--- " << "Setting up Network Check Socket" << " ---\r\n" << endl;
+		ConnectionCheck = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (ConnectionCheck == INVALID_SOCKET) {
+			printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
+			closesocket(ConnectionCheck);
+			freeaddrinfo(httpAddrInfo);
+			WSACleanup();
+			return false;
+		}
+
+		clientService.sin_family = AF_INET;
+		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
+		clientService.sin_port = htons(IPPORT_HTTPS);
+		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)httpAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
+		logx << "\n--- " << loghash << " ---\r\n" << endl;
+		logx << "---" << "Connecting to Google.com via Socket" << "---\r\n" << endl;
+		iResult = connect(ConnectionCheck, (SOCKADDR*)&clientService, sizeof(clientService));
+		if (iResult == SOCKET_ERROR) {
+			printf("Unable to connect to server: %ld\n", WSAGetLastError());
+			closesocket(ConnectionCheck);
+			freeaddrinfo(httpAddrInfo);
+			
+			WSACleanup();
+			return false;
+		}
+		else {
+			cout << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << clientService.sin_port << endl;
+		}
+		cout << logx.str();
+		WriteToLog(logx.str());
+		closesocket(ConnectionCheck);
+		freeaddrinfo(httpAddrInfo);
+		WSACleanup();
+	}
+	catch (exception& e) {
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		cout << logx.str();
+		WriteToError(logx.str());
+		return false;
+	}
+	return true;
+}
+
 int main() {
 	HenchmanService service;
 
@@ -1621,7 +1586,7 @@ int main() {
 	
 	//explodedString.clear();
 	
-	Sleep(5000);
+	//Sleep(5000);
 	
 	return 0;
 }
