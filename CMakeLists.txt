@@ -57,8 +57,10 @@ option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
 # Include sub-projects.
 #add_subdirectory ("simpleini-4.22")
 #add_subdirectory (thirdparty/SQLiteCpp-3.3.2)
-add_subdirectory (HenchmanServiceSQLiteManager)
 add_subdirectory (HenchmanServiceException)
+add_subdirectory (HenchmanServiceHelper)
+add_subdirectory (HenchmanServiceRegistry)
+add_subdirectory (HenchmanServiceSQLiteManager)
 #add_subdirectory (HenchmanServiceMailer)
 add_subdirectory (HenchmanServices)
 

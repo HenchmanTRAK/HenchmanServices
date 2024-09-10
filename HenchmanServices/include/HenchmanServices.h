@@ -35,6 +35,8 @@
 #include "SimpleIni.h"
 
 #include "HenchmanServiceException.h"
+#include "ServiceHelper.h"
+#include "RegistryManager.h"
 #include "SQLiteManager.h"
 
 #pragma comment(lib, "advapi32.lib")
@@ -157,11 +159,14 @@ const string base64_chars =
 "abcdefghijklmnopqrstuvwxyz"
 "0123456789+/";
 
+CSimpleIni ini;
 
 class HenchmanService {
 
     static string mail_username;
     static string mail_password;
+
+    static SQLite_Manager SQLiteM;
 
 	static clock_t tmr1;
 	static clock_t tmrkabTRAK;
@@ -173,8 +178,8 @@ class HenchmanService {
 	static SSL* ssl;
 	static struct addrinfo* mailAddrInfo;
 	
-	bool report;
-	bool update;
+	/*bool report = false;
+	bool update = false;*/
 
 	static vector<string> _empty_argument;
 
@@ -190,9 +195,10 @@ class HenchmanService {
 	void ServiceCreate();
 	void SendEmail( SSL*& , vector<string> & = _empty_argument);
 private:
-	
+
 public:
-    bool setMailLogin(string, string);
+    HenchmanService();
+    bool setMailLogin(string &, string &);
     static stringstream logx;
     static string app_path;
     void WriteToLog(string);
@@ -216,5 +222,6 @@ DWORD GetSvcStatus(const char* sMachine, const char* sService = SERVICE_NAME);
 void WINAPI SvcCtrlHandler(DWORD CtrlCode);
 void WINAPI SvcMain();
 void SvcInit();
+DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
 
 #endif

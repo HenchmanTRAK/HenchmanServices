@@ -6,20 +6,32 @@
 #include <iostream>
 #include <Windows.h>
 //#include <sqlite3.h>
-#include <SQLiteCpp/SQLiteCpp.h>
 #include <sstream>
+#include <filesystem>
+
+#include <SQLiteCpp/SQLiteCpp.h>
 
 using namespace std;
 
+// Manages the sqlite database associated with the HenchmanTRAK Service
 class SQLite_Manager
 {
-	string dbName = "henchmanService.db3";
-	bool logToConsole = false;
+	static string dbName;
+	static string dbDir;
+	static bool logToConsole;
 public:
-	SQLite_Manager();
+	// Creates the database file and marks it as hidden.
+	SQLite_Manager(string db_dir = "", string db_name = "");
+	// Toggles whether functions should output debug text or not.
 	void ToggleConsoleLogging();
+	// Ensures the sqlite database was successfully created. 
 	int InitDB();
-	int CreateTable(string table, vector<string> &cols);
+	// Returns the name of the database.
+	string GetDBName();
+	// Creates a table with the passed name and coloumns array in the sql database.
+	int CreateTable(string &table, vector<string> &cols);
+	// Add a row to the target table with the passed values.
+	int AddRow(string& targetName, vector<string>& values);
 };
 
 #endif

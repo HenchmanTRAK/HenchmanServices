@@ -1,11 +1,24 @@
 
 #include "SQLiteManager.h"
 
+string SQLite_Manager::dbName;
+string SQLite_Manager::dbDir;
+bool SQLite_Manager::logToConsole;
 
-SQLite_Manager::SQLite_Manager()
+SQLite_Manager::SQLite_Manager(string db_dir, string db_name)
 {
-	try {
-		SQLite::Database db(dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
+	dbName = db_name;
+	dbDir = db_dir;
+	logToConsole = false;
+	if (db_name == "" || filesystem::exists(db_dir + db_name))
+	{
+		//cout << "No db name passed or db file already exists" << endl;
+		return;
+	}
+	try 
+	{
+		cout << "target: " << dbDir + dbName << endl;
+		SQLite::Database db(dbDir+dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
 		int attr = GetFileAttributesA(db.getFilename().c_str());
 		if (!(attr & FILE_ATTRIBUTE_HIDDEN))
 		{
@@ -22,11 +35,18 @@ void SQLite_Manager::ToggleConsoleLogging() {
 	logToConsole = !logToConsole;
 }
 
+string SQLite_Manager::GetDBName()
+{
+	return dbName.c_str();
+}
+
 int SQLite_Manager::InitDB()
 {
 	try 
 	{
-		SQLite::Database db(dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
+		logToConsole&&
+			cout << "target: " << dbDir + dbName << endl;
+		SQLite::Database db(dbDir + dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
 		stringstream query;
 		query << "DROP TABLE IF EXISTS test";
 		db.exec(query.str());
@@ -51,26 +71,34 @@ int SQLite_Manager::InitDB()
 			cout << "exception: " << e.what() << endl;
 		throw e;
 	}
+	return 0;
 }
 
-int SQLite_Manager::CreateTable(string tableName, vector<string> &cols)
+int SQLite_Manager::CreateTable(string &tableName, vector<string> &cols)
 {
+	/* 
+	The string paramater is used as the tables name, the vector gets parsed into a comma seperated string.
+	*/
 	try 
 	{
-		/*
-		TODO:
-		 - Loop through cols vector creating a string with each value
-		 - bind new string to second slot
-		 - create table
-		*/ 
-		SQLite::Database db(dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
+		logToConsole&&
+			cout << "target: " << dbDir + dbName << endl;
+		SQLite::Database db(dbDir + dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
 		stringstream query;
 		SQLite::Transaction transaction(db);
-		query << "CREATE TABLE IF NOT EXISTS ? (id INTEGET PRIMARY KEY AUTOINCREMENT, ?)";
-		SQLite::Statement statement{ db, query.str() };
-		statement.bind(1, tableName);
+		query << "CREATE TABLE IF NOT EXISTS " << tableName << " (id INTEGER PRIMARY KEY AUTOINCREMENT, date_created TEXT NOT NULL DEFAULT (datetime('now','localtime')), date_updated TEXT NOT NULL DEFAULT (datetime('now','localtime')), ";
+		for (unsigned i = 0; i < cols.size(); ++i)
+		{
+			query << cols[i];
+			if (i < cols.size() - 1)
+				query << ", ";
+		}
+		query << ")";
+		logToConsole&&
+			cout << query.str() << endl;
+		db.exec(query.str());
 
-
+		transaction.commit();
 	}
 	catch (exception& e)
 	{
@@ -78,4 +106,36 @@ int SQLite_Manager::CreateTable(string tableName, vector<string> &cols)
 			cout << "exception: " << e.what() << endl;
 		throw e;
 	}
+	return 0;
+}
+
+int SQLite_Manager::AddRow(string& targetTable, vector<string> &values)
+{
+	try
+	{
+		logToConsole&&
+			cout << "target: " << dbDir + dbName << endl;
+		SQLite::Database db(dbDir + dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
+		stringstream query;
+		SQLite::Transaction transaction(db);
+		query << "INSERT INTO " << targetTable << " (username, password) VALUES (";
+		for (unsigned i = 0; i < values.size(); ++i)
+		{
+			query << "\"" << values[i] << "\"";
+			if (i < values.size() - 1)
+				query << ", ";
+		}
+		query << ")";
+		logToConsole&&
+			cout << query.str() << endl;
+		db.exec(query.str());
+		transaction.commit();
+	}
+	catch (exception& e)
+	{
+		logToConsole&&
+			cout << "exception: " << e.what() << endl;
+		throw e.what();
+	}
+	return 0;
 }

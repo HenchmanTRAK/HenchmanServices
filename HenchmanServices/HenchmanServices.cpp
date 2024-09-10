@@ -8,8 +8,6 @@
 ///  - allow the Service to be deleted
 ///  - connect the various features from other scripts into a centralised point
 ///  - run the main Service Function
-///  - manage the registry associacted with the Service
-///  - manage the ini files associated with the Service
 /// </summary>
 
 #include "HenchmanServices.h"
@@ -24,6 +22,7 @@ struct addrinfo* HenchmanService::mailAddrInfo = NULL;
 string HenchmanService::app_path = "";
 string HenchmanService::mail_username = "";
 string HenchmanService::mail_password = "";
+SQLite_Manager HenchmanService::SQLiteM;
 
 string GetExportsPath(string app_path = "") {
 	string exportsPath;
@@ -65,88 +64,6 @@ string GetLogsPath(string app_path = "") {
 		filesystem::create_directory(logsPath.c_str());
 	}
 	return logsPath;
-}
-
-void HenchmanService::WriteToLog(string log) {
-	if (log == "") {
-		log = logx.str();
-	}
-	string logDir = GetLogsPath();
-	logDir.append("log.txt");
-	 fstream fs(logDir.c_str(), ios::out | ios_base::app);
-	if (fs) {
-		time_t timer = time(NULL);
-		struct tm currDateTime = *localtime(&timer);
-		char dateBuf[120];
-		char timeBuf[120];
-		strftime(dateBuf, sizeof(dateBuf), "%d/%m/%Y", &currDateTime);
-		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
-		fs << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";
-		fs << log << '\n';
-		fs.close();
-	}
-	logx.str(string());
-}
-
-void HenchmanService::WriteToError(string log) {
-	if (log == "") {
-		log = logx.str();
-	}
-	string logDir = GetLogsPath();
-	logDir.append("error.txt");
-	fstream fs(logDir.c_str(), ios::out | ios_base::app);
-	if (fs) {
-		time_t timer = time(NULL);
-		struct tm currDateTime = *localtime(&timer);
-		char dateBuf[120];
-		char timeBuf[120];
-		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
-		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
-		fs << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";
-		fs << log << '\n';
-		fs.close();
-	}
-	logx.str(string());
-}
-
-vector<string> HenchmanService::Explode(const string &Seperator, string &s, int limit) {
-	if (s == "")
-		throw HenchmanServiceException("No String was Provided");
-	if (limit < 0)
-		throw HenchmanServiceException("Invalid Integer Provided");
-	vector<string>results;
-	if (Seperator == "") {
-		results.push_back(s);
-	}
-	else {
-		size_t pos = 0;
-		string token;
-		while ((pos = s.find(Seperator)) != string::npos and (limit == 0 ? true : results.size() <= limit)) {
-			cout << results.size() << endl;
-			token = s.substr(0, pos);
-			results.push_back(token);
-			s.erase(0, pos + Seperator.length());
-		}
-		results.push_back(s);
-		token.clear();
-	}
-	return results;
-}
-
-void Check(int iStatus, string szFunction)
-{
-	if ((iStatus != SOCKET_ERROR) && (iStatus))
-		cout << "No error duing call to " << szFunction.c_str() << ": " << iStatus << endl;
-	return;
-
-	cout << "Error during call to " << szFunction.c_str() << ": " << iStatus << " - " << GetLastError() << endl;
-}
-
-long int microseconds() {
-	struct timespec tp;
-	timespec_get(&tp, TIME_UTC);
-	long int ms = tp.tv_sec * 1000 + tp.tv_nsec / 1000;
-	return ms;
 }
 
 bool checkForInternetConnection() {
@@ -225,7 +142,7 @@ bool isInternetConnected() {
 			WSACleanup();
 			return false;
 		}
-		
+
 		clientService.sin_family = AF_INET;
 		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
 		clientService.sin_port = htons(IPPORT_HTTPS);
@@ -256,15 +173,6 @@ bool isInternetConnected() {
 		return false;
 	}
 	return true;
-}
-
-bool Contain(string str, string search) {
-	//cout << "searching: " << str.data() << " for: " << search.data() << endl;
-	size_t found = str.find(search);
-	if (found != string::npos) {
-		return 1;
-	}
-	return 0;
 }
 
 string ShowCerts(SSL* ssl)
@@ -337,7 +245,8 @@ void sslError(SSL* ssl, int received, string microtime, stringstream& logi) {
 	}
 }
 
-char* base64(string string) {
+char* base64(string string) 
+{
 	// Credit to mtrw from Stackoverflow
 	const auto pl = 4 * ((string.size() + 2) / 3);
 	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
@@ -346,35 +255,13 @@ char* base64(string string) {
 	return output;
 }
 
-string fileBasename(string path) {
-	string filename = path.substr(path.find_last_of("/\\") + 1);
-	return filename;
-	// without extension
-	// string::size_type const p(base_filename.find_last_of('.'));
-	// string file_without_extension = base_filename.substr(0, p);
-}
-
-string get_file_contents(const char* filename)
+char* decodeBase64(string string)
 {
-	
-	if (ifstream is{ filename, ios::binary | ios::ate })
-	{
-		auto size = is.tellg();
-		string str(size, '\0'); // construct string to stream size
-		is.seekg(0);
-		is.read(&str[0], size);
-		/*if (is)
-			cout << str << '\n';*/
-		return str.c_str();
-	}
-	throw(errno);
-}
-
-string GetFileExtension(const string& FileName)
-{
-	if (FileName.find_last_of(".") != string::npos)
-		return FileName.substr(FileName.find_last_of(".") + 1);
-	return "";
+	const auto pl = (3 * (string.size() / 4));
+	auto output = reinterpret_cast<char*>(calloc(pl+1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
+	const auto ol = EVP_DecodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
+	if (pl != ol) { cerr << "Whoops, decode predicted " << pl << " but we got " << ol << "\n"; }
+	return output;
 }
 
 const char* GetMimeTypeFromFileName(char* szFileExt)
@@ -391,11 +278,11 @@ const char* GetMimeTypeFromFileName(char* szFileExt)
 }
 
 bool ProcessExists(string exeFileName) {
-	
+
 	bool ContinueLoop;
 	HANDLE SnapshotHandle;
 	PROCESSENTRY32 ProcessEntry32;
-	
+
 	SnapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	ProcessEntry32.dwSize = sizeof(ProcessEntry32);
 	ContinueLoop = Process32First(SnapshotHandle, &ProcessEntry32);
@@ -403,12 +290,12 @@ bool ProcessExists(string exeFileName) {
 	while (ContinueLoop) {
 		string targetEXE = exeFileName;
 		transform(targetEXE.begin(), targetEXE.end(), targetEXE.begin(), ::toupper);
-		string processEXE =ProcessEntry32.szExeFile;
+		string processEXE = ProcessEntry32.szExeFile;
 		transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
 		string processEXEFileName = fileBasename(ProcessEntry32.szExeFile);
 		transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
-			 result = true;
+			result = true;
 		}
 		else {
 			ContinueLoop = Process32Next(SnapshotHandle, &ProcessEntry32);
@@ -431,388 +318,6 @@ bool FileInUse(string fileName) {
 	return false;
 }
 
-bool HenchmanService::setMailLogin(string username, string password) {
-	mail_username = username;
-	mail_password = password;
-	if (mail_username.length() <= 1 || mail_password.length() <= 1) {
-		return false;
-	}
-	return true;
-}
-
-void HenchmanService::ConnectWithSMTP() {
-	WSADATA wsaData;
-	int iResult;
-	string loghash = to_string(microseconds());
-
-	struct sockaddr_in clientService;
-	vector<string> files;
-	
-	ctx = InitCTX();
-	
-	char buff[1024];
-	int buffLen = sizeof(buff);
-
-	struct addrinfo hints;
-	string reply;
-	int iProtocolPort;
-	try {
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		logx << "---" << "Socket Setup" << "---\r\n" << endl;
-		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-		if (iResult != NO_ERROR) {
-			printf("WSAStartup failed: %d\n", iResult);
-			return;
-		}
-
-		ZeroMemory(&hints, sizeof(hints));
-		hints.ai_family = AF_UNSPEC;
-		hints.ai_socktype = SOCK_STREAM;
-		hints.ai_protocol = IPPROTO_TCP;
-
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		logx << "---" << "Getting Address Info" << "---\r\n" << endl;
-		iResult = getaddrinfo("mail.henchmantrak.com", "smtp", &hints, &mailAddrInfo);
-		if (iResult != NO_ERROR) {
-			printf("getaddrinfo failed with error: %d\n", iResult);
-			WSACleanup();
-			return;
-		}
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		logx << "---" << "Setting up SMTP Mail Socket" << "---\r\n" << endl;
-		mailSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if (mailSocket == INVALID_SOCKET) {
-			printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
-			WSACleanup();
-			return;
-		}
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		logx << "---" << "Getting Mail Service Port" << "---\r\n" << endl;
-		LPSERVENT lpServEntry = getservbyname("mail", 0);
-		if (!lpServEntry) {
-			logx << "using IPPORT_SMTP" << endl;
-			iProtocolPort = htons(IPPORT_SMTP);
-			//iProtocolPort = 465;
-		}
-		else {
-			logx << "using port provided from lpServEntry" << endl;
-			iProtocolPort = lpServEntry->s_port;
-		}
-		cout << "Connecting on port: " << iProtocolPort << endl;
-
-		clientService.sin_family = AF_INET;
-		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
-		clientService.sin_port = iProtocolPort;
-		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)mailAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		logx << "---" << "Connecting to Mail Socket" << "---\r\n" << endl;
-		iResult = connect(mailSocket, (SOCKADDR*)&clientService, sizeof(clientService));
-		if (iResult == SOCKET_ERROR) {
-			printf("Unable to connect to server: %ld\n", WSAGetLastError());
-			WSACleanup();
-			return;
-		}
-		else {
-			logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << iProtocolPort << endl;
-		}
-		
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		logx << "---" << "Initiating communication through SMTP" << "---\r\n" << endl;
-		char szMsgLine[255] = "";
-		sprintf(szMsgLine, "HELO %s%s", "mail.henchmantrak.com", CRLF);
-		string E1 = "ehlo ";
-		E1.append("mail.henchmantrak.com");
-		E1.append(CRLF);
-		char* hello = (char*)E1.c_str();
-		char* hellotls = (char*)"STARTTLS\r\n";
-
-		// initiate connection
-		iResult = recv(mailSocket, buff, sizeof(buff), 0);
-		reply = buff;
-		reply.resize(iResult);
-		logx << "[Server] [" << iResult << "] " << buff << endl;
-		logx.adjustfield;
-
-		memset(buff, 0, sizeof buff);
-		buff[0] = '\0';
-
-		// send ehlo command
-		send(mailSocket, hello, strlen(hello), 0);
-		logx << "[HELO] " << hello << " " << iResult << endl;
-
-		iResult = recv(mailSocket, buff, sizeof(buff), 0);
-		reply = buff;
-		reply.resize(iResult);
-		logx << "[Server] [" << iResult << "] " << reply << endl;
-
-		while (!Contain(string(buff), "250 ")) {
-			iResult = recv(mailSocket, buff, sizeof(buff), 0);
-			if (Contain(string(buff), "501 ") || Contain(string(buff), "503 ")) {
-				logx << "\n---" << loghash << "---\r\n" << endl;
-				cout << logx.str();
-				WriteToError(logx.str());
-				return;
-			}
-		}
-
-		if (!Contain(string(buff), "STARTTLS")) {
-			logx << "[EXTERNAL_SERVER_NO_TLS] " << "mail.henchmantrak.com" << " " << buff << "[CLOSING_CONNECTION]" << endl;
-			logx << "\n---" << loghash << "---\r\n" << endl;
-			cout << logx.str();
-			WriteToError(logx.str());
-			return;
-		}
-
-		memset(buff, 0, sizeof buff);
-		buff[0] = '\0';
-		char buff1[1024];
-
-		// starttls connecion
-		send(mailSocket, hellotls, strlen(hellotls), 0);
-		logx << "[STARTTLS] " << hellotls << endl;
-
-		iResult = recv(mailSocket, buff1, sizeof(buff1), 0);
-		reply = buff1;
-		reply.resize(iResult);
-		logx << "[Server] " << iResult << " " << buff << endl;
-
-		ctx = InitCTX();
-		ssl = SSL_new(ctx);
-		SSL_set_fd(ssl, mailSocket);
-
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		logx << "Connection....smtp" << endl;
-		cout << "Connection to smtp via tls" << endl;
-
-		if (SSL_connect(ssl) == -1) {
-			// ERR_print_errors_fp(stderr);            
-			logx << "[TLS_SMTP_ERROR]" << endl;
-			logx << "\n---" << loghash << "---\r\n" << endl;
-			cout << logx.str();
-			WriteToError(logx.str());
-			return;
-		}
-		else {
-			// char *msg = (char*)"{\"from\":[{\"name\":\"Zenobiusz\",\"email\":\"email@eee.ddf\"}]}";
-			logx << "\n---" << loghash << "---\r\n" << endl;
-			logx << "Connected with " << SSL_get_cipher(ssl) << " encryption" << endl;
-			string cert = ShowCerts(ssl);
-			cout << cert << endl;
-
-			vector<string> attachments;
-			for (const auto& entry : filesystem::directory_iterator(GetExportsPath())) {
-				cout << entry.path().string() << endl;
-				attachments.push_back(entry.path().string());
-			}
-			logx << "\n---" << loghash << "---\r\n" << endl;
-			logx << "---" << "Generating and sending Email" << "---\r\n" << endl;
-			cout << logx.str();
-			WriteToLog(logx.str());
-			SendEmail(ssl, attachments);
-		}
-		sslError(ssl, 1, loghash, logx);
-
-		closesocket(mailSocket);
-		SSL_CTX_free(ctx);
-		freeaddrinfo(mailAddrInfo);
-		WSACleanup();
-	}
-	catch (exception& e) {
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		cout << logx.str();
-		WriteToError(logx.str());
-		return;
-	}
-	logx.str(string());
-}
-
-void HenchmanService::SendEmail(SSL* &ssl, vector<string>&attachments) {
-
-	string loghash = to_string(microseconds());
-		
-	char buff[1024];
-	int buffLen = sizeof(buff);
-	int counter = 1;
-	try {
-		if (SSL_connect(ssl) == -1) {
-			// ERR_print_errors_fp(stderr);            
-			logx << "[TLS_SMTP_ERROR]" << endl;
-			logx << "\n---" << loghash << "---\r\n" << endl;
-			cout << logx.str();
-			return;
-		}
-		else {
-			buff[0] = '\0';
-			ostringstream f0;
-			f0 << "EHLO " << "mail.henchmantrak.com" << "\r\n";
-			string f00 = f0.str();
-			char* helo = (char*)f00.c_str();
-			logx << "SEND TO SERVER " << helo << endl;
-			SSL_write(ssl, helo, strlen(helo));
-			int bytes = SSL_read(ssl, buff, sizeof(buff));
-			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "250")) return;
-			counter++;
-
-			buff[0] = '\0';
-			ostringstream f1;
-			f1 << "AUTH PLAIN ";
-			string f2;
-			using namespace string_literals;
-			f2 = mail_username + "\0"s + mail_username + "\0"s + mail_password;
-			f1 << base64(f2);
-			f1 << " \r\n";
-			string f11 = f1.str();
-			char* auth = f11.data();
-			logx << "SEND TO SERVER " << auth<< endl;
-			SSL_write(ssl, auth, strlen(auth));
-			bytes = SSL_read(ssl, buff, sizeof(buff));
-			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "235"))return;
-			counter++;
-
-			buff[0] = '\0';
-			ostringstream f4;
-			f4 << "mail from: <" << "test@henchmantrak.com" << ">\r\n";
-			string f44 = f4.str();
-			char* fromemail = (char*)f44.c_str();
-			logx << "SEND TO SERVER " << fromemail << endl;
-			SSL_write(ssl, fromemail, strlen(fromemail));
-			bytes = SSL_read(ssl, buff, sizeof(buff));
-			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "250"))return;
-			counter++;
-
-
-			buff[0] = '\0';
-			string rcpt = "rcpt to: <";
-			rcpt.append("wjaco.swanepoel@gmail.com").append(">\r\n");
-			char* rcpt1 = (char*)rcpt.c_str();
-			logx << "SEND TO SERVER " << rcpt1 << endl;
-			SSL_write(ssl, rcpt1, strlen(rcpt1));
-			bytes = SSL_read(ssl, buff, sizeof(buff));
-			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "250"))return;
-			counter++;
-
-			buff[0] = '\0';
-			char* data = (char*)"DATA\r\n";
-			logx << "SEND TO SERVER " << data << endl;
-			SSL_write(ssl, data, strlen(data));
-			bytes = SSL_read(ssl, buff, sizeof(buff));
-			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "354"))return;
-			counter++;
-
-			string Encoding = "iso-8859-2"; // charset: utf-8, utf-16, iso-8859-2, iso-8859-1
-			Encoding = "utf-8";
-
-			string subject = "Testin Mailer";
-			string msg = "This is a test Message";
-			
-			// add html page layout
-			stringstream msghtml;
-			
-			msghtml << "<!DOCTYPE html>\n";
-			msghtml << "<HTML lang = 'en'>\n";
-			msghtml << "<body>\n";
-			msghtml << "	<p>Please find attched report(/ s).</p>\n";
-			
-			// 
-			// add atachments
-			//vector<string> files = Explode(", ", attachments);
-
-			stringstream attachmentSection;
-			vector<string>files = attachments;
-			if (files.size() > 0) {
-				for (unsigned int i = 0;i < files.size();i++) {
-					string path = files.at(i);
-					string filename = fileBasename(path);
-					string fc = base64(get_file_contents(path.c_str()));
-					string extension = GetFileExtension(filename);
-					const char* mimetype = GetMimeTypeFromFileName((char*)extension.c_str());
-					if (!(extension == "csv"))
-						continue;
-					attachmentSection << "--ToJestSeparator0000\r\n";
-					attachmentSection << "Content-Type: " << mimetype << "; name=\"" << filename << "\"\r\n";
-					attachmentSection << "Content-Disposition: attachment; filename=\"" << filename << "\"\r\n";
-					attachmentSection << "Content-Transfer-Encoding: base64" << "\r\n";
-					attachmentSection << "Content-ID: <" << base64(filename) << ">\r\n";
-					attachmentSection << "X-Attachment-Id: " << base64(filename) << "\r\n";
-					attachmentSection << "\r\n";
-					attachmentSection << fc << "\r\n";
-					attachmentSection << "\r\n";
-				}
-			}
-
-			msghtml << "</body>\n";
-			
-			stringstream m;
-			m << "X-Priority: " << "1" << "\r\n";
-			m << "From: " << "willem.swanepoel@henchmantools.com" << "\r\n";
-			m << "To: " << "wjaco.swanepoel@gmail.com" << "\r\n";
-			m << "Subject: =?" << Encoding << "?Q?" << subject << "?=\r\n";
-			m << "Reply-To: " << "willem.swanepoel@henchmantools.com" << "\r\n";
-			m << "Return-Path: " << "willem.swanepoel@henchmantools.com" << "\r\n";
-			m << "MIME-Version: 1.0\r\n";
-			m << "Content-Type: multipart/mixed; boundary=\"ToJestSeparator0000\"\r\n\r\n";
-			m << "--ToJestSeparator0000\r\n";
-			m << "Content-Type: multipart/alternative; boundary=\"ToJestSeparatorZagniezdzony1111\"\r\n\r\n";
-
-			m << "--ToJestSeparatorZagniezdzony1111\r\n";
-			m << "Content-Type: text/plain; charset=\"" << Encoding << "\"\r\n";
-			m << "Content-Transfer-Encoding: quoted-printable\r\n\r\n";
-			m << msg << "\r\n\r\n";
-			m << "--ToJestSeparatorZagniezdzony1111\r\n";
-			m << "Content-Type: text/html; charset=\"" << Encoding << "\"\r\n";
-			m << "Content-Transfer-Encoding: quoted-printable\r\n\r\n";
-			m << msghtml.str() << "\r\n\r\n";
-			m << "--ToJestSeparatorZagniezdzony1111--\r\n\r\n";
-			m << attachmentSection.str();
-			m << "--ToJestSeparator0000--\r\n\r\n";
-			m << "\r\n.\r\n";
-
-			// create mime message string
-			string mimemsg = m.str();
-			logx << "Email body being sent: " << mimemsg.data() << endl;
-			char* mdata = mimemsg.data();
-			SSL_write(ssl, mdata, strlen(mdata));
-			bytes = SSL_read(ssl, buff, sizeof(buff));
-			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			logx << "\n---" << loghash << "---" << endl << endl;
-			counter++;
-
-			// send log
-			cout << logx.str();
-			WriteToLog(logx.str());
-			if (!Contain(string(buff), "250"))return;
-
-			char* qdata = (char*)"quit\r\n";
-			SSL_write(ssl, qdata, strlen(qdata));
-			bytes = SSL_read(ssl, buff, sizeof(buff));
-			buff[bytes] = 0;
-			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "221"))return;
-
-			SSL_free(ssl);
-			return;
-		}
-
-	}
-	catch (exception& e) {
-		logx << "\n---" << loghash << "---\r\n" << endl;
-		cout << logx.str();
-		WriteToError(logx.str());
-		return;
-	}
-}
-
 int ShellExecuteApp(string appName, string params)
 {
 	SHELLEXECUTEINFO SEInfo;
@@ -822,26 +327,21 @@ int ShellExecuteApp(string appName, string params)
 	string StartInString;
 
 	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
-	//HWND windowHandle;
-	//char newWindowTitle[1024];
-	//char oldWindowTitle[1024];
 
-	//GetConsoleTitle(oldWindowTitle, sizeof(oldWindowTitle));
-	//
-	//printf(oldWindowTitle);
-	//printf("\n");
 	Sleep(5000);
 
 	//fill_n(SEInfo, sizeof(SEInfo), NULL);
+	ZeroMemory(&SEInfo,sizeof(SEInfo));
 	SEInfo.cbSize = sizeof(SHELLEXECUTEINFO);
 	SEInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-	SEInfo.hwnd = NULL;
-	SEInfo.lpVerb = NULL;
-	SEInfo.lpDirectory = NULL;
+	//SEInfo.hwnd = NULL;
+	//SEInfo.lpVerb = NULL;
+	//SEInfo.lpDirectory = NULL;
 	SEInfo.lpFile = exeFile.c_str();
 	SEInfo.lpParameters = paramStr.c_str();
-	SEInfo.nShow = paramStr == "" ? SW_NORMAL : SW_HIDE;
-	if(ShellExecuteEx(&SEInfo)){
+	//: SW_HIDE
+	SEInfo.nShow = paramStr == "" && SW_NORMAL;
+	if (ShellExecuteEx(&SEInfo)) {
 		do {
 			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
 			cout << ExitCode << endl;
@@ -852,7 +352,7 @@ int ShellExecuteApp(string appName, string params)
 	return 0;
 }
 
-int InstallMySQL() 
+int InstallMySQL()
 {
 	if (ShellExecuteApp("C:\\wamp\\bin\\mysql\\mysql5.6.17\\bin\\mysqld.exe", "--install-manual wampmysql64"))
 		return 1;
@@ -1123,7 +623,7 @@ void __stdcall DoStopSvc(const char* sService)
 	SERVICE_STATUS_PROCESS ssp;
 	DWORD dwStartTime = GetTickCount64();
 	DWORD dwBytesNeeded;
-	DWORD dwTimeout = (30*1000); // 30-second time-out
+	DWORD dwTimeout = (30 * 1000); // 30-second time-out
 	DWORD dwWaitTime;
 
 
@@ -1271,7 +771,7 @@ bool __stdcall StopDependentServices()
 
 
 	DWORD dwStartTime = GetTickCount64();
-	DWORD dwTimeout = (30*1000); // 30-second time-out
+	DWORD dwTimeout = (30 * 1000); // 30-second time-out
 
 	// Pass a zero-length buffer to get the required buffer size.
 	if (EnumDependentServices(schService, SERVICE_ACTIVE,
@@ -1333,7 +833,7 @@ bool __stdcall StopDependentServices()
 						if (ssp.dwCurrentState == SERVICE_STOPPED)
 							break;
 
-						if (GetTickCount() - dwStartTime > dwTimeout)
+						if (GetTickCount64() - dwStartTime > dwTimeout)
 							return FALSE;
 					}
 				}
@@ -1490,7 +990,7 @@ void WINAPI SvcMain()
 		SvcCtrlHandler
 	);
 
-	if(!g_StatusHandle)
+	if (!g_StatusHandle)
 	{
 		return;
 	}
@@ -1521,66 +1021,607 @@ void SvcInit()
 	ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 
 	// Do Work Here
+	HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &g_ServiceStopEvent, 0, NULL);
 
-	while (1)
-	{
+	if (hThread)
 		WaitForSingleObject(
 			g_ServiceStopEvent,
 			INFINITE
 		);
 
-		ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
-		return;
+	ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+	CloseHandle(g_ServiceStopEvent);
+
+	return;
+
+}
+
+DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
+{
+	while (WaitForSingleObject(g_ServiceStopEvent,0) != WAIT_OBJECT_0)
+	{
+
+	}
+	return ERROR_SUCCESS;
+}
+
+HenchmanService::HenchmanService()
+{
+	/*HenchmanService::report = false;
+	HenchmanService::update = false;*/
+	//CSimpleIni ini;
+	ini.SetUnicode();
+
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+
+	char buff[MAX_PATH];
+	int byteLength = GetCurrentDirectory(sizeof(buff), buff);
+	string currDir = buff;
+	currDir.resize(byteLength);
+	string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
+	struct stat buffer;
+	if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
+	{
+		installDir = currDir;
+		SetStrVal(hKey, "InstallDir", installDir, REG_SZ);
+	}
+	string databaseName = GetStrVal(hKey, "DatabaseName", REG_SZ);
+	string dbName = "henchmanService.db3";
+	if (databaseName == "" || databaseName != dbName)
+	{
+		databaseName = dbName;
+		SetStrVal(hKey, "DatabaseName", databaseName, REG_SZ);
+	}
+	//cout << installDir + "\\" << endl << databaseName << endl;
+	SQLiteM = SQLite_Manager(installDir + "\\", databaseName.data());
+
+	//SQLiteM.ToggleConsoleLogging();
+	
+	SQLiteM.InitDB();
+
+	string tableName = "TestTable";
+	vector<string> cols;
+	cols.push_back("username TEXT NOT NULL");
+	cols.push_back("password TEXT NOT NULL");
+	SQLiteM.CreateTable(tableName, cols);
+
+	//cout << "Reading ini file: " << string(installDir + "\\service.ini") << endl;
+	SI_Error rc = ini.LoadFile(string(installDir + "\\service.ini").c_str());
+	if (rc < 0) {
+		cerr << "Failed to Load INI File" << endl;
+	}
+	string username = ini.GetValue("Email", "Username", "");
+	string password = base64(ini.GetValue("Email", "Password", ""));
+	cout << decodeBase64(password) << endl;
+	//string encodedPass = base64(password);
+	if (checkForInternetConnection() && isInternetConnected() && setMailLogin(username, password)) {
+		cout << "Able to send mail" << endl;
+		//service.ConnectWithSMTP();
 	}
 
+	tableName.clear();
+	cols.clear();
+	currDir.clear();
+
+	RegCloseKey(hKey);
+}
+
+void HenchmanService::WriteToLog(string log) {
+	if (log == "") {
+		log = logx.str();
+	}
+	string logDir = GetLogsPath();
+	logDir.append("log.txt");
+	 fstream fs(logDir.c_str(), ios::out | ios_base::app);
+	if (fs) {
+		time_t timer = time(NULL);
+		struct tm currDateTime = *localtime(&timer);
+		char dateBuf[120];
+		char timeBuf[120];
+		strftime(dateBuf, sizeof(dateBuf), "%d/%m/%Y", &currDateTime);
+		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
+		fs << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";
+		fs << log << '\n';
+		fs.close();
+	}
+	logx.str(string());
+}
+
+void HenchmanService::WriteToError(string log) {
+	if (log == "") {
+		log = logx.str();
+	}
+	string logDir = GetLogsPath();
+	logDir.append("error.txt");
+	fstream fs(logDir.c_str(), ios::out | ios_base::app);
+	if (fs) {
+		time_t timer = time(NULL);
+		struct tm currDateTime = *localtime(&timer);
+		char dateBuf[120];
+		char timeBuf[120];
+		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
+		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
+		fs << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";
+		fs << log << '\n';
+		fs.close();
+	}
+	logx.str(string());
+}
+
+vector<string> HenchmanService::Explode(const string &Seperator, string &s, int limit) {
+	if (s == "")
+		throw HenchmanServiceException("No String was Provided");
+	if (limit < 0)
+		throw HenchmanServiceException("Invalid Integer Provided");
+	vector<string>results;
+	if (Seperator == "") {
+		results.push_back(s);
+	}
+	else {
+		size_t pos = 0;
+		string token;
+		while ((pos = s.find(Seperator)) != string::npos and (limit == 0 ? true : results.size() <= limit)) {
+			cout << results.size() << endl;
+			token = s.substr(0, pos);
+			results.push_back(token);
+			s.erase(0, pos + Seperator.length());
+		}
+		results.push_back(s);
+		token.clear();
+	}
+	return results;
+}
+
+bool HenchmanService::setMailLogin(string &username, string &password) {
+	if (username.length() <= 1 || password.length() <= 1) {
+		return false;
+	}
+	mail_username = username;
+	mail_password = password;
+	string tableName = "TestTable";
+	vector<string> cols;
+	cols.push_back(username);
+	cols.push_back(password);
+	SQLiteM.AddRow(tableName, cols);
+	cols.clear();
+	return true;
+}
+
+void HenchmanService::ConnectWithSMTP() {
+	WSADATA wsaData;
+	int iResult;
+	string loghash = to_string(microseconds());
+
+	struct sockaddr_in clientService;
+	vector<string> files;
+	
+	ctx = InitCTX();
+	
+	char buff[1024];
+	int buffLen = sizeof(buff);
+
+	struct addrinfo hints;
+	string reply;
+	int iProtocolPort;
+	try {
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Socket Setup" << "---\r\n" << endl;
+		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+		if (iResult != NO_ERROR) {
+			printf("WSAStartup failed: %d\n", iResult);
+			return;
+		}
+
+		ZeroMemory(&hints, sizeof(hints));
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_protocol = IPPROTO_TCP;
+
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Getting Address Info" << "---\r\n" << endl;
+		iResult = getaddrinfo("mail.henchmantrak.com", "smtp", &hints, &mailAddrInfo);
+		if (iResult != NO_ERROR) {
+			printf("getaddrinfo failed with error: %d\n", iResult);
+			WSACleanup();
+			return;
+		}
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Setting up SMTP Mail Socket" << "---\r\n" << endl;
+		mailSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (mailSocket == INVALID_SOCKET) {
+			printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
+			WSACleanup();
+			return;
+		}
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Getting Mail Service Port" << "---\r\n" << endl;
+		LPSERVENT lpServEntry = getservbyname("mail", 0);
+		if (!lpServEntry) {
+			logx << "using IPPORT_SMTP" << endl;
+			iProtocolPort = htons(IPPORT_SMTP);
+			//iProtocolPort = 465;
+		}
+		else {
+			logx << "using port provided from lpServEntry" << endl;
+			iProtocolPort = lpServEntry->s_port;
+		}
+		cout << "Connecting on port: " << iProtocolPort << endl;
+
+		clientService.sin_family = AF_INET;
+		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
+		clientService.sin_port = iProtocolPort;
+		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)mailAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Connecting to Mail Socket" << "---\r\n" << endl;
+		iResult = connect(mailSocket, (SOCKADDR*)&clientService, sizeof(clientService));
+		if (iResult == SOCKET_ERROR) {
+			printf("Unable to connect to server: %ld\n", WSAGetLastError());
+			WSACleanup();
+			return;
+		}
+		else {
+			logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << iProtocolPort << endl;
+		}
+		
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "---" << "Initiating communication through SMTP" << "---\r\n" << endl;
+		char szMsgLine[255] = "";
+		sprintf(szMsgLine, "HELO %s%s", "mail.henchmantrak.com", CRLF);
+		string E1 = "ehlo ";
+		E1.append("mail.henchmantrak.com");
+		E1.append(CRLF);
+		char* hello = (char*)E1.c_str();
+		char* hellotls = (char*)"STARTTLS\r\n";
+
+		// initiate connection
+		iResult = recv(mailSocket, buff, sizeof(buff), 0);
+		reply = buff;
+		reply.resize(iResult);
+		logx << "[Server] [" << iResult << "] " << buff << endl;
+		logx.adjustfield;
+
+		memset(buff, 0, sizeof buff);
+		buff[0] = '\0';
+
+		// send ehlo command
+		send(mailSocket, hello, strlen(hello), 0);
+		logx << "[HELO] " << hello << " " << iResult << endl;
+
+		iResult = recv(mailSocket, buff, sizeof(buff), 0);
+		reply = buff;
+		reply.resize(iResult);
+		logx << "[Server] [" << iResult << "] " << reply << endl;
+
+		while (!Contain(string(buff), "250 ")) {
+			iResult = recv(mailSocket, buff, sizeof(buff), 0);
+			if (Contain(string(buff), "501 ") || Contain(string(buff), "503 ")) {
+				logx << "\n---" << loghash << "---\r\n" << endl;
+				cout << logx.str();
+				WriteToError(logx.str());
+				return;
+			}
+		}
+
+		if (!Contain(string(buff), "STARTTLS")) {
+			logx << "[EXTERNAL_SERVER_NO_TLS] " << "mail.henchmantrak.com" << " " << buff << "[CLOSING_CONNECTION]" << endl;
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			cout << logx.str();
+			WriteToError(logx.str());
+			return;
+		}
+
+		memset(buff, 0, sizeof buff);
+		buff[0] = '\0';
+		char buff1[1024];
+
+		// starttls connecion
+		send(mailSocket, hellotls, strlen(hellotls), 0);
+		logx << "[STARTTLS] " << hellotls << endl;
+
+		iResult = recv(mailSocket, buff1, sizeof(buff1), 0);
+		reply = buff1;
+		reply.resize(iResult);
+		logx << "[Server] " << iResult << " " << buff << endl;
+
+		ctx = InitCTX();
+		ssl = SSL_new(ctx);
+		SSL_set_fd(ssl, mailSocket);
+
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		logx << "Connection....smtp" << endl;
+		cout << "Connection to smtp via tls" << endl;
+
+		if (SSL_connect(ssl) == -1) {
+			// ERR_print_errors_fp(stderr);            
+			logx << "[TLS_SMTP_ERROR]" << endl;
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			cout << logx.str();
+			WriteToError(logx.str());
+			return;
+		}
+		else {
+			// char *msg = (char*)"{\"from\":[{\"name\":\"Zenobiusz\",\"email\":\"email@eee.ddf\"}]}";
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			logx << "Connected with " << SSL_get_cipher(ssl) << " encryption" << endl;
+			string cert = ShowCerts(ssl);
+			cout << cert << endl;
+
+			vector<string> attachments;
+			for (const auto& entry : filesystem::directory_iterator(GetExportsPath())) {
+				cout << entry.path().string() << endl;
+				attachments.push_back(entry.path().string());
+			}
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			logx << "---" << "Generating and sending Email" << "---\r\n" << endl;
+			cout << logx.str();
+			WriteToLog(logx.str());
+			SendEmail(ssl, attachments);
+		}
+		sslError(ssl, 1, loghash, logx);
+
+		closesocket(mailSocket);
+		SSL_CTX_free(ctx);
+		freeaddrinfo(mailAddrInfo);
+		WSACleanup();
+	}
+	catch (exception& e) {
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		cout << logx.str();
+		WriteToError(logx.str());
+		return;
+	}
+	logx.str(string());
+}
+
+void HenchmanService::SendEmail(SSL* &ssl, vector<string>&attachments) {
+
+	string loghash = to_string(microseconds());
+		
+	char buff[1024];
+	int buffLen = sizeof(buff);
+	int counter = 1;
+	try {
+		if (SSL_connect(ssl) == -1) {
+			// ERR_print_errors_fp(stderr);            
+			logx << "[TLS_SMTP_ERROR]" << endl;
+			logx << "\n---" << loghash << "---\r\n" << endl;
+			cout << logx.str();
+			return;
+		}
+		else {
+			buff[0] = '\0';
+			ostringstream f0;
+			f0 << "EHLO " << "mail.henchmantrak.com" << "\r\n";
+			string f00 = f0.str();
+			char* helo = (char*)f00.c_str();
+			logx << "SEND TO SERVER " << helo << endl;
+			SSL_write(ssl, helo, strlen(helo));
+			int bytes = SSL_read(ssl, buff, sizeof(buff));
+			buff[bytes] = 0;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "250")) return;
+			counter++;
+
+			buff[0] = '\0';
+			ostringstream f1;
+			f1 << "AUTH PLAIN ";
+			string f2;
+			using namespace string_literals;
+			f2 = mail_username + "\0"s + mail_username + "\0"s + decodeBase64(mail_password);
+			f1 << base64(f2);
+			f1 << " \r\n";
+			string f11 = f1.str();
+			char* auth = f11.data();
+			logx << "SEND TO SERVER " << auth<< endl;
+			SSL_write(ssl, auth, strlen(auth));
+			bytes = SSL_read(ssl, buff, sizeof(buff));
+			buff[bytes] = 0;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "235"))return;
+			counter++;
+
+			buff[0] = '\0';
+			ostringstream f4;
+			f4 << "mail from: <" << "test@henchmantrak.com" << ">\r\n";
+			string f44 = f4.str();
+			char* fromemail = (char*)f44.c_str();
+			logx << "SEND TO SERVER " << fromemail << endl;
+			SSL_write(ssl, fromemail, strlen(fromemail));
+			bytes = SSL_read(ssl, buff, sizeof(buff));
+			buff[bytes] = 0;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "250"))return;
+			counter++;
+
+
+			buff[0] = '\0';
+			string rcpt = "rcpt to: <";
+			rcpt.append("wjaco.swanepoel@gmail.com").append(">\r\n");
+			char* rcpt1 = (char*)rcpt.c_str();
+			logx << "SEND TO SERVER " << rcpt1 << endl;
+			SSL_write(ssl, rcpt1, strlen(rcpt1));
+			bytes = SSL_read(ssl, buff, sizeof(buff));
+			buff[bytes] = 0;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "250"))return;
+			counter++;
+
+			buff[0] = '\0';
+			char* data = (char*)"DATA\r\n";
+			logx << "SEND TO SERVER " << data << endl;
+			SSL_write(ssl, data, strlen(data));
+			bytes = SSL_read(ssl, buff, sizeof(buff));
+			buff[bytes] = 0;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "354"))return;
+			counter++;
+
+			string Encoding = "iso-8859-2"; // charset: utf-8, utf-16, iso-8859-2, iso-8859-1
+			Encoding = "utf-8";
+
+			string subject = "Testin Mailer";
+			string msg = "This is a test Message";
+			
+			// add html page layout
+			stringstream msghtml;
+			
+			msghtml << "<!DOCTYPE html>\n";
+			msghtml << "<HTML lang = 'en'>\n";
+			msghtml << "<body>\n";
+			msghtml << "	<p>Please find attched report(/ s).</p>\n";
+			
+			// 
+			// add atachments
+			//vector<string> files = Explode(", ", attachments);
+
+			stringstream attachmentSection;
+			vector<string>files = attachments;
+			if (files.size() > 0) {
+				for (unsigned int i = 0;i < files.size();i++) {
+					string path = files.at(i);
+					string filename = fileBasename(path);
+					string fc = base64(get_file_contents(path.c_str()));
+					string extension = GetFileExtension(filename);
+					const char* mimetype = GetMimeTypeFromFileName((char*)extension.c_str());
+					if (!(extension == "csv"))
+						continue;
+					attachmentSection << "--ToJestSeparator0000\r\n";
+					attachmentSection << "Content-Type: " << mimetype << "; name=\"" << filename << "\"\r\n";
+					attachmentSection << "Content-Disposition: attachment; filename=\"" << filename << "\"\r\n";
+					attachmentSection << "Content-Transfer-Encoding: base64" << "\r\n";
+					attachmentSection << "Content-ID: <" << base64(filename) << ">\r\n";
+					attachmentSection << "X-Attachment-Id: " << base64(filename) << "\r\n";
+					attachmentSection << "\r\n";
+					attachmentSection << fc << "\r\n";
+					attachmentSection << "\r\n";
+				}
+			}
+
+			msghtml << "</body>\n";
+			
+			stringstream m;
+			m << "X-Priority: " << "1" << "\r\n";
+			m << "From: " << "willem.swanepoel@henchmantools.com" << "\r\n";
+			m << "To: " << "wjaco.swanepoel@gmail.com" << "\r\n";
+			m << "Subject: =?" << Encoding << "?Q?" << subject << "?=\r\n";
+			m << "Reply-To: " << "willem.swanepoel@henchmantools.com" << "\r\n";
+			m << "Return-Path: " << "willem.swanepoel@henchmantools.com" << "\r\n";
+			m << "MIME-Version: 1.0\r\n";
+			m << "Content-Type: multipart/mixed; boundary=\"ToJestSeparator0000\"\r\n\r\n";
+			m << "--ToJestSeparator0000\r\n";
+			m << "Content-Type: multipart/alternative; boundary=\"ToJestSeparatorZagniezdzony1111\"\r\n\r\n";
+
+			m << "--ToJestSeparatorZagniezdzony1111\r\n";
+			m << "Content-Type: text/plain; charset=\"" << Encoding << "\"\r\n";
+			m << "Content-Transfer-Encoding: quoted-printable\r\n\r\n";
+			m << msg << "\r\n\r\n";
+			m << "--ToJestSeparatorZagniezdzony1111\r\n";
+			m << "Content-Type: text/html; charset=\"" << Encoding << "\"\r\n";
+			m << "Content-Transfer-Encoding: quoted-printable\r\n\r\n";
+			m << msghtml.str() << "\r\n\r\n";
+			m << "--ToJestSeparatorZagniezdzony1111--\r\n\r\n";
+			m << attachmentSection.str();
+			m << "--ToJestSeparator0000--\r\n\r\n";
+			m << "\r\n.\r\n";
+
+			// create mime message string
+			string mimemsg = m.str();
+			logx << "Email body being sent: " << mimemsg.data() << endl;
+			char* mdata = mimemsg.data();
+			SSL_write(ssl, mdata, strlen(mdata));
+			bytes = SSL_read(ssl, buff, sizeof(buff));
+			buff[bytes] = 0;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			logx << "\n---" << loghash << "---" << endl << endl;
+			counter++;
+
+			// send log
+			cout << logx.str();
+			WriteToLog(logx.str());
+			if (!Contain(string(buff), "250"))return;
+
+			char* qdata = (char*)"quit\r\n";
+			SSL_write(ssl, qdata, strlen(qdata));
+			bytes = SSL_read(ssl, buff, sizeof(buff));
+			buff[bytes] = 0;
+			logx << counter << " [RECEIVED_TLS] " << buff << endl;
+			if (!Contain(string(buff), "221"))return;
+
+			SSL_free(ssl);
+			return;
+		}
+
+	}
+	catch (exception& e) {
+		logx << "\n---" << loghash << "---\r\n" << endl;
+		cout << logx.str();
+		WriteToError(logx.str());
+		return;
+	}
 }
 
 int main() {
 	HenchmanService service;
-	SQLite_Manager SQLiteM;
-	SQLiteM.ToggleConsoleLogging();
-	CSimpleIni ini;
-	ini.SetUnicode();
-	
-	cout << "Export path: " << GetExportsPath() << endl;
+
+	//cout << "Export path: " << GetExportsPath() << endl;
 	//service.app_path = "C:\\FPC\\Kaptap.exe";
-	cout << "Logs path: " << GetLogsPath() << endl;
-	vector<string> explodedString;
-	try {
+	//cout << "Logs path: " << GetLogsPath() << endl;
+	//vector<string> explodedString;
+	/*try {
 		string s = "Hello World Jack Son";
 		explodedString = service.Explode(" ", s, 1);
 	}
 	catch (const HenchmanServiceException& hse) {
 		cout << "An Exception in HenchmanService Occured:" << endl;
 		cout << hse.what();
-	}
-	for(auto i : explodedString) cout << i << endl;
-	ProcessExists("HenchmanServices") ? cout << "Yes It Does" : cout << "No It Does Not";
-	cout << endl;
-	char buff[1024];
-	int byteLength = GetCurrentDirectory(sizeof(buff), buff);
-	string currDir = buff;
-	currDir.resize(byteLength);
-	FileInUse(currDir + "\\HenchmanServices.exe") ? cout << "Yes It Is" : cout << "No It Is Not";
-	cout << endl;
-	cout << "Reading ini file: " << string(currDir + "\\service.ini") << endl;
-	SI_Error rc = ini.LoadFile(string(currDir + "\\service.ini").c_str());
-	if (rc < 0) {
-		cerr << "Failed to Load INI File" << endl;
-	}
-	const char* username = ini.GetValue("Email", "Username", "");
-	const char* password = ini.GetValue("Email", "Password", "");
-	if (checkForInternetConnection() && isInternetConnected() && service.setMailLogin(username, password)) {
-		cout << "Able to send mail" << endl;
-		//service.ConnectWithSMTP();
-	}
+	}*/
+	//for(auto i : explodedString) cout << i << endl;
+
+	//ProcessExists("HenchmanServices") ? cout << "Yes It Does" : cout << "No It Does Not";
+	//cout << endl;
+	//
+	//char buff[1024];
+	//int byteLength = GetCurrentDirectory(sizeof(buff), buff);
+	//string currDir = buff;
+	//currDir.resize(byteLength);
+	//string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
+	//struct stat buffer;
+	//if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
+	//{
+	//	installDir = currDir;
+	//}
+	//SetStrVal(hKey, "InstallDir", installDir, REG_SZ);
+
+	//FileInUse(installDir + "\\HenchmanServices.exe") ? cout << "Yes It Is" : cout << "No It Is Not";
+	//cout << endl;
+	//
+	//cout << "creating Table for service" << endl;
+	//string tableName = "TestTable";
+	//vector<string> cols;
+	//cols.push_back("username TEXT NOT NULL");
+	//cols.push_back("password TEXT NOT NULL");
+	//SQLiteM.CreateTable(tableName, cols);
+
+	//cout << "Reading ini file: " << string(installDir + "\\service.ini") << endl;
+	//SI_Error rc = ini.LoadFile(string(installDir + "\\service.ini").c_str());
+	//if (rc < 0) {
+	//	cerr << "Failed to Load INI File" << endl;
+	//}
+	//string username = ini.GetValue("Email", "Username", "");
+	//string password = ini.GetValue("Email", "Password", "");
+	//
+	//if (checkForInternetConnection() && isInternetConnected() && service.setMailLogin(username, password)) {
+	//	cout << "Able to send mail" << endl;
+	//	//service.ConnectWithSMTP();
+	//}
 	//ShellExecuteApp("HenchmanServices.exe", "") ? cout << "Successfully excecuted" << endl : cout << "Failed to excecute" << endl;
-	/*InstallMySQL();
+	InstallMySQL();
 	InstallApache();
-	InstallOnlineOfflineScript();*/
-	cout << "Checking DB" << endl;
-	SQLiteM.InitDB();
-	explodedString.clear();
+	InstallOnlineOfflineScript();
+	
+	//explodedString.clear();
+	
 	Sleep(5000);
+	
 	return 0;
 }
