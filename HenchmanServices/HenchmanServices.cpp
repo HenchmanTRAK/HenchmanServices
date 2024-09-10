@@ -138,14 +138,16 @@ bool FileInUse(string fileName) {
 	HANDLE fileRes;
 	//struct stat buffer;
 	cout << "Checking if: " << fileName << " is being used" << endl;
+	bool result = false;
 	if (filesystem::exists(fileName)) {
 		cout << "Target File Exists" << endl;
 		fileRes = CreateFile(fileName.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-		return (fileRes == INVALID_HANDLE_VALUE);
+		result = fileRes == INVALID_HANDLE_VALUE;
+		CloseHandle(fileRes);
+		return result;
 	}
 	cout << "Target File Does Not Exists Or Could Not Be Found" << endl;
-	CloseHandle(fileRes);
-	return false;
+	return result;
 }
 
 int ShellExecuteApp(string appName, string params)
