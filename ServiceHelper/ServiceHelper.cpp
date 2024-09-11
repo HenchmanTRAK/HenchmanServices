@@ -112,3 +112,32 @@ string GetLogsPath(string app_path)
 	}
 	return logsPath;
 }
+
+void WriteToLog(string log) 
+{
+	string logDir = GetLogsPath();
+	logDir.append("log.txt");
+	fstream fs(logDir.c_str(), ios::out | ios_base::app);
+	if (fs) {
+		fs << log << '\n';
+		fs.close();
+	}
+}
+
+void WriteToError(string log) 
+{
+	string logDir = GetLogsPath();
+	logDir.append("error.txt");
+	fstream fs(logDir.c_str(), ios::out | ios_base::app);
+	if (fs) {
+		/*time_t timer = time(NULL);
+		struct tm currDateTime = *localtime(&timer);
+		char dateBuf[120];
+		char timeBuf[120];
+		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
+		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
+		fs << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";*/
+		fs << log << '\n';
+		fs.close();
+	}
+}

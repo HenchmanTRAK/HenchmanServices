@@ -45,7 +45,7 @@ string GetStrVal(HKEY hKey, LPCTSTR lpValue, DWORD type)
 	LONG nError = RegGetValue(hKey, NULL, lpValue, RRF_RT_ANY, NULL, data, &buffSize);
 
 	if (nError == ERROR_FILE_NOT_FOUND) {
-		cout << "No File Found" << endl;
+		//cout << "No File Found" << endl;
 		reply = ""; // The value will be created and set to data next time SetVal() is called.
 	}
 	else if (nError)

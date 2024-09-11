@@ -9,7 +9,7 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-
+set(TRACEDESIGNTIME TRUE)
 project ("HenchmanServices" VERSION 0.0.1)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
@@ -59,9 +59,10 @@ option(SQLITECPP_RUN_CPPLINT "Run c++ lint" OFF)
 #add_subdirectory ("simpleini-4.22")
 #add_subdirectory (thirdparty/SQLiteCpp-3.3.2)
 add_subdirectory (HenchmanServiceException)
-add_subdirectory (HenchmanServiceHelper)
-add_subdirectory (HenchmanServiceRegistry)
-add_subdirectory (HenchmanServiceSQLiteManager)
+add_subdirectory (ServiceHelper)
+add_subdirectory (RegistryManager)
+add_subdirectory (SQLiteManager)
+add_subdirectory (TRAKManager)
 #add_subdirectory (HenchmanServiceMailer)
 add_subdirectory (HenchmanServices)
 

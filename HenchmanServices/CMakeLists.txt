@@ -2,7 +2,6 @@
 # project specific logic here.
 #
 
-
 # Add source to this project's executable.
 add_executable(HenchmanServices "HenchmanServices.cpp")
 
@@ -15,6 +14,7 @@ target_link_libraries(HenchmanServices PRIVATE
 	sqlite3 
 	SQLiteManager 
 	RegistryManager
+	TRAKManager
 )
 
 set_target_properties(HenchmanServices PROPERTIES LINK_FLAGS

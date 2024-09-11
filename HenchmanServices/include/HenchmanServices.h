@@ -37,6 +37,7 @@
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
 #include "SQLiteManager.h"
+#include "TRAKManager.h"
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
@@ -199,9 +200,8 @@ public:
     bool setMailLogin(string &, string &);
     static stringstream logx;
     static string app_path;
-    void WriteToLog(string);
-    void WriteToError(string);
-	vector<string> Explode(const string&, string&, int = 0);
+    vector<string> Explode(const string&, string&, int&);
+    vector<string> Explode(const string&, string&);
 	void ConnectWithSMTP();
     bool checkForInternetConnection();
     bool isInternetConnected();

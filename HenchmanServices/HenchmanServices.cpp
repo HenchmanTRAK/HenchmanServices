@@ -594,19 +594,20 @@ stop_cleanup:
 
 bool __stdcall StopDependentServices()
 {
-	DWORD i;
 	DWORD dwBytesNeeded;
+	DWORD dwStartTime = GetTickCount64();
+	DWORD dwTimeout = (30 * 1000); // 30-second time-out
 	DWORD dwCount;
+	DWORD i;
 
+	SERVICE_STATUS_PROCESS  ssp;
 	LPENUM_SERVICE_STATUS   lpDependencies = NULL;
 	ENUM_SERVICE_STATUS     ess;
 	SC_HANDLE               hDepService;
-	SERVICE_STATUS_PROCESS  ssp;
 	ZeroMemory(&ssp, sizeof(ssp));
 
+	bool result = TRUE;
 
-	DWORD dwStartTime = GetTickCount64();
-	DWORD dwTimeout = (30 * 1000); // 30-second time-out
 
 	// Pass a zero-length buffer to get the required buffer size.
 	if (EnumDependentServices(schService, SERVICE_ACTIVE,
@@ -614,7 +615,7 @@ bool __stdcall StopDependentServices()
 	{
 		// If the Enum call succeeds, then there are no dependent
 		// services, so do nothing.
-		return TRUE;
+		return result;
 	}
 	else
 	{
@@ -626,14 +627,18 @@ bool __stdcall StopDependentServices()
 			GetProcessHeap(), HEAP_ZERO_MEMORY, dwBytesNeeded);
 
 		if (!lpDependencies)
-			return FALSE;
+			return !result;
 
 		__try {
 			// Enumerate the dependencies.
 			if (!EnumDependentServices(schService, SERVICE_ACTIVE,
 				lpDependencies, dwBytesNeeded, &dwBytesNeeded,
-				&dwCount))
-				return FALSE;
+				&dwCount)) 
+			{
+				//return FALSE;
+				result = FALSE;
+				__leave;
+			}
 
 			for (i = 0; i < dwCount; i++)
 			{
@@ -644,14 +649,22 @@ bool __stdcall StopDependentServices()
 					SERVICE_STOP | SERVICE_QUERY_STATUS);
 
 				if (!hDepService)
-					return FALSE;
+				{
+					//return FALSE;
+					result = FALSE;
+					__leave;
+				}
 
 				__try {
 					// Send a stop code.
 					if (!ControlService(hDepService,
 						SERVICE_CONTROL_STOP,
 						(LPSERVICE_STATUS)&ssp))
-						return FALSE;
+					{
+						//return FALSE;
+						result = FALSE;
+						__leave;
+					}
 
 					// Wait for the service to stop.
 					while (ssp.dwCurrentState != SERVICE_STOPPED)
@@ -663,13 +676,21 @@ bool __stdcall StopDependentServices()
 							(LPBYTE)&ssp,
 							sizeof(SERVICE_STATUS_PROCESS),
 							&dwBytesNeeded))
-							return FALSE;
+						{
+							//return FALSE;
+							result = FALSE;
+							__leave;
+						}
 
 						if (ssp.dwCurrentState == SERVICE_STOPPED)
 							break;
 
 						if (GetTickCount64() - dwStartTime > dwTimeout)
-							return FALSE;
+						{
+							//return FALSE;
+							result = FALSE;
+							__leave;
+						}
 					}
 				}
 				__finally
@@ -685,7 +706,7 @@ bool __stdcall StopDependentServices()
 			HeapFree(GetProcessHeap(), 0, lpDependencies);
 		}
 	}
-	return TRUE;
+	return result;
 }
 
 void __stdcall DoDeleteSvc(const char* sService)
@@ -888,6 +909,13 @@ HenchmanService::HenchmanService()
 	HenchmanService::update = false;*/
 	//CSimpleIni ini;
 	ini.SetUnicode();
+	time_t timer = time(NULL);
+	struct tm currDateTime = *localtime(&timer);
+	char dateBuf[120];
+	char timeBuf[120];
+	strftime(dateBuf, sizeof(dateBuf), "%d/%m/%Y", &currDateTime);
+	strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
+	logx << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";
 
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 
@@ -929,7 +957,6 @@ HenchmanService::HenchmanService()
 	}
 	string username = ini.GetValue("Email", "Username", "");
 	string password = base64(ini.GetValue("Email", "Password", ""));
-	cout << decodeBase64(password) << endl;
 	//string encodedPass = base64(password);
 	if (checkForInternetConnection() && isInternetConnected() && setMailLogin(username, password)) {
 		cout << "Able to send mail" << endl;
@@ -947,56 +974,23 @@ HenchmanService::~HenchmanService()
 {
 	//cout << "Deconstructing HenchmanService" << endl;
 	delete SQLiteM;
+	logx.clear();
 }
 
-void HenchmanService::WriteToLog(string log) {
-	if (log == "") {
-		log = logx.str();
-	}
-	string logDir = GetLogsPath();
-	logDir.append("log.txt");
-	fstream fs(logDir.c_str(), ios::out | ios_base::app);
-	if (fs) {
-		time_t timer = time(NULL);
-		struct tm currDateTime = *localtime(&timer);
-		char dateBuf[120];
-		char timeBuf[120];
-		strftime(dateBuf, sizeof(dateBuf), "%d/%m/%Y", &currDateTime);
-		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
-		fs << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";
-		fs << log << '\n';
-		fs.close();
-	}
-	logx.str(string());
+vector<string> HenchmanService::Explode(const string& Seperator, string& s)
+{
+	int limit = -1;
+	return Explode(Seperator, s, limit);
 }
 
-void HenchmanService::WriteToError(string log) {
-	if (log == "") {
-		log = logx.str();
-	}
-	string logDir = GetLogsPath();
-	logDir.append("error.txt");
-	fstream fs(logDir.c_str(), ios::out | ios_base::app);
-	if (fs) {
-		time_t timer = time(NULL);
-		struct tm currDateTime = *localtime(&timer);
-		char dateBuf[120];
-		char timeBuf[120];
-		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
-		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
-		fs << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";
-		fs << log << '\n';
-		fs.close();
-	}
-	logx.str(string());
-}
-
-vector<string> HenchmanService::Explode(const string &Seperator, string &s, int limit) {
+vector<string> HenchmanService::Explode(const string &Seperator, string &s, int &limit)
+{
 	if (s == "")
 		throw HenchmanServiceException("No String was Provided");
 	if (limit < 0)
 		throw HenchmanServiceException("Invalid Integer Provided");
-	vector<string>results;
+
+	vector<string> results;
 	if (Seperator == "") {
 		results.push_back(s);
 	}
@@ -1148,6 +1142,7 @@ void HenchmanService::ConnectWithSMTP() {
 				freeaddrinfo(mailAddrInfo);
 				closesocket(mailSocket);
 				WSACleanup();
+				logx.str(string());
 				return;
 			}
 		}
@@ -1160,6 +1155,7 @@ void HenchmanService::ConnectWithSMTP() {
 			closesocket(mailSocket);
 			freeaddrinfo(mailAddrInfo);
 			WSACleanup();
+			logx.str(string());
 			return;
 		}
 
@@ -1193,6 +1189,7 @@ void HenchmanService::ConnectWithSMTP() {
 			freeaddrinfo(mailAddrInfo);
 			closesocket(mailSocket);
 			WSACleanup();
+			logx.str(string());
 			return;
 		}
 		else {
@@ -1211,6 +1208,7 @@ void HenchmanService::ConnectWithSMTP() {
 			logx << "---" << "Generating and sending Email" << "---\r\n" << endl;
 			cout << logx.str();
 			WriteToLog(logx.str());
+			logx.str(string());
 			SendEmail(ssl, attachments);
 		}
 		sslError(ssl, 1, loghash, logx);
@@ -1224,7 +1222,6 @@ void HenchmanService::ConnectWithSMTP() {
 		logx << "\n---" << loghash << "---\r\n" << endl;
 		cout << logx.str();
 		WriteToError(logx.str());
-		return;
 	}
 	logx.str(string());
 }
@@ -1404,7 +1401,6 @@ void HenchmanService::SendEmail(SSL* &ssl, vector<string> attachments) {
 			if (!Contain(string(buff), "221"))return;
 
 			SSL_free(ssl);
-			return;
 		}
 
 	}
@@ -1412,8 +1408,8 @@ void HenchmanService::SendEmail(SSL* &ssl, vector<string> attachments) {
 		logx << "\n---" << loghash << "---\r\n" << endl;
 		cout << logx.str();
 		WriteToError(logx.str());
-		return;
 	}
+	logx.str(string());
 }
 
 bool  HenchmanService::checkForInternetConnection() 
@@ -1448,6 +1444,7 @@ Exit:
 	CoUninitialize();
 	cout << logx.str();
 	WriteToLog(logx.str());
+	logx.str(string());
 	return returnState;
 }
 
@@ -1522,13 +1519,20 @@ bool  HenchmanService::isInternetConnected()
 		logx << "\n---" << loghash << "---\r\n" << endl;
 		cout << logx.str();
 		WriteToError(logx.str());
+		logx.str(string());
 		return false;
 	}
+	logx.str(string());
 	return true;
 }
 
 int main() {
 	HenchmanService service;
+	GetLogsPath();
+	TRAKManager TrakM;
+	auto pTrakM = &TrakM;
+
+	pTrakM->CreateDataModule();
 
 	//cout << "Export path: " << GetExportsPath() << endl;
 	//service.app_path = "C:\\FPC\\Kaptap.exe";
@@ -1582,9 +1586,9 @@ int main() {
 	//	//service.ConnectWithSMTP();
 	//}
 	//ShellExecuteApp("HenchmanServices.exe", "") ? cout << "Successfully excecuted" << endl : cout << "Failed to excecute" << endl;
-	InstallMySQL();
+	/*InstallMySQL();
 	InstallApache();
-	InstallOnlineOfflineScript();
+	InstallOnlineOfflineScript();*/
 	
 	//explodedString.clear();
 	

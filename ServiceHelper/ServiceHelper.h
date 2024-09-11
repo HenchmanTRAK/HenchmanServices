@@ -22,5 +22,6 @@ char* base64(string string);
 char* decodeBase64(string string);
 string GetExportsPath(string app_path = "");
 string GetLogsPath(string app_path = "");
-
+void WriteToLog(string log);
+void WriteToError(string log);
 #endif
