@@ -1,5 +1,7 @@
 #include "ServiceHelper.h"
 
+using namespace std;
+
 long int microseconds() 
 {
 	struct timespec tp;
@@ -29,8 +31,8 @@ string fileBasename(string path)
 
 string get_file_contents(const char* filename)
 {
-
-	if (ifstream is{ filename, ios::binary | ios::ate })
+	string targetFile = filename;
+	if (ifstream is{ targetFile, ios::binary | ios::ate })
 	{
 		auto size = is.tellg();
 		string str(size, '\0'); // construct string to stream size
@@ -77,7 +79,7 @@ string GetExportsPath(string app_path)
 
 	if (app_path == "") {
 		do {
-			_results = GetCurrentDirectory(sizeof(buff), buff);
+			_results = GetCurrentDirectoryA(sizeof(buff), buff);
 			exportsPath = buff;
 		} while (_results > exportsPath.length() && exportsPath.data());
 	}
@@ -99,7 +101,7 @@ string GetLogsPath(string app_path)
 	char buff[1024];
 	if (app_path == "") {
 		do {
-			_results = GetCurrentDirectory(sizeof(buff), buff);
+			_results = GetCurrentDirectoryA(sizeof(buff), buff);
 			logsPath = buff;
 		} while (_results > logsPath.length() && logsPath.data());
 	}
@@ -119,6 +121,14 @@ void WriteToLog(string log)
 	logDir.append("log.txt");
 	fstream fs(logDir.c_str(), ios::out | ios_base::app);
 	if (fs) {
+		time_t timer = time(NULL);
+		struct tm currDateTime = *localtime(&timer);
+		char dateBuf[120];
+		char timeBuf[120];
+		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
+		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
+		cout << "---| " << dateBuf << " " << timeBuf << " |--- " << log << endl;
+		fs << "---| " << dateBuf << " " << timeBuf << " |--- ";
 		fs << log << '\n';
 		fs.close();
 	}
@@ -130,14 +140,53 @@ void WriteToError(string log)
 	logDir.append("error.txt");
 	fstream fs(logDir.c_str(), ios::out | ios_base::app);
 	if (fs) {
-		/*time_t timer = time(NULL);
+		time_t timer = time(NULL);
 		struct tm currDateTime = *localtime(&timer);
 		char dateBuf[120];
 		char timeBuf[120];
 		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
 		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
-		fs << "###-< " << dateBuf << " " << timeBuf << " >-###\n\n";*/
+		cerr << "---| " << dateBuf << " " << timeBuf << " |--- " << log << endl;
+		fs << "---| " << dateBuf << " " << timeBuf << " |--- ";
 		fs << log << '\n';
 		fs.close();
 	}
+}
+
+void sanitize(string& stringValue)
+{
+	// Add backslashes.
+	for (auto i = stringValue.begin();;) {
+		auto const pos = std::find_if(
+			i, stringValue.end(),
+			[](char const c) { return '\\' == c || '\'' == c || '"' == c; }
+		);
+		if (pos == stringValue.end()) {
+			break;
+		}
+		i = std::next(stringValue.insert(pos, '\\'), 2);
+	}
+
+	// Removes others.
+	stringValue.erase(
+		std::remove_if(
+			stringValue.begin(), stringValue.end(), [](char const c) {
+				return '\n' == c || '\r' == c || '\0' == c || '\x1A' == c;
+			}
+		),
+		stringValue.end()
+	);
+}
+
+void removeQuotes(string& stringValue)
+{
+	// Removes others.
+	stringValue.erase(
+		std::remove_if(
+			stringValue.begin(), stringValue.end(), [](char const c) {
+				return '\'' == c || '"' == c;
+			}
+		),
+		stringValue.end()
+	);
 }

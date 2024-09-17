@@ -1,12 +1,14 @@
 
-add_library(TRAKManager "TRAKManager.cpp")
+qt_add_library(TRAKManager SHARED "TRAKManager.cpp")
 
-target_include_directories(TRAKManager PUBLIC "." )
+target_include_directories(TRAKManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 target_link_libraries(
 	TRAKManager PRIVATE
-	ServiceHelper
 	SimpleIni
+	ServiceHelper
 	RegistryManager
+	DatabaseManager
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

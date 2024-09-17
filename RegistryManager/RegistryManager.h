@@ -5,13 +5,13 @@
 
 #include <iostream>
 #include <Windows.h>
+#include <tchar.h>
+#include <string>
 
-using namespace std;
-
-HKEY OpenKey(HKEY hRootKey, string strKey);
-void SetStrVal(HKEY hKey, LPCTSTR lpValue, string data, DWORD type);
-void SetVal(HKEY hKey, LPCTSTR lpValue, DWORD data, DWORD type);
-string GetStrVal(HKEY hKey, LPCTSTR lpValue, DWORD type);
-DWORD GetVal(HKEY hKey, LPCTSTR lpValue, DWORD type);
+HKEY OpenKey(HKEY hRootKey, std::string strKey);
+void SetStrVal(HKEY &hKey, const char* lpValue, std::string data, DWORD type);
+void SetVal(HKEY &hKey, const char* lpValue, DWORD data, DWORD type);
+std::string GetStrVal(HKEY &hKey, const char* lpValue, DWORD type);
+DWORD GetVal(HKEY &hKey, const char* lpValue, DWORD type);
 
 #endif

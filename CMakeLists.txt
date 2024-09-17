@@ -9,51 +9,99 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-set(TRACEDESIGNTIME TRUE)
-project ("HenchmanServices" VERSION 0.0.1)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+if(MSVC)
+  target_compile_options(<target> PUBLIC "/ZI")
+  target_link_options(<target> PUBLIC "/INCREMENTAL")
+endif()
 
-message(STATUS "Using c++ standard c++${CMAKE_CXX_STANDARD}")
+project ("HenchmanServices" VERSION 0.0.1 LANGUAGES CXX C)
+set(TRACEDESIGNTIME TRUE)
+
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+message(STATUS "Using c++ standard c++${CMAKE_CXX_STANDARD}")
+
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 message (STATUS "CMake version: ${CMAKE_VERSION}")
 message (STATUS "Project version: ${PROJECT_VERSION}")
 
 include(FetchContent)
+include(ExternalProject)
 include(GNUInstallDirs)
+
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
+message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
+find_package(Qt6 REQUIRED COMPONENTS Core Sql)
+qt_standard_project_setup()
+#file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
-find_package(OpenSSL REQUIRED GLOBAL)
+
+#set(mariadbcpp_Dir "C:\\Program Files\\MariaDB\\MariaDB C++ Connector 64-bit")
+#find_library(mariadbcpp PATHS ${mariadbcpp_Dir})
+#find_package(mariadbcpp)
+#include_directories(${mariadbcpp_Dir}/include)
+#link_directories(${mariadbcpp_Dir}/lib)
+
 #find_package(sqlite3 REQUIRED GLOBAL)
+#find_package(OpenSSL REQUIRED GLOBAL)
+
+#message(STATUS "mysql-concpp: " ${MYSQL_CONCPP_VERSION_NUMBER})
 
 #message(WARNING "OpenSSL_VERSION: ${OPENSSL_VERSION}")
 #message(WARNING "OpenSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
 #message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
+option(SQLITECPP_BUILD_TESTS "Build and run tests." OFF)
+option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." ON)
+option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
+qt_policy(SET QTP0003 NEW)
+option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
+
+
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY	https://github.com/google/googletest.git
+  GIT_TAG			main
+)
 FetchContent_Declare(
 	SimpleIni
-	GIT_REPOSITORY "https://github.com/brofield/simpleini.git"
-	GIT_TAG v4.22
+	GIT_REPOSITORY	https://github.com/brofield/simpleini.git
+	GIT_TAG			v4.22
 )
 FetchContent_Declare(
 	SQLiteCpp
-	GIT_REPOSITORY "https://github.com/SRombauts/SQLiteCpp.git"
-	GIT_TAG master
+	GIT_REPOSITORY	https://github.com/SRombauts/SQLiteCpp.git
+	GIT_TAG			master
+)
+FetchContent_Declare(
+	OpenSSL
+	URL				https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.3.2.zip
+	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
+	FIND_PACKAGE_ARGS HINTS x64
 )
 
-#FetchContent_GetProperties(SimpleIni)
-#if (NOT SimpleIni_POPULATED)
-#FetchContent_Populate(SimpleIni)
-#add_subdirectory(${SimpleIni_SOURCE_DIR} ${SimpleIni_BINARY_DIR})
-#endif ()
+FetchContent_Declare(
+	QMYSQL
+	URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip
+)
+set(QMYSQL_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/qmysql-src)
 
-FetchContent_MakeAvailable(SimpleIni SQLiteCpp)
+FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
 
-option(SQLITECPP_BUILD_TESTS "Build and run tests." ON)
-#option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." ON)
-option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
-option(SQLITECPP_RUN_CPPLINT "Run c++ lint" OFF)
+file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+
+#set(mysql-concpp_DIR "C:/Program Files/MySQL/MySQL Connector C++ 9.0")
+
+#add_library(my_openssl INTERFACE)
+#target_link_directories(my_openssl INTERFACE ${OPENSSL_LIBRARY_DIR})
+#target_link_libraries(my_openssl INTERFACE OpenSSL::SSL OpenSSL::Crypto)
+#add_library(mysql::openssl ALIAS my_openssl)
+
+#set(WITH_JDBC true)
+#find_package(mysql-concpp REQUIRED debug)
 
 # Include sub-projects.
 #add_subdirectory ("simpleini-4.22")
@@ -62,15 +110,56 @@ add_subdirectory (HenchmanServiceException)
 add_subdirectory (ServiceHelper)
 add_subdirectory (RegistryManager)
 add_subdirectory (SQLiteManager)
+add_subdirectory (DatabaseManager)
 add_subdirectory (TRAKManager)
 #add_subdirectory (HenchmanServiceMailer)
 add_subdirectory (HenchmanServices)
 
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
+
+install (
+	DIRECTORY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install (DIRECTORY ${OPENSSL_RUNTIME_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR} FILES_MATCHING PATTERN "*.dll")
+#install (DIRECTORY ${QT_DIR}/bin/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")
+install (FILES 
+	service.ini 
+	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-10-vs14.dll 
+	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-2-vs14.dll 
+	DESTINATION bin
+)
+
+#[==[
 install(
-	TARGETS HenchmanServices 
+	CODE [[
+    file(GET_RUNTIME_DEPENDENCIES
+        RESOLVED_DEPENDENCIES_VAR RES
+        UNRESOLVED_DEPENDENCIES_VAR UNRES
+        CONFLICTING_DEPENDENCIES_PREFIX CONFLICTING_DEPENDENCIES
+        EXECUTABLES $<TARGET_FILE:HenchmanServices>
+        LIBRARIES $<TARGET_FILE:Qt6Core>
+    )
+
+    message("\n\nFound dependencies :")
+    foreach(DEP ${RES})
+        message("${DEP}")
+    endforeach()
+    message("\n\nNot found dependencies :")
+    foreach(DEP ${UNRES})
+        message("${DEP}")
+    endforeach()
+]])
+]==]
+
+install(
+	TARGETS HenchmanServices
+	#COMPONENT HenchmanServices
 	RUNTIME_DEPENDENCIES 
 		PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" 
 		POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" 
+	DIRECTORIES 
+		$<TARGET_FILE_DIR:HenchmanServices>
+		$<TARGET_RUNTIME_DLLS:HenchmanServices>
 )
-install (FILES service.ini DESTINATION bin)
+#install (DIRECTORY ${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")

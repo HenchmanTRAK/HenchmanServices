@@ -3,9 +3,9 @@
 
 #ifndef HENCHMAN_SERVICE_H
 #define HENCHMAN_SERVICE_H
-
 #pragma once
 
+//#include <QtCore>
 //#include <openssl/ssl.h>
 //#include <openssl/err.h>
 //#include <openssl/crypto.h>
@@ -28,9 +28,13 @@
 //#include <algorithm>
 //#include <cstdio>
 #include <netlistmgr.h>
-//#include <tchar.h>
+#include <tchar.h>
 #include <strsafe.h>
 #include <TlHelp32.h>
+
+#include <QCoreApplication>
+#include <QTimer>
+#include <QString>
 
 #include "SimpleIni.h"
 #include "HenchmanServiceException.h"
@@ -42,7 +46,6 @@
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
 
-using namespace std;
 // TODO: Reference additional headers your program requires here.
 #define SERVICE_NAME			"HenchmanService"
 #define SERVICE_DISPLAY_NAME	"HenchmanTRAK Product Service"
@@ -62,8 +65,7 @@ HANDLE				  g_ServiceStopEvent = INVALID_HANDLE_VALUE;
 SC_HANDLE schSCManager;
 SC_HANDLE schService;
 
-const char MimeTypes[][2][128] =
-{
+const char MimeTypes[][2][128] = {
     {"***", "application/octet-stream"},
     {"csv", "text/csv"},
     {"tsv", "text/tab-separated-values"},
@@ -154,17 +156,17 @@ const char MimeTypes[][2][128] =
     {"flv", "video/x-flv"}
 };
 
-const string base64_chars =
+const std::string base64_chars =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 "abcdefghijklmnopqrstuvwxyz"
 "0123456789+/";
 
-CSimpleIni ini;
+CSimpleIniA ini;
 
 class HenchmanService {
 
-    static string mail_username;
-    static string mail_password;
+    static std::string mail_username;
+    static std::string mail_password;
 
     static SQLite_Manager *SQLiteM;
 
@@ -177,6 +179,11 @@ class HenchmanService {
 	static SSL_CTX* ctx;
 	static SSL* ssl;
 	static struct addrinfo* mailAddrInfo;
+
+    bool kReport;
+    bool cReport;
+    bool pReport;
+    bool update;
 	
 	/*bool report = false;
 	bool update = false;*/
@@ -191,25 +198,27 @@ class HenchmanService {
 	void ServiceStop(class TService, bool& Started);
 	void ServicePause(class TService, bool& Started);
 	void ServiceCreate();
-	void SendEmail( SSL*& , vector<string>);
+	void SendEmail( SSL*& , std::vector<std::string>);
 private:
 
 public:
     HenchmanService();
     ~HenchmanService();
-    bool setMailLogin(string &, string &);
-    static stringstream logx;
-    static string app_path;
-    vector<string> Explode(const string&, string&, int&);
-    vector<string> Explode(const string&, string&);
+    bool setMailLogin(std::string &, std::string &);
+    static std::stringstream logx;
+    static std::string app_path;
+    std::vector<std::string> Explode(const std::string&, std::string&, int&);
+    std::vector<std::string> Explode(const std::string&, std::string&);
 	void ConnectWithSMTP();
     bool checkForInternetConnection();
     bool isInternetConnected();
 	SC_HANDLE *GetServiceController();
+    int MainFunction();
 };
 
 void DoInstallSvc();
 void __stdcall DoStartSvc(const char* sService = SERVICE_NAME);
+int __stdcall StartTargetSvc(const char* sService);
 void __stdcall DoStopSvc(const char* sService = SERVICE_NAME);
 bool __stdcall StopDependentServices();
 void __stdcall DoDeleteSvc(const char* sService = SERVICE_NAME);

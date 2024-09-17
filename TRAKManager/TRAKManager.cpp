@@ -1,6 +1,8 @@
 
 #include "TRAKManager.h"
 
+using namespace std;
+
 string TRAKManager::appDir;
 string TRAKManager::iniFile;
 string TRAKManager::appName;
@@ -22,7 +24,7 @@ bool TRAKManager::kabTRAKExists()
 		iniFile = "trak.ini";
 		appName = "kabtrak.exe";
 		appType = "kabTRAK";
-		WriteToLog("Using" + appDir + iniFile);
+		WriteToLog("Using " + appDir + iniFile);
 		return TRUE;
 	}
 	return FALSE;
@@ -36,7 +38,7 @@ bool TRAKManager::portaTRAKExists()
 		iniFile = "porta.ini";
 		appName = "portaTRAK.exe";
 		appType = "portaTRAK";
-		WriteToLog("Using" + appDir + iniFile);
+		WriteToLog("Using " + appDir + iniFile);
 		return TRUE;
 	}
 	return FALSE;
@@ -50,7 +52,7 @@ bool TRAKManager::cribTRAKExists()
 		iniFile = "crib.ini";
 		appName = "kribTRAK.exe";
 		appType = "cribTRAK";
-		WriteToLog("Using" + appDir + iniFile);
+		WriteToLog("Using " + appDir + iniFile);
 		return TRUE;
 	}
 	return FALSE;
@@ -102,6 +104,38 @@ void TRAKManager::conRemoteError(exception& e)
 	error.clear();
 }
 
+void TRAKManager::saveINIToRegistry(CSimpleIniA &iniFile, string &section)
+{
+	CSimpleIniA::TNamesDepend keys;
+	iniFile.GetAllKeys(section.data(), keys);
+	map<string, string> map;
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section));
+	for (auto const& val : keys)
+	{
+		string key = val.pItem;
+		string value = iniFile.GetValue(section.data(), val.pItem, "");
+		//sanitize(value);
+		removeQuotes(value);
+		if (key == "Password" && value != "")
+			value = base64(value);
+		map[key] = value;
+		GetStrVal(hKey, key.data(), REG_SZ);
+		SetStrVal(hKey, key.data(), map[key], REG_SZ);
+		if (key == "kabID" || key == "portaID" || key == "cribID")
+		{
+			value = key;
+			key = "trakID";
+			map[key] = value;
+			GetStrVal(hKey, key.data(), REG_SZ);
+			SetStrVal(hKey, key.data(), map[key], REG_SZ);
+		}
+		key.clear();
+	}
+	keys.clear();
+	map.clear();
+	RegCloseKey(hKey);
+}
+
 void TRAKManager::CreateDataModule()
 {
 	if (!(kabTRAKExists() || portaTRAKExists() || cribTRAKExists()))
@@ -112,7 +146,7 @@ void TRAKManager::CreateDataModule()
 	cout << appName << " exists with " << iniFile << " ini file at " << appDir << endl;
 	
 	try {
-		CSimpleIni ini;
+		CSimpleIniA ini;
 		ini.SetUnicode();
 		cout << "app dir: " << appDir << iniFile << endl;
 
@@ -121,18 +155,24 @@ void TRAKManager::CreateDataModule()
 		if (rc < 0) {
 			cerr << "Failed to Load INI File" << endl;
 		}
-		CSimpleIniA::TNamesDepend keys;
-		ini.GetAllKeys("Cloud", keys);
-		map<string, string> cloud_map ;
-		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\Cloud"));
-		for (auto const& val : keys)
-		{
-			cloud_map[val.pItem] = ini.GetValue("Cloud", val.pItem, "");
-			GetStrVal(hKey, val.pItem, REG_SZ);
-			SetStrVal(hKey, val.pItem, cloud_map[val.pItem], REG_SZ);
-		}
-		keys.clear();
-		RegCloseKey(hKey);
+		
+		cout << "Adding Cloud entries to registry" << endl;
+		string section = "Cloud";
+		saveINIToRegistry(ini, section);
+		cout << "Adding Database entries to registry" << endl;
+		section = "Database";
+		saveINIToRegistry(ini, section);
+		cout << "Adding Customer entries to registry" << endl;
+		section = "Customer";
+		saveINIToRegistry(ini, section);
+
+		cout << "Connecting to MySQL Database" << endl;
+		connection(appType);
+
+		string sqlFile = appDir + "database\\qkabmaster.sql";
+
+		ExecuteTargetSqlScript(appType, sqlFile);
+
 		
 		/*cout << cloud_map["UseProxy"] << endl;
 		if (stoi(cloud_map["UseProxy"].data()))
@@ -140,34 +180,6 @@ void TRAKManager::CreateDataModule()
 			cout << "Don't use proxy" << endl;
 		}*/
 
-		ini.GetAllKeys("Database", keys);
-		map<string, string> database_map;
-		hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\Database"));
-		for (auto const& val : keys)
-		{
-			database_map[val.pItem] = ini.GetValue("Database", val.pItem, "");
-			GetStrVal(hKey, val.pItem, REG_SZ);
-			SetStrVal(hKey, val.pItem, database_map[val.pItem], REG_SZ);
-		}
-		keys.clear();
-		RegCloseKey(hKey);
-
-		ini.GetAllKeys("Customer", keys);
-		map<string, string> customer_map;
-		hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\Customer"));
-		for (auto const& val : keys)
-		{
-			string key = val.pItem;
-			if (val.pItem == "kabID" || val.pItem == "portaID" || val.pItem == "cribID")
-			{
-				key = "trackID";
-			}
-			customer_map[key] = ini.GetValue("Customer", val.pItem, "");
-			GetStrVal(hKey, key.c_str(), REG_SZ);
-			SetStrVal(hKey, key.c_str(), customer_map[val.pItem], REG_SZ);
-		}
-		keys.clear();
-		RegCloseKey(hKey);
 		//ini.~CSimpleIniTempl();
 	}
 	catch (exception &e)

@@ -1,11 +1,12 @@
 
-add_library(SQLiteManager "SQLiteManager.cpp")
+qt_add_library(SQLiteManager SHARED "SQLiteManager.cpp")
 
-target_include_directories(SQLiteManager PUBLIC ".")
-target_link_libraries(SQLiteManager PRIVATE 
+target_include_directories(SQLiteManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(
+	SQLiteManager PRIVATE
+	ServiceHelper
 	SQLiteCpp 
 	sqlite3
-	ServiceHelper
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

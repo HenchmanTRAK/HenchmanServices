@@ -1,8 +1,6 @@
 
 
 #include "HenchmanServiceException.h"
-using namespace std;
-
 
 
 const char * HenchmanServiceException::what() const {

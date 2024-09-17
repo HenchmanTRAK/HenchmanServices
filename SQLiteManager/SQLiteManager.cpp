@@ -1,6 +1,8 @@
 
 #include "SQLiteManager.h"
 
+using namespace std;
+
 string SQLite_Manager::dbName;
 string SQLite_Manager::dbDir;
 bool SQLite_Manager::logToConsole;
@@ -22,7 +24,7 @@ SQLite_Manager::SQLite_Manager(string db_dir, string db_name)
 		int attr = GetFileAttributesA(db.getFilename().c_str());
 		if (!(attr & FILE_ATTRIBUTE_HIDDEN))
 		{
-			SetFileAttributes(db.getFilename().c_str(), attr | FILE_ATTRIBUTE_HIDDEN);
+			SetFileAttributesA(db.getFilename().c_str(), attr | FILE_ATTRIBUTE_HIDDEN);
 		}
 	}
 	catch (exception& e)
@@ -143,7 +145,7 @@ int SQLite_Manager::AddRow(string& targetTable, vector<string> &values)
 	{
 		logToConsole&&
 			cout << "exception: " << e.what() << endl;
-		throw e.what();
+		throw e;
 	}
 	return 0;
 }
