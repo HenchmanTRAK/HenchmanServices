@@ -8,6 +8,7 @@ target_include_directories(
 target_link_libraries(
 	DatabaseManager PUBLIC
 	Qt6::Sql
+	Qt6::Network
 	ServiceHelper
 	RegistryManager
 	#mysql::concpp

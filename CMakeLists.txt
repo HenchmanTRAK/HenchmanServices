@@ -15,6 +15,7 @@ if(MSVC)
 endif()
 
 project ("HenchmanServices" VERSION 0.0.1 LANGUAGES CXX C)
+set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 set(TRACEDESIGNTIME TRUE)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -32,10 +33,12 @@ include(ExternalProject)
 include(GNUInstallDirs)
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
+set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR})
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
-find_package(Qt6 REQUIRED COMPONENTS Core Sql)
+find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
 qt_standard_project_setup()
+
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
 
@@ -54,12 +57,12 @@ qt_standard_project_setup()
 #message(WARNING "OpenSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
 #message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
+option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
 option(SQLITECPP_BUILD_TESTS "Build and run tests." OFF)
 option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." ON)
-option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
-qt_policy(SET QTP0003 NEW)
 option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
 
+qt_policy(SET QTP0003 NEW)
 
 FetchContent_Declare(
   googletest
@@ -115,12 +118,40 @@ add_subdirectory (TRAKManager)
 #add_subdirectory (HenchmanServiceMailer)
 add_subdirectory (HenchmanServices)
 
+# App bundles on macOS have an .app suffix
+if(APPLE)
+    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>.app")
+#elseif(MSVC)
+#    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>")
+else()
+    set(executable_path "${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanServices>")
+endif()
+
+# Helper app, not necessarily built as part of this project.
+#qt_add_executable(HelperApp helper.cpp)
+#set(helper_app_path "\${QT_DEPLOY_BIN_DIR}/$<TARGET_FILE_NAME:HelperApp>")
+message(STATUS ${executable_path})
+# Generate a deployment script to be executed at install time
+qt_generate_deploy_script(
+    TARGET HenchmanServices
+    OUTPUT_SCRIPT deploy_script
+    CONTENT "
+qt_deploy_runtime_dependencies(
+    EXECUTABLE \"${executable_path}\"
+    GENERATE_QT_CONF
+    VERBOSE
+)")
+
+if(EXISTS $ENV{QTDIR}/bin/Qt6Cored.dll)
+	message(STATUS "Checking for Qt6Core in " $ENV{QTDIR}/bin ": Yes")
+else()
+	message(STATUS "Checking for Qt6Core in " $ENV{QTDIR}/bin ": No")
+endif()
+
+
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
 
-install (
-	DIRECTORY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
+install (DIRECTORY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR})
 install (DIRECTORY ${OPENSSL_RUNTIME_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR} FILES_MATCHING PATTERN "*.dll")
 #install (DIRECTORY ${QT_DIR}/bin/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")
 install (FILES 
@@ -155,11 +186,11 @@ install(
 install(
 	TARGETS HenchmanServices
 	#COMPONENT HenchmanServices
-	RUNTIME_DEPENDENCIES 
-		PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" 
-		POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" 
-	DIRECTORIES 
-		$<TARGET_FILE_DIR:HenchmanServices>
-		$<TARGET_RUNTIME_DLLS:HenchmanServices>
+	#RUNTIME_DEPENDENCIES 
+	#	PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" 
+	#	POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" 
+	#DIRECTORIES $<TARGET_FILE_DIR:HenchmanServices>
+	BUNDLE DESTINATION .
 )
+install(SCRIPT ${deploy_script})
 #install (DIRECTORY ${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")

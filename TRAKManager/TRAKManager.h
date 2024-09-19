@@ -12,10 +12,6 @@
 
 class TRAKManager {
 private:
-	static std::string appDir;
-	static std::string iniFile;
-	static std::string appName;
-	static std::string appType;
 
 	bool kabTRAKExists();
 	bool portaTRAKExists();
@@ -23,6 +19,10 @@ private:
 	void saveINIToRegistry(CSimpleIniA& iniFile, std::string& section);
 
 public:
+	std::string appType;
+	std::string appDir;
+	std::string iniFile;
+	std::string appName;
 	/*TRAKManager();
 	~TRAKManager();*/
 	void conHechmanAfterConnect();

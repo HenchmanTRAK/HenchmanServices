@@ -38,10 +38,11 @@
 
 #include "SimpleIni.h"
 #include "HenchmanServiceException.h"
-#include "ServiceHelper.h"
 #include "RegistryManager.h"
-#include "SQLiteManager.h"
+#include "ServiceHelper.h"
+#include "DatabaseManager.h"
 #include "TRAKManager.h"
+#include "SQLiteManager.h"
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
@@ -229,7 +230,7 @@ void ReportSvcStatus(
 );
 DWORD GetSvcStatus(const char* sMachine, const char* sService = SERVICE_NAME);
 void WINAPI SvcCtrlHandler(DWORD CtrlCode);
-void WINAPI SvcMain();
+void WINAPI SvcMain(int dwArgc, char* lpszArgv[]);
 void SvcInit();
 DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
 

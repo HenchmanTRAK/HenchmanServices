@@ -7,6 +7,9 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
+      "environment": {
+        "QTDIR": "C:/Qt/OnlineInstall/6.7.2/msvc2019_64"
+      },
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe",
@@ -113,7 +116,7 @@
   ],
   "vendor": {
     "qt-project.org/Presets": {
-      "checksum": "/rfVkwz9YKp2Op0WL3L2iNYvmbc="
+      "checksum": "e/H2CSXX59cHtWtPWwFqC9jdxSE="
     }
   }
 }

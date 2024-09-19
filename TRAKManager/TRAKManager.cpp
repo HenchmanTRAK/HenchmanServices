@@ -3,10 +3,10 @@
 
 using namespace std;
 
-string TRAKManager::appDir;
-string TRAKManager::iniFile;
-string TRAKManager::appName;
-string TRAKManager::appType;
+//string TRAKManager::appDir = "";
+//string TRAKManager::iniFile = "";
+//string TRAKManager::appName = "";
+//string TRAKManager::appType="";
 
 //TRAKManager::TRAKManager()
 //{
@@ -166,12 +166,13 @@ void TRAKManager::CreateDataModule()
 		section = "Customer";
 		saveINIToRegistry(ini, section);
 
-		cout << "Connecting to MySQL Database" << endl;
-		connection(appType);
+		cout << "Connecting to Local MySQL Database" << endl;
+		
+		connectToLocalDB(appType);
 
-		string sqlFile = appDir + "database\\qkabmaster.sql";
+		//string sqlFile = appDir + "database\\qkabmaster.sql";
 
-		ExecuteTargetSqlScript(appType, sqlFile);
+		//ExecuteTargetSqlScript(appType, sqlFile);
 
 		
 		/*cout << cloud_map["UseProxy"] << endl;

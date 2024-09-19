@@ -111,7 +111,7 @@ const char* GetMimeTypeFromFileName(char* szFileExt)
 	return MimeTypes[0][1];   //if does not match any,  "application/octet-stream" is returned
 }
 
-bool ProcessExists(string exeFileName) 
+bool ProcessExists(string &exeFileName) 
 {
 	HANDLE SnapshotHandle;
 	SnapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -156,7 +156,7 @@ bool FileInUse(string fileName) {
 
 int ShellExecuteApp(string appName, string params)
 {
-	SHELLEXECUTEINFO SEInfo;
+	SHELLEXECUTEINFOA SEInfo;
 	DWORD ExitCode;
 	string exeFile = appName;
 	string paramStr = params;
@@ -173,11 +173,11 @@ int ShellExecuteApp(string appName, string params)
 	//SEInfo.hwnd = NULL;
 	//SEInfo.lpVerb = NULL;
 	//SEInfo.lpDirectory = NULL;
-	SEInfo.lpFile = wstring(exeFile.begin(), exeFile.end()).c_str();
-	SEInfo.lpParameters = wstring(paramStr.begin(), paramStr.end()).c_str();
+	SEInfo.lpFile = exeFile.c_str();
+	SEInfo.lpParameters = paramStr.c_str();
 	//: SW_HIDE
 	SEInfo.nShow = paramStr == "" && SW_NORMAL;
-	if (ShellExecuteEx(&SEInfo)) {
+	if (ShellExecuteExA(&SEInfo)) {
 		do {
 			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
 			cout << ExitCode << endl;
@@ -504,6 +504,21 @@ int __stdcall StartTargetSvc(const char* sService)
 		CloseServiceHandle(schSCManager);
 		return 0;
 	}
+
+	if (!StartServiceA(
+		schService,
+		0,
+		NULL
+	))
+	{
+		printf("StartService failed (%d)\n", GetLastError());
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return 0;
+		/*DoStopSvc();
+		DoDeleteSvc();*/
+	}
+	printf("Service start pending...\n");
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
 	return 1;
@@ -850,7 +865,7 @@ DWORD GetSvcStatus(const char* sMachine, const char* sService)
 	if (schSCManager == NULL)
 	{
 		printf("OpenSCManager failed (%d)\n", GetLastError());
-		return 0;
+		return -1;
 	}
 
 	// Get ServiceHandle
@@ -863,7 +878,7 @@ DWORD GetSvcStatus(const char* sMachine, const char* sService)
 	{
 		printf("OpenService failed (%d)\n", GetLastError());
 		CloseServiceHandle(schSCManager);
-		return 0;
+		return -1;
 	}
 
 	if (!QueryServiceStatusEx(
@@ -875,6 +890,9 @@ DWORD GetSvcStatus(const char* sMachine, const char* sService)
 	))
 	{
 		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return -1;
 		//goto Exit;
 	}
 	CloseServiceHandle(schService);
@@ -899,7 +917,7 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode)
 	}
 }
 
-void WINAPI SvcMain()
+void WINAPI SvcMain(int dwArgc, char * lpszArgv[])
 {
 	g_StatusHandle = RegisterServiceCtrlHandlerA(
 		SERVICE_NAME,
@@ -910,6 +928,9 @@ void WINAPI SvcMain()
 	{
 		return;
 	}
+
+	a = new QCoreApplication(dwArgc, lpszArgv);
+
 	ZeroMemory(&g_ServiceStatus, sizeof(g_ServiceStatus));
 	g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
 	g_ServiceStatus.dwServiceSpecificExitCode = 0;
@@ -917,6 +938,8 @@ void WINAPI SvcMain()
 	ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
 
 	SvcInit();
+
+	delete a;
 }
 
 void SvcInit()
@@ -954,9 +977,13 @@ void SvcInit()
 
 DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 {
+
+	HenchmanService service;
+
 	while (WaitForSingleObject(g_ServiceStopEvent,0) != WAIT_OBJECT_0)
 	{
-
+		service.MainFunction();
+		Sleep(300000);
 	}
 	return ERROR_SUCCESS;
 }
@@ -989,6 +1016,27 @@ HenchmanService::HenchmanService()
 		databaseName = dbName;
 		SetStrVal(hKey, "DatabaseName", databaseName, REG_SZ);
 	}
+
+	SI_Error rc = ini.LoadFile((installDir+"\\service.ini").c_str());
+	if (rc < 0) {
+		cerr << "Failed to Load INI File" << endl;
+	}
+
+	CSimpleIniA::TNamesDepend keys;
+	ini.GetAllKeys("DIRECTORIES", keys);
+	for (auto const& val : keys)
+	{
+		string key = val.pItem;
+		string value = ini.GetValue("DIRECTORIES", val.pItem, "");
+		removeQuotes(value);
+
+		GetStrVal(hKey, key.data(), REG_SZ);
+		SetStrVal(hKey, key.data(), value, REG_SZ);
+
+		key.clear();
+		value.clear();
+	}
+
 	//cout << installDir + "\\" << endl << databaseName << endl;
 	SQLiteM = new SQLite_Manager(installDir + "\\", databaseName.data());
 	
@@ -1003,10 +1051,6 @@ HenchmanService::HenchmanService()
 	SQLiteM->CreateTable(tableName, cols);
 
 	//cout << "Reading ini file: " << string(installDir + "\\service.ini") << endl;
-	SI_Error rc = ini.LoadFile(string(installDir + "\\service.ini").c_str());
-	if (rc < 0) {
-		cerr << "Failed to Load INI File" << endl;
-	}
 	string username = ini.GetValue("Email", "Username", "");
 	string password = base64(ini.GetValue("Email", "Password", ""));
 	//string encodedPass = base64(password);
@@ -1027,6 +1071,7 @@ HenchmanService::~HenchmanService()
 	//cout << "Deconstructing HenchmanService" << endl;
 	delete SQLiteM;
 	delete TrakM;
+	
 	logx.clear();
 }
 
@@ -1564,60 +1609,138 @@ int HenchmanService::MainFunction()
 	GetLogsPath();
 	
 	TrakM = new TRAKManager;
-
-	TrakM->CreateDataModule();
 	
 	update = TRUE;
 
-	switch (GetSvcStatus(NULL, "wampmysqld")) {
+	/*WriteToLog("Checking if WampServer is running and Starting if not");
+	string wampServerManagerEXE = "wampmanager";
+	if (!ProcessExists(wampServerManagerEXE)) {
+		WriteToLog("WampServer was not running. Starting WampServerManager Now");
+		ShellExecuteApp("C:\\wamp\\" + wampServerManagerEXE + ".exe", "");
+	}*/
+
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+
+	int wampMySQLSvcStatus = GetSvcStatus(NULL, "wampmysqld64");
+	string mysql_dir = GetStrVal(hKey, "MySQL_DIR", REG_SZ);
+	cout << mysql_dir << endl;
+	//wampMySQLSvcStatus = 4;
+	switch (wampMySQLSvcStatus) {
 	case -1 : {
-			if (InstallMySQL())
-				WriteToLog("Local MYSQL service installed...");
-			if (StartTargetSvc("wampmysqld"))
-				WriteToLog("Local MYSQL Service Started");
-			break;
+		WriteToError("MySQL Service errored with unknown error");
+		/*if(ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
+			WriteToLog("Removed Local MYSQL service...");*/
+		if (ShellExecuteApp(mysql_dir+"\\mysqld.exe", " --install-manual wampmysqld64"))
+			WriteToLog("Local MYSQL service installed...");
+		if (StartTargetSvc("wampmysqld64"))
+			WriteToLog("Local MYSQL Service Started");
+		else {
+			if (ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
+				WriteToLog("Removed Local MYSQL service...");
+		}
+		break;
 
 	}
 	case 1: {
 		WriteToLog("Local MYSQL Service has stopped...");
-		if (StartTargetSvc("wampmysqld"))
+		if (StartTargetSvc("wampmysqld64"))
 			WriteToLog("Successfully Restarted Local MYSQL Service");
-		else
+		else {
 			WriteToLog("Failed to start Local MYSQL Service...");
+			if (ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
+				WriteToLog("Removed Local MYSQL service...");
+		}
 		break;
 	}
 	default: {
 		WriteToLog("Local MYSQL Service has not stopped or errored");
+		WriteToLog("It returned with status code: " + wampMySQLSvcStatus);
 		break;
 	}
 	}
-	switch (GetSvcStatus(NULL, "wampapache")) {
+
+	int wampApacheSvcStatus = GetSvcStatus(NULL, "wampapache64");
+	WriteToError("Apache Service errored with unknown error");
+	string apache_dir = GetStrVal(hKey, "Apache_DIR", REG_SZ);
+	//wampApacheSvcStatus = 4;
+	switch (wampApacheSvcStatus) {
 	case -1: {
-		if (InstallApache())
+		cout << apache_dir << endl;
+		/*if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
+			WriteToLog("Apache Service stopped...");
+		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
+			WriteToLog("Apache Service uninstalled...");*/
+		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k install -n wampapache64"))
 			WriteToLog("Apache Service installed...");
-		if (StartTargetSvc("wampapache"))
+		if (StartTargetSvc("wampapache64"))
 			WriteToLog("Apache Services started...");
+		else {
+			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
+				WriteToLog("Apache Service stopped...");
+			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
+				WriteToLog("Apache Service uninstalled...");
+		}
 		break;
 
 	}
 	case 1: {
 		WriteToLog("Apache Service has stopped...");
-		if (StartTargetSvc("wampapache"))
+		if (StartTargetSvc("wampapache64"))
 			WriteToLog("Successfully Restarted Apache Service");
-		else
+		else {
 			WriteToLog("Failed to start Apache Service...");
+			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
+				WriteToLog("Apache Service stopped...");
+			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
+				WriteToLog("Apache Service uninstalled...");
+		}
 		break;
 	}
 	default: {
 		WriteToLog("Apache Service has not stopped or errored");
+		WriteToLog("It returned with status code: " + wampApacheSvcStatus);
+		/*if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
+			WriteToLog("Apache Service stopped...");
+		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
+			WriteToLog("Apache Service uninstalled...");*/
 		break;
 	}
 	}
 
+	RegCloseKey(hKey);
+	
 	if (!(checkForInternetConnection() && isInternetConnected()))
 	{
-
+		WriteToLog("Failed to confirm network connection");
+		return 0;
 	}
+	//string targetApp = TrakM->appType.c_str();
+	/*if (!connectToLocalDB(TrakM->appType))
+	{
+		WriteToLog("Failed to connect to Local Database.");
+		return 0;
+	}
+
+	if (!connectToRemoteDB(TrakM->appType))
+	{
+		WriteToLog("Failed to connect to Remote Database.");
+		return 0;
+	}*/
+
+	TrakM->CreateDataModule();
+
+	//connectToRemoteDB(TrakM->appType);
+
+	if (!ProcessExists(TrakM->appName)) {
+		string targetExe = TrakM->appDir + TrakM->appName;
+		cout << targetExe << endl;
+		if (!ShellExecuteApp(targetExe, ""))
+		{
+			WriteToError("Failed to start " + targetExe);
+			return 0;
+		}
+	}
+
 
 	return a->exec();
 }
