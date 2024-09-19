@@ -76,17 +76,21 @@ string GetExportsPath(string app_path)
 	string exportsPath;
 	int _results = 0;
 	char buff[1024];
-
-	if (app_path == "") {
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
+	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
 			exportsPath = buff;
 		} while (_results > exportsPath.length() && exportsPath.data());
 	}
+	else if (installDir != "") {
+		exportsPath = installDir;
+	}
 	else {
 		exportsPath = app_path.substr(0, app_path.find_last_of("/\\"));
 	}
-
+	RegCloseKey(hKey);
 	exportsPath.append("\\exports\\");
 	if (!filesystem::is_directory(exportsPath.c_str())) {
 		filesystem::create_directory(exportsPath.c_str());
@@ -99,15 +103,21 @@ string GetLogsPath(string app_path)
 	string logsPath;
 	int _results = 0;
 	char buff[1024];
-	if (app_path == "") {
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
+	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
 			logsPath = buff;
 		} while (_results > logsPath.length() && logsPath.data());
 	}
+	else if (installDir != "") {
+		logsPath = installDir;
+	}
 	else {
 		logsPath = app_path.substr(0, app_path.find_last_of("/\\"));
 	}
+	RegCloseKey(hKey);
 	logsPath.append("\\logs\\");
 	if (!filesystem::is_directory(logsPath.c_str())) {
 		filesystem::create_directory(logsPath.c_str());

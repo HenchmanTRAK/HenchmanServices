@@ -10,7 +10,7 @@
 ///  - run the main Service Function
 /// </summary>
 
-#include "HenchmanServices.h"
+#include "HenchmanService.h"
 using namespace std;
 
 stringstream HenchmanService::logx;
@@ -658,7 +658,7 @@ void __stdcall DoStopSvc(const char* sService)
 		}
 	}
 	printf("Service stopped successfully\n");
-
+	WriteToLog("Service has stopped");
 stop_cleanup:
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
@@ -958,7 +958,7 @@ void SvcInit()
 	}
 
 	ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
-
+	
 	// Do Work Here
 	HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &g_ServiceStopEvent, 0, NULL);
 
@@ -983,7 +983,8 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	while (WaitForSingleObject(g_ServiceStopEvent,0) != WAIT_OBJECT_0)
 	{
 		service.MainFunction();
-		Sleep(300000);
+		WriteToLog("Service sleeping for 30000 ms...");
+		Sleep(30000);
 	}
 	return ERROR_SUCCESS;
 }
@@ -1004,11 +1005,11 @@ HenchmanService::HenchmanService()
 	currDir.resize(byteLength);
 	string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
 	struct stat buffer;
-	if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
+	/*if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
 	{
 		installDir = currDir;
 		SetStrVal(hKey, "InstallDir", installDir, REG_SZ);
-	}
+	}*/
 	string databaseName = GetStrVal(hKey, "DatabaseName", REG_SZ);
 	string dbName = "henchmanService.db3";
 	if (databaseName == "" || databaseName != dbName)
@@ -1734,22 +1735,82 @@ int HenchmanService::MainFunction()
 	if (!ProcessExists(TrakM->appName)) {
 		string targetExe = TrakM->appDir + TrakM->appName;
 		cout << targetExe << endl;
-		if (!ShellExecuteApp(targetExe, ""))
+		/*if (!ShellExecuteApp(targetExe, ""))
 		{
 			WriteToError("Failed to start " + targetExe);
 			return 0;
-		}
+		}*/
 	}
 
 
 	return a->exec();
 }
 
-int main(int argc, char* argv[]) {
-	
-	HenchmanService service;
+int main(int argc, char* argv[])
+{
+
+	if (lstrcmpiA(argv[1], "--install") == 0)
+	{
+		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+		char buff[MAX_PATH];
+		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
+		string currDir = buff;
+		currDir.resize(byteLength);
+		string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
+		struct stat buffer;
+		if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
+		{
+			installDir = currDir;
+			cout << installDir << endl;
+			SetStrVal(hKey, "InstallDir", installDir, REG_SZ);
+		}
+		RegCloseKey(hKey);
+		getchar();
+		DoInstallSvc();
+		ShellExecuteApp(SERVICE_NAME, " --start");
+		return 0;
+	}
+
+	if (lstrcmpiA(argv[1], "--remove") == 0)
+	{
+		DoStopSvc();
+		DoDeleteSvc();
+		return 0;
+	}
+
+	if (lstrcmpiA(argv[1], "--start") == 0)
+	{
+		DoStartSvc();
+		return 0;
+	}
+
+	if (lstrcmpiA(argv[1], "--stop") == 0)
+	{
+		DoStopSvc();
+		return 0;
+	}
+
+	SERVICE_TABLE_ENTRYA ServiceTable[] =
+	{
+		{(LPSTR)SERVICE_NAME, (LPSERVICE_MAIN_FUNCTIONA)SvcMain},
+		{NULL, NULL}
+	};
+
+	if (!StartServiceCtrlDispatcherA(ServiceTable))
+	{
+		std::cout << "StartServiceCtrlDispatcher Failed" << std::endl;
+		/*SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
+		ErrorMessage(TEXT("GetProcessId"));*/
+		return 1;
+	}
+
+	//printf(TEXT("CNC_Current_Tracker_Service: Main: StartServiceCtrlDispatcher"));
+	//getchar();
+
+	/*HenchmanService service;
 	a = new QCoreApplication(argc, argv);
-	service.MainFunction();
+	service.MainFunction();*/
+
 	//cout << "Export path: " << GetExportsPath() << endl;
 	//service.app_path = "C:\\FPC\\Kaptap.exe";
 	//cout << "Logs path: " << GetLogsPath() << endl;
@@ -1810,6 +1871,7 @@ int main(int argc, char* argv[]) {
 	
 	//Sleep(5000);
 	//getchar();
-	delete a;
+
+	//delete a;
 	return 0;
 }

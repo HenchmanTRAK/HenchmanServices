@@ -16,6 +16,8 @@
 #include <string>
 #include <WinBase.h>
 
+#include "RegistryManager.h"
+
 long int microseconds();
 
 bool Contain(std::string str, std::string search);

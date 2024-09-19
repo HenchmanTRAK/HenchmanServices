@@ -4,12 +4,12 @@
 
 # Add source to this project's executable.
 #add_executable(HenchmanServices "HenchmanServices.cpp")
-qt_add_executable(HenchmanServices "HenchmanServices.cpp" "HenchmanServices.h" )
+qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" )
 
-target_include_directories(HenchmanServices PRIVATE ${OPENSSL_INCLUDE_DIR})
+target_include_directories(HenchmanService PRIVATE ${OPENSSL_INCLUDE_DIR})
 
 target_link_libraries(
-	HenchmanServices PRIVATE 
+	HenchmanService PRIVATE 
 	Qt6::Core
 	SimpleIni
 	SQLiteCpp 
@@ -26,16 +26,16 @@ target_link_libraries(
 )
 
 set_target_properties(
-	HenchmanServices PROPERTIES 
+	HenchmanService PROPERTIES 
 	LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator'\""
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET HenchmanServices PROPERTY CXX_STANDARD 20)
+  set_property(TARGET HenchmanService PROPERTY CXX_STANDARD 20)
 endif()
 
 if (CMAKE_VERSION VERSION_GREATER 2.21)
-  install(FILES $<TARGET_RUNTIME_DLLS:HenchmanServices> TYPE BIN)
+  install(FILES $<TARGET_RUNTIME_DLLS:HenchmanService> TYPE BIN)
 endif()
 
 # TODO: Add tests and install targets if needed.

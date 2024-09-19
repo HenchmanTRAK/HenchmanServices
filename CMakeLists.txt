@@ -110,8 +110,8 @@ file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 #add_subdirectory ("simpleini-4.22")
 #add_subdirectory (thirdparty/SQLiteCpp-3.3.2)
 add_subdirectory (HenchmanServiceException)
-add_subdirectory (ServiceHelper)
 add_subdirectory (RegistryManager)
+add_subdirectory (ServiceHelper)
 add_subdirectory (SQLiteManager)
 add_subdirectory (DatabaseManager)
 add_subdirectory (TRAKManager)
@@ -120,11 +120,11 @@ add_subdirectory (HenchmanServices)
 
 # App bundles on macOS have an .app suffix
 if(APPLE)
-    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>.app")
+    set(executable_path "$<TARGET_FILE_NAME:HenchmanService>.app")
 #elseif(MSVC)
 #    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>")
 else()
-    set(executable_path "${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanServices>")
+    set(executable_path "${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
 endif()
 
 # Helper app, not necessarily built as part of this project.
@@ -133,7 +133,7 @@ endif()
 message(STATUS ${executable_path})
 # Generate a deployment script to be executed at install time
 qt_generate_deploy_script(
-    TARGET HenchmanServices
+    TARGET HenchmanService
     OUTPUT_SCRIPT deploy_script
     CONTENT "
 qt_deploy_runtime_dependencies(
@@ -184,7 +184,7 @@ install(
 ]==]
 
 install(
-	TARGETS HenchmanServices
+	TARGETS HenchmanService
 	#COMPONENT HenchmanServices
 	#RUNTIME_DEPENDENCIES 
 	#	PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" 
