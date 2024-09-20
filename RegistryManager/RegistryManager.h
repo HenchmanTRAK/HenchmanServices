@@ -4,8 +4,7 @@
 #pragma once
 
 #include <iostream>
-#include <Windows.h>
-#include <tchar.h>
+#include <Windows.h>#include <tchar.h>
 #include <string>
 
 HKEY OpenKey(HKEY hRootKey, std::string strKey);

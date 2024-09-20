@@ -1,4 +1,5 @@
 
+
 #include "RegistryManager.h"
 
 using namespace std;

@@ -1,3 +1,5 @@
+
+
 #include "ServiceHelper.h"
 
 using namespace std;
@@ -77,7 +79,7 @@ string GetExportsPath(string app_path)
 	int _results = 0;
 	char buff[1024];
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
+	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -104,7 +106,7 @@ string GetLogsPath(string app_path)
 	int _results = 0;
 	char buff[1024];
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
+	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);

@@ -1,5 +1,8 @@
 
+
+
 #include "TRAKManager.h"
+
 
 using namespace std;
 
@@ -16,54 +19,26 @@ using namespace std;
 //
 //}
 
-bool TRAKManager::kabTRAKExists()
+bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 {
-	string AppDir32 = "C:\\Program Files (x86)\\HenchmanTRAK\\kabTRAK\\";
+	string AppDir32 = ini.GetValue("TRAK", "TRAK_DIR", "");
 	if (filesystem::exists(AppDir32.c_str())) {
-		appDir = AppDir32;
-		iniFile = "trak.ini";
-		appName = "kabtrak.exe";
-		appType = "kabTRAK";
+		appDir = AppDir32+"\\";
+		iniFile = ini.GetValue("TRAK", "INI_FILE", "");
+		appName = ini.GetValue("TRAK", "EXE_FILE", "");
+		appType = ini.GetValue("TRAK", "APP_NAME", "");
 		WriteToLog("Using " + appDir + iniFile);
 		return TRUE;
 	}
 	return FALSE;
 }
 
-bool TRAKManager::portaTRAKExists()
-{
-	string AppDir32 = "C:\\Program Files (x86)\\HenchmanTRAK\\portaTRAK\\";
-	if (filesystem::exists(AppDir32.c_str())) {
-		appDir = AppDir32;
-		iniFile = "porta.ini";
-		appName = "portaTRAK.exe";
-		appType = "portaTRAK";
-		WriteToLog("Using " + appDir + iniFile);
-		return TRUE;
-	}
-	return FALSE;
-}
-
-bool TRAKManager::cribTRAKExists()
-{
-	string AppDir32 = "C:\\Program Files (x86)\\HenchmanTRAK\\cribTRAK\\";
-	if (filesystem::exists(AppDir32.c_str())) {
-		appDir = AppDir32;
-		iniFile = "crib.ini";
-		appName = "kribTRAK.exe";
-		appType = "cribTRAK";
-		WriteToLog("Using " + appDir + iniFile);
-		return TRUE;
-	}
-	return FALSE;
-}
-
-void TRAKManager::conHechmanAfterConnect()
+void TRAKManager::conHenchmanAfterConnect()
 {
 	WriteToLog("Connected to local MYSQL database...");
 }
 
-void TRAKManager::conHechmanAfterDisconnect()
+void TRAKManager::conHenchmanAfterDisconnect()
 {
 	WriteToLog("Disconnected from local MYSQL database...");
 }
@@ -105,7 +80,7 @@ void TRAKManager::conRemoteError(exception& e)
 }
 
 void TRAKManager::saveINIToRegistry(CSimpleIniA &iniFile, string &section)
-{
+const {
 	CSimpleIniA::TNamesDepend keys;
 	iniFile.GetAllKeys(section.data(), keys);
 	map<string, string> map;
@@ -138,31 +113,45 @@ void TRAKManager::saveINIToRegistry(CSimpleIniA &iniFile, string &section)
 
 void TRAKManager::CreateDataModule()
 {
-	if (!(kabTRAKExists() || portaTRAKExists() || cribTRAKExists()))
+	CSimpleIniA ini;
+	ini.SetUnicode();
+
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
+	string serviceInstallDir = (GetStrVal(hKey, "Install_DIR", REG_SZ) + "\\service.ini");
+	SI_Error rc = ini.LoadFile(serviceInstallDir.c_str());
+	if (rc < 0) {
+		//cerr << "Failed to Load INI File" << endl;
+		WriteToError("Failed to Load INI File: " + serviceInstallDir);
+	}
+	RegCloseKey(hKey);
+
+	if (!TRAKExists(ini))
 	{
-		cout << "No TRAK application could be found" << endl;
+		//cout << "No TRAK application could be found" << endl;
+		WriteToError("No TRAK application could be found");
 		return;
 	}
-	cout << appName << " exists with " << iniFile << " ini file at " << appDir << endl;
+	WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
+	//cout << appName << " exists with " << iniFile << " ini file at " << appDir << endl;
 	
 	try {
-		CSimpleIniA ini;
-		ini.SetUnicode();
 		cout << "app dir: " << appDir << iniFile << endl;
 
 
-		SI_Error rc = ini.LoadFile((appDir + iniFile).c_str());
+		rc = ini.LoadFile((appDir + iniFile).c_str());
 		if (rc < 0) {
 			cerr << "Failed to Load INI File" << endl;
+			WriteToError("Failed to Load INI File: "+ appDir + iniFile);
 		}
 		
-		cout << "Adding Cloud entries to registry" << endl;
+		WriteToLog("Adding Cloud entries to registry");
 		string section = "Cloud";
 		saveINIToRegistry(ini, section);
-		cout << "Adding Database entries to registry" << endl;
+		WriteToLog("Adding Database entries to registry");
 		section = "Database";
 		saveINIToRegistry(ini, section);
-		cout << "Adding Customer entries to registry" << endl;
+		WriteToLog("Adding Customer entries to registry");
 		section = "Customer";
 		saveINIToRegistry(ini, section);
 
@@ -185,7 +174,8 @@ void TRAKManager::CreateDataModule()
 	}
 	catch (exception &e)
 	{
-		cout << "An error occured: " << e.what() << endl;
+		cout << "An error occurred: " << e.what() << endl;
+		WriteToError("An error occurred: " + string(e.what()));
 	}
 
 }

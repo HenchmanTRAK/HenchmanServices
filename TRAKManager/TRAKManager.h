@@ -6,17 +6,17 @@
 
 #include "SimpleIni.h"
 
-#include "ServiceHelper.h"
 #include "RegistryManager.h"
+#include "ServiceHelper.h"
 #include "DatabaseManager.h"
 
 class TRAKManager {
 private:
-
-	bool kabTRAKExists();
+	bool TRAKExists(CSimpleIniA& ini);
+	/*bool kabTRAKExists();
 	bool portaTRAKExists();
-	bool cribTRAKExists();
-	void saveINIToRegistry(CSimpleIniA& iniFile, std::string& section);
+	bool cribTRAKExists();*/
+	void saveINIToRegistry(CSimpleIniA& iniFile, std::string& section) const;
 
 public:
 	std::string appType;
@@ -25,8 +25,8 @@ public:
 	std::string appName;
 	/*TRAKManager();
 	~TRAKManager();*/
-	void conHechmanAfterConnect();
-	void conHechmanAfterDisconnect();
+	void conHenchmanAfterConnect();
+	void conHenchmanAfterDisconnect();
 	void conHenchmanConnectionLost();
 	void conHenchmanError(std::exception& e);
 	void conRemoteAfterConnect();

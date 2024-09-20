@@ -4,7 +4,7 @@
 #pragma once
 
 #include <Windows.h>
-//#include <sqlite3.h>
+
 #include <vector>
 #include <sstream>
 #include <string>
@@ -13,7 +13,6 @@
 #include <SQLiteCpp/SQLiteCpp.h>
 
 #include "ServiceHelper.h"
-
 
 
 // Manages the sqlite database associated with the HenchmanTRAK Service

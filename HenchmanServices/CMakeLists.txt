@@ -34,8 +34,8 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET HenchmanService PROPERTY CXX_STANDARD 20)
 endif()
 
-if (CMAKE_VERSION VERSION_GREATER 2.21)
-  install(FILES $<TARGET_RUNTIME_DLLS:HenchmanService> TYPE BIN)
-endif()
+#if (CMAKE_VERSION VERSION_GREATER 2.21)
+#  install(FILES $<TARGET_RUNTIME_DLLS:HenchmanService> TYPE BIN)
+#endif()
 
 # TODO: Add tests and install targets if needed.

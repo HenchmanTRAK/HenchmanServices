@@ -39,6 +39,17 @@ message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
 qt_standard_project_setup()
 
+#INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
+
+find_package(Doxygen)
+if(DOXYGEN_FOUND)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+add_custom_target(doc ALL
+${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+COMMENT "Generating API documentation with Doxygen" VERBATIM
+)
+endif(DOXYGEN_FOUND)
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
 
@@ -58,6 +69,7 @@ qt_standard_project_setup()
 #message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
+option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" ON)
 option(SQLITECPP_BUILD_TESTS "Build and run tests." OFF)
 option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." ON)
 option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
@@ -124,7 +136,7 @@ if(APPLE)
 #elseif(MSVC)
 #    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>")
 else()
-    set(executable_path "${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
+    set(executable_path "\${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
 endif()
 
 # Helper app, not necessarily built as part of this project.

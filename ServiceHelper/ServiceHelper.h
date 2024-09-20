@@ -15,7 +15,6 @@
 #include <sstream>
 #include <string>
 #include <WinBase.h>
-
 #include "RegistryManager.h"
 
 long int microseconds();

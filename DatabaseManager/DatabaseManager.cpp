@@ -1,10 +1,13 @@
 
 #include <iostream>
+
 #include "DatabaseManager.h"
+
+
 
 using namespace std;
 
-void checkValidDrivers()
+static void checkValidDrivers()
 {
 	for (const auto& str : QSqlDatabase::drivers())
 	{
@@ -12,7 +15,7 @@ void checkValidDrivers()
 	}
 }
 
-int checkValidConnections(QString &targetConnection)
+static int checkValidConnections(QString &targetConnection)
 {
 	for (const auto& str : QSqlDatabase::connectionNames())
 	{

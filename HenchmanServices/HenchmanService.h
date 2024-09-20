@@ -5,28 +5,10 @@
 #define HENCHMAN_SERVICE_H
 #pragma once
 
-//#include <QtCore>
-//#include <openssl/ssl.h>
-//#include <openssl/err.h>
-//#include <openssl/crypto.h>
+
 #include <Ws2tcpip.h>
 #include <Windows.h>
-//#include <iomanip>
-//#include <sstream>
-//#include <string>
-//#include <vector>
-//#include <ctime>
-//#include <iostream>
 #include <WinSock2.h>
-//#include <WinUser.h>
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <malloc.h>
-//#include <sys/types.h>
-//#include <optional>
-//#include <fstream>
-//#include <algorithm>
-//#include <cstdio>
 #include <netlistmgr.h>
 #include <tchar.h>
 #include <strsafe.h>
@@ -37,6 +19,7 @@
 #include <QString>
 
 #include "SimpleIni.h"
+
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
@@ -65,6 +48,7 @@ HANDLE				  g_ServiceStopEvent = INVALID_HANDLE_VALUE;
 
 SC_HANDLE schSCManager;
 SC_HANDLE schService;
+
 
 const char MimeTypes[][2][128] = {
     {"***", "application/octet-stream"},
@@ -189,16 +173,16 @@ class HenchmanService {
 	/*bool report = false;
 	bool update = false;*/
 
-	void ServiceExecute();
-	void Tmr1Timer();
-	char *GetLogPath();
+	//void ServiceExecute();
+	//void Tmr1Timer();
+	//char *GetLogPath();
 	
-	void tmrkabTRAKTimer(class TObject Sender);
-	void tmrcribTRAKTimer(class TObject Sender);
-	void ServiceStart(class TService, bool& Started);
-	void ServiceStop(class TService, bool& Started);
-	void ServicePause(class TService, bool& Started);
-	void ServiceCreate();
+	//void tmrkabTRAKTimer(class TObject Sender);
+	//void tmrcribTRAKTimer(class TObject Sender);
+	//void ServiceStart(class TService, bool& Started);
+	//void ServiceStop(class TService, bool& Started);
+	//void ServicePause(class TService, bool& Started);
+	//void ServiceCreate();
 	void SendEmail( SSL*& , std::vector<std::string>);
 private:
 
@@ -213,7 +197,7 @@ public:
 	void ConnectWithSMTP();
     bool checkForInternetConnection();
     bool isInternetConnected();
-	SC_HANDLE *GetServiceController();
+	//SC_HANDLE *GetServiceController();
     int MainFunction();
 };
 
