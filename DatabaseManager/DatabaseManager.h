@@ -77,7 +77,7 @@ public:
     *
     * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the remote database.
     */
-    int connectToRemoteDB(std::string& targetApp);
+    int connectToRemoteDB(std::string& target_app);
 
     /**
     * Connects to a local database and performs various operations.
@@ -88,7 +88,7 @@ public:
     *
     * @throws Throws an exception if there is an error opening the database connection or if there is an error creating the database.
     */
-    int connectToLocalDB(std::string& targetApp);
+    int connectToLocalDB(std::string& target_app);
 
     /**
     * Executes a SQL script file on a local database.
@@ -112,7 +112,7 @@ public:
     *
     * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
     */
-    int ExecuteTargetSql(std::string& targetApp, std::string& query);
+    int ExecuteTargetSql(std::string& targetApp, std::string& sqlQuery);
 
 //public slots:
     /**

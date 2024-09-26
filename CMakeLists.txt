@@ -40,15 +40,18 @@ find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
 qt_standard_project_setup()
 
 #INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
+#COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
 
-find_package(Doxygen)
+find_package(Doxygen REQUIRED dot)
 if(DOXYGEN_FOUND)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
-add_custom_target(doc ALL
-${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-COMMENT "Generating API documentation with Doxygen" VERBATIM
+add_custom_target(
+	doc ALL
+	${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	COMMENT "Generating API documentation with Doxygen" VERBATIM
 )
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc/html DESTINATION     share/doc)
 endif(DOXYGEN_FOUND)
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
@@ -109,7 +112,7 @@ FetchContent_Declare(
 )
 set(QMYSQL_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/qmysql-src)
 
-FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL http_request)
+FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
 
 file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
@@ -152,12 +155,18 @@ message(STATUS ${executable_path})
 qt_generate_deploy_script(
     TARGET HenchmanService
     OUTPUT_SCRIPT deploy_script
+	#NO_UNSUPPORTED_PLATFORM_ERROR
     CONTENT "
 qt_deploy_runtime_dependencies(
     EXECUTABLE \"${executable_path}\"
+	PRE_EXCLUDE_REGEXES \"api-ms-\" \"ext-ms-\" 
+	POST_EXCLUDE_REGEXES \".*system32/.*\\.dll\" 
+	NO_UNSUPPORTED_PLATFORM_ERROR
+	NO_TRANSLATIONS
     GENERATE_QT_CONF
     VERBOSE
-)")
+)"
+)
 
 if(EXISTS $ENV{QTDIR}/bin/Qt6Cored.dll)
 	message(STATUS "Checking for Qt6Core in " $ENV{QTDIR}/bin ": Yes")
@@ -200,14 +209,25 @@ install(
 ]])
 ]==]
 
-install(
-	TARGETS HenchmanService
+#install(
+#	TARGETS HenchmanService
 	#COMPONENT HenchmanServices
 	#RUNTIME_DEPENDENCIES 
 	#	PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" 
 	#	POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" 
 	#DIRECTORIES $<TARGET_FILE_DIR:HenchmanServices>
+#	BUNDLE DESTINATION .
+#)
+#install(SCRIPT ${deploy_script})
+#qt_generate_deploy_app_script(
+#    TARGET HenchmanService
+#    OUTPUT_SCRIPT deploy_script
+#    NO_UNSUPPORTED_PLATFORM_ERROR
+#)
+install(
+	TARGETS HenchmanService
 	BUNDLE DESTINATION .
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 install(SCRIPT ${deploy_script})
 #install (DIRECTORY ${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")

@@ -119,30 +119,27 @@ void TRAKManager::CreateDataModule(DatabaseManager* dbManager)
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
 	string serviceInstallDir = (GetStrVal(hKey, "Install_DIR", REG_SZ) + "\\service.ini");
+	RegCloseKey(hKey);
 	SI_Error rc = ini.LoadFile(serviceInstallDir.c_str());
 	if (rc < 0) {
-		//cerr << "Failed to Load INI File" << endl;
 		WriteToError("Failed to Load INI File: " + serviceInstallDir);
+		return;
 	}
-	RegCloseKey(hKey);
 
 	if (!TRAKExists(ini))
 	{
-		//cout << "No TRAK application could be found" << endl;
 		WriteToError("No TRAK application could be found");
 		return;
 	}
 	WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
-	//cout << appName << " exists with " << iniFile << " ini file at " << appDir << endl;
 	
 	try {
 		cout << "app dir: " << appDir << iniFile << endl;
 
-
 		rc = ini.LoadFile((appDir + iniFile).c_str());
 		if (rc < 0) {
-			cerr << "Failed to Load INI File" << endl;
 			WriteToError("Failed to Load INI File: "+ appDir + iniFile);
+			return;
 		}
 		
 		WriteToLog("Adding Cloud entries to registry");
@@ -158,25 +155,17 @@ void TRAKManager::CreateDataModule(DatabaseManager* dbManager)
 		cout << "Connecting to Local MySQL Database" << endl;
 		
 		dbManager->connectToLocalDB(appType);
-
-		string sqlFile = appDir + "database\\qkabmaster.sql";
-
-		//dbManager->ExecuteTargetSqlScript(appType, sqlFile);
-		//sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\qkabtrak_sts_003.sql";
-		//dbManager->ExecuteTargetSqlScript(appType, sqlFile);
 		
-		/*cout << cloud_map["UseProxy"] << endl;
-		if (stoi(cloud_map["UseProxy"].data()))
-		{
-			cout << "Don't use proxy" << endl;
-		}*/
-
-		//ini.~CSimpleIniTempl();
 	}
 	catch (exception &e)
 	{
-		cout << "An error occurred: " << e.what() << endl;
 		WriteToError("An error occurred: " + string(e.what()));
+		throw e;
 	}
 
 }
+
+		//string sqlFile = appDir + "database\\qkabmaster.sql";
+		//dbManager->ExecuteTargetSqlScript(appType, sqlFile);
+		//sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\qkabtrak_sts_003.sql";
+		//dbManager->ExecuteTargetSqlScript(appType, sqlFile);

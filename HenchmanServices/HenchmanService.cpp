@@ -1,13 +1,6 @@
 ﻿/// <summary>
 /// Main Service for HenchmanTRAK Entry Point.
 /// This script has the role of installing, controlling and managing the HenchmanService.
-/// It must;
-///  - allow the Service to be installed
-///  - allow the Service to be started
-///  - allow the Service to be stopped
-///  - allow the Service to be deleted
-///  - connect the various features from other scripts into a centralised point
-///  - run the main Service Function
 /// </summary>
 
 #include "HenchmanService.h"
@@ -1154,14 +1147,13 @@ int RunAsServiceTest(int argc, char* argv[])
 	//	ErrorMessage(TEXT("GetProcessId"));*/
 	//	return 0;
 	//}
-
+	return 0;
 	//return a->exec();
 }
 
 HenchmanService::HenchmanService()
 {
-	/*HenchmanService::report = false;
-	HenchmanService::update = false;*/
+
 	//CSimpleIni ini;
 	ini.SetUnicode();
 	logx << "Service Has Started" << endl << endl;
@@ -1173,12 +1165,7 @@ HenchmanService::HenchmanService()
 	string currDir = buff;
 	currDir.resize(byteLength);
 	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-	//struct stat buffer;
-	/*if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
-	{
-		installDir = currDir;
-		SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
-	}*/
+	
 	string databaseName = GetStrVal(hKey, "DatabaseName", REG_SZ);
 	string dbName = "henchmanService.db3";
 	if (databaseName == "" || databaseName != dbName)
@@ -1221,7 +1208,6 @@ HenchmanService::HenchmanService()
 		value.clear();
 	}
 
-	//cout << installDir + "\\" << endl << databaseName << endl;
 	SQLiteM = new SQLite_Manager(installDir + "\\", databaseName.data());
 
 	//SQLiteM.ToggleConsoleLogging();
@@ -1234,7 +1220,6 @@ HenchmanService::HenchmanService()
 	cols.push_back("password TEXT NOT NULL");
 	SQLiteM->CreateTable(tableName, cols);
 
-	//cout << "Reading ini file: " << string(installDir + "\\service.ini") << endl;
 	string username = ini.GetValue("Email", "Username", "");
 	string password = base64(ini.GetValue("Email", "Password", ""));
 	//string encodedPass = base64(password);
@@ -1258,19 +1243,9 @@ HenchmanService::~HenchmanService()
 	cout << "Deconstructing HenchmanService" << endl;
 	delete SQLiteM;
 	delete TrakM;
-	//delete dbManager;
-	//delete a;
 
 	logx.clear();
 }
-
-
-vector<string> HenchmanService::Explode(const string& Seperator, string& s)
-{
-	int limit = -1;
-	return Explode(Seperator, s, limit);
-}
-
 
 vector<string> HenchmanService::Explode(const string& Seperator, string& s, int& limit)
 {
@@ -1296,6 +1271,12 @@ vector<string> HenchmanService::Explode(const string& Seperator, string& s, int&
 		token.clear();
 	}
 	return results;
+}
+
+vector<string> HenchmanService::Explode(const string& Seperator, string& s)
+{
+	int limit = -1;
+	return Explode(Seperator, s, limit);
 }
 
 bool HenchmanService::setMailLogin(string& username, string& password) {
@@ -1366,7 +1347,6 @@ void HenchmanService::ConnectWithSMTP() {
 		if (!lpServEntry) {
 			logx << "Using IPPORT_SMTP" << endl;
 			iProtocolPort = htons(IPPORT_SMTP);
-			//iProtocolPort = 465;
 		}
 		else {
 			logx << "Using port provided from lpServEntry" << endl;
@@ -1375,7 +1355,6 @@ void HenchmanService::ConnectWithSMTP() {
 		cout << "Connecting on port: " << iProtocolPort << endl;
 
 		clientService.sin_family = AF_INET;
-		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
 		clientService.sin_port = iProtocolPort;
 		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)mailAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
 		logx << "Connecting to Mail Socket" << endl;
@@ -1422,7 +1401,6 @@ void HenchmanService::ConnectWithSMTP() {
 		while (!Contain(string(buff), "250 ")) {
 			iResult = recv(mailSocket, buff, sizeof(buff), 0);
 			if (Contain(string(buff), "501 ") || Contain(string(buff), "503 ")) {
-				//cout << logx.str();
 				WriteToError(logx.str());
 				freeaddrinfo(mailAddrInfo);
 				closesocket(mailSocket);
@@ -1434,7 +1412,6 @@ void HenchmanService::ConnectWithSMTP() {
 
 		if (!Contain(string(buff), "STARTTLS")) {
 			logx << "[EXTERNAL_SERVER_NO_TLS] " << "mail.henchmantrak.com" << " " << buff << "[CLOSING_CONNECTION]" << endl;
-			//cout << logx.str();
 			WriteToError(logx.str());
 			closesocket(mailSocket);
 			freeaddrinfo(mailAddrInfo);
@@ -1463,9 +1440,8 @@ void HenchmanService::ConnectWithSMTP() {
 		logx << "Connection to smtp via tls" << endl;
 
 		if (SSL_connect(ssl) == -1) {
-			// ERR_print_errors_fp(stderr);            
+			ERR_print_errors_fp(stderr);            
 			logx << "[TLS_SMTP_ERROR]" << endl;
-			//cout << logx.str();
 			WriteToError(logx.str());
 			freeaddrinfo(mailAddrInfo);
 			closesocket(mailSocket);
@@ -1474,10 +1450,8 @@ void HenchmanService::ConnectWithSMTP() {
 			return;
 		}
 		else {
-			// char *msg = (char*)"{\"from\":[{\"name\":\"Zenobiusz\",\"email\":\"email@eee.ddf\"}]}";
 			logx << "Connected with " << SSL_get_cipher(ssl) << " encryption" << endl;
 			string cert = ShowCerts(ssl);
-			//cout << cert << endl;
 
 			vector<string> attachments;
 			for (const auto& entry : filesystem::directory_iterator(GetExportsPath())) {
@@ -1485,7 +1459,6 @@ void HenchmanService::ConnectWithSMTP() {
 				attachments.push_back(entry.path().string());
 			}
 			logx << "---" << "Generating and sending Email" << "---\r\n" << endl;
-			//cout << logx.str();
 			WriteToLog(logx.str());
 			logx.str(string());
 			SendEmail(ssl, attachments);
@@ -1498,7 +1471,6 @@ void HenchmanService::ConnectWithSMTP() {
 		WSACleanup();
 	}
 	catch (exception& e) {
-		//cout << logx.str();
 		WriteToError(logx.str());
 	}
 	logx.str(string());
@@ -1511,9 +1483,8 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 	int counter = 1;
 	try {
 		if (SSL_connect(ssl) == -1) {
-			// ERR_print_errors_fp(stderr);            
+			ERR_print_errors_fp(stderr);            
 			logx << "[TLS_SMTP_ERROR]" << endl;
-			//cout << logx.str();
 			return;
 		}
 		else {
@@ -1550,7 +1521,7 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 
 			buff[0] = '\0';
 			ostringstream f4;
-			f4 << "mail from: <" << "test@henchmantrak.com" << ">\r\n";
+			f4 << "mail from: <" << mail_username << ">\r\n";
 			string f44 = f4.str();
 			char* fromemail = (char*)f44.c_str();
 			logx << "SEND TO SERVER " << fromemail << endl;
@@ -1600,8 +1571,7 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 
 			// 
 			// add atachments
-			//vector<string> files = Explode(", ", attachments);
-
+			//
 			stringstream attachmentSection;
 			vector<string>files = attachments;
 			if (files.size() > 0) {
@@ -1629,10 +1599,10 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 
 			stringstream m;
 			m << "X-Priority: " << "1" << "\r\n";
-			m << "From: " << "willem.swanepoel@henchmantools.com" << "\r\n";
+			m << "From: " << mail_username << "\r\n";
 			m << "To: " << "wjaco.swanepoel@gmail.com" << "\r\n";
 			m << "Subject: =?" << Encoding << "?Q?" << subject << "?=\r\n";
-			m << "Reply-To: " << "willem.swanepoel@henchmantools.com" << "\r\n";
+			m << "Reply-To: " << mail_username << "\r\n";
 			m << "Return-Path: " << "willem.swanepoel@henchmantools.com" << "\r\n";
 			m << "MIME-Version: 1.0\r\n";
 			m << "Content-Type: multipart/mixed; boundary=\"ToJestSeparator0000\"\r\n\r\n";
@@ -1663,7 +1633,6 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 			counter++;
 
 			// send log
-			//cout << logx.str();
 			WriteToLog(logx.str());
 			if (!Contain(string(buff), "250"))return;
 
@@ -1679,7 +1648,7 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 
 	}
 	catch (exception& e) {
-		//cout << logx.str();
+		logx << "Exception: " << e.what() << endl;
 		WriteToError(logx.str());
 	}
 	logx.str(string());
@@ -1711,7 +1680,6 @@ bool  HenchmanService::checkForInternetConnection()
 	}
 Exit:
 	CoUninitialize();
-	//cout << logx.str();
 	WriteToLog(logx.str());
 	logx.str(string());
 	return returnState;
@@ -1760,7 +1728,6 @@ bool  HenchmanService::isInternetConnected()
 		}
 
 		clientService.sin_family = AF_INET;
-		//clientService.sin_addr.s_addr = inet_addr("192.168.2.36");
 		clientService.sin_port = htons(IPPORT_HTTPS);
 		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)httpAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
 		logx << "Connecting to Google.com via Socket" << endl;
@@ -1777,14 +1744,12 @@ bool  HenchmanService::isInternetConnected()
 		else {
 			logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << clientService.sin_port << endl;
 		}
-		//cout << logx.str();
 		WriteToLog(logx.str());
 		closesocket(ConnectionCheck);
 		freeaddrinfo(httpAddrInfo);
 		WSACleanup();
 	}
 	catch (exception& e) {
-		//cout << logx.str();
 		WriteToError(logx.str());
 		logx.str(string());
 		return false;
@@ -1803,19 +1768,12 @@ int HenchmanService::MainFunction()
 
 	update = TRUE;
 
-	/*WriteToLog("Checking if WampServer is running and Starting if not");
-	string wampServerManagerEXE = "wampmanager";
-	if (!ProcessExists(wampServerManagerEXE)) {
-		WriteToLog("WampServer was not running. Starting WampServerManager Now");
-		ShellExecuteApp("C:\\wamp\\" + wampServerManagerEXE + ".exe", "");
-	}*/
-
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 
 	int wampMySQLSvcStatus = GetSvcStatus(NULL, "wampmysqld64");
 	string mysql_dir = GetStrVal(hKey, "MySQL_DIR", REG_SZ);
 	cout << mysql_dir << endl;
-	//wampMySQLSvcStatus = 4;
+	
 	switch (wampMySQLSvcStatus) {
 	case -1: {
 		WriteToError("MySQL Service errored with unknown error");
@@ -1853,7 +1811,7 @@ int HenchmanService::MainFunction()
 	int wampApacheSvcStatus = GetSvcStatus(NULL, "wampapache64");
 	string apache_dir = GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	cout << apache_dir << endl;
-	//wampApacheSvcStatus = 4;
+	
 	switch (wampApacheSvcStatus) {
 	case -1: {
 		WriteToError("Apache Service errored with unknown error");
@@ -1905,19 +1863,7 @@ int HenchmanService::MainFunction()
 		WriteToLog("Failed to confirm network connection");
 		return 0;
 	}
-	//string targetApp = TrakM->appType.c_str();
-	/*if (!connectToLocalDB(TrakM->appType))
-	{
-		WriteToLog("Failed to connect to Local Database.");
-		return 0;
-	}
-
-	if (!connectToRemoteDB(TrakM->appType))
-	{
-		WriteToLog("Failed to connect to Remote Database.");
-		return 0;
-	}*/
-
+	
 	TrakM->CreateDataModule(dbManager);
 
 	dbManager->connectToRemoteDB(TrakM->appType);
@@ -1935,18 +1881,8 @@ int HenchmanService::MainFunction()
 		}
 	}
 
-	//dbManager->checkRequest();
-	//Sleep(2000);
-	//dbManager->checkRequest();
-
-	//return a->exec();
-	//a->quit();
 	cout << "Exiting Main Function" << endl;
-	/*while (a->exec())
-	{
-		cout << "Executed" << endl;
-	}*/
-	//return a->exec();;
+	
 	return 0;
 }
 

@@ -16,7 +16,7 @@ SQLite_Manager::SQLite_Manager(string db_dir, string db_name)
 	logToConsole = false;
 	if (db_name == "" || filesystem::exists(db_dir + db_name))
 	{
-		//cout << "No db name passed or db file already exists" << endl;
+		WriteToError( "No db name passed or db file already exists");
 		return;
 	}
 	try 
@@ -37,7 +37,7 @@ SQLite_Manager::SQLite_Manager(string db_dir, string db_name)
 
 SQLite_Manager::~SQLite_Manager()
 {
-	//cout << "Deconstructing SQLite_Manager" << endl;
+	cout << "Deconstructing SQLite_Manager" << endl;
 	dbName.clear();
 	dbDir.clear();
 	logToConsole = NULL;

@@ -1,5 +1,5 @@
 
-qt_add_library(RegistryManager SHARED "RegistryManager.cpp")
+qt_add_library(RegistryManager STATIC "RegistryManager.cpp")
 
 target_include_directories(RegistryManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -1,5 +1,5 @@
 
-qt_add_library(ServiceHelper SHARED "ServiceHelper.cpp")
+qt_add_library(ServiceHelper STATIC "ServiceHelper.cpp")
 
 message(STATUS "Checking for OpenSSL: " ${OPENSSL_VERSION})
 

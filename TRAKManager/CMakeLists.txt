@@ -1,5 +1,5 @@
 
-qt_add_library(TRAKManager SHARED "TRAKManager.cpp")
+qt_add_library(TRAKManager STATIC "TRAKManager.cpp")
 
 target_include_directories(TRAKManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

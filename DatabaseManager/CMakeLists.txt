@@ -1,5 +1,5 @@
 
-qt_add_library(DatabaseManager SHARED "DatabaseManager.cpp")
+qt_add_library(DatabaseManager STATIC "DatabaseManager.cpp")
 message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
 target_include_directories(
 	DatabaseManager PUBLIC 
@@ -9,7 +9,6 @@ target_link_libraries(
 	DatabaseManager PUBLIC
 	Qt6::Sql
 	Qt6::Network
-	http_request
 	ServiceHelper
 	RegistryManager
 	#mysql::concpp

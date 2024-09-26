@@ -1,5 +1,5 @@
 
-qt_add_library(HenchmanServiceException SHARED "HenchmanServiceException.cpp")
+qt_add_library(HenchmanServiceException STATIC "HenchmanServiceException.cpp")
 
 target_include_directories(HenchmanServiceException PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

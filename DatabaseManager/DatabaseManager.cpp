@@ -33,32 +33,30 @@ static int checkValidConnections(QString &targetConnection)
 Seperate out adding database with addDatabase from reconnecting to database to do work
 */
 
-
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 {
 	this->setParent(parent);
 	networkManager = nullptr;
-	//networkManager->deleteLater();
 	restManager = nullptr;
 	netReply = nullptr;
 	targetApp = "";
 	requestRunning = false;
-
-	//connect(netReply, &QNetworkReply::finished, this, &DatabaseManager::parseData);
 }
 
 DatabaseManager::~DatabaseManager() 
 {
 	cout << "Deleting DatabaseManager" << endl;
-	//delete netReply;
-	//delete networkManager;
-	//delete restManager;
+	if(netReply != nullptr)
+		delete netReply;
+	if(networkManager != nullptr)
+		delete networkManager;
+	if(restManager != nullptr)
+		delete restManager;
 }
 
 int DatabaseManager::connectToRemoteDB (string &target_app)
 {
-	/*sql::Driver* driver;
-	sql::Connection* conn;*/
+	
 	WriteToLog("Attempting to connect to Remote Database");
 	targetApp = target_app;
 	HKEY hKeyLocal = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + target_app + "\\Database"));
@@ -72,7 +70,6 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	HKEY hKeyCloud = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + target_app + "\\Cloud"));
 	QString schemaRemote = GetStrVal(hKeyCloud, "Schema", REG_SZ).c_str();
 	QString dbUrl = GetStrVal(hKeyCloud, "url", REG_SZ).c_str();
-	//dbUrl = "https://api.country.is/9.9.9.9/";
 	QSqlDatabase db;
 	string pass;
 	QString user;
@@ -132,7 +129,6 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 
 		query.finish();
 		
-
 		db.close();
 		
 	}
@@ -175,9 +171,6 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	schemaPart.setBody(schemaRemote.toUtf8());
 	//parts.push_back(schemaPart);
 	form->append(schemaPart);
-	/*QHttpPart queryPartSetup;
-	queryPartSetup.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"q[]\""));
-	queryPartSetup.setBody("");*/
 	for (const auto& query : queries)
 	{
 		QHttpPart queryPart;
@@ -188,13 +181,16 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		//parts.push_back(*queryPart);
 		form->append(queryPart);
 	}
-	//QHttpPart queryPart;
-	//queryPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"q[]\""));
-	//WriteToLog("Running query: " + queries[0].toStdString() + "on server.\n");
-	//cout << queries[0].toUtf8().data() << endl;
-	//queryPart.setBody(queries[0].toUtf8());
-	////parts.push_back(*queryPart);
-	//form->append(queryPart
+
+	/*
+		QHttpPart queryPart;
+		queryPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"q[]\""));
+		WriteToLog("Running query: " + queries[0].toStdString() + "on server.\n");
+		cout << queries[0].toUtf8().data() << endl;
+		queryPart.setBody(queries[0].toUtf8());
+		//parts.push_back(*queryPart);
+		form->append(queryPart
+	*/
 
 	if (dbUrl.trimmed().isEmpty())
 		return 0;
@@ -209,18 +205,9 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		networkManager = new QNetworkAccessManager(this);
 		WriteToLog("Making get request to " + dbUrl.toStdString());
 		QNetworkRequest request(dbUrl);
-		//request.setHeader(QNetworkRequest::ContentTypeHeader, "multipart/form-data");
-		//restManager = new QRestAccessManager(networkManager, this);
 		netReply = networkManager->post(request, form);
 		form->setParent(networkManager);
 		netReply->setParent(networkManager);
-		/*connect(
-			networkManager, 
-			&QNetworkAccessManager::finished, 
-			this, 
-			&DatabaseManager::parseData,
-			Qt::QueuedConnection
-		);*/
 		connect(
 			netReply,
 			&QNetworkReply::finished,
@@ -236,16 +223,13 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 			Qt::QueuedConnection
 		);
 		requestRunning = true;
-		//networkManager->post(request, form);
-		//netReply = restManager->post(request, form);
-		//connect(netReply, &QNetworkReply::finished, this, &DatabaseManager::parseData);
 	}
 	catch (exception& e)
 	{
 		WriteToError("Throwing Exception: " + string(e.what()));
 		throw e;
 	}
-
+	return 1;
 }
 
 int DatabaseManager::connectToLocalDB(string& target_app)
@@ -283,7 +267,6 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 			db = QSqlDatabase::addDatabase(dbtype, schema);
 			db.setHostName(server);
 			db.setPort(port);
-			//db.setDatabaseName(schema);
 			db.setUserName(user);
 			if (pass != "")
 				db.setPassword(decodeBase64(pass));
@@ -519,7 +502,6 @@ void DatabaseManager::parseData()
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qDebug() << "Request was successful: " << status << reason;
 		WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
-		//return;
 	}
 
 	string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 ORDER BY id LIMIT "+ QString::number(queryLimit).toStdString();
@@ -538,8 +520,6 @@ void DatabaseManager::parseData()
 			}
 		}
 	}
-
-	//cout << restReply.networkReply()->header(restReply.networkReply()->request().ContentTypeHeader).toString().toStdString() << endl;
 
 	QJsonArray data = json->object()["data"].toArray();
 	if (response.value()["data"].toArray().count() > 0) {

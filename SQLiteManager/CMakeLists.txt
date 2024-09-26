@@ -1,5 +1,5 @@
 
-qt_add_library(SQLiteManager SHARED "SQLiteManager.cpp")
+qt_add_library(SQLiteManager STATIC "SQLiteManager.cpp")
 
 target_include_directories(SQLiteManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(

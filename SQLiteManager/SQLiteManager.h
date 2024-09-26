@@ -74,7 +74,7 @@ public:
 	*
 	* @throws exception If there is an error opening or creating the database file, or if the query execution fails.
 	*/
-	int CreateTable(std::string &table, std::vector<std::string> &cols);
+	int CreateTable(std::string & tableName, std::vector<std::string> &cols);
 
 	/**
 	* Adds a row to the specified table in the SQLite database.
@@ -86,7 +86,7 @@ public:
 	*
 	* @throws exception If there is an error opening or creating the database file, or if the query execution fails.
 	*/
-	int AddRow(std::string& targetName, std::vector<std::string>& values);
+	int AddRow(std::string& targetTable, std::vector<std::string>& values);
 };
 
 #endif
