@@ -12,11 +12,19 @@ HenchmanService is a Windows service that provides functionality for managing an
 
 To get started with HenchmanService, follow these steps:
 
-1. Clone the repository: `git clone https://github.com/your-username/HenchmanService.git`
-2. Build the project using your preferred build system or IDE.
+1. Clone the repository: `git clone https://github.com/your-username/HenchmanService.git`.
+2. Build the project using `cmake --build .`.
 3. Create a service.ini file and define the required fields.
 4. Install the service by running the executable with the `--install` argument.
 5. Start the service by running the executable with the `--start` argument.
+
+## Dependencies
+
+HenchmanService requires the following dependencies to build and run:
+
+ - OpenSSL library: Used for SSL/TLS communication.
+ - Qt6: Used for various aspects of the application such as interacting with a database and network requests.
+ - Doxygen: For generating documentation at build time.
 
 ## Usage
 
@@ -26,10 +34,10 @@ To use HenchmanService, you can interact with it through the command line or thr
 
 To interact with HenchmanService through the command line, you can use the following commands:
 
-- `--install`: Installs the service.
-- `--remove`: Removes the service.
-- `--start`: Starts the service.
-- `--stop`: Stops the service.
+ - `--install`: Installs the service.
+ - `--remove`: Removes the service.
+ - `--start`: Starts the service.
+ - `--stop`: Stops the service.
 
 ### Windows Service Manager
 
@@ -62,22 +70,31 @@ EXE_FILE = name_of_trak_exe
 APP_NAME = name_of_trak_application
 ```
 
-- `[Mail]` section:
+ - `[Mail]` section:
   - `Username` key: Specifies the username for the mail login.
   - `Password` key: Specifies the password for the mail login.
 
-- `[WAMP]` section:
+ - `[WAMP]` section:
   - `MySQL_DIR` key: Specifies the path to the folder that contains the MySQL executable.
   - `Apache_DIR` key: Specifies the path to the folder that contains the Apache executable.
   - `PHP_DIR` key: Specifies the path to the folder that contains the PHP executable.
 
-- `[TRAK]` section:
+ - `[TRAK]` section:
   - `TRAK_DIR` key: Specifies the path to the TRAK executable.
   - `INI_FILE` key: Specifies the name of the TRAK ini file.
   - `EXE_FILE` key: Specifies the name of the TRAK executable.
   - `APP_NAME` key: Specifies the name of the TRAK application.
 
 Make sure to replace include outlined with the appropriate values for your setup to work.
+
+## Troubleshooting
+
+If you encounter any issues while using HenchmanService, here are some troubleshooting tips:
+
+ - Make sure the configuration file (service.ini) is present and properly configured.
+ - Check the log files for any error messages or warnings.
+ - Verify that the required dependencies are installed.
+ - Check the system logs for any related errors.
 
 ## Contributing
 
