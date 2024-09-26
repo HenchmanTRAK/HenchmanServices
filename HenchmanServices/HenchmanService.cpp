@@ -159,7 +159,7 @@ int ShellExecuteApp(string appName, string params)
 	string StartInString;
 
 	if (!filesystem::exists(appName)) {
-		WriteToError("Target EXE does not exist");
+		WriteToError("Could not find Target EXE: " + appName);
 		return 0;
 	}
 
@@ -1040,7 +1040,7 @@ int RunAsService(int argc, char* argv[])
 		DoInstallSvc();
 		//getchar();
 		Sleep(1000);
-		ShellExecuteApp(SERVICE_NAME, " --start");
+		ShellExecuteApp(installDir+"\\"+SERVICE_NAME + ".exe", "--start");
 		return 0;
 	}
 
