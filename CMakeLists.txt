@@ -97,6 +97,11 @@ FetchContent_Declare(
 	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
 	FIND_PACKAGE_ARGS HINTS x64
 )
+FetchContent_Declare(
+	http_request
+	GIT_REPOSITORY	https://github.com/abiiranathan/http_request.git
+	GIT_TAG			master
+)
 
 FetchContent_Declare(
 	QMYSQL
@@ -104,7 +109,7 @@ FetchContent_Declare(
 )
 set(QMYSQL_SOURCE_DIR ${CMAKE_BINARY_DIR}/_deps/qmysql-src)
 
-FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
+FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL http_request)
 
 file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 

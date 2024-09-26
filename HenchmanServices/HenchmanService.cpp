@@ -24,8 +24,10 @@ string HenchmanService::mail_username = "";
 string HenchmanService::mail_password = "";
 SQLite_Manager* HenchmanService::SQLiteM;
 TRAKManager* TrakM;
-
+DatabaseManager* dbManager;
 QCoreApplication* a;
+
+bool testing = false;
 
 string ShowCerts(SSL* ssl)
 {
@@ -163,9 +165,15 @@ int ShellExecuteApp(string appName, string params)
 	string paramStr = params;
 	string StartInString;
 
+	if (!filesystem::exists(appName)) {
+		WriteToError("Target EXE does not exist");
+		return 0;
+	}
+
+
 	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
 
-	Sleep(2500);
+	//Sleep(2500);
 
 	//fill_n(SEInfo, sizeof(SEInfo), NULL);
 	ZeroMemory(&SEInfo, sizeof(SEInfo));
@@ -923,6 +931,14 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode)
 
 void WINAPI SvcMain(int dwArgc, char* lpszArgv[])
 {
+	//a = new QCoreApplication(argc, argv);
+	a = new QCoreApplication(dwArgc, lpszArgv);
+	if (testing)
+	{
+		SvcInit();
+		return;
+	}
+
 	g_StatusHandle = RegisterServiceCtrlHandlerA(
 		SERVICE_NAME,
 		SvcCtrlHandler
@@ -933,8 +949,6 @@ void WINAPI SvcMain(int dwArgc, char* lpszArgv[])
 		return;
 	}
 
-	a = new QCoreApplication(dwArgc, lpszArgv);
-
 	ZeroMemory(&g_ServiceStatus, sizeof(g_ServiceStatus));
 	g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
 	g_ServiceStatus.dwServiceSpecificExitCode = 0;
@@ -942,12 +956,16 @@ void WINAPI SvcMain(int dwArgc, char* lpszArgv[])
 	ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
 
 	SvcInit();
-
-	delete a;
 }
 
 void SvcInit()
 {
+
+	if (testing)
+	{
+		SvcWorkerThread(&g_ServiceStopEvent);
+		return;
+	}
 	g_ServiceStopEvent = CreateEventA(
 		NULL,
 		TRUE,
@@ -964,13 +982,26 @@ void SvcInit()
 	ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 
 	// Do Work Here
-	HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &g_ServiceStopEvent, 0, NULL);
+	//HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &g_ServiceStopEvent, 0, NULL);
+	SvcWorkerThread(&g_ServiceStopEvent);
 
-	if (hThread)
+	while (1)
+	{
 		WaitForSingleObject(
 			g_ServiceStopEvent,
 			INFINITE
 		);
+	}
+	/*if (hThread)
+		WaitForSingleObject(
+			g_ServiceStopEvent,
+			INFINITE
+		);*/
+
+	/*while (1) {
+		WaitForSingleObject(g_ServiceStopEvent, INFINITE);
+		return;
+	}*/
 
 	ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
 	CloseHandle(g_ServiceStopEvent);
@@ -988,6 +1019,8 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	{
 		service.MainFunction();
 		WriteToLog("Service sleeping for 30000 ms...");
+		//QTimer::singleShot(30000, a, &QCoreApplication::quit);
+		a->exec();
 		Sleep(30000);
 	}
 	return ERROR_SUCCESS;
@@ -1011,8 +1044,9 @@ int RunAsService(int argc, char* argv[])
 			SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
 		}
 		RegCloseKey(hKey);
-		getchar();
 		DoInstallSvc();
+		//getchar();
+		Sleep(1000);
 		ShellExecuteApp(SERVICE_NAME, " --start");
 		return 0;
 	}
@@ -1021,6 +1055,7 @@ int RunAsService(int argc, char* argv[])
 	{
 		DoStopSvc();
 		DoDeleteSvc();
+		getchar();
 		return 0;
 	}
 
@@ -1051,6 +1086,76 @@ int RunAsService(int argc, char* argv[])
 	}
 
 	return 0;
+}
+
+int RunAsServiceTest(int argc, char* argv[])
+{
+	testing = true;
+	if (lstrcmpiA(argv[1], "--install") == 0)
+	{
+		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+		char buff[MAX_PATH];
+		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
+		string currDir = buff;
+		currDir.resize(byteLength);
+		string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
+		struct stat buffer;
+		if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
+		{
+			installDir = currDir;
+			cout << installDir << endl;
+			SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
+		}
+		RegCloseKey(hKey);
+		//DoInstallSvc();
+		cout << "Installing..." << endl;
+		Sleep(1000);
+		ShellExecuteApp(SERVICE_NAME, " --start");
+		getchar();
+		return 0;
+	}
+
+	if (lstrcmpiA(argv[1], "--remove") == 0)
+	{
+		//DoStopSvc();
+		//DoDeleteSvc();
+		cout << "stopping..." << endl;
+		cout << "removing..." << endl;
+		getchar();
+		return 0;
+	}
+
+	if (lstrcmpiA(argv[1], "--start") == 0)
+	{
+		//DoStartSvc();
+		cout << "starting..." << endl;
+		return 0;
+	}
+
+	if (lstrcmpiA(argv[1], "--stop") == 0)
+	{
+		//DoStopSvc();
+		cout << "stopping..." << endl;
+		return 0;
+	}
+	//a = new QCoreApplication(argc, argv);
+
+	SvcMain(argc, argv);
+	//SERVICE_TABLE_ENTRYA ServiceTable[] =
+	//{
+	//	{string(SERVICE_NAME).data(), (LPSERVICE_MAIN_FUNCTIONA)SvcMain},
+	//	{NULL, NULL}
+	//};
+
+	//if (!StartServiceCtrlDispatcherA(ServiceTable))
+	//{
+	//	std::cout << "StartServiceCtrlDispatcher Failed" << std::endl;
+	//	/*SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
+	//	ErrorMessage(TEXT("GetProcessId"));*/
+	//	return 0;
+	//}
+
+	//return a->exec();
 }
 
 HenchmanService::HenchmanService()
@@ -1143,22 +1248,29 @@ HenchmanService::HenchmanService()
 	currDir.clear();
 
 	RegCloseKey(hKey);
+
+
+	dbManager = new DatabaseManager(a);
 }
 
 HenchmanService::~HenchmanService()
 {
-	//cout << "Deconstructing HenchmanService" << endl;
+	cout << "Deconstructing HenchmanService" << endl;
 	delete SQLiteM;
 	delete TrakM;
+	//delete dbManager;
+	//delete a;
 
 	logx.clear();
 }
+
 
 vector<string> HenchmanService::Explode(const string& Seperator, string& s)
 {
 	int limit = -1;
 	return Explode(Seperator, s, limit);
 }
+
 
 vector<string> HenchmanService::Explode(const string& Seperator, string& s, int& limit)
 {
@@ -1683,7 +1795,7 @@ bool  HenchmanService::isInternetConnected()
 
 int HenchmanService::MainFunction()
 {
-	QTimer::singleShot(0, &*a, &QCoreApplication::quit);
+	//QTimer::singleShot(0, a, &QCoreApplication::quit);
 
 	GetLogsPath();
 
@@ -1806,9 +1918,10 @@ int HenchmanService::MainFunction()
 		return 0;
 	}*/
 
-	TrakM->CreateDataModule();
+	TrakM->CreateDataModule(dbManager);
 
-	//connectToRemoteDB(TrakM->appType);
+	dbManager->connectToRemoteDB(TrakM->appType);
+
 	WriteToLog("Checking if TRAK is Running");
 	if (!ProcessExists(TrakM->appName)) {
 		WriteToError("TRAK process is not running");
@@ -1818,17 +1931,29 @@ int HenchmanService::MainFunction()
 		if (!ShellExecuteApp(targetExe, ""))
 		{
 			WriteToError("Failed to start " + targetExe);
-			return 0;
+			//return 0;
 		}
 	}
 
+	//dbManager->checkRequest();
+	//Sleep(2000);
+	//dbManager->checkRequest();
 
-	return a->exec();
+	//return a->exec();
+	//a->quit();
+	cout << "Exiting Main Function" << endl;
+	/*while (a->exec())
+	{
+		cout << "Executed" << endl;
+	}*/
+	//return a->exec();;
+	return 0;
 }
 
 int main(int argc, char* argv[])
 {
 
+	//a = new QCoreApplication(argc, argv);
 	//printf(TEXT("CNC_Current_Tracker_Service: Main: StartServiceCtrlDispatcher"));
 	//getchar();
 
@@ -1846,11 +1971,17 @@ int main(int argc, char* argv[])
 		SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
 	}
 	RegCloseKey(hKey);
-
-	HenchmanService service;
 	a = new QCoreApplication(argc, argv);
-	service.MainFunction();*/
-
+	try {
+		HenchmanService service;
+		service.MainFunction();
+	}
+	catch (exception& e) {
+		WriteToError("An exception occured: " + string(e.what()));
+		throw e;
+	}
+	cout << "Main Function Finished" << endl;*/
+	//service.~HenchmanService();
 	//cout << "Export path: " << GetExportsPath() << endl;
 	//service.app_path = "C:\\FPC\\Kaptap.exe";
 	//cout << "Logs path: " << GetLogsPath() << endl;
@@ -1911,8 +2042,13 @@ int main(int argc, char* argv[])
 
 	//Sleep(5000);
 	//getchar();
-
-	//delete a;
+	
+	//return RunAsServiceTest(argc, argv);
 	return RunAsService(argc, argv);
+	//delete a;
+	//QTimer::singleShot(2000, a, &QCoreApplication::quit);
+	//a->exec();
+	//QObject::connect(a, &QCoreApplication::aboutToQuit, a, &QCoreApplication::quit);
+	//a->thread()
 	//return 0;
 }

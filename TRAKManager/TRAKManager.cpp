@@ -111,7 +111,7 @@ const {
 	RegCloseKey(hKey);
 }
 
-void TRAKManager::CreateDataModule()
+void TRAKManager::CreateDataModule(DatabaseManager* dbManager)
 {
 	CSimpleIniA ini;
 	ini.SetUnicode();
@@ -157,12 +157,13 @@ void TRAKManager::CreateDataModule()
 
 		cout << "Connecting to Local MySQL Database" << endl;
 		
-		connectToLocalDB(appType);
+		dbManager->connectToLocalDB(appType);
 
-		//string sqlFile = appDir + "database\\qkabmaster.sql";
+		string sqlFile = appDir + "database\\qkabmaster.sql";
 
-		//ExecuteTargetSqlScript(appType, sqlFile);
-
+		//dbManager->ExecuteTargetSqlScript(appType, sqlFile);
+		//sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\qkabtrak_sts_003.sql";
+		//dbManager->ExecuteTargetSqlScript(appType, sqlFile);
 		
 		/*cout << cloud_map["UseProxy"] << endl;
 		if (stoi(cloud_map["UseProxy"].data()))

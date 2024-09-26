@@ -121,7 +121,7 @@ int SQLite_Manager::CreateTable(string &tableName, vector<string> &cols)
 	return 0;
 }
 
-int SQLite_Manager::AddRow(string& targetTable, vector<string> &values)
+int SQLite_Manager::AddRow(string& targetName, vector<string> & values)
 {
 	try
 	{
@@ -130,7 +130,7 @@ int SQLite_Manager::AddRow(string& targetTable, vector<string> &values)
 		SQLite::Database db(dbDir + dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
 		stringstream query;
 		SQLite::Transaction transaction(db);
-		query << "INSERT INTO " << targetTable << " (username, password) VALUES (";
+		query << "INSERT INTO " << targetName << " (username, password) VALUES (";
 		for (unsigned i = 0; i < values.size(); ++i)
 		{
 			query << "\"" << values[i] << "\"";

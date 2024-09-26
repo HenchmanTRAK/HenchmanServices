@@ -127,6 +127,7 @@ string GetLogsPath(string app_path)
 	return logsPath;
 }
 
+
 void WriteToLog(string log) 
 {
 	string logDir = GetLogsPath();

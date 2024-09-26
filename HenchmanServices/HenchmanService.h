@@ -187,17 +187,111 @@ class HenchmanService {
 private:
 
 public:
-    HenchmanService();
-    ~HenchmanService();
-    bool setMailLogin(std::string &, std::string &);
     static std::stringstream logx;
     static std::string app_path;
+
+    /**
+    * Constructor for the HenchmanService class. Initializes the service and loads configuration settings from an INI file.
+    *
+    * @throws None
+    */
+    HenchmanService();
+
+    /**
+    * Destructor for the HenchmanService class.
+    * Deletes the SQLiteM and TrakM objects, and clears the logx stringstream.
+    *
+    * @throws None
+    */
+    ~HenchmanService();
+
+    /**
+    * Sets the mail login credentials for the HenchmanService.
+    *
+    * @param username - The username for the mail login.
+    * @param password - The password for the mail login.
+    *
+    * @return True if the mail login credentials are successfully set, false otherwise.
+    *
+    * @throws None
+    */
+    bool setMailLogin(std::string &, std::string &);
+
+    /**
+    * Splits a string into substrings based on a specified separator.
+    *
+    * @param Seperator - The separator used to split the string.
+    * @param s - The string to be split.
+    * @param limit - The maximum number of substrings to be returned. If set to 0, all substrings will be returned.
+    *
+    * @return A vector containing the substrings.
+    *
+    * @throws HenchmanServiceException if an empty string is provided for s or if an invalid integer is provided for limit.
+    */
     std::vector<std::string> Explode(const std::string&, std::string&, int&);
+    /**
+    * Splits a string into substrings based on a specified separator.
+    *
+    * @param Seperator - The separator used to split the string.
+    * @param s - The string to be split.
+    *
+    * @return A vector containing the substrings.
+    *
+    * @throws HenchmanServiceException if an empty string is provided for s or if an invalid integer is provided for limit.
+    */
     std::vector<std::string> Explode(const std::string&, std::string&);
+
+    /**
+    * Connects to the SMTP server and initiates communication through SMTP.
+    *
+    * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info,
+    * or connecting to the server.
+    */
 	void ConnectWithSMTP();
+
+    /**
+    * Checks if there is an active internet connection.
+    *
+    * @return True if there is an active internet connection, false otherwise.
+    *
+    * @throws None
+    */
     bool checkForInternetConnection();
+
+    /**
+    * Checks if there is an active internet connection.
+    *
+    * @return True if there is an active internet connection, false otherwise.
+    *
+    * @throws None
+    */
     bool isInternetConnected();
 	//SC_HANDLE *GetServiceController();
+
+    /**
+    * Main function for the HenchmanService.
+    *
+    * This function performs the following tasks:
+    * 
+    *  - Creates a new instance of the TRAKManager.
+    * 
+    *  - Retrieves the status of the wampmysqld64 service and performs actions based on the status.
+    * 
+    *  - Retrieves the status of the wampapache64 service and performs actions based on the status.
+    * 
+    *  - Checks if there is an active internet connection and returns 0 if not.
+    * 
+    *  - Creates a data module for the TRAKManager.
+    * 
+    *  - Connects to the remote database.
+    * 
+    *  - Checks if the TRAK process is running and starts it if not.
+    *
+    * @return 0 if the function fails to confirm the network connection or if the TRAK process fails to start.
+    *
+    * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info,
+    * or connecting to the server.
+    */
     int MainFunction();
 };
 
