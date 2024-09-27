@@ -1999,8 +1999,8 @@ int main(int argc, char* argv[])
 	//Sleep(5000);
 	//getchar();
 	
-	return RunAsServiceTest(argc, argv);
-	//return RunAsService(argc, argv);
+	//return RunAsServiceTest(argc, argv);
+	return RunAsService(argc, argv);
 	//delete a;
 	//QTimer::singleShot(2000, a, &QCoreApplication::quit);
 	//a->exec();
