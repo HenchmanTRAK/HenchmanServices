@@ -1525,7 +1525,7 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 			f1 << "AUTH PLAIN ";
 			string f2;
 			using namespace string_literals;
-			f2 = mail_username + "\0"s + mail_username + "\0"s + QByteArray::fromBase64(mail_password.c_str()).toStdString();
+			f2 = mail_username + "\0"s + mail_username + "\0"s + QByteArray::fromBase64Encoding(mail_password.c_str()).decoded.toStdString();
 			f1 << QByteArray(f2.c_str()).toBase64().toStdString();
 			f1 << " \r\n";
 			string f11 = f1.str();

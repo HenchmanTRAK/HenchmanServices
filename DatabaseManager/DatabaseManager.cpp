@@ -126,7 +126,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	//cout << "Pulled the following values from registy: " << server.toStdString() << " " << port << " " << schemaRemote.toStdString() << " " << user.toStdString() << " " << (pass != "" ? decodeBase64(pass) : pass.c_str()) << endl;
 	
 	if (pass != "") pass =
-		QByteArray::fromBase64(pass.c_str());
+		QByteArray::fromBase64Encoding(pass.c_str()).decoded;
 
 	RegCloseKey(hKeyCloud);
 	RegCloseKey(hKeyLocal);
