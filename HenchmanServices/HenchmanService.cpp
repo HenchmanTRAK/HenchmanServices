@@ -7,7 +7,6 @@
 
 using namespace std;
 
-
 QCoreApplication* a;
 
 bool testing = false;
@@ -156,9 +155,6 @@ int ShellExecuteApp(string appName, string params)
 
 	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
 
-	//Sleep(2500);
-
-	//fill_n(SEInfo, sizeof(SEInfo), NULL);
 	ZeroMemory(&SEInfo, sizeof(SEInfo));
 	SEInfo.cbSize = sizeof(SHELLEXECUTEINFO);
 	SEInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
@@ -174,7 +170,7 @@ int ShellExecuteApp(string appName, string params)
 		do {
 			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
 			exitCodeMessage << "Target: " << exeFile << " return exit code : " << ExitCode;
-			WriteToError(exitCodeMessage.str());
+			WriteToLog(exitCodeMessage.str());
 			exitCodeMessage.clear();
 		} while (ExitCode != STILL_ACTIVE);
 		return 1;
@@ -952,6 +948,7 @@ void SvcInit()
 		SvcWorkerThread(&g_ServiceStopEvent);
 		return;
 	}
+	
 	g_ServiceStopEvent = CreateEventA(
 		NULL,
 		TRUE,
@@ -968,26 +965,21 @@ void SvcInit()
 	ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 
 	// Do Work Here
-	//HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &g_ServiceStopEvent, 0, NULL);
-	SvcWorkerThread(&g_ServiceStopEvent);
+	HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &g_ServiceStopEvent, 0, NULL);
+	//SvcWorkerThread(&g_ServiceStopEvent);
 
-	while (1)
+	/*while (1)
 	{
 		WaitForSingleObject(
 			g_ServiceStopEvent,
 			INFINITE
 		);
-	}
-	/*if (hThread)
+	}*/
+	if (hThread)
 		WaitForSingleObject(
 			g_ServiceStopEvent,
 			INFINITE
-		);*/
-
-	/*while (1) {
-		WaitForSingleObject(g_ServiceStopEvent, INFINITE);
-		return;
-	}*/
+		);
 
 	ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
 	CloseHandle(g_ServiceStopEvent);
@@ -1072,7 +1064,12 @@ int RunAsService(int argc, char* argv[])
 
 	if (!StartServiceCtrlDispatcherA(ServiceTable))
 	{
-		std::cout << "StartServiceCtrlDispatcher Failed" << std::endl;
+		std::cout << "Failed to find Registered Service Controller." << std::endl;
+		std::cout << "Press enter to install service or hit CTRL+C to exit..." << std::endl;
+		int c = getchar();
+		if (c == '\n' || c == EOF)
+			ShellExecuteApp(string(SERVICE_NAME) + ".exe", "--install");
+			cout << "Press any key to exit..." << endl;
 		/*SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
 		ErrorMessage(TEXT("GetProcessId"));*/
 		return 0;
@@ -1777,10 +1774,6 @@ bool  HenchmanService::isInternetConnected()
 
 int HenchmanService::MainFunction()
 {
-	//QTimer::singleShot(0, a, &QCoreApplication::quit);
-
-	//GetLogsPath();
-
 	update = TRUE;
 
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
@@ -1822,7 +1815,7 @@ int HenchmanService::MainFunction()
 		break;
 	}
 	}
-	//mysql_dir.clear();
+
 	int wampApacheSvcStatus = GetSvcStatus(NULL, "wampapache64");
 	string apache_dir = GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	cout << apache_dir << endl;
@@ -1870,7 +1863,7 @@ int HenchmanService::MainFunction()
 		break;
 	}
 	}
-	//apache_dir.clear();
+
 	RegCloseKey(hKey);
 
 	if (!(checkForInternetConnection() && isInternetConnected()))
@@ -1889,16 +1882,14 @@ int HenchmanService::MainFunction()
 	if (!ProcessExists(TrakM->appName)) {
 		WriteToError("TRAK process is not running");
 		string targetExe = TrakM->appDir + TrakM->appName;
-		cout << targetExe << endl;
 		WriteToLog("TRAK process not running, starting with path: " + targetExe);
 		if (!ShellExecuteApp(targetExe, ""))
 		{
 			WriteToError("Failed to start " + targetExe);
-			//return 0;
 		}
 	}
 	delete TrakM;
-	//dbManager->deleteLater();
+	
 	cout << "Exiting Main Function" << endl;
 	
 	return 0;
@@ -1907,104 +1898,10 @@ int HenchmanService::MainFunction()
 int main(int argc, char* argv[])
 {
 
-	testing = true;
+	testing = false;
 
-	//a = new QCoreApplication(argc, argv);
-	//printf(TEXT("CNC_Current_Tracker_Service: Main: StartServiceCtrlDispatcher"));
-	//getchar();
 
-	/*HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	char buff[MAX_PATH];
-	int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-	string currDir = buff;
-	currDir.resize(byteLength);
-	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-	struct stat buffer;
-	if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
-	{
-		installDir = currDir;
-		cout << installDir << endl;
-		SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
-	}
-	RegCloseKey(hKey);
-	a = new QCoreApplication(argc, argv);
-	try {
-		HenchmanService service;
-		service.MainFunction();
-	}
-	catch (exception& e) {
-		WriteToError("An exception occured: " + string(e.what()));
-		throw e;
-	}
-	cout << "Main Function Finished" << endl;*/
-	//service.~HenchmanService();
-	//cout << "Export path: " << GetExportsPath() << endl;
-	//service.app_path = "C:\\FPC\\Kaptap.exe";
-	//cout << "Logs path: " << GetLogsPath() << endl;
-	//vector<string> explodedString;
-	/*try {
-		string s = "Hello World Jack Son";
-		explodedString = service.Explode(" ", s, 1);
-	}
-	catch (const HenchmanServiceException& hse) {
-		cout << "An Exception in HenchmanService Occurred:" << endl;
-		cout << hse.what();
-	}*/
-	//for(auto i : explodedString) cout << i << endl;
-
-	//ProcessExists("HenchmanServices") ? cout << "Yes It Does" : cout << "No It Does Not";
-	//cout << endl;
-	//
-	//char buff[1024];
-	//int byteLength = GetCurrentDirectory(sizeof(buff), buff);
-	//string currDir = buff;
-	//currDir.resize(byteLength);
-	//string installDir = GetStrVal(hKey, "InstallDir", REG_SZ);
-	//struct stat buffer;
-	//if (installDir == "" || stat(currDir.c_str(), &buffer) == 0)
-	//{
-	//	installDir = currDir;
-	//}
-	//SetStrVal(hKey, "InstallDir", installDir, REG_SZ);
-
-	//FileInUse(installDir + "\\HenchmanServices.exe") ? cout << "Yes It Is" : cout << "No It Is Not";
-	//cout << endl;
-	//
-	//cout << "creating Table for service" << endl;
-	//string tableName = "TestTable";
-	//vector<string> cols;
-	//cols.push_back("username TEXT NOT NULL");
-	//cols.push_back("password TEXT NOT NULL");
-	//SQLiteM.CreateTable(tableName, cols);
-
-	//cout << "Reading ini file: " << string(installDir + "\\service.ini") << endl;
-	//SI_Error rc = ini.LoadFile(string(installDir + "\\service.ini").c_str());
-	//if (rc < 0) {
-	//	cerr << "Failed to Load INI File" << endl;
-	//}
-	//string username = ini.GetValue("Email", "Username", "");
-	//string password = ini.GetValue("Email", "Password", "");
-	//
-	//if (checkForInternetConnection() && isInternetConnected() && service.setMailLogin(username, password)) {
-	//	cout << "Able to send mail" << endl;
-	//	//service.ConnectWithSMTP();
-	//}
-	//ShellExecuteApp("HenchmanServices.exe", "") ? cout << "Successfully excecuted" << endl : cout << "Failed to excecute" << endl;
-	/*InstallMySQL();
-	InstallApache();
-	InstallOnlineOfflineScript();*/
-
-	//explodedString.clear();
-
-	//Sleep(5000);
-	//getchar();
-	
 	//return RunAsServiceTest(argc, argv);
 	return RunAsService(argc, argv);
-	//delete a;
-	//QTimer::singleShot(2000, a, &QCoreApplication::quit);
-	//a->exec();
-	//QObject::connect(a, &QCoreApplication::aboutToQuit, a, &QCoreApplication::quit);
-	//a->thread()
-	//return 0;
+
 }

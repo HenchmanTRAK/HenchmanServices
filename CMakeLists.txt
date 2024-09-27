@@ -14,7 +14,7 @@ if(MSVC)
   target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
 
-project ("HenchmanServices" VERSION 0.0.1 LANGUAGES CXX C)
+project ("HenchmanServices" VERSION 1.0.0 LANGUAGES CXX C)
 set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 set(TRACEDESIGNTIME TRUE)
 
@@ -51,7 +51,7 @@ add_custom_target(
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 	COMMENT "Generating API documentation with Doxygen" VERBATIM
 )
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/doc/html DESTINATION     share/doc)
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html DESTINATION     share/doc)
 endif(DOXYGEN_FOUND)
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
@@ -185,9 +185,12 @@ install (FILES
 	service.ini 
 	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-10-vs14.dll 
 	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-2-vs14.dll 
-	DESTINATION bin
+	DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-
+install (
+	FILES README.md
+	DESTINATION ${CMAKE_INSTALL_BINDIR}/..
+)
 #[==[
 install(
 	CODE [[
