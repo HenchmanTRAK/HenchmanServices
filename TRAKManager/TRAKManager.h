@@ -6,6 +6,8 @@
 
 #include "SimpleIni.h"
 
+#include <QByteArray>
+
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
 #include "DatabaseManager.h"

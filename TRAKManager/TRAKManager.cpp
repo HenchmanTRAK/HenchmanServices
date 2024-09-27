@@ -92,7 +92,7 @@ const {
 		//sanitize(value);
 		removeQuotes(value);
 		if (key == "Password" && value != "")
-			value = base64(value);
+			value = QByteArray(value.c_str()).toBase64();
 		map[key] = value;
 		GetStrVal(hKey, key.data(), REG_SZ);
 		SetStrVal(hKey, key.data(), map[key], REG_SZ);
@@ -111,7 +111,7 @@ const {
 	RegCloseKey(hKey);
 }
 
-void TRAKManager::CreateDataModule(DatabaseManager* dbManager)
+void TRAKManager::CreateDataModule(DatabaseManager *dbManager)
 {
 	CSimpleIniA ini;
 	ini.SetUnicode();

@@ -114,7 +114,7 @@ public:
     */
     int ExecuteTargetSql(std::string& targetApp, std::string& sqlQuery);
 
-//public slots:
+public slots:
     /**
     * Parses the data received from a network request.
     *
@@ -127,11 +127,14 @@ public:
     */
     void parseData();
 
+    void performCleanup();
+
 private:
     std::string targetApp;
     QNetworkAccessManager* networkManager;
     QNetworkReply* netReply;
     QRestAccessManager* restManager;
+    QHttpMultiPart* form;
     Q_INVOKABLE void checkRequest();
 
 };

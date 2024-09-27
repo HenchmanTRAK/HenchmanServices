@@ -18,9 +18,9 @@
 // Manages the sqlite database associated with the HenchmanTRAK Service
 class SQLite_Manager
 {
-	static std::string dbName;
-	static std::string dbDir;
-	static bool logToConsole;
+	std::string dbName;
+	std::string dbDir;
+	bool logToConsole;
 public:
 	/**
 	* Constructs a SQLite_Manager object with the given database directory and name.

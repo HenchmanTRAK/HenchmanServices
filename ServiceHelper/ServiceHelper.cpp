@@ -34,6 +34,7 @@ string fileBasename(string path)
 string get_file_contents(const char* filename)
 {
 	string targetFile = filename;
+	bool result = false;
 	if (ifstream is{ targetFile, ios::binary | ios::ate })
 	{
 		auto size = is.tellg();
@@ -42,6 +43,7 @@ string get_file_contents(const char* filename)
 		is.read(&str[0], size);
 		/*if (is)
 			cout << str << '\n';*/
+		targetFile.clear();
 		return str.c_str();
 	}
 	throw(errno);
@@ -54,24 +56,25 @@ string GetFileExtension(const string& FileName)
 	return "";
 }
 
-char* base64(string string)
-{
-	// Credit to mtrw from Stackoverflow
-	const auto pl = 4 * ((string.size() + 2) / 3);
-	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
-	const auto ol = EVP_EncodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
-	if (pl != ol) { cerr << "Whoops, encode predicted " << pl << " but we got " << ol << "\n"; }
-	return output;
-}
-
-char* decodeBase64(string string)
-{
-	const auto pl = (3 * (string.size() / 4));
-	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
-	const auto ol = EVP_DecodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
-	if (pl != ol) { cerr << "Whoops, decode predicted " << pl << " but we got " << ol << "\n"; }
-	return output;
-}
+//char* base64(string string)
+//{
+//	// Credit to mtrw from Stackoverflow
+//	auto pl = 4 * ((string.size() + 2) / 3);
+//	calloc(pl + 1, 1); //+1 for the terminating null that EVP_EncodeBlock adds on
+//	unsigned char* output;
+//	auto ol = EVP_EncodeBlock(output, reinterpret_cast<unsigned char*>(string.data()), string.size());
+//	if (pl != ol) { cerr << "Whoops, encode predicted " << pl << " but we got " << ol << "\n"; }
+//	return output;
+//}
+//
+//char* decodeBase64(string string)
+//{
+//	auto pl = (3 * (string.size() / 4));
+//	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
+//	auto ol = EVP_DecodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
+//	if (pl != ol) { cerr << "Whoops, decode predicted " << pl << " but we got " << ol << "\n"; }
+//	return output;
+//}
 
 string GetExportsPath(string app_path) 
 {
@@ -97,6 +100,7 @@ string GetExportsPath(string app_path)
 	if (!filesystem::is_directory(exportsPath.c_str())) {
 		filesystem::create_directory(exportsPath.c_str());
 	}
+	installDir.clear();
 	return exportsPath;
 }
 
@@ -124,6 +128,7 @@ string GetLogsPath(string app_path)
 	if (!filesystem::is_directory(logsPath.c_str())) {
 		filesystem::create_directory(logsPath.c_str());
 	}
+	installDir.clear();
 	return logsPath;
 }
 
@@ -145,6 +150,7 @@ void WriteToLog(string log)
 		fs << log << '\n';
 		fs.close();
 	}
+	logDir.clear();
 }
 
 void WriteToError(string log) 
@@ -164,6 +170,7 @@ void WriteToError(string log)
 		fs << log << '\n';
 		fs.close();
 	}
+	logDir.clear();
 }
 
 void sanitize(string& stringValue)

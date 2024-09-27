@@ -17,6 +17,7 @@
 #include <QCoreApplication>
 #include <QTimer>
 #include <QString>
+#include <QByteArray>
 
 #include "SimpleIni.h"
 
@@ -203,20 +204,23 @@ CSimpleIniA ini;
 */
 class HenchmanService {
 
-    static std::string mail_username;
-    static std::string mail_password;
+    std::string mail_username;
+    std::string mail_password;
 
-    static SQLite_Manager *SQLiteM;
+    SQLite_Manager *SQLiteM;
+    TRAKManager* TrakM;
+    DatabaseManager* dbManager;
 
 	static clock_t tmr1;
 	static clock_t tmrkabTRAK;
 	static clock_t tmrcribTRAK;
 	static clock_t tmrPortaTRAK;
 
-	static SOCKET mailSocket;
-	static SSL_CTX* ctx;
-	static SSL* ssl;
-	static struct addrinfo* mailAddrInfo;
+	SOCKET mailSocket;
+	SSL_CTX* ctx;
+	SSL* ssl;
+	struct addrinfo* mailAddrInfo;
+
 
     bool kReport;
     bool cReport;
@@ -241,8 +245,8 @@ class HenchmanService {
 private:
 
 public:
-    static std::stringstream logx;
-    static std::string app_path;
+    std::stringstream logx;
+    std::string app_path;
 
     /**
     * Constructor for the HenchmanService class. Initializes the service and loads configuration settings from an INI file.

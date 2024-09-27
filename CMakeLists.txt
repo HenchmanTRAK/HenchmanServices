@@ -174,6 +174,7 @@ else()
 	message(STATUS "Checking for Qt6Core in " $ENV{QTDIR}/bin ": No")
 endif()
 
+#set_target_properties(HenchmanService PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "$<TARGET_FILE:HenchmanService> --install")
 
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
 

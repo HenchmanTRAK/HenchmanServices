@@ -7,17 +7,7 @@
 
 using namespace std;
 
-stringstream HenchmanService::logx;
-SOCKET HenchmanService::mailSocket = INVALID_SOCKET;
-SSL_CTX* HenchmanService::ctx;
-SSL* HenchmanService::ssl;
-struct addrinfo* HenchmanService::mailAddrInfo = NULL;
-string HenchmanService::app_path = "";
-string HenchmanService::mail_username = "";
-string HenchmanService::mail_password = "";
-SQLite_Manager* HenchmanService::SQLiteM;
-TRAKManager* TrakM;
-DatabaseManager* dbManager;
+
 QCoreApplication* a;
 
 bool testing = false;
@@ -925,7 +915,7 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode)
 void WINAPI SvcMain(int dwArgc, char* lpszArgv[])
 {
 	//a = new QCoreApplication(argc, argv);
-	a = new QCoreApplication(dwArgc, lpszArgv);
+	//a = new QCoreApplication(dwArgc, lpszArgv);
 	if (testing)
 	{
 		SvcInit();
@@ -949,6 +939,9 @@ void WINAPI SvcMain(int dwArgc, char* lpszArgv[])
 	ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
 
 	SvcInit();
+
+
+	//delete a;
 }
 
 void SvcInit()
@@ -1005,17 +998,24 @@ void SvcInit()
 
 DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 {
+	int argc = 0;
+	char* argv[1];
 
+	a = new QCoreApplication(argc, argv);
 	HenchmanService service;
-
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		service.MainFunction();
+
+		a->exec();
+
 		WriteToLog("Service sleeping for 30000 ms...");
 		//QTimer::singleShot(30000, a, &QCoreApplication::quit);
-		a->exec();
 		Sleep(30000);
 	}
+
+	delete a;
+	//delete dbManager;
 	return ERROR_SUCCESS;
 }
 
@@ -1083,8 +1083,7 @@ int RunAsService(int argc, char* argv[])
 
 int RunAsServiceTest(int argc, char* argv[])
 {
-	testing = true;
-	if (lstrcmpiA(argv[1], "--install") == 0)
+	if (lstrcmpiA(argv[1], "--install") == 0 || testing)
 	{
 		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 		char buff[MAX_PATH];
@@ -1102,10 +1101,12 @@ int RunAsServiceTest(int argc, char* argv[])
 		RegCloseKey(hKey);
 		//DoInstallSvc();
 		cout << "Installing..." << endl;
+		//getchar();
 		Sleep(1000);
-		ShellExecuteApp(SERVICE_NAME, " --start");
-		getchar();
-		return 0;
+		//ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", "--start");
+		cout << "Starting..." << endl;
+		//getchar();
+		//return 0;
 	}
 
 	if (lstrcmpiA(argv[1], "--remove") == 0)
@@ -1154,6 +1155,18 @@ int RunAsServiceTest(int argc, char* argv[])
 HenchmanService::HenchmanService()
 {
 
+	logx;
+	mailSocket = INVALID_SOCKET;
+	ctx;
+	ssl;
+	mailAddrInfo = NULL;
+	app_path = "";
+	mail_username = "";
+	mail_password = "";
+	SQLiteM = nullptr;
+	TrakM = nullptr;
+	dbManager = nullptr;
+
 	//CSimpleIni ini;
 	ini.SetUnicode();
 	logx << "Service Has Started" << endl << endl;
@@ -1173,7 +1186,7 @@ HenchmanService::HenchmanService()
 		databaseName = dbName;
 		SetStrVal(hKey, "DatabaseName", databaseName, REG_SZ);
 	}
-
+	
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").c_str());
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
@@ -1221,28 +1234,34 @@ HenchmanService::HenchmanService()
 	SQLiteM->CreateTable(tableName, cols);
 
 	string username = ini.GetValue("Email", "Username", "");
-	string password = base64(ini.GetValue("Email", "Password", ""));
+	string password = ini.GetValue("Email", "Password", "");
+	if(password != "")
+		password = QByteArray(password.c_str()).toBase64();
 	//string encodedPass = base64(password);
-	if (checkForInternetConnection() && isInternetConnected() && setMailLogin(username, password)) {
-		cout << "Able to send mail" << endl;
-		//service.ConnectWithSMTP();
-	}
+	setMailLogin(username, password);
 
 	tableName.clear();
 	cols.clear();
 	currDir.clear();
+	username.clear();
+	password.clear();
+	installDir.clear();
+	keys.clear();
+	databaseName.clear();
+	dbName.clear();
 
 	RegCloseKey(hKey);
 
-
-	dbManager = new DatabaseManager(a);
+	dbManager = new DatabaseManager();
+	//dbManager->deleteLater();
 }
 
 HenchmanService::~HenchmanService()
 {
 	cout << "Deconstructing HenchmanService" << endl;
 	delete SQLiteM;
-	delete TrakM;
+	//delete TrakM;
+	delete dbManager;
 
 	logx.clear();
 }
@@ -1506,8 +1525,8 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 			f1 << "AUTH PLAIN ";
 			string f2;
 			using namespace string_literals;
-			f2 = mail_username + "\0"s + mail_username + "\0"s + decodeBase64(mail_password);
-			f1 << base64(f2);
+			f2 = mail_username + "\0"s + mail_username + "\0"s + QByteArray::fromBase64(mail_password.c_str()).toStdString();
+			f1 << QByteArray(f2.c_str()).toBase64().toStdString();
 			f1 << " \r\n";
 			string f11 = f1.str();
 			char* auth = f11.data();
@@ -1578,7 +1597,7 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 				for (unsigned int i = 0;i < files.size();i++) {
 					string path = files.at(i);
 					string filename = fileBasename(path);
-					string fc = base64(get_file_contents(path.c_str()));
+					string fc = QByteArray(get_file_contents(path.c_str()).c_str()).toBase64().toStdString();
 					string extension = GetFileExtension(filename);
 					const char* mimetype = GetMimeTypeFromFileName((char*)extension.c_str());
 					if (!(extension == "csv"))
@@ -1587,8 +1606,8 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 					attachmentSection << "Content-Type: " << mimetype << "; name=\"" << filename << "\"\r\n";
 					attachmentSection << "Content-Disposition: attachment; filename=\"" << filename << "\"\r\n";
 					attachmentSection << "Content-Transfer-Encoding: base64" << "\r\n";
-					attachmentSection << "Content-ID: <" << base64(filename) << ">\r\n";
-					attachmentSection << "X-Attachment-Id: " << base64(filename) << "\r\n";
+					attachmentSection << "Content-ID: <" << QByteArray(get_file_contents(filename.c_str()).c_str()).toBase64().toStdString() << ">\r\n";
+					attachmentSection << "X-Attachment-Id: " << QByteArray(get_file_contents(filename.c_str()).c_str()).toBase64().toStdString() << "\r\n";
 					attachmentSection << "\r\n";
 					attachmentSection << fc << "\r\n";
 					attachmentSection << "\r\n";
@@ -1666,7 +1685,6 @@ bool  HenchmanService::checkForInternetConnection()
 			if (SUCCEEDED(pNetworkListManager->get_IsConnectedToInternet(&isConnected))) {
 				logx << "Confirming existence of internet connection" << endl;
 				if (!isConnected) goto Exit;
-
 				logx << "Internet Connection was Confirmed." << endl;
 				returnState = isConnected;
 				goto Exit;
@@ -1737,7 +1755,6 @@ bool  HenchmanService::isInternetConnected()
 			WriteToError("Unable to connect to server: " + WSAGetLastError());
 			closesocket(ConnectionCheck);
 			freeaddrinfo(httpAddrInfo);
-
 			WSACleanup();
 			return false;
 		}
@@ -1762,9 +1779,7 @@ int HenchmanService::MainFunction()
 {
 	//QTimer::singleShot(0, a, &QCoreApplication::quit);
 
-	GetLogsPath();
-
-	TrakM = new TRAKManager;
+	//GetLogsPath();
 
 	update = TRUE;
 
@@ -1807,7 +1822,7 @@ int HenchmanService::MainFunction()
 		break;
 	}
 	}
-
+	//mysql_dir.clear();
 	int wampApacheSvcStatus = GetSvcStatus(NULL, "wampapache64");
 	string apache_dir = GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	cout << apache_dir << endl;
@@ -1855,7 +1870,7 @@ int HenchmanService::MainFunction()
 		break;
 	}
 	}
-
+	//apache_dir.clear();
 	RegCloseKey(hKey);
 
 	if (!(checkForInternetConnection() && isInternetConnected()))
@@ -1863,7 +1878,9 @@ int HenchmanService::MainFunction()
 		WriteToLog("Failed to confirm network connection");
 		return 0;
 	}
-	
+
+	TrakM = new TRAKManager;
+
 	TrakM->CreateDataModule(dbManager);
 
 	dbManager->connectToRemoteDB(TrakM->appType);
@@ -1880,7 +1897,8 @@ int HenchmanService::MainFunction()
 			//return 0;
 		}
 	}
-
+	delete TrakM;
+	//dbManager->deleteLater();
 	cout << "Exiting Main Function" << endl;
 	
 	return 0;
@@ -1888,6 +1906,8 @@ int HenchmanService::MainFunction()
 
 int main(int argc, char* argv[])
 {
+
+	testing = true;
 
 	//a = new QCoreApplication(argc, argv);
 	//printf(TEXT("CNC_Current_Tracker_Service: Main: StartServiceCtrlDispatcher"));
@@ -1979,8 +1999,8 @@ int main(int argc, char* argv[])
 	//Sleep(5000);
 	//getchar();
 	
-	//return RunAsServiceTest(argc, argv);
-	return RunAsService(argc, argv);
+	return RunAsServiceTest(argc, argv);
+	//return RunAsService(argc, argv);
 	//delete a;
 	//QTimer::singleShot(2000, a, &QCoreApplication::quit);
 	//a->exec();

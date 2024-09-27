@@ -35,23 +35,55 @@ Seperate out adding database with addDatabase from reconnecting to database to d
 
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 {
-	this->setParent(parent);
-	networkManager = nullptr;
+	//this->setParent(parent);
+	//networkManager = nullptr;
+	networkManager = new QNetworkAccessManager(this);
+	networkManager->setAutoDeleteReplies(true);
+	//networkManager->deleteLater();
+	connect(
+		networkManager,
+		&QNetworkAccessManager::finished,
+		this,
+		&QCoreApplication::quit,
+		Qt::QueuedConnection
+	);
+	/*connect(
+		networkManager,
+		&QNetworkAccessManager::finished,
+		this,
+		&DatabaseManager::performCleanup,
+		Qt::QueuedConnection
+	);*/
 	restManager = nullptr;
 	netReply = nullptr;
 	targetApp = "";
 	requestRunning = false;
+	form = nullptr;
 }
 
 DatabaseManager::~DatabaseManager() 
 {
 	cout << "Deleting DatabaseManager" << endl;
-	if(netReply != nullptr)
-		delete netReply;
-	if(networkManager != nullptr)
-		delete networkManager;
-	if(restManager != nullptr)
-		delete restManager;
+	if (netReply != nullptr) {
+		cout << "Deleting netReply" << endl;
+		//delete netReply;
+		//netReply->deleteLater();
+	}
+	if (networkManager != nullptr) {
+		cout << "Deleting networkManager" << endl;
+		//delete networkManager;
+		networkManager->deleteLater();
+	}
+	if (restManager != nullptr) {
+		cout << "Deleting restManager" << endl;
+		//delete restManager;
+		//restManager->deleteLater();
+	}
+	if (form != nullptr) {
+		cout << "Deleting form" << endl;
+		//delete form;
+		//form->deleteLater();
+	}
 }
 
 int DatabaseManager::connectToRemoteDB (string &target_app)
@@ -59,7 +91,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	
 	WriteToLog("Attempting to connect to Remote Database");
 	targetApp = target_app;
-	HKEY hKeyLocal = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + target_app + "\\Database"));
+	HKEY hKeyLocal = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 	QString schemaLocal = GetStrVal(hKeyLocal, "Schema", REG_SZ).c_str();
 	if (!checkValidConnections(schemaLocal))
 	{
@@ -67,9 +99,10 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		return 0;
 	}
 
-	HKEY hKeyCloud = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + target_app + "\\Cloud"));
+	HKEY hKeyCloud = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Cloud"));
 	QString schemaRemote = GetStrVal(hKeyCloud, "Schema", REG_SZ).c_str();
 	QString dbUrl = GetStrVal(hKeyCloud, "url", REG_SZ).c_str();
+	//dbUrl = "http://webportal.henchmantrak.com/files/ntunnel_mysql.php";
 	QSqlDatabase db;
 	string pass;
 	QString user;
@@ -90,8 +123,11 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		user = GetStrVal(hKeyCloud, "Username", REG_SZ).c_str();
 		pass = GetStrVal(hKeyCloud, "Password", REG_SZ);
 	}
-	cout << "Pulled the following values from registy: " << server.toStdString() << " " << port << " " << schemaRemote.toStdString() << " " << user.toStdString() << " " << (pass != "" ? decodeBase64(pass) : pass.c_str()) << endl;
+	//cout << "Pulled the following values from registy: " << server.toStdString() << " " << port << " " << schemaRemote.toStdString() << " " << user.toStdString() << " " << (pass != "" ? decodeBase64(pass) : pass.c_str()) << endl;
 	
+	if (pass != "") pass =
+		QByteArray::fromBase64(pass.c_str());
+
 	RegCloseKey(hKeyCloud);
 	RegCloseKey(hKeyLocal);
 	
@@ -120,13 +156,12 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		bool continueLoop = query.next();
 		while (continueLoop)
 		{
-			QString res = query.value(2).toString().replace(QRegularExpression("((NOW|CURDATE|CURTIME)\(\))+", QRegularExpression::MultilineOption | QRegularExpression::DotMatchesEverythingOption | QRegularExpression::UseUnicodePropertiesOption), "\'" + query.value(3).toString().replace("T", " ") + "\'").replace("()", "");
+			QString res = query.value(2).toString().replace(QRegularExpression("(NOW|CURDATE|CURTIME)+", QRegularExpression::MultilineOption | QRegularExpression::DotMatchesEverythingOption | QRegularExpression::UseUnicodePropertiesOption), "\'" + query.value(3).toString().replace("T", " ") + "\'").replace("()", "");
 			WriteToLog("Query Result: " + res.toStdString());
 			queries.push_back(res);
 			continueLoop = query.next();
 		}
 		query.clear();
-
 		query.finish();
 		
 		db.close();
@@ -138,7 +173,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		throw e;
 	}
 
-	QHttpMultiPart *form = new QHttpMultiPart(QHttpMultiPart::FormDataType);
+	form = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 	vector<QHttpPart> parts;
 
 	QHttpPart actnPart;
@@ -163,7 +198,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	form->append(loginPart);
 	QHttpPart passwordPart;
 	passwordPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"password\""));
-	passwordPart.setBody((pass != "" ? decodeBase64(pass) : pass.c_str()));
+	passwordPart.setBody(pass.c_str());
 	//parts.push_back(passwordPart);
 	form->append(passwordPart);
 	QHttpPart schemaPart;
@@ -171,17 +206,20 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	schemaPart.setBody(schemaRemote.toUtf8());
 	//parts.push_back(schemaPart);
 	form->append(schemaPart);
+	QHttpPart decodePart;
+	decodePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"encodeBase64\""));
+	decodePart.setBody("1");
+	form->append(decodePart);
 	for (const auto& query : queries)
 	{
 		QHttpPart queryPart;
 		queryPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"q[]\""));
-		WriteToLog("Running query: " + queries[0].toStdString() + "on server.\n");
-		cout << query.toUtf8().data() << endl;
-		queryPart.setBody(query.toUtf8());
+		WriteToLog("Running query: " + query.toStdString() + "on server.\n");
+		QByteArray querySection = QByteArray(query.toUtf8()).toBase64();
+		queryPart.setBody(querySection);
 		//parts.push_back(*queryPart);
 		form->append(queryPart);
 	}
-
 	/*
 		QHttpPart queryPart;
 		queryPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"q[]\""));
@@ -202,26 +240,19 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	}
 
 	try {
-		networkManager = new QNetworkAccessManager(this);
 		WriteToLog("Making get request to " + dbUrl.toStdString());
 		QNetworkRequest request(dbUrl);
 		netReply = networkManager->post(request, form);
-		form->setParent(networkManager);
-		netReply->setParent(networkManager);
+		//netReply->setParent(networkManager);
+		//form->setParent(netReply);
 		connect(
 			netReply,
 			&QNetworkReply::finished,
 			this,
 			&DatabaseManager::parseData,
-			Qt::QueuedConnection
+			Qt::DirectConnection
 		);
-		connect(
-			networkManager,
-			&QNetworkAccessManager::finished,
-			this,
-			&QCoreApplication::quit,
-			Qt::QueuedConnection
-		);
+		
 		requestRunning = true;
 	}
 	catch (exception& e)
@@ -236,7 +267,7 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 {
 	try {
 		targetApp = target_app;
-		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + target_app + "\\Database"));
+		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 
 		QString dbtype = GetStrVal(hKey, "Database", REG_SZ).c_str();
 
@@ -260,7 +291,7 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 			QString user = GetStrVal(hKey, "Username", REG_SZ).c_str();
 			string pass = GetStrVal(hKey, "Password", REG_SZ);
 
-			cout << "Pulled the following values from registy: " << server.toUtf8().data() << " " << port << " " << schema.toUtf8().data() << " " << user.toUtf8().data() << " " << (pass != "" ? decodeBase64(pass) : pass.c_str()) << endl;
+			//cout << "Pulled the following values from registy: " << server.toUtf8().data() << " " << port << " " << schema.toUtf8().data() << " " << user.toUtf8().data() << " " << (pass != "" ? decodeBase64(pass) : pass.c_str()) << endl;
 			WriteToLog("Creating session to db");
 
 		
@@ -269,7 +300,7 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 			db.setPort(port);
 			db.setUserName(user);
 			if (pass != "")
-				db.setPassword(decodeBase64(pass));
+				db.setPassword(pass.c_str());
 			db.setConnectOptions("CLIENT_COMPRESS;");
 		}
 		else {
@@ -496,13 +527,14 @@ void DatabaseManager::parseData()
 		WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
 		return;
 	}
-	WriteToLog("Parsing Response");
+
 	if (restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qDebug() << "Request was successful: " << status << reason;
 		WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
+	WriteToLog("Parsing Response");
 
 	string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 ORDER BY id LIMIT "+ QString::number(queryLimit).toStdString();
 	ExecuteTargetSql(targetApp, sqlQuery);
@@ -521,7 +553,6 @@ void DatabaseManager::parseData()
 		}
 	}
 
-	QJsonArray data = json->object()["data"].toArray();
 	if (response.value()["data"].toArray().count() > 0) {
 		for (const auto& result : response.value()["data"].toArray()) {
 			for (auto i = 0; i < result.toArray().size(); i++) {
@@ -532,9 +563,19 @@ void DatabaseManager::parseData()
 	}
 
 
+	form->deleteLater();
 	netReply->deleteLater();
-	networkManager->deleteLater();
+	
+	form = nullptr;
 	netReply = nullptr;
-	networkManager = nullptr;
+
 	requestRunning = false;
+	networkManager->clearAccessCache();
+	return;
+}
+
+void DatabaseManager::performCleanup()
+{
+	networkManager->deleteLater();
+	return;
 }

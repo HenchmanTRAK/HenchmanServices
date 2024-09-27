@@ -5,9 +5,9 @@
 
 using namespace std;
 
-string SQLite_Manager::dbName;
-string SQLite_Manager::dbDir;
-bool SQLite_Manager::logToConsole;
+//string SQLite_Manager::dbName;
+//string SQLite_Manager::dbDir;
+//bool SQLite_Manager::logToConsole;
 
 SQLite_Manager::SQLite_Manager(string db_dir, string db_name)
 {

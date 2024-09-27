@@ -27,9 +27,9 @@ std::string get_file_contents(const char* filename);
 
 std::string GetFileExtension(const std::string& FileName);
 
-char* base64(std::string string);
-
-char* decodeBase64(std::string string);
+//char* base64(std::string string);
+//
+//char* decodeBase64(std::string string);
 
 std::string GetExportsPath(std::string app_path = "");
 
