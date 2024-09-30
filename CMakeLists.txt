@@ -14,7 +14,7 @@ if(MSVC)
   target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
 
-project ("HenchmanServices" VERSION 1.0.0 LANGUAGES CXX C)
+project ("HenchmanServices" VERSION 1.0.1 LANGUAGES CXX C)
 set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 set(TRACEDESIGNTIME TRUE)
 
@@ -24,6 +24,7 @@ message(STATUS "Using c++ standard c++${CMAKE_CXX_STANDARD}")
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 message (STATUS "CMake version: ${CMAKE_VERSION}")
 message (STATUS "Project version: ${PROJECT_VERSION}")
@@ -31,6 +32,9 @@ message (STATUS "Project version: ${PROJECT_VERSION}")
 include(FetchContent)
 include(ExternalProject)
 include(GNUInstallDirs)
+set (CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+include (InstallRequiredSystemLibraries)
+
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
@@ -51,7 +55,6 @@ add_custom_target(
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 	COMMENT "Generating API documentation with Doxygen" VERBATIM
 )
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html DESTINATION     share/doc)
 endif(DOXYGEN_FOUND)
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
@@ -174,23 +177,49 @@ else()
 	message(STATUS "Checking for Qt6Core in " $ENV{QTDIR}/bin ": No")
 endif()
 
+#SET( CPACK_OUTPUT_CONFIG_FILE "${CMAKE_BINARY_DIR}/BundleConfig.cmake" )
+#include(CPack)
+
+#ADD_CUSTOM_TARGET(
+#	bundle
+#    COMMAND "${CMAKE_CPACK_COMMAND}"
+#		"-C" "$<CONFIGURATION>"
+#		"--config" "${CMAKE_BINARY_DIR}/BundleConfig.cmake"
+#	COMMENT "Running CPack. Please wait..."
+#	DEPENDS ${PROJECT_NAME}
+#)
+
+#IF (WIN32)
+#	ADD_CUSTOM_COMMAND(
+#		TARGET bundle
+#        POST_BUILD
+#        COMMAND ${CMAKE_COMMAND} -D 
+#		CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME} -D VERSION=${VERSION} "-P" 
+#"${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+#		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+#	)
+#ENDIF( WIN32 )
+
 #set_target_properties(HenchmanService PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "$<TARGET_FILE:HenchmanService> --install")
+message(STATUS "Current Source: " ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
+#include(InstallRequiredSystemLibraries)
 
 install (DIRECTORY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR})
 install (DIRECTORY ${OPENSSL_RUNTIME_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR} FILES_MATCHING PATTERN "*.dll")
 #install (DIRECTORY ${QT_DIR}/bin/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")
-install (FILES 
-	service.ini 
+install (
+	FILES ${CMAKE_CURRENT_SOURCE_DIR}/service.ini 
 	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-10-vs14.dll 
 	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-2-vs14.dll 
 	DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 install (
-	FILES README.md
+	FILES ${CMAKE_CURRENT_SOURCE_DIR}/README.md
 	DESTINATION ${CMAKE_INSTALL_BINDIR}/..
 )
+
 #[==[
 install(
 	CODE [[
@@ -231,7 +260,20 @@ install(
 install(
 	TARGETS HenchmanService
 	BUNDLE DESTINATION .
-	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}							COMPONENT Runtime
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}							COMPONENT Runtime
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${CMAKE_PROJECT_NAME}	COMPONENT Development
 )
+install (PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+        DESTINATION ${CMAKE_INSTALL_BINDIR}	)
 install(SCRIPT ${deploy_script})
+if(DOXYGEN_FOUND)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html 
+		DESTINATION share/docs
+	)
+endif(DOXYGEN_FOUND)
 #install (DIRECTORY ${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")
+
+
+#"generator": "Ninja",

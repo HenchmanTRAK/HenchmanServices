@@ -94,7 +94,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	HKEY hKeyCloud = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Cloud"));
 	QString schemaRemote = GetStrVal(hKeyCloud, "Schema", REG_SZ).c_str();
 	QString dbUrl = GetStrVal(hKeyCloud, "url", REG_SZ).c_str();
-	dbUrl = "http://webportal.henchmantrak.com/files/ntunnel_mysql.php";
+	dbUrl = "https://webportal.henchmantrak.com/files/ntunnel_mysql.php";
 	QSqlDatabase db;
 	string pass;
 	QString user;
