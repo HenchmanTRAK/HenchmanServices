@@ -1,2 +1,6 @@
 .vs
 out
+*.ini
+backup
+**/*.bak
+build
