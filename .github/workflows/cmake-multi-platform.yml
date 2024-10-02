@@ -45,7 +45,7 @@ jobs:
     - name: Generate empty ini file.
       shell: bash
       run: |
-        touch ${{ github.workspace }}/service.ini
+        echo .>${{ steps.strings.outputs.build-output-dir }}/../service.ini
         
     - uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
