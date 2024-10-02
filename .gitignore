@@ -3,3 +3,4 @@ out
 *.ini
 backup
 **/*.bak
+build

@@ -14,6 +14,9 @@
 #include <strsafe.h>
 #include <TlHelp32.h>
 
+#include <thread>
+#include <future>
+
 #include <QCoreApplication>
 #include <QTimer>
 #include <QString>

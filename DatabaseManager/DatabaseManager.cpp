@@ -125,12 +125,18 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	vector<QString> queries;
 
 	try {
-		WriteToLog("Creating session to db");
+		WriteToLog("Creating session to db " +schemaLocal.toStdString());
 
 		db = QSqlDatabase::database(schemaLocal);
 		db.setDatabaseName(schemaLocal);
 
-		db.open();
+		//db.open();
+
+		if (!db.open())
+		{
+			WriteToError("Failed to open DB Connection");
+			return 0;
+		}
 
 		db.transaction();
 
@@ -141,6 +147,10 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		if (!query.exec(queryText))
 		{
 			WriteToError("Failed to exec query to cloudupdate table");
+			query.clear();
+			query.finish();
+			db.close();
+			WriteToLog("Closing DB Session");
 			return 0;
 		}
 
@@ -164,6 +174,13 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	{
 		WriteToError("Throwing Exception: " + string(e.what()));
 		throw e;
+	}
+	QNetworkRequest request(dbUrl);
+	if (queries.size() <= 0)
+	{
+		WriteToLog("No entries in the cloudupdate table");
+		netReply = networkManager->get(request);
+		return 0;
 	}
 
 	form = new QHttpMultiPart(QHttpMultiPart::FormDataType);
@@ -235,7 +252,6 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 
 	try {
 		WriteToLog("Making get request to " + dbUrl.toStdString());
-		QNetworkRequest request(dbUrl);
 		netReply = networkManager->post(request, form);
 		//netReply->setParent(networkManager);
 		//form->setParent(netReply);

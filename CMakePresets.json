@@ -4,7 +4,7 @@
     {
       "name": "windows-base",
       "hidden": true,
-      "generator": "Ninja",
+      "generator": "Visual Studio 17 2022",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
       "environment": {
@@ -116,7 +116,7 @@
   ],
   "vendor": {
     "qt-project.org/Presets": {
-      "checksum": "e/H2CSXX59cHtWtPWwFqC9jdxSE="
+      "checksum": "ZcL5msc6HYckdwSqPLho9O9nHGc="
     }
   }
 }

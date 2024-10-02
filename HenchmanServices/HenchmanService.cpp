@@ -167,12 +167,12 @@ int ShellExecuteApp(string appName, string params)
 	SEInfo.nShow = paramStr == "" && SW_NORMAL;
 	if (ShellExecuteExA(&SEInfo)) {
 		stringstream exitCodeMessage;
-		do {
+		//do {
 			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
 			exitCodeMessage << "Target: " << exeFile << " return exit code : " << ExitCode;
 			WriteToLog(exitCodeMessage.str());
 			exitCodeMessage.clear();
-		} while (ExitCode != STILL_ACTIVE);
+		//} while (ExitCode != STILL_ACTIVE);
 		return 1;
 	}
 
@@ -999,10 +999,11 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	{
 		service.MainFunction();
 
+		WriteToLog("Waiting for QT to finish execution...");
+		QTimer::singleShot(10000, a, &QCoreApplication::quit);
 		a->exec();
 
 		WriteToLog("Service sleeping for 30000 ms...");
-		//QTimer::singleShot(30000, a, &QCoreApplication::quit);
 		Sleep(30000);
 	}
 
@@ -1249,7 +1250,7 @@ HenchmanService::HenchmanService()
 
 	RegCloseKey(hKey);
 
-	dbManager = new DatabaseManager();
+	dbManager = new DatabaseManager(a);
 	//dbManager->deleteLater();
 }
 
@@ -1883,14 +1884,23 @@ int HenchmanService::MainFunction()
 		WriteToError("TRAK process is not running");
 		string targetExe = TrakM->appDir + TrakM->appName;
 		WriteToLog("TRAK process not running, starting with path: " + targetExe);
-		if (!ShellExecuteApp(targetExe, ""))
+		thread runningTrak(ShellExecuteApp, targetExe, "");
+		runningTrak.join();
+		/*if (!ShellExecuteApp(targetExe, ""))
 		{
 			WriteToError("Failed to start " + targetExe);
-		}
+		}*/
 	}
+	WriteToLog("Performing Cleanup");
 	delete TrakM;
 	
 	cout << "Exiting Main Function" << endl;
+	/*auto future = async(launch::async, &thread::join, runTrak);
+	if (future.wait_for(chrono::seconds(5)) == std::future_status::timeout)
+	{
+		
+	}
+	delete runTrak;*/
 	
 	return 0;
 }
