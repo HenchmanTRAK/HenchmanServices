@@ -46,7 +46,7 @@ jobs:
     - name: "Checking for OpenSSL"
       shell: bash
       run: |
-        ls -alS C:/Program Files/OpenSSL
+        ls -alS "C:/Program Files/OpenSSL"
 
     - name: Generate empty ini file.
       id: ini_file
