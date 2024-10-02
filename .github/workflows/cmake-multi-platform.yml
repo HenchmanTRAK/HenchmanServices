@@ -57,7 +57,7 @@ jobs:
         dir: '${{ github.workspace }}/qt/'
         install-deps: 'true'
 
-    - uses: mattnotmitt/doxygen-action@v1.9.5
+    - uses: ssciwr/doxygen-install@v1
     
     - name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2
