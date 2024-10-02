@@ -43,6 +43,11 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
+    - name: "Checking for OpenSSL"
+      shell: bash
+      run: |
+        ls -alS C:/Program Files/OpenSSL
+
     - name: Generate empty ini file.
       id: ini_file
       shell: cmd
@@ -52,10 +57,6 @@ jobs:
     - uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
         arch: ${{ matrix.arch }}
-
-    - name: "Checking for OpenSSL"
-      run: |
-        dir C:/Program Files/OpenSSL /b/s/o:gn
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v4
