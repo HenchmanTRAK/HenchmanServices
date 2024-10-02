@@ -42,6 +42,10 @@ jobs:
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+    - name: Generate empty ini file.
+      shell: bash
+      run: |
+        touch ${{ github.workspace }}/service.ini
         
     - uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
