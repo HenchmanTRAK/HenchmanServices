@@ -42,11 +42,15 @@ jobs:
       shell: bash
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+
     - name: Generate empty ini file.
       id: ini_file
       shell: cmd
       run: |
         cd ${{ github.workspace }} && echo .>service.ini
+
+    - name: Install OpenSSL
+      run: powershell.exe ./.github/workflows/Install-OpenSSL.ps1
         
     - uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
@@ -59,7 +63,7 @@ jobs:
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2019_64'
-        dir: '${{ github.workspace }}/qt/'
+        dir: '${{ github.workspace }}/'
         install-deps: 'true'
 
     - uses: ssciwr/doxygen-install@v1
