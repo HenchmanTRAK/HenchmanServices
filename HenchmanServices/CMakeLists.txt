@@ -20,8 +20,8 @@ target_link_libraries(
 	SQLiteCpp 
 	sqlite3
 	#OpenSSL::applink
-	OpenSSL::SSL
-	OpenSSL::Crypto
+	#OpenSSL::SSL
+	#OpenSSL::Crypto
 	${OPENSSL_CRYPTO_LIBRARY} 
 	${OPENSSL_SSL_LIBRARY} 
 	HenchmanServiceException 

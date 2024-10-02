@@ -53,6 +53,10 @@ jobs:
       with:
         arch: ${{ matrix.arch }}
 
+    - name: "Checking for OpenSSL"
+      run: |
+        dir C:/Program Files/OpenSSL /b/s/o:gn
+
     - name: Install Qt
       uses: jurplel/install-qt-action@v4
       with:
