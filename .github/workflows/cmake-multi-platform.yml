@@ -46,7 +46,7 @@ jobs:
       id: ini_file
       shell: cmd
       run: |
-        cd ${{ github.workspace }} ; echo .>service.ini
+        cd ${{ github.workspace }} && echo .>service.ini
         
     - uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
