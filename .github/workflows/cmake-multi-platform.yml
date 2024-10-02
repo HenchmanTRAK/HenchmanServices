@@ -50,7 +50,7 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.7.2'
+        version: '6.7.*'
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2019_64'
@@ -68,7 +68,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DCMAKE_PREFIX_PATH=${QT_ROOT_DIR}
+        -DCMAKE_PREFIX_PATH="${QT_ROOT_DIR}"
         -S ${{ github.workspace }}
 
     - name: Build
