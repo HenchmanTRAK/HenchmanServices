@@ -15,7 +15,7 @@ if(MSVC)
 endif()
 
 project ("HenchmanServices" LANGUAGES CXX C)
-set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+#set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
 
@@ -105,33 +105,32 @@ option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
 
 qt_policy(SET QTP0003 NEW)
 
+message(STATUS "Fetching content for GoogleTest")
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY	https://github.com/google/googletest.git
   GIT_TAG			main
 )
+message(STATUS "Fetching content for SimpleIni")
 FetchContent_Declare(
 	SimpleIni
 	GIT_REPOSITORY	https://github.com/brofield/simpleini.git
 	GIT_TAG			v4.22
 )
+message(STATUS "Fetching content for SQLiteCpp")
 FetchContent_Declare(
 	SQLiteCpp
 	GIT_REPOSITORY	https://github.com/SRombauts/SQLiteCpp.git
 	GIT_TAG			master
 )
+message(STATUS "Fetching content for OpenSSL")
 FetchContent_Declare(
 	OpenSSL
 	URL				https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.3.2.zip
 	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
 	FIND_PACKAGE_ARGS HINTS x64
 )
-FetchContent_Declare(
-	http_request
-	GIT_REPOSITORY	https://github.com/abiiranathan/http_request.git
-	GIT_TAG			master
-)
-
+message(STATUS "Fetching content for QMYSQL")
 FetchContent_Declare(
 	QMYSQL
 	URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip

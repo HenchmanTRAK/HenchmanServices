@@ -6,7 +6,10 @@
 #add_executable(HenchmanServices "HenchmanServices.cpp")
 qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" )
 
-target_include_directories(HenchmanService PRIVATE ${OPENSSL_INCLUDE_DIR})
+target_include_directories(
+	HenchmanService PRIVATE 
+	#${OPENSSL_INCLUDE_DIR}
+)
 
 target_link_libraries(
 	HenchmanService PRIVATE 
@@ -14,9 +17,10 @@ target_link_libraries(
 	SimpleIni
 	SQLiteCpp 
 	sqlite3
-	OpenSSL::applink
-	${OPENSSL_CRYPTO_LIBRARY} 
-	${OPENSSL_SSL_LIBRARY} 
+	OpenSSL::SSL
+	OpenSSL::Crypto
+	#${OPENSSL_CRYPTO_LIBRARY} 
+	#${OPENSSL_SSL_LIBRARY} 
 	HenchmanServiceException 
 	ServiceHelper
 	RegistryManager
