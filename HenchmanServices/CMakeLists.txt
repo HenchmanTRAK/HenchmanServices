@@ -8,9 +8,11 @@ qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" )
 
 target_include_directories(
 	HenchmanService PRIVATE 
-	#${OPENSSL_INCLUDE_DIR}
+	${OPENSSL_INCLUDE_DIR}
 )
-
+message(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
+message(STATUS "OpenSSL ssl library: ${OPENSSL_SSL_LIBRARY}")
+message(STATUS "OpenSSL crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
 target_link_libraries(
 	HenchmanService PRIVATE 
 	Qt6::Core
@@ -19,8 +21,8 @@ target_link_libraries(
 	sqlite3
 	OpenSSL::SSL
 	OpenSSL::Crypto
-	#${OPENSSL_CRYPTO_LIBRARY} 
-	#${OPENSSL_SSL_LIBRARY} 
+	${OPENSSL_CRYPTO_LIBRARY} 
+	${OPENSSL_SSL_LIBRARY} 
 	HenchmanServiceException 
 	ServiceHelper
 	RegistryManager

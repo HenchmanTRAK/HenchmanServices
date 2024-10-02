@@ -138,7 +138,7 @@ FetchContent_Declare(
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 
 FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
-
+find_package(OpenSSL REQUIRED HINTS x64 )
 file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 #set(mysql-concpp_DIR "C:/Program Files/MySQL/MySQL Connector C++ 9.0")

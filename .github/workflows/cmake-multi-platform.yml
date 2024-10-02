@@ -50,11 +50,16 @@ jobs:
         cd ${{ github.workspace }} && echo .>service.ini
 
     - name: Install OpenSSL (Windows)
-      if: runner.os == 'Windows'
-      shell: powershell
+      run: choco install openssl --version=3.1.1
+    - name: submodules
+      run: git submodule update --init --recursive --depth 1
+    - name: cmake
+      run: cmake -B ${{ github.workspace }}/openssl/build -G "NMake Makefiles" -DUSE_GNUTLS=0 -DWARNINGS_AS_ERRORS=1
+    - name: nmake
       run: |
-        echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-        vcpkg install openssl:x64-windows-static-md
+        cd ${{ github.workspace }}/openssl/build
+        set CL=/MP
+        nmake
         
     - uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
