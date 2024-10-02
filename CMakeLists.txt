@@ -173,9 +173,6 @@ else()
     set(executable_path "\${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
 endif()
 
-# Helper app, not necessarily built as part of this project.
-#qt_add_executable(HelperApp helper.cpp)
-#set(helper_app_path "\${QT_DEPLOY_BIN_DIR}/$<TARGET_FILE_NAME:HelperApp>")
 message(STATUS ${executable_path})
 # Generate a deployment script to be executed at install time
 qt_generate_deploy_script(
@@ -200,34 +197,9 @@ else()
 	message(STATUS "Checking for Qt6Core in " $ENV{QTDIR}/bin ": No")
 endif()
 
-#SET( CPACK_OUTPUT_CONFIG_FILE "${CMAKE_BINARY_DIR}/BundleConfig.cmake" )
-#include(CPack)
-
-#ADD_CUSTOM_TARGET(
-#	bundle
-#    COMMAND "${CMAKE_CPACK_COMMAND}"
-#		"-C" "$<CONFIGURATION>"
-#		"--config" "${CMAKE_BINARY_DIR}/BundleConfig.cmake"
-#	COMMENT "Running CPack. Please wait..."
-#	DEPENDS ${PROJECT_NAME}
-#)
-
-#IF (WIN32)
-#	ADD_CUSTOM_COMMAND(
-#		TARGET bundle
-#        POST_BUILD
-#        COMMAND ${CMAKE_COMMAND} -D 
-#		CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME} -D VERSION=${VERSION} "-P" 
-#"${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
-#		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-#	)
-#ENDIF( WIN32 )
-
-#set_target_properties(HenchmanService PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS "$<TARGET_FILE:HenchmanService> --install")
 message(STATUS "Current Source: " ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
-#include(InstallRequiredSystemLibraries)
 
 install (
 	DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
@@ -252,43 +224,7 @@ install (
 	DESTINATION ${CMAKE_INSTALL_BINDIR}/.. COMPONENT Documentation
 )
 
-#[==[
-install(
-	CODE [[
-    file(GET_RUNTIME_DEPENDENCIES
-        RESOLVED_DEPENDENCIES_VAR RES
-        UNRESOLVED_DEPENDENCIES_VAR UNRES
-        CONFLICTING_DEPENDENCIES_PREFIX CONFLICTING_DEPENDENCIES
-        EXECUTABLES $<TARGET_FILE:HenchmanServices>
-        LIBRARIES $<TARGET_FILE:Qt6Core>
-    )
 
-    message("\n\nFound dependencies :")
-    foreach(DEP ${RES})
-        message("${DEP}")
-    endforeach()
-    message("\n\nNot found dependencies :")
-    foreach(DEP ${UNRES})
-        message("${DEP}")
-    endforeach()
-]])
-]==]
-
-#install(
-#	TARGETS HenchmanService
-	#COMPONENT HenchmanServices
-	#RUNTIME_DEPENDENCIES 
-	#	PRE_EXCLUDE_REGEXES "api-ms-" "ext-ms-" 
-	#	POST_EXCLUDE_REGEXES ".*system32/.*\\.dll" 
-	#DIRECTORIES $<TARGET_FILE_DIR:HenchmanServices>
-#	BUNDLE DESTINATION .
-#)
-#install(SCRIPT ${deploy_script})
-#qt_generate_deploy_app_script(
-#    TARGET HenchmanService
-#    OUTPUT_SCRIPT deploy_script
-#    NO_UNSUPPORTED_PLATFORM_ERROR
-#)
 install(
 	TARGETS HenchmanService
 	#COMPONENT HenchmanService
@@ -308,21 +244,7 @@ if(DOXYGEN_FOUND)
 	)
 endif(DOXYGEN_FOUND)
 
-#install (DIRECTORY ${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")
-#set(CPACK_GENERATOR NSIS)
-#set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Example cmake installation.")
-#set(CPACK_PACKAGE_VENDOR "HenchmanTRAK")
-#set(CPACK_PACKAGE_VERSION ${PROJECT_VER})
-#set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VER_MAJOR})
-#set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VER_MINOR})
-#set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VER_PATCH})
-#set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL OFF)
-#set(CPACK_NSIS_MODIFY_PATH ON)
 
-#set(CPACK_PACKAGE_INSTALL_DIRECTORY "HenchmanTRAK\\\\HenchmanService")
-#set(CPACK_NSIS_INSTALLED_ICON_NAME "${CMAKE_INSTALL_BINDIR}\\\\HenchmanService.exe")
-#set(CPACK_NSIS_DISPLAY_NAME "HenchmanService ${PROJECT_VER}")
-#set(CPACK_SOURCE_IGNORE_FILES "build")
 include(CPackConfig)
 
 #"generator": "Ninja",
