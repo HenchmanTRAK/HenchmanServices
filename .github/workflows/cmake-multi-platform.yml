@@ -54,7 +54,7 @@ jobs:
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2019_64'
-        dir: '${{github.workspace}}/qt/'
+        dir: '${{ github.workspace }}/qt/'
         install-deps: 'true'
         
     
@@ -68,6 +68,7 @@ jobs:
         -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+        -DCMAKE_PREFIX_PATH=${{ QT_ROOT_DIR }}
         -S ${{ github.workspace }}
 
     - name: Build
