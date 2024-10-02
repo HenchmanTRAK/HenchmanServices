@@ -11,7 +11,7 @@ target_include_directories(
 
 target_link_libraries(
 	ServiceHelper PUBLIC
-	OpenSSL::applink
+	#OpenSSL::applink
 	OpenSSL::SSL
 	OpenSSL::Crypto
 	${OPENSSL_CRYPTO_LIBRARY} 

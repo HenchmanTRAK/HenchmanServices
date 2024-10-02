@@ -19,7 +19,7 @@ target_link_libraries(
 	SimpleIni
 	SQLiteCpp 
 	sqlite3
-	OpenSSL::applink
+	#OpenSSL::applink
 	OpenSSL::SSL
 	OpenSSL::Crypto
 	${OPENSSL_CRYPTO_LIBRARY} 
