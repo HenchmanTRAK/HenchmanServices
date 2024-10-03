@@ -14,7 +14,7 @@ jobs:
 
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
-      fail-fast: false
+      fail-fast: true
 
       # Set up a matrix to run the following 3 configurations:
       # 1. <Windows, Release, latest MSVC compiler toolchain on the default runner image, default generator>
@@ -26,12 +26,12 @@ jobs:
         os: [windows-latest]
         build_type: [Release]
         c_compiler: [cl]
-        arch:
-          - x64
+        arch: [x64]
         include:
           - os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
+            arch: x64
 
     steps:
     - uses: actions/checkout@v4
@@ -54,24 +54,45 @@ jobs:
       run: |
         cd ${{ github.workspace }} && echo .>service.ini
 
-    - name: Install OpenSSL (Windows)
-      if: runner.os == 'Windows'
+    - name: Cache OpenSSL results
+      uses: actions/cache@v3
+      env:
+          cache-name: cache-vcpkg-openssl
+      with: 
+        path: "C:/vcpkg/packages/openssl_x64-windows"
+        key: ${{ matrix.os }}-build-${{ env.cache-name }}
+        restore-keys: |
+          ${{ matrix.os }}-build-${{ env.cache-name }}
+          ${{ matrix.os }}-build
+          ${{ matrix.os }}-
+
+    - if: ${{ steps.cache-vcpkg-openssl.outpits.cache-hit != 'true' }}
+      name: Install OpenSSL (Windows)
       id: "openssl"
       shell: powershell
       run: |
         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
         vcpkg install openssl
 
-    # - name: Cache OpenSSL results
-    #   uses: actions/cache@v3
-    #   with: 
-    #     path: "C:/vcpkg/packages/openssl_x64-windows"
 
     - uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
         arch: ${{ matrix.arch }}
 
-    - name: Install Qt
+    - name: Cache QT results
+      uses: actions/cache@v3
+      env:
+          cache-name: cache-QT
+      with: 
+        path: "${{ github.workspace }}/"
+        key: ${{ matrix.os }}-build-${{ env.cache-name }}
+        restore-keys: |
+          ${{ matrix.os }}-build-${{ env.cache-name }}
+          ${{ matrix.os }}-build
+          ${{ matrix.os }}-
+
+    - if: ${{ steps.cache-QT.outpits.cache-hit != 'true' }}
+      name: Install Qt
       uses: jurplel/install-qt-action@v4
       with:
         version: '6.7.2'
@@ -83,7 +104,20 @@ jobs:
 
     - uses: ssciwr/doxygen-install@v1
     
-    - name: Setup Graphviz
+    - name: Cache Graphviz results
+      uses: actions/cache@v3
+      env:
+          cache-name: cache-Graphviz
+      with: 
+        path: "C:/Program Files/Graphviz"
+        key: ${{ matrix.os }}-build-${{ env.cache-name }}
+        restore-keys: |
+          ${{ matrix.os }}-build-${{ env.cache-name }}
+          ${{ matrix.os }}-build
+          ${{ matrix.os }}-
+
+    - if: ${{ steps.cache-Graphviz.outpits.cache-hit != 'true' }}
+      name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2
     
     - name: Configure CMake
@@ -100,8 +134,34 @@ jobs:
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target PACKAGE
 
+    - name: Move Exe to Root
+      id: move-exe
+      shell: cmd
+      run: copy ${{ steps.strings.outputs.build-output-dir }}/HenchmanServices-${{ env.Project_Version }}-win64.exe .
+
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
       # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
       run: ctest --build-config ${{ matrix.build_type }}
+
+    - name: Create Release
+      id: create_release
+      uses: ncipollo/release-action@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        name: ${{ env.Project_Version }}
+        release_name: Release ${{ env.Project_Version }}
+        draft: false
+        prerelease: false
+    - name: Upload Release
+      id: upload-release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./HenchmanServices-${{ env.Project_Version }}-win64.exe
+        asset_name: HenchmanServices-${{ env.Project_Version }}-win64.exe
+        asset_content_type: application/x-msdownload
