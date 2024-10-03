@@ -22,15 +22,15 @@ set(TRACEDESIGNTIME TRUE)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # set the project version. 
-set(PROJECT_VER_PATCH 5)
+set(PROJECT_VER_PATCH 6)
 set(PROJECT_VER_MINOR 1)
 set(PROJECT_VER_MAJOR 1)
 
-set(Project_Version "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
-execute_process (
-    COMMAND echo "${Project_Version}" >> "$env:VERSION"
-    OUTPUT_VARIABLE outVar
-)
+set($ENV{VERSION} "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
+#execute_process (
+#    COMMAND echo "${Project_Version}" >> "$ENV{VERSION}"
+#    OUTPUT_VARIABLE outVar
+#)
 set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 
 set(CMAKE_CXX_STANDARD 17)
