@@ -9,7 +9,7 @@ on:
     #branches: [ "main" ]
 
 env:
-  VERSION: 1.1.5
+  VERSION: "1.1.5"
 
 jobs:
   setup:
@@ -232,7 +232,7 @@ jobs:
     - name: Set build version.
       shell: bash
       run: |
-        cat version >> $VERSION && rm version
+        cat version >> "$VERSION" && rm version
 
     - name: "Checking for version set"
       run: echo VERSION=$env:VERSION

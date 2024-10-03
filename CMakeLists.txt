@@ -26,13 +26,14 @@ set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
 
+set($ENV{VERSION} ${PROJECT_VERSION})
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 #execute_process (
 #    COMMAND echo "${Project_Version}" >> "$ENV{VERSION}"
 #    OUTPUT_VARIABLE outVar
 #)
-
 
 file(WRITE "./version" ${PROJECT_VERSION})
 
