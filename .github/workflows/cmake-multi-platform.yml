@@ -232,7 +232,7 @@ jobs:
     - name: Set build version.
       shell: bash
       run: |
-        cd ${{ github.workspace }} && cat version >> $VERSION && rm version
+        cat version >> $VERSION && rm version
 
     - name: "Checking for version set"
       run: echo VERSION=$env:VERSION
