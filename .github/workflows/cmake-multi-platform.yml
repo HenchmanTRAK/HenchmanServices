@@ -204,21 +204,7 @@ jobs:
         name: openssl_windows
         path: C:/vcpkg/packages
 
-    - name: Cache QT results
-      uses: actions/cache@v3
-      id: cache-QT
-      env:
-          cache-name: cache-QT
-      with: 
-        path: "${{ github.workspace }}/QT/"
-        key: ${{ matrix.os }}-build-${{ env.cache-name }}
-        restore-keys: |
-          ${{ matrix.os }}-build-${{ env.cache-name }}
-          ${{ matrix.os }}-build
-          ${{ matrix.os }}-
-
-    - if: ${{ steps.cache-QT.outputs.cache-hit != 'true' }}
-      name: Install Qt
+    - name: Install Qt
       uses: jurplel/install-qt-action@v4
       with:
         version: '6.7.2'
@@ -227,6 +213,7 @@ jobs:
         arch: 'win64_msvc2019_64'
         dir: '${{ github.workspace }}/'
         install-deps: 'true'
+        cache: 'true'
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
