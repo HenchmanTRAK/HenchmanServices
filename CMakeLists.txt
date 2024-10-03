@@ -105,6 +105,8 @@ option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
 
 qt_policy(SET QTP0003 NEW)
 
+set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL")
+
 message(STATUS "Fetching content for GoogleTest")
 FetchContent_Declare(
   googletest
