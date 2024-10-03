@@ -233,13 +233,9 @@ jobs:
         -S ${{ github.workspace }}
       
     - name: Build
+      id: cmake_build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target PACKAGE
-
-    - name: Move Exe to Root
-      id: move-exe
-      shell: cmd
-      run: copy ${{ steps.strings.outputs.build-output-dir }}/HenchmanServices-*-win64.exe .
+      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --target PACKAGE && echo "output-exe=${*.exe}" >> "$GITHUB_OUTPUT"
 
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
@@ -264,6 +260,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./HenchmanServices-*-win64.exe
-        asset_name: HenchmanServices-*-win64.exe
+        asset_path: ${{steps.cmake_build.outputs.output-exe}}
+        asset_name: ${{steps.cmake_build.outputs.output-exe}}
         asset_content_type: application/x-msdownload
