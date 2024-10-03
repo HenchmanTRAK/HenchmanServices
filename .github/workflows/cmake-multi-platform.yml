@@ -8,9 +8,6 @@ on:
   pull_request:
     #branches: [ "main" ]
 
-env:
-  VERSION: "1.1.5"
-
 jobs:
   setup:
     runs-on: ${{ matrix.os }}
@@ -182,7 +179,9 @@ jobs:
             c_compiler: cl
             cpp_compiler: cl
             arch: x64
-
+    
+    env:
+      VERSION: "1.1.5"
     steps:
     - uses: actions/checkout@v4
   
@@ -232,7 +231,7 @@ jobs:
     - name: Set build version.
       shell: bash
       run: |
-        cat version >> "$VERSION" && rm version
+        echo $(cat version) >> "$VERSION" && rm version
 
     - name: "Checking for version set"
       run: echo VERSION=$env:VERSION
