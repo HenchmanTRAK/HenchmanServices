@@ -84,7 +84,7 @@ jobs:
       env:
           cache-name: cache-QT
       with: 
-        path: "${{ github.workspace }}/"
+        path: "${{ github.workspace }}/QT/"
         key: ${{ matrix.os }}-build-${{ env.cache-name }}
         restore-keys: |
           ${{ matrix.os }}-build-${{ env.cache-name }}
@@ -137,7 +137,7 @@ jobs:
     - name: Move Exe to Root
       id: move-exe
       shell: cmd
-      run: copy ${{ steps.strings.outputs.build-output-dir }}/HenchmanServices-${{ env.Project_Version }}-win64.exe .
+      run: copy ${{ steps.strings.outputs.build-output-dir }}/HenchmanServices-*-win64.exe .
 
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
@@ -151,8 +151,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: ${{ env.Project_Version }}
-        release_name: Release ${{ env.Project_Version }}
+        name: Release Build
+        release_name: Release Build
         draft: false
         prerelease: false
     - name: Upload Release
@@ -162,6 +162,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./HenchmanServices-${{ env.Project_Version }}-win64.exe
-        asset_name: HenchmanServices-${{ env.Project_Version }}-win64.exe
+        asset_path: ./HenchmanServices-*-win64.exe
+        asset_name: HenchmanServices-*-win64.exe
         asset_content_type: application/x-msdownload
