@@ -6,6 +6,11 @@
 #pragma once
 
 
+#include "openssl/crypto.h"
+#include "openssl/err.h"
+#include "openssl/ssl.h"
+
+
 #include <Ws2tcpip.h>
 #include <Windows.h>
 #include <WinSock2.h>

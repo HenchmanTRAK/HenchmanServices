@@ -15,7 +15,7 @@ if(MSVC)
 endif()
 
 project ("HenchmanServices" LANGUAGES CXX C)
-#set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
 
@@ -105,7 +105,9 @@ option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
 
 qt_policy(SET QTP0003 NEW)
 
-set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL")
+#set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL")
+
+find_package(OpenSSL REQUIRED)
 
 message(STATUS "Fetching content for GoogleTest")
 FetchContent_Declare(
@@ -140,7 +142,7 @@ FetchContent_Declare(
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 
 FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
-find_package(OpenSSL REQUIRED)
+
 file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 #set(mysql-concpp_DIR "C:/Program Files/MySQL/MySQL Connector C++ 9.0")
