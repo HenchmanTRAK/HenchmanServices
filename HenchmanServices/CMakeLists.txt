@@ -16,6 +16,8 @@ message(STATUS "OpenSSL crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
 target_link_libraries(
 	HenchmanService PRIVATE 
 	Qt6::Core
+	Qt6::Sql
+	Qt6::Network
 	SimpleIni
 	SQLiteCpp 
 	sqlite3
@@ -25,11 +27,11 @@ target_link_libraries(
 	#${OPENSSL_CRYPTO_LIBRARY} 
 	#${OPENSSL_SSL_LIBRARY} 
 	HenchmanServiceException 
-	ServiceHelper
 	RegistryManager
-	DatabaseManager
-	SQLiteManager 
+	ServiceHelper
 	TRAKManager
+	SQLiteManager 
+	DatabaseManager
 )
 
 set_target_properties(

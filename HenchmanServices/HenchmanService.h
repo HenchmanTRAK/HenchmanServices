@@ -32,9 +32,9 @@
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
-#include "DatabaseManager.h"
 #include "TRAKManager.h"
 #include "SQLiteManager.h"
+#include "DatabaseManager.h"
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")

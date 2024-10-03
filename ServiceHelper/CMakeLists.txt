@@ -10,7 +10,7 @@ target_include_directories(
 )
 
 target_link_libraries(
-	ServiceHelper PUBLIC
+	ServiceHelper PRIVATE
 	#OpenSSL::applink
 	#OpenSSL::SSL
 	#OpenSSL::Crypto
