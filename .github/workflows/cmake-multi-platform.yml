@@ -279,6 +279,7 @@ jobs:
 
     - uses: actions/create-release@v1
       if: ${{ steps.release-label.outputs.level == 'major' || steps.release-label.outputs.level == 'minor' }}
+      id: create_release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
@@ -286,15 +287,8 @@ jobs:
         release_name: ${{ steps.bump-semver.outputs.new_version }}
         body: ${{ steps.regex-match.outputs.group1 }}
 
-    - uses: actions-ecosystem/action-create-comment@v1
-      if: ${{ steps.bump-semver.outputs.new_version != null }}
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        number: ${{ steps.get-merged-pull-request.outputs.number }}
-        body: |
-          The new version [${{ steps.bump-semver.outputs.new_version }}](https://github.com/${{ github.repository }}/releases/tag/${{ steps.bump-semver.outputs.new_version }}) has been released :tada:
-    
     - name: Upload Release
+      if: ${{ steps.release-label.outputs.level == 'major' || steps.release-label.outputs.level == 'minor' }}
       id: upload-release
       uses: actions/upload-release-asset@v1
       env:
@@ -304,3 +298,11 @@ jobs:
         asset_path: "${{ github.workspace }}/build/HenchmanServices-$VERSION-win64.exe"
         asset_name: "HenchmanServices-$VERSION-win64.exe"
         asset_content_type: application/x-msdownload
+
+    - uses: actions-ecosystem/action-create-comment@v1
+      if: ${{ steps.bump-semver.outputs.new_version != null }}
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        number: ${{ steps.get-merged-pull-request.outputs.number }}
+        body: |
+          The new version [${{ steps.bump-semver.outputs.new_version }}](https://github.com/${{ github.repository }}/releases/tag/${{ steps.bump-semver.outputs.new_version }}) has been released :tada:

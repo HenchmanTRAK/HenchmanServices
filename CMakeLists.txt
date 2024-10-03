@@ -28,7 +28,7 @@ set(PROJECT_VER_MAJOR 1)
 
 set(Project_Version "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 execute_process (
-    COMMAND bash echo "${Project_Version}">> "VERSION"
+    COMMAND echo "${Project_Version}" >> "VERSION"
     OUTPUT_VARIABLE outVar
 )
 set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
