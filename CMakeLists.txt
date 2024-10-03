@@ -3,6 +3,7 @@
 #
 cmake_minimum_required (VERSION 3.25)
 
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -14,19 +15,26 @@ if(MSVC)
   target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
 
-project ("HenchmanServices" LANGUAGES CXX C)
+# set the project version. 
+#set(PROJECT_VER_PATCH 6)
+#set(PROJECT_VER_MINOR 1)
+#set(PROJECT_VER_MAJOR 1)
+#set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
+file(READ version PROJECT_VER)
+
+project ("HenchmanServices" VERSION ${PROJECT_VER} LANGUAGES CXX C)
 set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
 
+set($ENV{VERSION} ${PROJECT_VERSION})
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-# set the project version. 
-set(PROJECT_VER_PATCH 4)
-set(PROJECT_VER_MINOR 1)
-set(PROJECT_VER_MAJOR 1)
-
-set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
+#execute_process (
+#    COMMAND echo "${Project_Version}" >> "$ENV{VERSION}"
+#    OUTPUT_VARIABLE outVar
+#)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,7 +42,8 @@ message(STATUS "Using c++ standard c++${CMAKE_CXX_STANDARD}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive )
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 message (STATUS "CMake version: ${CMAKE_VERSION}")
@@ -61,7 +70,7 @@ endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
 
 
 set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR})
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
 qt_standard_project_setup()
@@ -105,33 +114,36 @@ option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
 
 qt_policy(SET QTP0003 NEW)
 
+#set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL")
+
+find_package(OpenSSL REQUIRED)
+
+message(STATUS "Fetching content for GoogleTest")
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY	https://github.com/google/googletest.git
   GIT_TAG			main
 )
+message(STATUS "Fetching content for SimpleIni")
 FetchContent_Declare(
 	SimpleIni
 	GIT_REPOSITORY	https://github.com/brofield/simpleini.git
 	GIT_TAG			v4.22
 )
+message(STATUS "Fetching content for SQLiteCpp")
 FetchContent_Declare(
 	SQLiteCpp
 	GIT_REPOSITORY	https://github.com/SRombauts/SQLiteCpp.git
 	GIT_TAG			master
 )
+message(STATUS "Fetching content for OpenSSL")
 FetchContent_Declare(
 	OpenSSL
 	URL				https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.3.2.zip
 	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
 	FIND_PACKAGE_ARGS HINTS x64
 )
-FetchContent_Declare(
-	http_request
-	GIT_REPOSITORY	https://github.com/abiiranathan/http_request.git
-	GIT_TAG			master
-)
-
+message(STATUS "Fetching content for QMYSQL")
 FetchContent_Declare(
 	QMYSQL
 	URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip
@@ -213,16 +225,20 @@ install (
 #install (DIRECTORY ${OPENSSL_RUNTIME_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR} FILES_MATCHING PATTERN "*.dll")
 #install (DIRECTORY ${QT_DIR}/bin/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")
 
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/service.md)
 install (
 	FILES ${CMAKE_CURRENT_SOURCE_DIR}/service.ini 
 	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-10-vs14.dll 
 	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-2-vs14.dll 
 	DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT DataFiles
 )
+endif()
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/README.md)
 install (
 	FILES ${CMAKE_CURRENT_SOURCE_DIR}/README.md
 	DESTINATION ${CMAKE_INSTALL_BINDIR}/.. COMPONENT Documentation
 )
+endif()
 
 
 install(

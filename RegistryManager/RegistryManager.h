@@ -6,7 +6,7 @@
 #include <iostream>
 //#include <tchar.h>
 #include <string>
-#include <windows.h>
+#include <Windows.h>
 HKEY OpenKey(HKEY hRootKey, std::string strKey);
 
 void SetStrVal(HKEY &hKey, const char* lpValue, std::string data, DWORD type);

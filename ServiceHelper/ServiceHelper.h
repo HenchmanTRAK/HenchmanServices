@@ -4,9 +4,9 @@
 
 //#include <QtCore>
 
-#include "openssl/crypto.h"
-#include "openssl/err.h"
-#include "openssl/ssl.h"
+//#include "openssl/crypto.h"
+//#include "openssl/err.h"
+//#include "openssl/ssl.h"
 
 #include <ctime>
 #include <filesystem>
@@ -14,7 +14,8 @@
 #include <iostream>
 #include <sstream>
 #include <string>
-#include <WinBase.h>
+//#include <WinBase.h>
+
 #include "RegistryManager.h"
 
 long int microseconds();

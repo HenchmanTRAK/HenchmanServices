@@ -6,6 +6,11 @@
 #pragma once
 
 
+#include "openssl/crypto.h"
+#include "openssl/err.h"
+#include "openssl/ssl.h"
+
+
 #include <Ws2tcpip.h>
 #include <Windows.h>
 #include <WinSock2.h>
@@ -27,9 +32,9 @@
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
-#include "DatabaseManager.h"
 #include "TRAKManager.h"
 #include "SQLiteManager.h"
+#include "DatabaseManager.h"
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
