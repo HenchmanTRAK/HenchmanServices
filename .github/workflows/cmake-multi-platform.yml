@@ -219,11 +219,6 @@ jobs:
         install-deps: 'true'
         cache: 'true'
 
-    - name: Create file version setting
-      shell: cmd
-      run: |
-        cd ${{ github.workspace }} && echo .> version
-
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
@@ -237,7 +232,7 @@ jobs:
     - name: Set build version.
       shell: bash
       run: |
-        cd ${{ github.workspace }} && echo $(cat version)>>$VERSION && rm version
+        cd ${{ github.workspace }} && cat version >> $VERSION && rm version
 
     - name: "Checking for version set"
       run: echo VERSION=$env:VERSION
