@@ -3,6 +3,11 @@
 #
 cmake_minimum_required (VERSION 3.25)
 
+# set the project version. 
+set(PROJECT_VER_PATCH 6)
+set(PROJECT_VER_MINOR 1)
+set(PROJECT_VER_MAJOR 1)
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -14,24 +19,22 @@ if(MSVC)
   target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
 
-project ("HenchmanServices" LANGUAGES CXX C)
+set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
+
+project ("HenchmanServices" VERSION ${PROJECT_VER} LANGUAGES CXX C)
 set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-# set the project version. 
-set(PROJECT_VER_PATCH 6)
-set(PROJECT_VER_MINOR 1)
-set(PROJECT_VER_MAJOR 1)
-
-set($ENV{VERSION} "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 #execute_process (
 #    COMMAND echo "${Project_Version}" >> "$ENV{VERSION}"
 #    OUTPUT_VARIABLE outVar
 #)
-set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
+
+
+file(WRITE version ${PROJECT_VERSION})
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
