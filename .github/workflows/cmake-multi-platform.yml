@@ -80,6 +80,7 @@ jobs:
   
     - name: Cache OpenSSL results
       uses: actions/cache@v3
+      id: cache-vcpkg-packages
       env:
           cache-name: cache-vcpkg-packages
       with: 
@@ -90,7 +91,7 @@ jobs:
           ${{ matrix.os }}-build
           ${{ matrix.os }}-
 
-    - if: ${{ steps.cache-vcpkg-packages.outpits.cache-hit != 'true' }}
+    - if: ${{ steps.cache-vcpkg-packages.outputs.cache-hit != 'true' }}
       name: Install OpenSSL (Windows)
       id: "openssl"
       shell: powershell
@@ -133,6 +134,7 @@ jobs:
   
     - name: Cache Graphviz results
       uses: actions/cache@v3
+      id: cache-Graphviz
       env:
           cache-name: cache-Graphviz
       with: 
@@ -143,7 +145,7 @@ jobs:
           ${{ matrix.os }}-build
           ${{ matrix.os }}-
 
-    - if: ${{ steps.cache-Graphviz.outpits.cache-hit != 'true' }}
+    - if: ${{ steps.cache-Graphviz.outputs.cache-hit != 'true' }}
       name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2
 
@@ -204,6 +206,7 @@ jobs:
 
     - name: Cache QT results
       uses: actions/cache@v3
+      id: cache-QT
       env:
           cache-name: cache-QT
       with: 
@@ -214,7 +217,7 @@ jobs:
           ${{ matrix.os }}-build
           ${{ matrix.os }}-
 
-    - if: ${{ steps.cache-QT.outpits.cache-hit != 'true' }}
+    - if: ${{ steps.cache-QT.outputs.cache-hit != 'true' }}
       name: Install Qt
       uses: jurplel/install-qt-action@v4
       with:
