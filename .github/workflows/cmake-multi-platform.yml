@@ -49,12 +49,6 @@ jobs:
       shell: bash
       run: |
         ls -alS "C:/Program Files/OpenSSL"
-
-    - name: Generate empty ini file.
-      id: ini_file
-      shell: cmd
-      run: |
-        cd ${{ github.workspace }} && echo .>service.ini
   
   install_openssl:
     runs-on: ${{ matrix.os }}
@@ -81,25 +75,30 @@ jobs:
             arch: x64
     steps:
     - uses: actions/checkout@v4
+    - run: mkdir -p C:/vcpkg/packages
     - name: Cache OpenSSL results
       uses: actions/cache@v3
       env:
-          cache-name: cache-vcpkg-packages
+          cache-name: cache-vcpkg-openssl
       with: 
-        path: "C:/vcpkg/packages"
+        path: "C:/vcpkg/packages/openssl_x64-windows"
         key: ${{ matrix.os }}-build-${{ env.cache-name }}
         restore-keys: |
           ${{ matrix.os }}-build-${{ env.cache-name }}
           ${{ matrix.os }}-build
           ${{ matrix.os }}-
 
-    - if: ${{ steps.cache-vcpkg-packages.outpits.cache-hit != 'true' }}
+    - if: ${{ steps.cache-vcpkg-openssl.outpits.cache-hit != 'true' }}
       name: Install OpenSSL (Windows)
       id: "openssl"
       shell: powershell
       run: |
         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
         vcpkg install openssl
+    - uses: actions/upload-artifact@master
+      with:
+        name: openssl_windows
+        path: C:/vcpkg/packages
   
   install_qt:
     runs-on: ${{ matrix.os }}
@@ -126,6 +125,7 @@ jobs:
             arch: x64
     steps:
     - uses: actions/checkout@v4
+    - run: mkdir -p ${{ github.workspace }}/QT
     - name: Cache QT results
       uses: actions/cache@v3
       env:
@@ -148,6 +148,10 @@ jobs:
         arch: 'win64_msvc2019_64'
         dir: '${{ github.workspace }}/'
         install-deps: 'true'
+    - uses: actions/upload-artifact@master
+      with:
+        name: QT
+        path: ${{ github.workspace }}/QT
   
   install_doxy:
     runs-on: ${{ matrix.os }}
@@ -174,9 +178,7 @@ jobs:
             arch: x64
     steps:
     - uses: actions/checkout@v4
-  
-    - uses: ssciwr/doxygen-install@v1
-    
+    - run: mkdir -p C:/Program Files/Graphviz
     - name: Cache Graphviz results
       uses: actions/cache@v3
       env:
@@ -192,6 +194,10 @@ jobs:
     - if: ${{ steps.cache-Graphviz.outpits.cache-hit != 'true' }}
       name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2
+    - uses: actions/upload-artifact@master
+      with:
+        name: Doxy_Graphviz
+        path: C:/Program Files/Graphviz
 
   build:
     needs: [setup, install_openssl, install_doxy, install_qt]  
@@ -220,11 +226,34 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+  
+    - name: Generate empty ini file.
+      id: ini_file
+      shell: cmd
+      run: |
+        cd ${{ github.workspace }} && echo .>service.ini
 
     - uses: ilammy/msvc-dev-cmd@v1.4.1
       with:
         arch: ${{ matrix.arch }}
     
+    - uses: ssciwr/doxygen-install@v1
+  
+    - uses: actions/download-artifact@master
+      with:
+        name: Doxy_Graphviz
+        path: C:/Program Files/Graphviz
+
+    - uses: actions/download-artifact@master
+      with:
+        name: QT
+        path: ${{ github.workspace }}/QT
+
+    - uses: actions/download-artifact@master
+      with:
+        name: openssl_windows
+        path: C:/vcpkg/packages
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
