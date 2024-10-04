@@ -8,8 +8,8 @@ on:
       - main
 
 env:
-  VERSION: "1.1.5"
-  CURR_VERSION: "1.1.5"
+  VERSION: 1.1.5
+  CURR_VERSION: 1.1.5
 
 jobs:
   setup:
@@ -65,7 +65,6 @@ jobs:
       uses: oprypin/find-latest-tag@v1
       with:
         repository: ${{ github.repository }}
-        releases-only: true
         regex: '^\d+\.\d+\.\d+$'
       id: find-latest-tag
 
@@ -342,9 +341,9 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{env.VERSION}}
-        name: Release ${{env.VERSION}}
-        files: "${{ github.workspace }}/build/HenchmanServices-${{env.VERSION}}-win64.exe"
+        tag_name: ${{needs.setup.outputs.VERSION}}
+        name: Release ${{needs.setup.outputs.VERSION}}
+        files: "${{ github.workspace }}/build/HenchmanServices-${{needs.setup.outputs.VERSION}}-win64.exe"
 
     # - uses: actions-ecosystem/action-create-comment@v1
     #   if: ${{ steps.bump-semver.outputs.new_version != null }}
