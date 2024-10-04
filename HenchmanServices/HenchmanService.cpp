@@ -1401,9 +1401,9 @@ void HenchmanService::ConnectWithSMTP() {
 		reply = buff;
 		reply.resize(iResult);
 		logx << "[Server] [" << iResult << "] " << buff << endl;
-		logx.adjustfield;
+		//logx.adjustfield;
 
-		memset(buff, 0, sizeof buff);
+		//memset(buff, 0, sizeof buff);
 		buff[0] = '\0';
 
 		// send ehlo command
@@ -1497,14 +1497,15 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 
 	char buff[1024] = "\0";
 	int buffLen = sizeof(buff);
-	int counter = 1;
 	try {
+		int counter = 1;
 		if (SSL_connect(ssl) == -1) {
 			ERR_print_errors_fp(stderr);            
 			logx << "[TLS_SMTP_ERROR]" << endl;
 			return;
 		}
 		else {
+			WriteToLog("Greeting email server");
 			buff[0] = '\0';
 			ostringstream f0;
 			f0 << "EHLO " << "mail.henchmantrak.com" << "\r\n";
@@ -1515,16 +1516,19 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 			int bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
 			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "250")) return;
+			WriteToLog(logx.str());
+			logx.str(string());
+			if (!Contain(string(buff), "250")) throw HenchmanServiceException("Did not recieve status 250");
 			counter++;
 
+			WriteToLog("Generating authentication string");
 			buff[0] = '\0';
 			ostringstream f1;
 			f1 << "AUTH PLAIN ";
 			string f2;
 			using namespace string_literals;
 			f2 = mail_username + "\0"s + mail_username + "\0"s + QByteArray::fromBase64Encoding(mail_password.c_str()).decoded.toStdString();
-			f1 << QByteArray(f2.c_str()).toBase64().toStdString();
+			f1 << QByteArray(QByteArray::fromRawData(f2.c_str(), f2.size())).toBase64().toStdString().c_str();
 			f1 << " \r\n";
 			string f11 = f1.str();
 			char* auth = f11.data();
@@ -1533,7 +1537,9 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
 			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "235"))return;
+			WriteToLog(logx.str());
+			logx.str(string());
+			if (!Contain(string(buff), "235")) throw HenchmanServiceException("Did not recieve status 235");
 			counter++;
 
 			buff[0] = '\0';
@@ -1546,9 +1552,10 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
 			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "250"))return;
+			WriteToLog(logx.str());
+			logx.str(string());
+			if (!Contain(string(buff), "250")) throw HenchmanServiceException("Did not recieve status 250");
 			counter++;
-
 
 			buff[0] = '\0';
 			string rcpt = "rcpt to: <";
@@ -1559,7 +1566,9 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
 			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "250"))return;
+			WriteToLog(logx.str());
+			logx.str(string());
+			if (!Contain(string(buff), "250")) throw HenchmanServiceException("Did not recieve status 250");
 			counter++;
 
 			buff[0] = '\0';
@@ -1569,7 +1578,9 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
 			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "354"))return;
+			WriteToLog(logx.str());
+			logx.str(string());
+			if (!Contain(string(buff), "354")) throw HenchmanServiceException("Did not recieve status 354");
 			counter++;
 
 			string Encoding = "iso-8859-2"; // charset: utf-8, utf-16, iso-8859-2, iso-8859-1
@@ -1651,14 +1662,14 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 
 			// send log
 			WriteToLog(logx.str());
-			if (!Contain(string(buff), "250"))return;
-
+			if (!Contain(string(buff), "250")) throw HenchmanServiceException("Did not receive 250 from server");
+			logx.str(string());
 			char* qdata = (char*)"quit\r\n";
 			SSL_write(ssl, qdata, strlen(qdata));
 			bytes = SSL_read(ssl, buff, sizeof(buff));
 			buff[bytes] = 0;
 			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-			if (!Contain(string(buff), "221"))return;
+			if (!Contain(string(buff), "221")) throw HenchmanServiceException("Did not receive 221 from server");
 
 			SSL_free(ssl);
 		}
@@ -1873,6 +1884,8 @@ int HenchmanService::MainFunction()
 		return 0;
 	}
 
+	//ConnectWithSMTP();
+
 	TrakM = new TRAKManager;
 
 	TrakM->CreateDataModule(dbManager);
@@ -1907,11 +1920,9 @@ int HenchmanService::MainFunction()
 
 int main(int argc, char* argv[])
 {
-
-	testing = false;
-
-
-	//return RunAsServiceTest(argc, argv);
-	return RunAsService(argc, argv);
+	if(testing)
+		return RunAsServiceTest(argc, argv);
+	else
+		return RunAsService(argc, argv);
 
 }

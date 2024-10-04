@@ -4,8 +4,14 @@ name: CMake on multiple platforms
 
 on:
   push:
+    branches: 
+      - main
     tags:
       - "v*.*.*"
+
+env:
+  VERSION: "1.1.5"
+  CURR_VERSION: "1.1.5"
 
 jobs:
   setup:
@@ -45,10 +51,28 @@ jobs:
       shell: bash
       run: |
         ls -alS "C:/Program Files/OpenSSL"
+
+    - name: Set version variables
+      shell: bash
+      run: |
+        VER=$(cat version)
+        echo "VERSION=$VER" >> $GITHUB_ENV
+
+    - name: "Getting current release version"
+      uses: oprypin/find-latest-tag@v1
+      id: find-latest-tag
+      with:
+        repository: ${{ github.repository }}
+        release-only: true
+
+    - name: "Setting current release version"
+      shell: bash
+      run: CURR_VERSION=${{ steps.find-latest-tag.outputs.tag }} >> $GITHUB_ENV
+
   
   install_openssl:
     runs-on: ${{ matrix.os }}
-
+    if: $VERSION > $CURR_VERSION
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
       fail-fast: true
@@ -100,9 +124,9 @@ jobs:
         name: openssl_windows
         path: C:/vcpkg/packages
     
-  install_doxy:
+  install_doxy:  
     runs-on: ${{ matrix.os }}
-
+    if: $VERSION > $CURR_VERSION
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
       fail-fast: true
@@ -151,6 +175,7 @@ jobs:
         path: "C:/Program Files/Graphviz"
 
   build:
+    if: $VERSION > $CURR_VERSION  
     needs: [setup, install_openssl, install_doxy]  
     runs-on: ${{ matrix.os }}
     permissions:
@@ -178,9 +203,7 @@ jobs:
             c_compiler: cl
             cpp_compiler: cl
             arch: x64
-    
-    env:
-      VERSION: "1.1.5"
+
     steps:
     - uses: actions/checkout@v4
   
@@ -226,12 +249,6 @@ jobs:
         -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
         -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
         -S ${{ github.workspace }}
-
-    - name: Set version variables
-      shell: bash
-      run: |
-        VER=$(cat version)
-        echo "VERSION=$VER" >> $GITHUB_ENV
 
     - name: "Checking for version set"
       run: echo VERSION=$env:VERSION
