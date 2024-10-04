@@ -37,6 +37,9 @@ jobs:
             c_compiler: cl
             cpp_compiler: cl
             arch: x64
+    outputs:
+        VERSION: ${{steps.set-version.outputs.version}}
+        CURR_VERSION: ${{steps.find-latest-tag.outputs.tag}}
     steps:
     - uses: actions/checkout@v4
 
@@ -53,10 +56,12 @@ jobs:
         ls -alS "C:/Program Files/OpenSSL"
 
     - name: Set version variables
+      id: set-version
       shell: bash
       run: |
         VER=$(cat version)
         echo "VERSION=$VER" >> $GITHUB_ENV
+        echo "version=$VER" >> $GITHUB_OUTPUT
 
     - name: "Getting current release version"
       uses: oprypin/find-latest-tag@v1
@@ -72,7 +77,7 @@ jobs:
   
   install_openssl:
     needs: [setup]
-    if: ${{ env.VERSION > env.CURR_VERSION }}
+    if: ${{ needs.setup.outputs.VERSION > needs.setup.outputs.CURR_VERSION }}
     runs-on: ${{ matrix.os }}
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
@@ -127,7 +132,7 @@ jobs:
     
   install_doxy:  
     needs: [setup]
-    if: ${{env.VERSION > env.CURR_VERSION}}
+    if: ${{ needs.setup.outputs.VERSION > needs.setup.outputs.CURR_VERSION }}
     runs-on: ${{ matrix.os }}
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
@@ -178,7 +183,7 @@ jobs:
 
   build:
     needs: [setup, install_openssl, install_doxy]  
-    if: ${{env.VERSION > env.CURR_VERSION}} 
+    if: ${{ needs.setup.outputs.VERSION > needs.setup.outputs.CURR_VERSION }}
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
