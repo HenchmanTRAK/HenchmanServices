@@ -71,9 +71,9 @@ jobs:
 
   
   install_openssl:
-    runs-on: ${{ matrix.os }}
     needs: [setup]
-    if: ${{env.VERSION > env.CURR_VERSION}}
+    if: ${{ env.VERSION > env.CURR_VERSION }}
+    runs-on: ${{ matrix.os }}
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
       fail-fast: true
@@ -126,9 +126,9 @@ jobs:
         path: C:/vcpkg/packages
     
   install_doxy:  
-    runs-on: ${{ matrix.os }}
     needs: [setup]
     if: ${{env.VERSION > env.CURR_VERSION}}
+    runs-on: ${{ matrix.os }}
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
       fail-fast: true
@@ -177,9 +177,9 @@ jobs:
         path: "C:/Program Files/Graphviz"
 
   build:
-    runs-on: ${{ matrix.os }}
     needs: [setup, install_openssl, install_doxy]  
     if: ${{env.VERSION > env.CURR_VERSION}} 
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
       pull-requests: write
