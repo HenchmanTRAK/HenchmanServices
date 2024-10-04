@@ -65,10 +65,11 @@ jobs:
 
     - name: "Getting current release version"
       uses: oprypin/find-latest-tag@v1
-      id: find-latest-tag
       with:
         repository: ${{ github.repository }}
         releases-only: true
+        regex: '^\d+\.\d+\.\d+$'
+      id: find-latest-tag
 
     - name: "Setting current release version"
       shell: bash
