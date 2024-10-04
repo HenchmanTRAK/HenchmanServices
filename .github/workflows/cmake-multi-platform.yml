@@ -68,11 +68,11 @@ jobs:
       id: find-latest-tag
       with:
         repository: ${{ github.repository }}
-        release-only: true
+        releases-only: true
 
     - name: "Setting current release version"
       shell: bash
-      run: CURR_VERSION=${{ steps.find-latest-tag.outputs.tag }} >> $GITHUB_ENV
+      run: echo "CURR_VERSION=${{ steps.find-latest-tag.outputs.tag }}" >> $GITHUB_ENV
 
   
   install_openssl:
@@ -101,7 +101,13 @@ jobs:
             arch: x64
     steps:
     - uses: actions/checkout@v4
-  
+    
+    - name: "Checking needs output"
+      shell: bash
+      run: |
+        echo ${{needs.setup.outputs.VERSION}}
+        echo ${{needs.setup.outputs.CURR_VERSION}}
+
     - run: mkdir -p C:/vcpkg/packages
   
     - name: Cache OpenSSL results
