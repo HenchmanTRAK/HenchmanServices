@@ -6,8 +6,6 @@ on:
   push:
     branches: 
       - main
-    tags:
-      - "v*.*.*"
 
 env:
   VERSION: "1.1.5"
