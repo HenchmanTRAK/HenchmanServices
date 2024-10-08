@@ -9,7 +9,7 @@ using namespace std;
 
 QCoreApplication* a;
 
-bool testing = false;
+bool testing = true;
 
 string ShowCerts(SSL* ssl)
 {
@@ -100,10 +100,10 @@ bool ProcessExists(string& exeFileName)
 {
 	HANDLE SnapshotHandle;
 	SnapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	PROCESSENTRY32 ProcessEntry32;
+	PROCESSENTRY32W ProcessEntry32;
 	ZeroMemory(&ProcessEntry32, sizeof(ProcessEntry32));
 	ProcessEntry32.dwSize = sizeof(ProcessEntry32);
-	bool ContinueLoop = Process32First(SnapshotHandle, &ProcessEntry32);
+	bool ContinueLoop = Process32FirstW(SnapshotHandle, &ProcessEntry32);
 	bool result = false;
 	while (ContinueLoop) {
 		string targetEXE = exeFileName;
@@ -112,11 +112,13 @@ bool ProcessExists(string& exeFileName)
 		transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
 		string processEXEFileName = fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile).toStdString());
 		transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
+		WriteToLog("Checking if target exe: " + targetEXE + " is process: " + processEXEFileName);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
 			result = true;
+			ContinueLoop = false;
 		}
 		else {
-			ContinueLoop = Process32Next(SnapshotHandle, &ProcessEntry32);
+			ContinueLoop = Process32NextW(SnapshotHandle, &ProcessEntry32);
 		}
 	}
 	CloseHandle(SnapshotHandle);
