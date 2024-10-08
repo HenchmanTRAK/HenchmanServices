@@ -33,8 +33,13 @@
 #include <QTimer>
 #include <QCoreApplication>
 
+#include <SimpleIni.h>
+
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
+
+
+CSimpleIniA ini;
 
 /**
 * The DatabaseManager class is responsible for managing database connections and executing SQL queries.

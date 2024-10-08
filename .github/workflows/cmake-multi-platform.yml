@@ -37,7 +37,9 @@ jobs:
             arch: x64
     outputs:
         VERSION: ${{steps.set-version.outputs.version}}
-        CURR_VERSION: ${{steps.find-latest-tag.outputs.tag}}
+        CURR_VERSION: ${{steps.find-latest-tag.outputs.curr_version}}
+        VERSION_NUMBER: ${{steps.solid-version-numbers.outputs.VERSION_NUMBER}}
+        CURR_VERSION_NUMBER: ${{steps.solid-version-numbers.outputs.CURR_VERSION_NUMBER}}
     steps:
     - uses: actions/checkout@v4
 
@@ -58,8 +60,8 @@ jobs:
       shell: bash
       run: |
         VER=$(cat version)
-        echo "VERSION=$VER" >> $GITHUB_ENV
-        echo "version=$VER" >> $GITHUB_OUTPUT
+        echo "VERSION=$(echo $VER | tr -dc '0-9')" >> $GITHUB_ENV
+        echo "version=$(echo $VER | tr -dc '0-9')" >> $GITHUB_OUTPUT
 
     - name: "Getting current release version"
       uses: oprypin/find-latest-tag@v1
@@ -69,13 +71,23 @@ jobs:
       id: find-latest-tag
 
     - name: "Setting current release version"
+      id: set-curr-version
       shell: bash
-      run: echo "CURR_VERSION=${{ steps.find-latest-tag.outputs.tag }}" >> $GITHUB_ENV
+      run: |
+        echo "CURR_VERSION=$(echo ${{ steps.find-latest-tag.outputs.tag }} | tr -dc '0-9')" >> $GITHUB_ENV
+        echo "curr_version=$(echo ${{ steps.find-latest-tag.outputs.tag }} | tr -dc '0-9')" >> $GITHUB_OUTPUT
+
+    - name: "Convering to solid numbers"
+      id: solid-version-numbers
+      shell: bash
+      run: |
+        echo "CURR_VERSION_NUMBER=$echo$((${{ steps.set-curr-version.outputs.curr_version }}-0))" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=$echo$((${{ steps.set-version.outputs.version }}-0))" >> $GITHUB_OUTPUT
 
   
   install_openssl:
     needs: [setup]
-    if: ${{ needs.setup.outputs.VERSION > needs.setup.outputs.CURR_VERSION }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
     runs-on: ${{ matrix.os }}
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
@@ -105,6 +117,8 @@ jobs:
       run: |
         echo ${{needs.setup.outputs.VERSION}}
         echo ${{needs.setup.outputs.CURR_VERSION}}
+        echo ${{needs.setup.outputs.VERSION_NUMBER}}
+        echo ${{needs.setup.outputs.CURR_VERSION_NUMBER}}
 
     - run: mkdir -p C:/vcpkg/packages
   
@@ -136,7 +150,8 @@ jobs:
     
   install_doxy:  
     needs: [setup]
-    if: ${{ needs.setup.outputs.VERSION > needs.setup.outputs.CURR_VERSION }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
+
     runs-on: ${{ matrix.os }}
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
@@ -187,7 +202,8 @@ jobs:
 
   build:
     needs: [setup, install_openssl, install_doxy]  
-    if: ${{ needs.setup.outputs.VERSION > needs.setup.outputs.CURR_VERSION }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
+
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write

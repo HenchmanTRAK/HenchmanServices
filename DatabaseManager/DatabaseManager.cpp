@@ -36,6 +36,15 @@ Seperate out adding database with addDatabase from reconnecting to database to d
 
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 {
+
+	SI_Error rc = ini.LoadFile(".\\service.ini");
+	if (rc < 0) {
+		cerr << "Failed to Load INI File" << endl;
+	}
+	else {
+		testingDBManager = ini.GetBoolValue("DEVELOPMENT", "testingDBManager", 0);
+	}
+
 	networkManager = new QNetworkAccessManager(this);
 	networkManager->setAutoDeleteReplies(true);
 	connect(
