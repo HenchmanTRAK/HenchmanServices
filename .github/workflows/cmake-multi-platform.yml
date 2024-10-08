@@ -85,8 +85,8 @@ jobs:
       id: solid-version-numbers
       shell: bash
       run: |
-        echo "CURR_VERSION_NUMBER=$echo$((${{ steps.set-curr-version.outputs.curr_version }} | tr -dc '0-9'))" >> $GITHUB_OUTPUT
-        echo "VERSION_NUMBER=$echo$((${{ steps.set-version.outputs.version }} | tr -dc '0-9'))" >> $GITHUB_OUTPUT
+        echo "CURR_VERSION_NUMBER=$(echo ${{ steps.set-curr-version.outputs.curr_version }} | tr -dc '0-9')" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=$(echo ${{ steps.set-version.outputs.version }} | tr -dc '0-9')" >> $GITHUB_OUTPUT
 
   
   install_openssl:
