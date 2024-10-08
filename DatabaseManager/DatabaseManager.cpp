@@ -36,7 +36,7 @@ Seperate out adding database with addDatabase from reconnecting to database to d
 
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 {
-
+	CSimpleIniA ini;
 	SI_Error rc = ini.LoadFile(".\\service.ini");
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
