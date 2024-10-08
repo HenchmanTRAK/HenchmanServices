@@ -1942,6 +1942,14 @@ int HenchmanService::MainFunction()
 
 int main(int argc, char* argv[])
 {
+
+	SI_Error rc = ini.LoadFile(".\\service.ini");
+	if (rc < 0) {
+		cerr << "Failed to Load INI File" << endl;
+	}
+	else {
+		testing = ini.GetBoolValue("DEVELOPMENT", "testingMain", 0);
+	}
 	
 	if(testing)
 		return RunAsServiceTest(argc, argv);

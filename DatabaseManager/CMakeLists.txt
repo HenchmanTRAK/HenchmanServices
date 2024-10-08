@@ -10,6 +10,7 @@ target_link_libraries(
 	Qt6::Core
 	Qt6::Sql
 	Qt6::Network
+	SimpleIni
 	RegistryManager
 	ServiceHelper
 	#mysql::concpp
