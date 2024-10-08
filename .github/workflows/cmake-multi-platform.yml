@@ -37,7 +37,7 @@ jobs:
             arch: x64
     outputs:
         VERSION: ${{steps.set-version.outputs.version}}
-        CURR_VERSION: ${{steps.find-latest-tag.outputs.curr_version}}
+        CURR_VERSION: ${{steps.find-latest-tag.outputs.tag}}
         VERSION_NUMBER: ${{steps.solid-version-numbers.outputs.VERSION_NUMBER}}
         CURR_VERSION_NUMBER: ${{steps.solid-version-numbers.outputs.CURR_VERSION_NUMBER}}
     steps:
