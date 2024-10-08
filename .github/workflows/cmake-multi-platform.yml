@@ -37,7 +37,7 @@ jobs:
             arch: x64
     outputs:
         VERSION: ${{steps.set-version.outputs.version}}
-        CURR_VERSION: ${{steps.find-latest-tag.outputs.tag}}
+        CURR_VERSION: ${{steps.find-latest-tag.outputs.curr_version}}
         VERSION_NUMBER: ${{steps.solid-version-numbers.outputs.VERSION_NUMBER}}
         CURR_VERSION_NUMBER: ${{steps.solid-version-numbers.outputs.CURR_VERSION_NUMBER}}
     steps:
@@ -60,8 +60,10 @@ jobs:
       shell: bash
       run: |
         VER=$(cat version)
-        echo "VERSION=$(echo $VER | tr -dc '0-9')" >> $GITHUB_ENV
-        echo "version=$(echo $VER | tr -dc '0-9')" >> $GITHUB_OUTPUT
+        # echo "VERSION=$(echo $VER | tr -dc '0-9')" >> $GITHUB_ENV
+        # echo "version=$(echo $VER | tr -dc '0-9')" >> $GITHUB_OUTPUT
+        echo "VERSION=$VER" >> $GITHUB_ENV
+        echo "version=$VER" >> $GITHUB_OUTPUT
 
     - name: "Getting current release version"
       uses: oprypin/find-latest-tag@v1
@@ -74,15 +76,17 @@ jobs:
       id: set-curr-version
       shell: bash
       run: |
-        echo "CURR_VERSION=$(echo ${{ steps.find-latest-tag.outputs.tag }} | tr -dc '0-9')" >> $GITHUB_ENV
-        echo "curr_version=$(echo ${{ steps.find-latest-tag.outputs.tag }} | tr -dc '0-9')" >> $GITHUB_OUTPUT
+        echo "CURR_VERSION=${{ steps.find-latest-tag.outputs.tag }}" >> $GITHUB_ENV
+        echo "curr_version=${{ steps.find-latest-tag.outputs.tag }}" >> $GITHUB_OUTPUT
+        # echo "CURR_VERSION=$(echo ${{ steps.find-latest-tag.outputs.tag }} | tr -dc '0-9')" >> $GITHUB_ENV
+        # echo "curr_version=$(echo ${{ steps.find-latest-tag.outputs.tag }} | tr -dc '0-9')" >> $GITHUB_OUTPUT
 
     - name: "Convering to solid numbers"
       id: solid-version-numbers
       shell: bash
       run: |
-        echo "CURR_VERSION_NUMBER=$echo$((${{ steps.set-curr-version.outputs.curr_version }}-0))" >> $GITHUB_OUTPUT
-        echo "VERSION_NUMBER=$echo$((${{ steps.set-version.outputs.version }}-0))" >> $GITHUB_OUTPUT
+        echo "CURR_VERSION_NUMBER=$echo$((${{ steps.set-curr-version.outputs.curr_version }} | tr -dc '0-9'))" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=$echo$((${{ steps.set-version.outputs.version }} | tr -dc '0-9'))" >> $GITHUB_OUTPUT
 
   
   install_openssl:
