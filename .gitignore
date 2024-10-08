@@ -4,3 +4,6 @@ out
 backup
 **/*.bak
 build
+resources/*
+!resources/*.dll
+!resources/*.h

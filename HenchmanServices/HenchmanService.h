@@ -32,6 +32,7 @@
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
+#include "EventManager.h"
 #include "TRAKManager.h"
 #include "SQLiteManager.h"
 #include "DatabaseManager.h"

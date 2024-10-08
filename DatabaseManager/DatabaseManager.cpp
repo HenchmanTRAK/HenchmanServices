@@ -6,7 +6,7 @@
 using namespace std;
 
 int queryLimit = 100;
-bool testingDBManager = true;
+bool testingDBManager = false;
 
 static string checkValidDrivers()
 {

@@ -8,7 +8,9 @@ qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" )
 
 target_include_directories(
 	HenchmanService PRIVATE 
+	${CMAKE_CURRENT_SOURCE_DIR}
 	${OPENSSL_INCLUDE_DIR}
+	${CMAKE_SOURCE_DIR}/resources
 )
 message(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
 message(STATUS "OpenSSL ssl library: ${OPENSSL_SSL_LIBRARY}")
@@ -29,6 +31,7 @@ target_link_libraries(
 	HenchmanServiceException 
 	RegistryManager
 	ServiceHelper
+	EventManager
 	TRAKManager
 	SQLiteManager 
 	DatabaseManager

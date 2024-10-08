@@ -153,7 +153,6 @@ set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
 
 file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-
 #set(mysql-concpp_DIR "C:/Program Files/MySQL/MySQL Connector C++ 9.0")
 
 #add_library(my_openssl INTERFACE)
@@ -170,6 +169,7 @@ file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 add_subdirectory (HenchmanServiceException)
 add_subdirectory (RegistryManager)
 add_subdirectory (ServiceHelper)
+add_subdirectory (EventManager)
 add_subdirectory (SQLiteManager)
 add_subdirectory (DatabaseManager)
 add_subdirectory (TRAKManager)
@@ -212,6 +212,13 @@ endif()
 message(STATUS "Current Source: " ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
+
+file(
+	COPY ${CMAKE_SOURCE_DIR}/resources/ 
+	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} 
+	FILES_MATCHING
+	PATTERN "*.dll"
+)
 
 install (
 	DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/

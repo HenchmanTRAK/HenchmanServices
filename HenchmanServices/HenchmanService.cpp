@@ -995,6 +995,26 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 
 	a = new QCoreApplication(argc, argv);
 	HenchmanService service;
+	
+	// add registering registering application in event log and removing on exit.
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
+	HKEY serviceKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string evtMsgFile = GetStrVal(hKey, "EventMessageFile", REG_SZ);
+	DWORD typesSupported = GetVal(hKey, "TypesSupported", REG_DWORD);
+	string installDir = GetStrVal(serviceKey, "Install_Dir", REG_SZ) + "\\event_log.dll";
+	cout << evtMsgFile << " | " << installDir << endl;
+	if (evtMsgFile != installDir) {
+		cout << "setting new event message file" << endl;
+		SetStrVal(hKey, "EventMessageFile", installDir, REG_SZ);
+	}
+	SetVal(hKey, "TypesSupported", 7, REG_DWORD);
+	RegCloseKey(hKey);
+	RegCloseKey(serviceKey);
+
+	EventManager eventManager(SERVICE_NAME);
+		
+	eventManager.ReportCustomEvent(SERVICE_NAME, "Service started", 0);
+	
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		service.MainFunction();
@@ -1920,6 +1940,7 @@ int HenchmanService::MainFunction()
 
 int main(int argc, char* argv[])
 {
+	
 	if(testing)
 		return RunAsServiceTest(argc, argv);
 	else

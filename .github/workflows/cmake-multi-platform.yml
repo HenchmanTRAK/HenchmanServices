@@ -344,6 +344,7 @@ jobs:
         tag_name: ${{needs.setup.outputs.VERSION}}
         name: Release ${{needs.setup.outputs.VERSION}}
         files: "${{ github.workspace }}/build/HenchmanServices-${{needs.setup.outputs.VERSION}}-win64.exe"
+        make_latest: 'true'
 
     # - uses: actions-ecosystem/action-create-comment@v1
     #   if: ${{ steps.bump-semver.outputs.new_version != null }}
