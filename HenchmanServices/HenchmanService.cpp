@@ -9,7 +9,7 @@ using namespace std;
 
 QCoreApplication* a;
 
-bool testing = true;
+bool testing = false;
 
 string ShowCerts(SSL* ssl)
 {
@@ -112,7 +112,7 @@ bool ProcessExists(string& exeFileName)
 		transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
 		string processEXEFileName = fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile).toStdString());
 		transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
-		WriteToLog("Checking if target exe: " + targetEXE + " is process: " + processEXEFileName);
+		//WriteToLog("Checking if target exe: " + targetEXE + " is process: " + processEXEFileName);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
 			result = true;
 			ContinueLoop = false;
