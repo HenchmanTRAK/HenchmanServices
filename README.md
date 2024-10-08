@@ -68,6 +68,10 @@ TRAK_DIR = path_to_trak_executable
 INI_FILE = name_of_trak_ini
 EXE_FILE = name_of_trak_exe
 APP_NAME = name_of_trak_application
+
+[DEVELOPMENT]
+testingMain=0|1
+testingDBManager=0|1
 ```
 
  - `[Mail]` section:
@@ -84,6 +88,10 @@ APP_NAME = name_of_trak_application
   - `INI_FILE` key: Specifies the name of the TRAK ini file.
   - `EXE_FILE` key: Specifies the name of the TRAK executable.
   - `APP_NAME` key: Specifies the name of the TRAK application.
+
+ - `[DEVELOPMENT]` section:
+	- `testingMain` key: 0 or 1; specifies if app should build in testing mode
+	- `testingDBManager` key: 0 or 1; specifies if app db manager should build in testing mode
 
 Make sure to replace include outlined with the appropriate values for your setup to work.
 
