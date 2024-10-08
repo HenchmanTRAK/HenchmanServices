@@ -91,7 +91,7 @@ jobs:
   
   install_openssl:
     needs: [setup]
-    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER != needs.setup.outputs.CURR_VERSION_NUMBER }}
     runs-on: ${{ matrix.os }}
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
@@ -154,7 +154,7 @@ jobs:
     
   install_doxy:  
     needs: [setup]
-    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER != needs.setup.outputs.CURR_VERSION_NUMBER }}
 
     runs-on: ${{ matrix.os }}
     strategy:
@@ -206,7 +206,7 @@ jobs:
 
   build:
     needs: [setup, install_openssl, install_doxy]  
-    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER != needs.setup.outputs.CURR_VERSION_NUMBER }}
 
     runs-on: ${{ matrix.os }}
     permissions:
