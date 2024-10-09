@@ -32,9 +32,11 @@
 #include <QRegularExpression>
 #include <QTimer>
 #include <QCoreApplication>
+#include <QTcpSocket>
 
 #include <SimpleIni.h>
 
+#include "HenchmanServiceException.h"
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
 
@@ -116,6 +118,8 @@ public:
     * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
     */
     int ExecuteTargetSql(std::string& targetApp, std::string& sqlQuery);
+
+    bool isInternetConnected();
 
 public slots:
     /**

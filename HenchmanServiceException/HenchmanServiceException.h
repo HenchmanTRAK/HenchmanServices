@@ -3,14 +3,17 @@
 #pragma once
 
 #include <iostream>
+#include <exception>
 
-using namespace std;
+#include "EventManager.h"
 
-class HenchmanServiceException : public exception {
+
+class HenchmanServiceException : public std::exception {
 private:
-	string errorMessage;
+	std::string errorMessage;
+
 public:
-	HenchmanServiceException(string msg);
+	HenchmanServiceException(std::string msg);
 	const char * what() const override;
 };
 

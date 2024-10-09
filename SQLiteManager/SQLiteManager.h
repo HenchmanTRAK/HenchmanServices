@@ -11,6 +11,7 @@
 #include <sqlite3.h>
 #include <SQLiteCpp/SQLiteCpp.h>
 
+#include "HenchmanServiceException.h"
 #include "ServiceHelper.h"
 
 #include <Windows.h>

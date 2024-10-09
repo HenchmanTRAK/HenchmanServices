@@ -14,19 +14,20 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <QString>
 //#include <WinBase.h>
 
 #include "RegistryManager.h"
 
 long int microseconds();
 
-bool Contain(std::string str, std::string search);
+bool Contain(QString str, QString search);
 
-std::string fileBasename(std::string path);
+const char * fileBasename(QString path);
 
-std::string get_file_contents(const char* filename);
+const char * get_file_contents(const char* filename);
 
-std::string GetFileExtension(const std::string& FileName);
+const char * GetFileExtension(const QString& FileName);
 
 //char* base64(std::string string);
 //

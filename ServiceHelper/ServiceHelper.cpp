@@ -12,47 +12,44 @@ long int microseconds()
 	return ms;
 }
 
-bool Contain(string str, string search) 
+bool Contain(QString str, QString search)
 {
 	//cout << "searching: " << str.data() << " for: " << search.data() << endl;
-	size_t found = str.find(search);
+	size_t found = str.toStdString().find(search.toStdString());
 	if (found != string::npos) {
 		return 1;
 	}
 	return 0;
 }
 
-string fileBasename(string path) 
+const char * fileBasename(QString path)
 {
-	string filename = path.substr(path.find_last_of("/\\") + 1);
-	return filename;
+	return path.toStdString().substr(path.toStdString().find_last_of("/\\") + 1).data();
 	// without extension
 	// string::size_type const p(base_filename.find_last_of('.'));
 	// string file_without_extension = base_filename.substr(0, p);
 }
 
-string get_file_contents(const char* filename)
+const char * get_file_contents(const char* filename)
 {
-	string targetFile = filename;
 	bool result = false;
-	if (ifstream is{ targetFile, ios::binary | ios::ate })
+	if (ifstream is{ filename, ios::binary | ios::ate })
 	{
 		auto size = is.tellg();
-		string str(size, '\0'); // construct string to stream size
+		QString str(size, '\0'); // construct string to stream size
 		is.seekg(0);
-		is.read(&str[0], size);
+		is.read(&str.toStdString()[0], size);
 		/*if (is)
 			cout << str << '\n';*/
-		targetFile.clear();
-		return str.c_str();
+		return str.toStdString().data();
 	}
 	throw(errno);
 }
 
-string GetFileExtension(const string& FileName)
+const char * GetFileExtension(const QString& FileName)
 {
-	if (FileName.find_last_of(".") != string::npos)
-		return FileName.substr(FileName.find_last_of(".") + 1);
+	if (FileName.toStdString().find_last_of(".") != string::npos)
+		return FileName.toStdString().substr(FileName.toStdString().find_last_of(".") + 1).data();
 	return "";
 }
 
@@ -81,7 +78,7 @@ string GetExportsPath(string app_path)
 	string exportsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
@@ -109,7 +106,7 @@ string GetLogsPath(string app_path)
 	string logsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
@@ -132,12 +129,9 @@ string GetLogsPath(string app_path)
 	return logsPath;
 }
 
-
-void WriteToLog(string log) 
+void WriteLog(char *targetFile, char * log)
 {
-	string logDir = GetLogsPath();
-	logDir.append("log.txt");
-	fstream fs(logDir.c_str(), ios::out | ios_base::app);
+	fstream fs(targetFile, ios::out | ios_base::app);
 	if (fs) {
 		time_t timer = time(NULL);
 		struct tm currDateTime = *localtime(&timer);
@@ -150,27 +144,25 @@ void WriteToLog(string log)
 		fs << log << '\n';
 		fs.close();
 	}
-	logDir.clear();
+
 }
 
-void WriteToError(string log) 
+void WriteToLog(string log)
 {
 	string logDir = GetLogsPath();
-	logDir.append("error.txt");
-	fstream fs(logDir.c_str(), ios::out | ios_base::app);
-	if (fs) {
-		time_t timer = time(NULL);
-		struct tm currDateTime = *localtime(&timer);
-		char dateBuf[120];
-		char timeBuf[120];
-		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
-		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
-		cerr << "---| " << dateBuf << " " << timeBuf << " |--- " << log << endl;
-		fs << "---| " << dateBuf << " " << timeBuf << " |--- ";
-		fs << log << '\n';
-		fs.close();
-	}
+	logDir.append("log.txt");
+	WriteLog(logDir.data(), log.data());
 	logDir.clear();
+	log.clear();
+}
+
+void WriteToError(string log)
+{
+	string logDir = GetLogsPath().data();
+	logDir.append("error.txt");
+	WriteLog(logDir.data(), log.data());
+	logDir.clear();
+	log.clear();
 }
 
 void sanitize(string& stringValue)

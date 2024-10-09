@@ -11,6 +11,7 @@ target_include_directories(
 
 target_link_libraries(
 	ServiceHelper PRIVATE
+	Qt6::Core
 	#OpenSSL::applink
 	#OpenSSL::SSL
 	#OpenSSL::Crypto

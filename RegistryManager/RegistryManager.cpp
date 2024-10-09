@@ -42,26 +42,23 @@ string GetStrVal(HKEY &hKey, const char* lpValue, DWORD type)
 {
 	DWORD buffSize = 1024;
 	char data[1024] = "\0";
-	string reply;
+	string reply = ""; // The value will be created and set to data next time SetVal() is called.
 	//cout << lpValue << endl;
 	//LONG nError = RegQueryValueEx(hKey, lpValue, NULL, &type, (LPBYTE)data, &buffSize);
 	LONG nError = RegGetValueA(hKey, NULL, lpValue, RRF_RT_ANY, NULL, data, &buffSize);
 
 	if (nError == ERROR_FILE_NOT_FOUND) 
-	{
-		//cout << "No File Found" << endl;
-		reply = ""; // The value will be created and set to data next time SetVal() is called.
-	}
+		cout << "No File Found" << endl;
 	else if (nError)
-	{
 		cout << "Error: " << nError << " Could not get registry value " << (char*)lpValue << endl;
-		reply = ""; // The value will be created and set to data next time SetVal() is called.
-	}
 	else 
 	{
 		//cout << "data: " << data << bool(nError == ERROR_FILE_NOT_FOUND) << endl;
-		reply = data;
-		reply.resize(buffSize-1);
+		for (int i = 0; i < buffSize-1; i++) 
+		{
+			reply = reply + data[i];
+		}
+		/*reply.resize(buffSize-1);*/
 		//cout << "reply: " << reply << endl;
 	}
 	//getchar();
