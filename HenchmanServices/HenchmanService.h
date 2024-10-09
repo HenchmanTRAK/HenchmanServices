@@ -11,31 +11,31 @@
 #include "openssl/ssl.h"
 
 
-#include <Ws2tcpip.h>
+#include <netlistmgr.h>
+#include <strsafe.h>
+#include <tchar.h>
+#include <TlHelp32.h>
 #include <Windows.h>
 #include <WinSock2.h>
-#include <netlistmgr.h>
-#include <tchar.h>
-#include <strsafe.h>
-#include <TlHelp32.h>
+#include <Ws2tcpip.h>
 
-#include <thread>
 #include <future>
+#include <thread>
 
-#include <QCoreApplication>
-#include <QTimer>
-#include <QString>
 #include <QByteArray>
+#include <QCoreApplication>
+#include <QString>
+#include <QTimer>
 
 #include "SimpleIni.h"
 
+#include "DatabaseManager.h"
+#include "EventManager.h"
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
-#include "EventManager.h"
-#include "TRAKManager.h"
 #include "SQLiteManager.h"
-#include "DatabaseManager.h"
+#include "TRAKManager.h"
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
@@ -151,13 +151,6 @@ const char MimeTypes[][2][128] = {
     {"flv", "video/x-flv"}
 };
 
-const std::string base64_chars =
-"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-"abcdefghijklmnopqrstuvwxyz"
-"0123456789+/";
-
-CSimpleIniA ini;
-
 /**
 * @class HenchmanService
 * @brief Main Service for HenchmanTRAK Entry Point.
@@ -262,7 +255,7 @@ public:
     *
     * @throws None
     */
-    HenchmanService();
+    //HenchmanService();
 
     /**
     * Destructor for the HenchmanService class.
@@ -270,7 +263,9 @@ public:
     *
     * @throws None
     */
-    ~HenchmanService();
+    //~HenchmanService();
+
+    int SetRequiredParameters();
 
     /**
     * Sets the mail login credentials for the HenchmanService.
@@ -373,7 +368,7 @@ void ReportSvcStatus(
     DWORD dwWin32ExitCode,
     DWORD dwWaitHint
 );
-DWORD GetSvcStatus(const char* sMachine, const char* sService = SERVICE_NAME);
+DWORD GetSvcStatus(const char* sService = SERVICE_NAME);
 void WINAPI SvcCtrlHandler(DWORD CtrlCode);
 void WINAPI SvcMain(int dwArgc, char* lpszArgv[]);
 void SvcInit();

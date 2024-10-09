@@ -14,21 +14,23 @@ EventManager::~EventManager()
 	cout << "Deregistering Event Source: " << eventSource << endl;
 	
 	eventSource.clear();
+	GlobalFree(lpMsgBuf);
+	GlobalFree(lpDisplayBuf);
 }
 
 const char * EventManager::EventMessage(const char *lpszFunction, string msg)
 {
 	// Retrieve the system error message for the last-error code
-	LPVOID lpMsgBuf;
-	LPVOID lpDisplayBuf;
-	DWORD dw = msg == "" ? GetLastError() : 0;
+	/*LPVOID lpMsgBuf;
+	LPVOID lpDisplayBuf;*/
+	DWORD dw = GetLastError();
 	cout << lpszFunction << "logged with message: " << msg << endl;
 
 	FormatMessageA(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | 
 		(msg == "" ? FORMAT_MESSAGE_FROM_SYSTEM : FORMAT_MESSAGE_FROM_STRING) | 
 		FORMAT_MESSAGE_IGNORE_INSERTS,
-		msg == "" ? NULL : msg.c_str(),
+		msg == "" ? NULL : msg.data(),
 		dw,
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 		(LPTSTR)&lpMsgBuf,
@@ -38,14 +40,14 @@ const char * EventManager::EventMessage(const char *lpszFunction, string msg)
 
 	// Display the error message and exit the process
 	lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
-		(lstrlenA((LPCTSTR)lpMsgBuf) + lstrlen(lpszFunction) + 40) * sizeof(TCHAR));
+		(lstrlenA((LPCTSTR)lpMsgBuf) + lstrlenA(lpszFunction) + 40) * sizeof(TCHAR));
 	StringCchPrintfA((LPTSTR)lpDisplayBuf,
 		LocalSize(lpDisplayBuf) / sizeof(TCHAR),
 		TEXT("%s returned with %d: %s"),
 		lpszFunction, dw, lpMsgBuf);
 	//MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
 	//LocalFree(lpMsgBuf);
-	WriteToLog((char*)lpDisplayBuf);
+	//WriteToLog((char*)lpDisplayBuf);
 	//LocalFree(lpDisplayBuf);
 	//ExitProcess(dw);
 	return (LPCTSTR)lpDisplayBuf;
@@ -59,7 +61,7 @@ void EventManager::ReportCustomEvent(const char *function, std::string msg, int 
 	DWORD EventId;
 	//bool isError = errorCode != NO_ERROR;
 	//TCHAR Buffer[80];
-	hEventSource = RegisterEventSourceA(NULL, eventSource.c_str());
+	hEventSource = RegisterEventSourceA(NULL, eventSource.data());
 
 	if (NULL != hEventSource)
 	{

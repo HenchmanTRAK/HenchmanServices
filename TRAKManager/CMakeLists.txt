@@ -9,6 +9,8 @@ target_link_libraries(
 	Qt6::Sql
 	Qt6::Network
 	SimpleIni
+	EventManager
+	HenchmanServiceException
 	RegistryManager
 	ServiceHelper
 	DatabaseManager

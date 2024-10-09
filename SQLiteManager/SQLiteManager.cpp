@@ -14,24 +14,27 @@ SQLite_Manager::SQLite_Manager(string db_dir, string db_name)
 	dbName = db_name;
 	dbDir = db_dir;
 	logToConsole = false;
-	if (db_name == "" || filesystem::exists(db_dir + db_name))
-	{
-		WriteToError( "No db name passed or db file already exists");
-		return;
-	}
+	cout << "Constructing SQLite_Manager" << dbDir << " | " << dbName << endl;
 	try 
 	{
+		if (db_name == "" || filesystem::exists(dbDir + dbName))
+		{
+			/*WriteToError( "No db name passed or db file already exists");
+			return;*/
+			throw HenchmanServiceException("No db name passed or db file already exists");
+		}
 		cout << "target: " << dbDir + dbName << endl;
 		SQLite::Database db(dbDir+dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
-		int attr = GetFileAttributesA(db.getFilename().c_str());
+		int attr = GetFileAttributesA(db.getFilename().data());
 		if (!(attr & FILE_ATTRIBUTE_HIDDEN))
 		{
-			SetFileAttributesA(db.getFilename().c_str(), attr | FILE_ATTRIBUTE_HIDDEN);
+			SetFileAttributesA(db.getFilename().data(), attr | FILE_ATTRIBUTE_HIDDEN);
 		}
 	}
 	catch (exception& e)
 	{
-		throw e;
+		//throw e;
+		WriteToError( "SQLiteManager::SQLite_Manager threw an exception : " + string(e.what()));
 	}
 }
 
@@ -49,7 +52,7 @@ void SQLite_Manager::ToggleConsoleLogging() {
 
 string SQLite_Manager::GetDBName()
 {
-	return dbName.c_str();
+	return dbName.data();
 }
 
 int SQLite_Manager::InitDB()
@@ -60,11 +63,11 @@ int SQLite_Manager::InitDB()
 			cout << "target: " << dbDir + dbName << endl;
 		SQLite::Database db(dbDir + dbName, SQLite::OPEN_READWRITE | SQLite::OPEN_CREATE);
 		stringstream query;
-		query << "DROP TABLE IF EXISTS test";
+		query << "DROP TABLE IF EXISTS test;";
 		db.exec(query.str());
 		logToConsole&&
 			cout << "Excecuting query: \n'" << query.str() << "'" << endl;
-		query.str(string());
+		query.clear();
 
 		SQLite::Transaction transaction(db);
 		query << "CREATE TABLE test (";
@@ -73,7 +76,7 @@ int SQLite_Manager::InitDB()
 		db.exec(query.str());
 		logToConsole&&
 			cout << "Excecuting query: \n'" << query.str() << "'" << endl;
-		query.str(string());
+		query.clear();
 
 		transaction.commit();
 	}
@@ -81,7 +84,7 @@ int SQLite_Manager::InitDB()
 	{
 		logToConsole && 
 			cout << "exception: " << e.what() << endl;
-		throw e;
+		//throw e;
 	}
 	return 0;
 }

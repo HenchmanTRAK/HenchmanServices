@@ -3,14 +3,12 @@
 
 #pragma once
 
+
 #include <event_log.h>
 
 #include <iostream>
 #include <strsafe.h>
 #include <Windows.h>
-
-#include <ServiceHelper.h>
-
 
 class EventManager
 {
@@ -22,6 +20,8 @@ public:
 private:
 	HANDLE hEventSource;
 	std::string eventSource;
+	LPVOID lpMsgBuf;
+	LPVOID lpDisplayBuf;
 
 	const char * EventMessage(const char *lpszFunction, std::string msg);
 };

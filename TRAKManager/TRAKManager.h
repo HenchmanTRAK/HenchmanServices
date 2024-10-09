@@ -8,6 +8,7 @@
 
 #include <QByteArray>
 
+#include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
 #include "DatabaseManager.h"
@@ -66,7 +67,7 @@ public:
 	*
 	* @throws exception - if there is an error loading the INI file or executing the SQL script
 	*/
-	void CreateDataModule(DatabaseManager * dbManager);
+	void CreateDataModule(DatabaseManager *dbManager);
 };
 
 #endif
