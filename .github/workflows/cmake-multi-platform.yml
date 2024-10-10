@@ -244,9 +244,9 @@ jobs:
       run: |
         cd ${{ github.workspace }} && echo .>service.ini
 
-    - uses: ilammy/msvc-dev-cmd@v1.4.1
-      with:
-        arch: ${{ matrix.arch }}
+    # - uses: ilammy/msvc-dev-cmd@v1.4.1
+    #   with:
+    #     arch: ${{ matrix.arch }}
     
     - uses: ssciwr/doxygen-install@v1
   
