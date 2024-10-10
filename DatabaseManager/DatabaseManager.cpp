@@ -88,9 +88,13 @@ bool DatabaseManager::isInternetConnected()
 	if (!connected)
 	{
 		sock->abort();
+		sock->deleteLater();
+		sock = nullptr;
 		return false;
 	}
 	sock->close();
+	sock->deleteLater();
+	sock = nullptr;
 	return true;
 }
 

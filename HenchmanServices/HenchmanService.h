@@ -14,10 +14,6 @@
 #include <netlistmgr.h>
 #include <strsafe.h>
 #include <tchar.h>
-#include <TlHelp32.h>
-#include <Windows.h>
-#include <WinSock2.h>
-#include <Ws2tcpip.h>
 
 #include <future>
 #include <thread>
@@ -36,6 +32,11 @@
 #include "ServiceHelper.h"
 #include "SQLiteManager.h"
 #include "TRAKManager.h"
+
+#include <TlHelp32.h>
+#include <Windows.h>
+#include <WinSock2.h>
+#include <Ws2tcpip.h>
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
