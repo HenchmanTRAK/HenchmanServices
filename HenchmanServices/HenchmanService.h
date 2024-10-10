@@ -207,22 +207,22 @@ const char MimeTypes[][2][128] = {
 */
 class HenchmanService {
 
-    std::string mail_username;
-    std::string mail_password;
+    std::string mail_username = "";
+    std::string mail_password = "";
 
-    SQLite_Manager *SQLiteM;
-    TRAKManager* TrakM;
-    DatabaseManager* dbManager;
+    SQLite_Manager *SQLiteM = nullptr;
+    TRAKManager* TrakM = nullptr;
+    DatabaseManager* dbManager = nullptr;
 
 	static clock_t tmr1;
 	static clock_t tmrkabTRAK;
 	static clock_t tmrcribTRAK;
 	static clock_t tmrPortaTRAK;
 
-	SOCKET mailSocket;
+	SOCKET mailSocket = INVALID_SOCKET;
+	struct addrinfo* mailAddrInfo = nullptr;
 	SSL_CTX* ctx;
 	SSL* ssl;
-	struct addrinfo* mailAddrInfo;
 
 
     bool kReport;
@@ -249,7 +249,7 @@ private:
 
 public:
     std::stringstream logx;
-    std::string app_path;
+    std::string app_path = "";
 
     /**
     * Constructor for the HenchmanService class. Initializes the service and loads configuration settings from an INI file.
