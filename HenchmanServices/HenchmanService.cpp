@@ -1026,7 +1026,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 		service.MainFunction();
 
 		WriteToLog("Waiting for QT to finish execution...");
-		QTimer::singleShot(1000, a, &QCoreApplication::quit);
+		QTimer::singleShot(30000, a, &QCoreApplication::quit);
 		a->exec();
 
 		WriteToLog("Service sleeping for 30000 ms...");
@@ -1755,116 +1755,116 @@ void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
 	logx.clear();
 }
 
-bool HenchmanService::checkForInternetConnection()
-{
-	bool returnState = false;
-	if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) {
-		INetworkListManager* pNetworkListManager = NULL;
-		VARIANT_BOOL isConnected;
-		if (SUCCEEDED(CoCreateInstance(CLSID_NetworkListManager, NULL, CLSCTX_ALL, IID_INetworkListManager, (LPVOID*)&pNetworkListManager))) {
-			logx << "Successfully created instance of network list manager." << endl;
-
-			if (SUCCEEDED(pNetworkListManager->get_IsConnectedToInternet(&isConnected))) {
-				logx << "Confirming existence of internet connection" << endl;
-				if (!isConnected) goto Exit;
-				logx << "Internet Connection was Confirmed." << endl;
-				returnState = isConnected;
-				goto Exit;
-			}
-			logx << "Could not confirm existence of internet connection" << endl;
-			//printf("internet not connected");
-			goto Exit;
-		}
-		logx << "Failed to create instance of network list manager." << endl;
-		goto Exit;
-	}
-Exit:
-	CoUninitialize();
-	WriteToLog(logx.str());
-	//logx.str(string());
-	logx.clear();
-
-	return returnState;
-}
-
-bool HenchmanService::isInternetConnected()
-{
-	WSADATA wsaData;
-	int iResult;
-	SOCKET ConnectionCheck = INVALID_SOCKET;
-	struct sockaddr_in clientService;
-	ZeroMemory(&clientService, sizeof(clientService));
-	struct addrinfo* httpAddrInfo = NULL;
-	struct addrinfo hints;
-	std::stringstream log;
-
-	try {
-		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-		if (iResult != NO_ERROR) {
-			//printf("WSAStartup failed: %d\n", iResult);
-			//WriteToError("WSAStartup failed: " + iResult);
-			//return false;
-			throw HenchmanServiceException("WSAStartup failed: " + iResult);
-		}
-
-		ZeroMemory(&hints, sizeof(hints));
-		hints.ai_protocol = IPPROTO_TCP;
-
-		log << "Getting Address Info" << endl;
-		iResult = getaddrinfo("www.google.com", "https", &hints, &httpAddrInfo);
-		if (iResult != NO_ERROR) {
-			//printf("getaddrinfo failed with error: %d\n", iResult);
-			freeaddrinfo(httpAddrInfo);
-			WSACleanup();
-			//WriteToError("getaddrinfo failed with error: " + iResult);
-			//return false;
-			throw HenchmanServiceException("getaddrinfo failed with error: " + iResult);
-		}
-
-		log << "Setting up Network Check Socket" << endl;
-		ConnectionCheck = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if (ConnectionCheck == INVALID_SOCKET) {
-			//printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
-			closesocket(ConnectionCheck);
-			freeaddrinfo(httpAddrInfo);
-			WSACleanup();
-			//WriteToError("Failed to connect to Socket: " + WSAGetLastError());
-			//return false;
-			throw HenchmanServiceException("Failed to connect to Socket: " + WSAGetLastError());
-		}
-
-		clientService.sin_family = AF_INET;
-		clientService.sin_port = htons(IPPORT_HTTPS);
-		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)httpAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
-		log << "Connecting to Google.com via Socket" << endl;
-		iResult = connect(ConnectionCheck, (SOCKADDR*)&clientService, sizeof(clientService));
-		if (iResult == SOCKET_ERROR) {
-			//printf("Unable to connect to server: %ld\n", WSAGetLastError());
-			closesocket(ConnectionCheck);
-			freeaddrinfo(httpAddrInfo);
-			WSACleanup();
-			//WriteToError("Unable to connect to server: " + WSAGetLastError());
-			//return false;
-			throw HenchmanServiceException("Unable to connect to server: " + WSAGetLastError());
-		}
-		else {
-			//logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << clientService.sin_port << endl;
-		}
-		WriteToLog(log.str());
-		log.clear();
-		closesocket(ConnectionCheck);
-		freeaddrinfo(httpAddrInfo);
-		WSACleanup();
-	}
-	catch (exception& e) {
-		WriteToError("HenchmanService::isInternetConnected threw an exception: " + (string)e.what());
-		WriteToError(log.str());
-		log.clear();
-		return false;
-	}
-	log.clear();
-	return true;
-}
+//bool HenchmanService::checkForInternetConnection()
+//{
+//	bool returnState = false;
+//	if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) {
+//		INetworkListManager* pNetworkListManager = NULL;
+//		VARIANT_BOOL isConnected;
+//		if (SUCCEEDED(CoCreateInstance(CLSID_NetworkListManager, NULL, CLSCTX_ALL, IID_INetworkListManager, (LPVOID*)&pNetworkListManager))) {
+//			logx << "Successfully created instance of network list manager." << endl;
+//
+//			if (SUCCEEDED(pNetworkListManager->get_IsConnectedToInternet(&isConnected))) {
+//				logx << "Confirming existence of internet connection" << endl;
+//				if (!isConnected) goto Exit;
+//				logx << "Internet Connection was Confirmed." << endl;
+//				returnState = isConnected;
+//				goto Exit;
+//			}
+//			logx << "Could not confirm existence of internet connection" << endl;
+//			//printf("internet not connected");
+//			goto Exit;
+//		}
+//		logx << "Failed to create instance of network list manager." << endl;
+//		goto Exit;
+//	}
+//Exit:
+//	CoUninitialize();
+//	WriteToLog(logx.str());
+//	//logx.str(string());
+//	logx.clear();
+//
+//	return returnState;
+//}
+//
+//bool HenchmanService::isInternetConnected()
+//{
+//	WSADATA wsaData;
+//	int iResult;
+//	SOCKET ConnectionCheck = INVALID_SOCKET;
+//	struct sockaddr_in clientService;
+//	ZeroMemory(&clientService, sizeof(clientService));
+//	struct addrinfo* httpAddrInfo = NULL;
+//	struct addrinfo hints;
+//	std::stringstream log;
+//
+//	try {
+//		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+//		if (iResult != NO_ERROR) {
+//			//printf("WSAStartup failed: %d\n", iResult);
+//			//WriteToError("WSAStartup failed: " + iResult);
+//			//return false;
+//			throw HenchmanServiceException("WSAStartup failed: " + iResult);
+//		}
+//
+//		ZeroMemory(&hints, sizeof(hints));
+//		hints.ai_protocol = IPPROTO_TCP;
+//
+//		log << "Getting Address Info" << endl;
+//		iResult = getaddrinfo("www.google.com", "https", &hints, &httpAddrInfo);
+//		if (iResult != NO_ERROR) {
+//			//printf("getaddrinfo failed with error: %d\n", iResult);
+//			freeaddrinfo(httpAddrInfo);
+//			WSACleanup();
+//			//WriteToError("getaddrinfo failed with error: " + iResult);
+//			//return false;
+//			throw HenchmanServiceException("getaddrinfo failed with error: " + iResult);
+//		}
+//
+//		log << "Setting up Network Check Socket" << endl;
+//		ConnectionCheck = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+//		if (ConnectionCheck == INVALID_SOCKET) {
+//			//printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
+//			closesocket(ConnectionCheck);
+//			freeaddrinfo(httpAddrInfo);
+//			WSACleanup();
+//			//WriteToError("Failed to connect to Socket: " + WSAGetLastError());
+//			//return false;
+//			throw HenchmanServiceException("Failed to connect to Socket: " + WSAGetLastError());
+//		}
+//
+//		clientService.sin_family = AF_INET;
+//		clientService.sin_port = htons(IPPORT_HTTPS);
+//		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)httpAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
+//		log << "Connecting to Google.com via Socket" << endl;
+//		iResult = connect(ConnectionCheck, (SOCKADDR*)&clientService, sizeof(clientService));
+//		if (iResult == SOCKET_ERROR) {
+//			//printf("Unable to connect to server: %ld\n", WSAGetLastError());
+//			closesocket(ConnectionCheck);
+//			freeaddrinfo(httpAddrInfo);
+//			WSACleanup();
+//			//WriteToError("Unable to connect to server: " + WSAGetLastError());
+//			//return false;
+//			throw HenchmanServiceException("Unable to connect to server: " + WSAGetLastError());
+//		}
+//		else {
+//			//logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << clientService.sin_port << endl;
+//		}
+//		WriteToLog(log.str());
+//		log.clear();
+//		closesocket(ConnectionCheck);
+//		freeaddrinfo(httpAddrInfo);
+//		WSACleanup();
+//	}
+//	catch (exception& e) {
+//		WriteToError("HenchmanService::isInternetConnected threw an exception: " + (string)e.what());
+//		WriteToError(log.str());
+//		log.clear();
+//		return false;
+//	}
+//	log.clear();
+//	return true;
+//}
 
 int HenchmanService::SetRequiredParameters()
 {
@@ -1956,6 +1956,7 @@ int HenchmanService::SetRequiredParameters()
 	delete SQLiteM;
 	return 0;
 }
+
 int HenchmanService::MainFunction()
 {
 	update = TRUE;
