@@ -15,9 +15,6 @@
 #include <strsafe.h>
 #include <tchar.h>
 #include <TlHelp32.h>
-#include <Windows.h>
-#include <WinSock2.h>
-#include <Ws2tcpip.h>
 
 #include <future>
 #include <thread>
@@ -26,6 +23,7 @@
 #include <QCoreApplication>
 #include <QString>
 #include <QTimer>
+#include <QTcpSocket>
 
 #include "SimpleIni.h"
 
@@ -37,8 +35,12 @@
 #include "SQLiteManager.h"
 #include "TRAKManager.h"
 
+//#include <Windows.h>
+//#include <WinSock2.h>
+//#include <Ws2tcpip.h>
+
 #pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "Ws2_32.lib")
+//#pragma comment(lib, "Ws2_32.lib")
 
 // TODO: Reference additional headers your program requires here.
 #define SERVICE_NAME			"HenchmanService"
@@ -206,22 +208,22 @@ const char MimeTypes[][2][128] = {
 */
 class HenchmanService {
 
-    std::string mail_username;
-    std::string mail_password;
+    std::string mail_username = "";
+    std::string mail_password = "";
 
-    SQLite_Manager *SQLiteM;
-    TRAKManager* TrakM;
-    DatabaseManager* dbManager;
+    SQLite_Manager *SQLiteM = nullptr;
+    TRAKManager* TrakM = nullptr;
+    DatabaseManager* dbManager = nullptr;
 
 	static clock_t tmr1;
 	static clock_t tmrkabTRAK;
 	static clock_t tmrcribTRAK;
 	static clock_t tmrPortaTRAK;
 
-	SOCKET mailSocket;
+	/*SOCKET mailSocket = INVALID_SOCKET;
+	struct addrinfo* mailAddrInfo = nullptr;
 	SSL_CTX* ctx;
-	SSL* ssl;
-	struct addrinfo* mailAddrInfo;
+	SSL* ssl;*/
 
 
     bool kReport;
@@ -243,12 +245,12 @@ class HenchmanService {
 	//void ServicePause(class TService, bool& Started);
 	//void ServiceCreate();
 
-	void SendEmail( SSL*& , std::vector<std::string>);
+	//void SendEmail( SSL*& , std::vector<std::string>);
 private:
 
 public:
     std::stringstream logx;
-    std::string app_path;
+    std::string app_path = "";
 
     /**
     * Constructor for the HenchmanService class. Initializes the service and loads configuration settings from an INI file.
@@ -309,7 +311,7 @@ public:
     * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info,
     * or connecting to the server.
     */
-	void ConnectWithSMTP();
+	//void ConnectWithSMTP();
 
     /**
     * Checks if there is an active internet connection.
@@ -318,7 +320,7 @@ public:
     *
     * @throws None
     */
-    bool checkForInternetConnection();
+    /*bool checkForInternetConnection();*/
 
     /**
     * Checks if there is an active internet connection.
@@ -327,7 +329,7 @@ public:
     *
     * @throws None
     */
-    bool isInternetConnected();
+    /*bool isInternetConnected();*/
 	//SC_HANDLE *GetServiceController();
 
     /**

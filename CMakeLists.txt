@@ -23,7 +23,12 @@ endif()
 file(READ version PROJECT_VER)
 
 project ("HenchmanServices" VERSION ${PROJECT_VER} LANGUAGES CXX C)
-set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+if(EXISTS $ENV{VCPKG_ROOT})
+	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+elseif(EXISTS $ENV{VCPKG_INSTALLATION_ROOT})
+	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake)
+endif()
+
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
 

@@ -44,6 +44,7 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 	else {
 		testingDBManager = ini.GetBoolValue("DEVELOPMENT", "testingDBManager", 0);
 	}
+	cout << "init db manager" << endl;
 
 	networkManager = new QNetworkAccessManager(this);
 	networkManager->setAutoDeleteReplies(true);
@@ -95,9 +96,13 @@ bool DatabaseManager::isInternetConnected()
 	if (!connected)
 	{
 		sock->abort();
+		sock->deleteLater();
+		sock = nullptr;
 		return false;
 	}
 	sock->close();
+	sock->deleteLater();
+	sock = nullptr;
 	return true;
 }
 
