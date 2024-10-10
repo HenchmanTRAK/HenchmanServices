@@ -44,6 +44,7 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 	else {
 		testingDBManager = ini.GetBoolValue("DEVELOPMENT", "testingDBManager", 0);
 	}
+	cout << "init db manager" << endl;
 
 	networkManager = nullptr;	
 	restManager = nullptr;

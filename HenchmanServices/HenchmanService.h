@@ -11,12 +11,12 @@
 #include "openssl/ssl.h"
 
 
-//#include <netlistmgr.h>
-//#include <strsafe.h>
-//#include <tchar.h>
+#include <netlistmgr.h>
+#include <strsafe.h>
+#include <tchar.h>
 #include <TlHelp32.h>
 #include <Windows.h>
-//#include <WinSock2.h>
+#include <WinSock2.h>
 #include <Ws2tcpip.h>
 
 #include <future>

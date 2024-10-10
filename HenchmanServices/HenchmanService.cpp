@@ -1026,7 +1026,10 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 		service.MainFunction();
 
 		WriteToLog("Waiting for QT to finish execution...");
-		QTimer::singleShot(30000, a, &QCoreApplication::quit);
+		if (!testing)
+			QTimer::singleShot(30000, a, &QCoreApplication::quit);
+		else
+			QTimer::singleShot(1000, a, &QCoreApplication::quit);
 		a->exec();
 
 		WriteToLog("Service sleeping for 30000 ms...");
@@ -1968,8 +1971,6 @@ int HenchmanService::MainFunction()
 
 	dbManager = new DatabaseManager(a);
 
-	dbManager->deleteLater();
-
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 
 	int wampMySQLSvcStatus = GetSvcStatus("wampmysqld64");
@@ -2090,7 +2091,6 @@ int HenchmanService::MainFunction()
 	TrakM->CreateDataModule(dbManager);
 
 	dbManager->connectToRemoteDB(TrakM->appType);
-
 	WriteToLog("Checking if TRAK is Running");
 	if (!ProcessExists(TrakM->appName)) {
 		WriteToError("TRAK process is not running");
@@ -2104,6 +2104,8 @@ int HenchmanService::MainFunction()
 		}*/
 	}
 	WriteToLog("Performing Cleanup");
+	dbManager->deleteLater();
+	dbManager = nullptr;
 	delete TrakM;
 	
 	std::cout << "Exiting Main Function" << endl;
