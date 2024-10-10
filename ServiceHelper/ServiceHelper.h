@@ -41,6 +41,8 @@ void WriteToLog(std::string log);
 
 void WriteToError(std::string log);
 
+void WriteToCustomLog(std::string log, std::string logName);
+
 // String Sanatizer provided by Simple on Stackoverflow
 // https://stackoverflow.com/a/34221488
 void sanitize(std::string& stringValue);

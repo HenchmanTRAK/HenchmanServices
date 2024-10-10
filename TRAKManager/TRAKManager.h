@@ -67,7 +67,7 @@ public:
 	*
 	* @throws exception - if there is an error loading the INI file or executing the SQL script
 	*/
-	void CreateDataModule(DatabaseManager *dbManager);
+	void CreateDataModule();
 };
 
 #endif

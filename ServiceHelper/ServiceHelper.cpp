@@ -165,6 +165,15 @@ void WriteToError(string log)
 	log.clear();
 }
 
+void WriteToCustomLog(string log, string logName)
+{
+	string logDir = GetLogsPath();
+	logDir.append("logName.txt");
+	WriteLog(logDir.data(), log.data());
+	logDir.clear();
+	log.clear();
+}
+
 void sanitize(string& stringValue)
 {
 	// Add backslashes.

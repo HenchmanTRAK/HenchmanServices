@@ -33,6 +33,7 @@
 #include <QTimer>
 #include <QCoreApplication>
 #include <QTcpSocket>
+#include <QSslSocket>
 
 #include <SimpleIni.h>
 
@@ -138,10 +139,13 @@ public slots:
 
 private:
     std::string targetApp;
+    QNetworkRequest* request;
     QNetworkAccessManager* networkManager;
     QNetworkReply* netReply;
     QRestAccessManager* restManager;
     QHttpMultiPart* form;
+    int queryLimit = 100;
+    bool testingDBManager = false;
     Q_INVOKABLE void checkRequest();
 
 };

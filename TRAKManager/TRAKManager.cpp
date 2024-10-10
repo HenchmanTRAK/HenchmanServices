@@ -119,7 +119,7 @@ const {
 	RegCloseKey(hKey);
 }
 
-void TRAKManager::CreateDataModule(DatabaseManager *dbManager)
+void TRAKManager::CreateDataModule()
 {
 	CSimpleIniA ini;
 	ini.SetUnicode();
@@ -173,10 +173,9 @@ void TRAKManager::CreateDataModule(DatabaseManager *dbManager)
 		saveINIToRegistry(ini, section);
 
 		cout << "Connecting to Local MySQL Database" << endl;
-		
-		dbManager->connectToLocalDB(appType);
-		dbManager->deleteLater();
-		dbManager = nullptr;
+
+		//dbManager->deleteLater();
+		//dbManager = nullptr;
 		
 	}
 	catch (exception &e)

@@ -12,7 +12,8 @@ HenchmanService is a Windows service that provides functionality for managing an
 
 To get started with HenchmanService, follow these steps:
 
-1. Clone the repository: `git clone https://github.com/your-username/HenchmanService.git`.
+1. Clone the repository: `git clone https://github.com/HenchmanTRAK/HenchmanService.git`.
+2. Move yourself into it, eg. `cd HenchmanService`.
 2. Build the project using `cmake --build .`.
 3. Create a service.ini file and define the required fields.
 4. Install the service by running the executable with the `--install` argument.
@@ -54,7 +55,7 @@ HenchmanService requires a configuration file in .ini format to function properl
 The following is an example of what needs to be included in the .ini file:
 
 ```ini
-[Mail]
+[EMAIL]
 Username = your_mail_username
 Password = your_mail_password
 
@@ -74,20 +75,20 @@ testingMain=0|1
 testingDBManager=0|1
 ```
 
- - `[Mail]` section:
-  - `Username` key: Specifies the username for the mail login.
-  - `Password` key: Specifies the password for the mail login.
+ - `[EMAIL]` section:
+	- `Username` key: Specifies the username for the mail login.
+	- `Password` key: Specifies the password for the mail login.
 
  - `[WAMP]` section:
-  - `MySQL_DIR` key: Specifies the path to the folder that contains the MySQL executable.
-  - `Apache_DIR` key: Specifies the path to the folder that contains the Apache executable.
-  - `PHP_DIR` key: Specifies the path to the folder that contains the PHP executable.
+	- `MySQL_DIR` key: Specifies the path to the folder that contains the MySQL executable.
+	- `Apache_DIR` key: Specifies the path to the folder that contains the Apache executable.
+	- `PHP_DIR` key: Specifies the path to the folder that contains the PHP executable.
 
  - `[TRAK]` section:
-  - `TRAK_DIR` key: Specifies the path to the TRAK executable.
-  - `INI_FILE` key: Specifies the name of the TRAK ini file.
-  - `EXE_FILE` key: Specifies the name of the TRAK executable.
-  - `APP_NAME` key: Specifies the name of the TRAK application.
+	- `TRAK_DIR` key: Specifies the path to the TRAK executable.
+	- `INI_FILE` key: Specifies the name of the TRAK ini file.
+	- `EXE_FILE` key: Specifies the name of the TRAK executable.
+	- `APP_NAME` key: Specifies the name of the TRAK application.
 
  - `[DEVELOPMENT]` section:
 	- `testingMain` key: 0 or 1; specifies if app should build in testing mode

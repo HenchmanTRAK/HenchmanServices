@@ -1021,17 +1021,21 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	service.SetRequiredParameters();
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
+		// clean up the mess that is the memory right now, dear lord.
+		// also switching over to using api calls rather than talking directly to database.
 		a = new QCoreApplication(argc, argv);
-
+		
+		service.dbManager = new DatabaseManager(a);		
 		service.MainFunction();
 
 		WriteToLog("Waiting for QT to finish execution...");
-		if (!testing)
+		//a->
+		if(!service.dbManager->requestRunning && !testing)
 			QTimer::singleShot(30000, a, &QCoreApplication::quit);
-		else
+		if(!service.dbManager->requestRunning && testing)
 			QTimer::singleShot(1000, a, &QCoreApplication::quit);
 		a->exec();
-
+		service.dbManager->deleteLater();
 		WriteToLog("Service sleeping for 30000 ms...");
 		if (!testing)
 			Sleep(30000);
@@ -1966,10 +1970,7 @@ int HenchmanService::MainFunction()
 
 	//HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME).data());
 	
-
 	//SQLiteM.ToggleConsoleLogging();
-
-	dbManager = new DatabaseManager(a);
 
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 
@@ -2088,7 +2089,9 @@ int HenchmanService::MainFunction()
 
 	TrakM = new TRAKManager;
 
-	TrakM->CreateDataModule(dbManager);
+	TrakM->CreateDataModule();
+
+	dbManager->connectToLocalDB(TrakM->appType);
 
 	dbManager->connectToRemoteDB(TrakM->appType);
 	WriteToLog("Checking if TRAK is Running");
@@ -2104,8 +2107,8 @@ int HenchmanService::MainFunction()
 		}*/
 	}
 	WriteToLog("Performing Cleanup");
-	dbManager->deleteLater();
-	dbManager = nullptr;
+	//dbManager->deleteLater();
+	//dbManager = nullptr;
 	delete TrakM;
 	
 	std::cout << "Exiting Main Function" << endl;
