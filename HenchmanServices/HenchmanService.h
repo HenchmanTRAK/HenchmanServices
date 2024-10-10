@@ -14,6 +14,7 @@
 #include <netlistmgr.h>
 #include <strsafe.h>
 #include <tchar.h>
+#include <TlHelp32.h>
 
 #include <future>
 #include <thread>
@@ -22,6 +23,7 @@
 #include <QCoreApplication>
 #include <QString>
 #include <QTimer>
+#include <QTcpSocket>
 
 #include "SimpleIni.h"
 
@@ -33,13 +35,12 @@
 #include "SQLiteManager.h"
 #include "TRAKManager.h"
 
-#include <TlHelp32.h>
-#include <Windows.h>
-#include <WinSock2.h>
-#include <Ws2tcpip.h>
+//#include <Windows.h>
+//#include <WinSock2.h>
+//#include <Ws2tcpip.h>
 
 #pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "Ws2_32.lib")
+//#pragma comment(lib, "Ws2_32.lib")
 
 // TODO: Reference additional headers your program requires here.
 #define SERVICE_NAME			"HenchmanService"
@@ -219,10 +220,10 @@ class HenchmanService {
 	static clock_t tmrcribTRAK;
 	static clock_t tmrPortaTRAK;
 
-	SOCKET mailSocket = INVALID_SOCKET;
+	/*SOCKET mailSocket = INVALID_SOCKET;
 	struct addrinfo* mailAddrInfo = nullptr;
 	SSL_CTX* ctx;
-	SSL* ssl;
+	SSL* ssl;*/
 
 
     bool kReport;
@@ -244,7 +245,7 @@ class HenchmanService {
 	//void ServicePause(class TService, bool& Started);
 	//void ServiceCreate();
 
-	void SendEmail( SSL*& , std::vector<std::string>);
+	//void SendEmail( SSL*& , std::vector<std::string>);
 private:
 
 public:
@@ -310,7 +311,7 @@ public:
     * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info,
     * or connecting to the server.
     */
-	void ConnectWithSMTP();
+	//void ConnectWithSMTP();
 
     /**
     * Checks if there is an active internet connection.
