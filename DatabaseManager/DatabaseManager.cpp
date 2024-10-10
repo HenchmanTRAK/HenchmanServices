@@ -45,7 +45,15 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 		testingDBManager = ini.GetBoolValue("DEVELOPMENT", "testingDBManager", 0);
 	}
 
-	networkManager = nullptr;	
+	networkManager = new QNetworkAccessManager(this);
+	networkManager->setAutoDeleteReplies(true);
+	connect(
+		networkManager,
+		&QNetworkAccessManager::finished,
+		this,
+		&QCoreApplication::quit,
+		Qt::QueuedConnection
+	);
 	restManager = nullptr;
 	netReply = nullptr;
 	targetApp = "";
@@ -269,15 +277,6 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	}
 
 	try {
-		networkManager = new QNetworkAccessManager(this);
-		networkManager->setAutoDeleteReplies(true);
-		connect(
-			networkManager,
-			&QNetworkAccessManager::finished,
-			this,
-			&QCoreApplication::quit,
-			Qt::QueuedConnection
-		);
 		QNetworkRequest request(dbUrl);
 		WriteToLog("Making get request to " + dbUrl.toStdString());
 		netReply = networkManager->post(request, form);
