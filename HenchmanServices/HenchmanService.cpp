@@ -1017,33 +1017,32 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
 		
+	a = new QCoreApplication(argc, argv);
 	HenchmanService service;
 	service.SetRequiredParameters();
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		// clean up the mess that is the memory right now, dear lord.
 		// also switching over to using api calls rather than talking directly to database.
-		a = new QCoreApplication(argc, argv);
 		
-		service.dbManager = new DatabaseManager(a);		
 		service.MainFunction();
 
 		WriteToLog("Waiting for QT to finish execution...");
+		//service.dbManager->performCleanup();
 		//a->
-		if(!service.dbManager->requestRunning && !testing)
+		/*if(!service.dbManager->requestRunning && !testing)
 			QTimer::singleShot(30000, a, &QCoreApplication::quit);
 		if(!service.dbManager->requestRunning && testing)
-			QTimer::singleShot(1000, a, &QCoreApplication::quit);
-		a->exec();
-		service.dbManager->deleteLater();
+			QTimer::singleShot(1000, a, &QCoreApplication::quit);*/
+		//a->exec();
 		WriteToLog("Service sleeping for 30000 ms...");
 		if (!testing)
 			Sleep(30000);
-		/*else
-			Sleep(10000);*/
+		else
+			Sleep(5000);
 	
-		delete a;
 	}
+	delete a;
 
 	//delete dbManager;
 	return ERROR_SUCCESS;
@@ -1358,19 +1357,13 @@ bool HenchmanService::setMailLogin(string& username, string& password) {
 		}
 		mail_username = username;
 		mail_password = password;
-		string tableName = "TestTable";
-		vector<string> cols;
-		cols.push_back(username);
-		cols.push_back(password);
-		SQLiteM->AddRow(tableName, cols);
-		cols.clear();
-		return true;
 	}
 	catch (exception& e)
 	{
 		WriteToError("HenchmanService::setMailLogin threw exception: " + (string)e.what());
+		return false;
 	}
-	return false;
+	return true;
 }
 
 //void HenchmanService::ConnectWithSMTP() {
@@ -1929,26 +1922,33 @@ int HenchmanService::SetRequiredParameters()
 
 	}
 	
-	SQLiteM = new SQLite_Manager(installDir + "\\", databaseName);
-	SQLiteM->ToggleConsoleLogging();
+	SQLite_Manager SQLiteM(installDir + "\\", databaseName);
+	SQLiteM.ToggleConsoleLogging();
 
 
 	RegCloseKey(hKey);
 
-	SQLiteM->InitDB();
+	SQLiteM.InitDB();
 
 	string tableName = "TestTable";
 	vector<string> cols;
 	cols.push_back("username TEXT NOT NULL");
 	cols.push_back("password TEXT NOT NULL");
-	SQLiteM->CreateTable(tableName, cols);
+	SQLiteM.CreateTable(tableName, cols);
+	cols.clear();
 
 	string username = ini.GetValue("EMAIL", "Username", "");
 	string password = ini.GetValue("EMAIL", "Password", "");
 	if (password != "")
 		password = QByteArray(password.data()).toBase64();
 	//string encodedPass = base64(password);
-	setMailLogin(username, password);
+	if (setMailLogin(username, password))
+	{
+		cols.push_back(username);
+		cols.push_back(password);
+		SQLiteM.AddRow(tableName, cols);
+		cols.clear();
+	}
 
 	currDir.clear();
 	installDir.clear();
@@ -1960,7 +1960,8 @@ int HenchmanService::SetRequiredParameters()
 	tableName.clear();
 	cols.clear();
 
-	delete SQLiteM;
+	dbManager = make_unique<DatabaseManager>(a);
+
 	return 0;
 }
 
@@ -2076,7 +2077,6 @@ int HenchmanService::MainFunction()
 
 	RegCloseKey(hKey);
 	
-
 	if (!dbManager->isInternetConnected())
 	{
 		WriteToLog("Failed to confirm network connection");
@@ -2087,29 +2087,28 @@ int HenchmanService::MainFunction()
 
 	//dbManager = new DatabaseManager(a);
 
-	TrakM = new TRAKManager;
+	TRAKManager TrakM;
 
-	TrakM->CreateDataModule();
+	TrakM.CreateDataModule();
 
-	dbManager->connectToLocalDB(TrakM->appType);
-
-	dbManager->connectToRemoteDB(TrakM->appType);
 	WriteToLog("Checking if TRAK is Running");
-	if (!ProcessExists(TrakM->appName)) {
+	if (!ProcessExists(TrakM.appName)) {
 		WriteToError("TRAK process is not running");
-		string targetExe = TrakM->appDir + TrakM->appName;
+		string targetExe = TrakM.appDir + TrakM.appName;
 		WriteToLog("TRAK process not running, starting with path: " + targetExe);
-		thread runningTrak(ShellExecuteApp, targetExe, "");
-		runningTrak.join();
-		/*if (!ShellExecuteApp(targetExe, ""))
+		if (!ShellExecuteApp(targetExe, ""))
 		{
 			WriteToError("Failed to start " + targetExe);
-		}*/
+		}
 	}
+
+	dbManager->connectToLocalDB(TrakM.appType);
+
+	dbManager->connectToRemoteDB(TrakM.appType);
+
 	WriteToLog("Performing Cleanup");
 	//dbManager->deleteLater();
 	//dbManager = nullptr;
-	delete TrakM;
 	
 	std::cout << "Exiting Main Function" << endl;
 	/*auto future = async(launch::async, &thread::join, runTrak);
@@ -2119,7 +2118,7 @@ int HenchmanService::MainFunction()
 	}
 	delete runTrak;*/
 	
-	return 0;
+	return a->exec();
 }
 
 int main(int argc, char* argv[])

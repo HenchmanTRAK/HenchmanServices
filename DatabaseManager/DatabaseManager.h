@@ -20,6 +20,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QUrl>
+#include <QUrlQuery>
 #include <QHttpMultiPart>
 #include <QHttpPart>
 #include <QNetworkAccessManager>
@@ -32,8 +33,7 @@
 #include <QRegularExpression>
 #include <QTimer>
 #include <QCoreApplication>
-#include <QTcpSocket>
-#include <QSslSocket>
+#include <QMap>
 
 #include <SimpleIni.h>
 
@@ -57,6 +57,7 @@ class DatabaseManager : public QObject
 
 public:
     bool requestRunning;
+    int queryLimit = 10;
 
     /**
     * Constructor for the DatabaseManager class.
@@ -122,6 +123,8 @@ public:
 
     bool isInternetConnected();
 
+    void performCleanup();
+
 public slots:
     /**
     * Parses the data received from a network request.
@@ -133,21 +136,17 @@ public slots:
     * @throws Throws an exception if there is a network or HTTP error, or if there is an error
     *         executing the SQL query or parsing the JSON response.
     */
-    void parseData();
-
-    void performCleanup();
+    void parseData(QNetworkReply* netReply);
 
 private:
     std::string targetApp;
-    QNetworkRequest* request;
-    QNetworkAccessManager* networkManager;
-    QNetworkReply* netReply;
-    QRestAccessManager* restManager;
-    QHttpMultiPart* form;
-    int queryLimit = 100;
+    //QNetworkRequest* request;
+    QNetworkAccessManager* netManager = nullptr;
+    //QNetworkReply* netReply;
+    QRestAccessManager* restManager = nullptr;
+    //QHttpMultiPart* form;
     bool testingDBManager = false;
-    Q_INVOKABLE void checkRequest();
-
+    void makeNetworkRequest(QUrl &url, QMap<QString, QString> &query);
 };
 
 #endif

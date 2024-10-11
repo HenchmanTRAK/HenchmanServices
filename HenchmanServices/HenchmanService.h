@@ -211,9 +211,6 @@ class HenchmanService {
     std::string mail_username = "";
     std::string mail_password = "";
 
-    SQLite_Manager *SQLiteM = nullptr;
-    TRAKManager* TrakM = nullptr;
-
 	static clock_t tmr1;
 	static clock_t tmrkabTRAK;
 	static clock_t tmrcribTRAK;
@@ -250,7 +247,7 @@ private:
 public:
     std::stringstream logx;
     std::string app_path = "";
-    DatabaseManager* dbManager = nullptr;
+    std::unique_ptr<DatabaseManager> dbManager;
 
     /**
     * Constructor for the HenchmanService class. Initializes the service and loads configuration settings from an INI file.
