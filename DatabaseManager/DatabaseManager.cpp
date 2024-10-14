@@ -211,9 +211,9 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		QString dbUrl = QString::fromStdString(GetStrVal(hKeyCloud, "url", REG_SZ));
 		//dbUrl = "https://webportal.henchmantrak.com/files/ntunnel_mysql.php";
 		//dbUrl = "http://webportal.henchmantrak.com/webapi/public/api/employees/7";
-		//dbUrl = "http://webportal.henchmantrak.com/webapi/public//api/portals";
+		dbUrl = defaultProtocol + "://webportal.henchmantrak.com/webapi/public/api/portals/exec_query";
 		//dbUrl = "https://localhost/ntunnel_mysql.php";
-		dbUrl = defaultProtocol + "://localhost/webapi/public/api/portals/exec_query";
+		//dbUrl = defaultProtocol + "://localhost/webapi/public/api/portals/exec_query";
 
 		RegCloseKey(hKeyCloud);
 		QUrl url(dbUrl);
