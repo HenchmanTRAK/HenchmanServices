@@ -34,20 +34,24 @@ Seperate out adding database with addDatabase from reconnecting to database to d
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 {
 	CSimpleIniA ini;
-	SI_Error rc = ini.LoadFile(".\\service.ini");
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
+	SI_Error rc = ini.LoadFile(installDir.append("\\service.ini").c_str());
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
 	}
 	else {
 		testingDBManager = ini.GetBoolValue("DEVELOPMENT", "testingDBManager", 0);
-		defaultProtocol = ini.GetValue("DEVELOPMENT", "defaultProt", "https");
 		queryLimit = ini.GetLongValue("DEVELOPMENT", "numberOfQueries", 10);
 		apiUsername = ini.GetValue("API", "Username", "");
 		apiPassword = ini.GetValue("API", "Password", "");
+		defaultProtocol = ini.GetValue("API", "defaultProt", "https");
+		apiUrl = ini.GetValue("API", "Url", "localhost/webapi/public/api/portals/exec_query");
 	}
 	cout << "init db manager" << endl;
 	targetApp = "";
 	requestRunning = false;
+	RegCloseKey(hKey);
 }
 
 DatabaseManager::~DatabaseManager() 
@@ -176,7 +180,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 			string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + query["id"].toStdString();
 				//+ " ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
 			if (!testingDBManager) {
-				WriteToCustomLog("Updating entry with: " + sqlQuery, "networkLog");
+				WriteToCustomLog("Updating entry with: " + sqlQuery, "queries");
 				ExecuteTargetSql(targetApp, sqlQuery);
 			}
 			//reply.readJson();
@@ -210,10 +214,11 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	
 		HKEY hKeyCloud = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Cloud"));
 
-		QString dbUrl = QString::fromStdString(GetStrVal(hKeyCloud, "url", REG_SZ));
+		//QString dbUrl = QString::fromStdString(GetStrVal(hKeyCloud, "url", REG_SZ));
+		QString dbUrl = defaultProtocol + "://" + apiUrl;
 		//dbUrl = "https://webportal.henchmantrak.com/files/ntunnel_mysql.php";
 		//dbUrl = "http://webportal.henchmantrak.com/webapi/public/api/employees/7";
-		dbUrl = defaultProtocol + "://webportal.henchmantrak.com/webapi/public/api/portals/exec_query";
+		//dbUrl = defaultProtocol + "://webportal.henchmantrak.com/webapi/public/api/portals/exec_query";
 		//dbUrl = "https://localhost/ntunnel_mysql.php";
 		//dbUrl = defaultProtocol + "://localhost/webapi/public/api/portals/exec_query";
 

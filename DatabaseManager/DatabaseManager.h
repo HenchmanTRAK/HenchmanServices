@@ -149,6 +149,7 @@ private:
     QString defaultProtocol = "";
     QString apiUsername = "";
     QString apiPassword = "";
+    QString apiUrl = "";
 
     void makeNetworkRequest(QUrl &url, QMap<QString, QString> &query);
 };
