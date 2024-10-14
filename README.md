@@ -60,15 +60,19 @@ Username = your_mail_username
 Password = your_mail_password
 
 [WAMP]
-MySQL_DIR = path_to_mysql_exe
-Apache_DIR = path_to_apache_exe
-PHP_DIR = path_to_php_exe
+MySQL_DIR	= path_to_mysql_exe
+Apache_DIR	= path_to_apache_exe
+PHP_DIR		= path_to_php_exe
 
 [TRAK]
 TRAK_DIR = path_to_trak_executable
 INI_FILE = name_of_trak_ini
 EXE_FILE = name_of_trak_exe
 APP_NAME = name_of_trak_application
+
+[API]
+Username = username_to_backend_api
+Password = password_to_backend_api
 
 [DEVELOPMENT]
 testingMain=0|1
@@ -91,6 +95,10 @@ numberOfQueries=100
 	- `INI_FILE` : Specifies the name of the TRAK ini file. `default: ""`
 	- `EXE_FILE` : Specifies the name of the TRAK executable. `default: ""`
 	- `APP_NAME` : Specifies the name of the TRAK application. `default: ""`
+
+ - `[API]` section:
+	- `Username` : Specifies the username for the backend API. `default: ""`
+	- `Password` : Specifies the password for the backend API. `default: ""`
 
  - `[DEVELOPMENT]` section:
 	- `testingMain` : 0 or 1; specifies if app should build in testing mode. `default: 0`

@@ -42,6 +42,8 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 		testingDBManager = ini.GetBoolValue("DEVELOPMENT", "testingDBManager", 0);
 		defaultProtocol = ini.GetValue("DEVELOPMENT", "defaultProt", "https");
 		queryLimit = ini.GetLongValue("DEVELOPMENT", "numberOfQueries", 10);
+		apiUsername = ini.GetValue("API", "Username", "");
+		apiPassword = ini.GetValue("API", "Password", "");
 	}
 	cout << "init db manager" << endl;
 	targetApp = "";
@@ -83,7 +85,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 	url.setQuery(urlQuery);*/
 
 	QNetworkRequest request(url);
-	QString concatenated = "root: ";
+	QString concatenated = apiUsername+":"+apiPassword;
 	QByteArray data = concatenated.toLocal8Bit().toBase64();
 	QString headerData = "Basic " + data;
 	request.setRawHeader("Authorization", headerData.toLocal8Bit());

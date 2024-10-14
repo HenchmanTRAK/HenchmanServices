@@ -147,6 +147,9 @@ private:
     QHttpMultiPart* form = nullptr;
     bool testingDBManager = false;
     QString defaultProtocol = "";
+    QString apiUsername = "";
+    QString apiPassword = "";
+
     void makeNetworkRequest(QUrl &url, QMap<QString, QString> &query);
 };
 
