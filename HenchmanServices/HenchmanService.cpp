@@ -1974,7 +1974,7 @@ int HenchmanService::MainFunction()
 	//SQLiteM.ToggleConsoleLogging();
 
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-
+	WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = GetSvcStatus("wampmysqld64");
 	string mysql_dir = GetStrVal(hKey, "MySQL_DIR", REG_SZ);
 	try {
@@ -2019,6 +2019,7 @@ int HenchmanService::MainFunction()
 			WriteToLog("Removed Local MYSQL service...");
 	}
 
+	WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = GetSvcStatus("wampapache64");
 	string apache_dir = GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	try {
@@ -2103,6 +2104,11 @@ int HenchmanService::MainFunction()
 	}
 
 	dbManager->connectToLocalDB(TrakM.appType);
+
+	//string sqlFile = TrakM.appDir + "database\\kabtraktest1_20170111.sql";
+	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
+	//sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\cloudupdate.sql";
+	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
 
 	dbManager->connectToRemoteDB(TrakM.appType);
 

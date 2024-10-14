@@ -18,8 +18,8 @@ public:
 	void ReportCustomEvent(const char *function, std::string msg = "", int type = 3);
 
 private:
-	HANDLE hEventSource;
 	std::string eventSource;
+	HANDLE hEventSource;
 	LPVOID lpMsgBuf;
 	LPVOID lpDisplayBuf;
 

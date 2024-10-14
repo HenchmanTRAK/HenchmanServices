@@ -168,7 +168,7 @@ void WriteToError(string log)
 void WriteToCustomLog(string log, string logName)
 {
 	string logDir = GetLogsPath();
-	logDir.append("logName.txt");
+	logDir.append(logName+".txt");
 	WriteLog(logDir.data(), log.data());
 	logDir.clear();
 	log.clear();

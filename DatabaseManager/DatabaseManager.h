@@ -144,8 +144,9 @@ private:
     QNetworkAccessManager* netManager = nullptr;
     //QNetworkReply* netReply;
     QRestAccessManager* restManager = nullptr;
-    //QHttpMultiPart* form;
+    QHttpMultiPart* form = nullptr;
     bool testingDBManager = false;
+    QString defaultProtocol = "";
     void makeNetworkRequest(QUrl &url, QMap<QString, QString> &query);
 };
 

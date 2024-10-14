@@ -73,26 +73,30 @@ APP_NAME = name_of_trak_application
 [DEVELOPMENT]
 testingMain=0|1
 testingDBManager=0|1
+defaultProt=http|https
+numberOfQueries=100
 ```
 
  - `[EMAIL]` section:
-	- `Username` key: Specifies the username for the mail login.
-	- `Password` key: Specifies the password for the mail login.
+	- `Username` : Specifies the username for the mail login. `default: ""`
+	- `Password` : Specifies the password for the mail login. `default: ""`
 
  - `[WAMP]` section:
-	- `MySQL_DIR` key: Specifies the path to the folder that contains the MySQL executable.
-	- `Apache_DIR` key: Specifies the path to the folder that contains the Apache executable.
-	- `PHP_DIR` key: Specifies the path to the folder that contains the PHP executable.
+	- `MySQL_DIR` : Specifies the path to the folder that contains the MySQL executable. `default: ""`
+	- `Apache_DIR` : Specifies the path to the folder that contains the Apache executable. `default: ""`
+	- `PHP_DIR` : Specifies the path to the folder that contains the PHP executable. `default: ""`
 
  - `[TRAK]` section:
-	- `TRAK_DIR` key: Specifies the path to the TRAK executable.
-	- `INI_FILE` key: Specifies the name of the TRAK ini file.
-	- `EXE_FILE` key: Specifies the name of the TRAK executable.
-	- `APP_NAME` key: Specifies the name of the TRAK application.
+	- `TRAK_DIR` : Specifies the path to the TRAK executable. `default: ""`
+	- `INI_FILE` : Specifies the name of the TRAK ini file. `default: ""`
+	- `EXE_FILE` : Specifies the name of the TRAK executable. `default: ""`
+	- `APP_NAME` : Specifies the name of the TRAK application. `default: ""`
 
  - `[DEVELOPMENT]` section:
-	- `testingMain` key: 0 or 1; specifies if app should build in testing mode
-	- `testingDBManager` key: 0 or 1; specifies if app db manager should build in testing mode
+	- `testingMain` : 0 or 1; specifies if app should build in testing mode. `default: 0`
+	- `testingDBManager` : 0 or 1; specifies if app db manager should build in testing mode. `default: 0`
+	- `defaultProt` : http or https; specifies the default http protocol all network requests get made with. `default: https`
+	- `numberOfQueries` : Specified the maximum number of queries the application will attempt to run. `default: 10`
 
 Make sure to replace include outlined with the appropriate values for your setup to work.
 
