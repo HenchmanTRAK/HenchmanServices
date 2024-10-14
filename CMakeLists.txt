@@ -265,10 +265,11 @@ install(
 install (PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
         DESTINATION ${CMAKE_INSTALL_BINDIR}	COMPONENT Runtime)
 install(SCRIPT ${deploy_script} COMPONENT Runtime)
+message(STATUS "Found Doxy: " ${DOXYGEN_FOUND})
 if(DOXYGEN_FOUND)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html 
-		DESTINATION share/docs
+		DESTINATION share/docs COMPONENT Documentation
 	)
 endif(DOXYGEN_FOUND)
 
