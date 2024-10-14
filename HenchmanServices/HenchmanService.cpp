@@ -1922,11 +1922,13 @@ int HenchmanService::SetRequiredParameters()
 
 	}
 	
-	SQLite_Manager SQLiteM(installDir + "\\", databaseName);
-	SQLiteM.ToggleConsoleLogging();
-
-
 	RegCloseKey(hKey);
+	
+	SQLite_Manager SQLiteM(installDir + "\\", databaseName);
+	if(testing)
+		SQLiteM.ToggleConsoleLogging();
+
+
 
 	SQLiteM.InitDB();
 
