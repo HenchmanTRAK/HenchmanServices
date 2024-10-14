@@ -73,12 +73,14 @@ APP_NAME = name_of_trak_application
 [API]
 Username = username_to_backend_api
 Password = password_to_backend_api
+defaultProt = protocol_used_for_api_calls
+url = url_to_backend_api
+numberOfQueries= number_of_cloudupdate_queries
 
 [DEVELOPMENT]
 testingMain=0|1
 testingDBManager=0|1
-defaultProt=http|https
-numberOfQueries=100
+
 ```
 
  - `[EMAIL]` section:
@@ -99,12 +101,13 @@ numberOfQueries=100
  - `[API]` section:
 	- `Username` : Specifies the username for the backend API. `default: ""`
 	- `Password` : Specifies the password for the backend API. `default: ""`
+	- `defaultProt` : http or https; Specifies the default http protocol used for all network requests. `default: https`
+	- `url` : Specifies the URL of the backend API, exclusive of the protocol. `default: webportal.henchmantrak.com/webapi/public/api/portals/exec_query`
+	- `numberOfQueries` : Specified the maximum number of queries the application will attempt to run in a cycle. `default: 10`
 
  - `[DEVELOPMENT]` section:
-	- `testingMain` : 0 or 1; specifies if app should build in testing mode. `default: 0`
-	- `testingDBManager` : 0 or 1; specifies if app db manager should build in testing mode. `default: 0`
-	- `defaultProt` : http or https; specifies the default http protocol all network requests get made with. `default: https`
-	- `numberOfQueries` : Specified the maximum number of queries the application will attempt to run. `default: 10`
+	- `testingMain` : 0 or 1; Specifies if app should build in testing mode. `default: 0`
+	- `testingDBManager` : 0 or 1; Specifies if app db manager should build in testing mode. `default: 0`
 
 Make sure to replace include outlined with the appropriate values for your setup to work.
 

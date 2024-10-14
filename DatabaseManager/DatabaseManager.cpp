@@ -42,11 +42,11 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 	}
 	else {
 		testingDBManager = ini.GetBoolValue("DEVELOPMENT", "testingDBManager", 0);
-		queryLimit = ini.GetLongValue("DEVELOPMENT", "numberOfQueries", 10);
+		queryLimit = ini.GetLongValue("API", "numberOfQueries", 10);
 		apiUsername = ini.GetValue("API", "Username", "");
 		apiPassword = ini.GetValue("API", "Password", "");
 		defaultProtocol = ini.GetValue("API", "defaultProt", "https");
-		apiUrl = ini.GetValue("API", "Url", "localhost/webapi/public/api/portals/exec_query");
+		apiUrl = ini.GetValue("API", "url", "webportal.henchmantrak.com/webapi/public/api/portals/exec_query");
 	}
 	cout << "init db manager" << endl;
 	targetApp = "";
