@@ -7,6 +7,9 @@ EventManager::EventManager(string source)
 {
 	cout << "Registering Event Source: " << source << endl;
 	eventSource = source;
+	hEventSource = NULL;
+	lpMsgBuf = nullptr;
+	lpDisplayBuf = nullptr;
 }
 
 EventManager::~EventManager()

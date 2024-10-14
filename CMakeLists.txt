@@ -87,7 +87,7 @@ find_package(Doxygen REQUIRED dot)
 if(DOXYGEN_FOUND)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
 add_custom_target(
-	doc ALL
+	DOC ALL
 	${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 	COMMENT "Generating API documentation with Doxygen" VERBATIM
@@ -237,7 +237,7 @@ install (
 #install (DIRECTORY ${OPENSSL_RUNTIME_DIR}/ DESTINATION ${CMAKE_INSTALL_BINDIR} FILES_MATCHING PATTERN "*.dll")
 #install (DIRECTORY ${QT_DIR}/bin/ DESTINATION bin FILES_MATCHING PATTERN "*.dll")
 
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/service.md)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/service.ini)
 install (
 	FILES ${CMAKE_CURRENT_SOURCE_DIR}/service.ini 
 	#${MYSQL_CONCPP_RUNTIME_LIBRARY_DIR}/mysqlcppconn-10-vs14.dll 
@@ -265,10 +265,11 @@ install(
 install (PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
         DESTINATION ${CMAKE_INSTALL_BINDIR}	COMPONENT Runtime)
 install(SCRIPT ${deploy_script} COMPONENT Runtime)
+message(STATUS "Found Doxy: " ${DOXYGEN_FOUND})
 if(DOXYGEN_FOUND)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html 
-		DESTINATION share/docs
+		DESTINATION share/docs COMPONENT Documentation
 	)
 endif(DOXYGEN_FOUND)
 

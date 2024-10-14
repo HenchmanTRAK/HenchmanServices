@@ -5,9 +5,6 @@
 
 using namespace std;
 
-int queryLimit = 100;
-bool testingDBManager = false;
-
 static string checkValidDrivers()
 {
 	stringstream results;
@@ -37,46 +34,29 @@ Seperate out adding database with addDatabase from reconnecting to database to d
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 {
 	CSimpleIniA ini;
-	SI_Error rc = ini.LoadFile(".\\service.ini");
+	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
+	SI_Error rc = ini.LoadFile(installDir.append("\\service.ini").c_str());
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
 	}
 	else {
 		testingDBManager = ini.GetBoolValue("DEVELOPMENT", "testingDBManager", 0);
+		queryLimit = ini.GetLongValue("API", "numberOfQueries", 10);
+		apiUsername = ini.GetValue("API", "Username", "");
+		apiPassword = ini.GetValue("API", "Password", "");
+		defaultProtocol = ini.GetValue("API", "defaultProt", "https");
+		apiUrl = ini.GetValue("API", "url", "webportal.henchmantrak.com/webapi/public/api/portals/exec_query");
 	}
 	cout << "init db manager" << endl;
-
-	networkManager = nullptr;	
-	restManager = nullptr;
-	netReply = nullptr;
 	targetApp = "";
 	requestRunning = false;
-	form = nullptr;
+	RegCloseKey(hKey);
 }
 
 DatabaseManager::~DatabaseManager() 
 {
 	cout << "Deleting DatabaseManager" << endl;
-	if (netReply != nullptr) {
-		cout << "Deleting netReply" << endl;
-		//delete netReply;
-		//netReply->deleteLater();
-	}
-	if (networkManager != nullptr) {
-		cout << "Deleting networkManager" << endl;
-		//delete networkManager;
-		networkManager->deleteLater();
-	}
-	if (restManager != nullptr) {
-		cout << "Deleting restManager" << endl;
-		//delete restManager;
-		//restManager->deleteLater();
-	}
-	if (form != nullptr) {
-		cout << "Deleting form" << endl;
-		//delete form;
-		//form->deleteLater();
-	}
 }
 
 bool DatabaseManager::isInternetConnected()
@@ -89,13 +69,131 @@ bool DatabaseManager::isInternetConnected()
 	{
 		sock->abort();
 		sock->deleteLater();
-		sock = nullptr;
+		//sock = nullptr;
 		return false;
 	}
 	sock->close();
 	sock->deleteLater();
-	sock = nullptr;
+	//sock = nullptr;
 	return true;
+}
+
+void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &query)
+{
+	QEventLoop loop(this);
+	/*QUrlQuery urlQuery;
+	if(!query["query"].endsWith(';'))
+		query["query"].push_back(';');
+	cout << query["query"].toStdString() << endl;
+	urlQuery.addQueryItem("sql", query["query"]);
+	url.setQuery(urlQuery);*/
+
+	QNetworkRequest request(url);
+	QString concatenated = apiUsername+":"+apiPassword;
+	QByteArray data = concatenated.toLocal8Bit().toBase64();
+	QString headerData = "Basic " + data;
+	request.setRawHeader("Authorization", headerData.toLocal8Bit());
+	//netManager->setStrictTransportSecurityEnabled(true);
+	//restManager->time
+	//netManager->deleteLater();
+	//connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+	//restManager->deleteLater();
+	QJsonDocument doc = QJsonDocument::fromJson("{\"sql\": \"" + query["query"].toUtf8() + "\"}");
+	//doc.object()["sql"] = query["query"];
+	QNetworkReply* reply = restManager->post(request, doc, this, [this, query](QRestReply& reply) {
+		std::cout << "networkrequested" << endl;
+		//QString query = query;
+		if (reply.error() != QNetworkReply::NoError) {
+			qWarning() << "A Network error has occured: " << reply.error() << reply.errorString();
+			WriteToError("A Network error has occured: " + reply.errorString().toStdString());
+			return;
+		}
+
+		WriteToLog((string)"Parsing Response");
+		QByteArray jsonRes = reply.readBody();
+		WriteToCustomLog("Full response: " + jsonRes.toStdString(), "networkLog");
+		//jsonRes = jsonRes.last((jsonRes.size() - query.size()));
+		jsonRes = jsonRes.sliced(
+			jsonRes.lastIndexOf('>') < 0 ? 0 : jsonRes.lastIndexOf('>'), 
+			jsonRes.lastIndexOf(']')<0 ? jsonRes.size() : jsonRes.lastIndexOf(']')
+		);
+		cout << jsonRes.toStdString() << endl;
+		optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
+		optional <QJsonArray> response = json->array();
+		cout << response.value().count() << endl;
+		stringstream errorRes;
+		stringstream dataRes;
+		if (!json) {
+			WriteToError((string)"Recieved empty data or failed to parse JSON.");
+			//goto exit;
+			return;
+		}
+		if (!reply.isHttpStatusSuccess()) {
+			int status = reply.httpStatus();
+			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+			qWarning() << "A HTTP error has occured: " << status << reason;
+			WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+
+			if (response.value().count() > 0) {
+				for (const auto& result : response.value()) {
+					if (result.isArray())
+						for (auto i = 0; i < result.toArray().size(); i++) {
+							dataRes << " - " << result.toArray().at(i).toString().toStdString() << endl;
+						}
+					if (result.isObject())
+						for (const auto& key : result.toObject().keys()) {
+							dataRes << " - " << result.toObject().value(key).toString().toStdString() << endl;
+						}
+				}
+
+				WriteToError("Server responded with error: " + errorRes.str());
+			}
+		}
+		if (reply.isHttpStatusSuccess()) {
+			int status = reply.httpStatus();
+			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+			qDebug() << "Request was successful: " << status << reason;
+			WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
+
+			if (response.value().count() > 0) {
+				for (const auto& result : response.value()) {
+					if (result.isArray())
+						for (auto i = 0; i < result.toArray().size(); i++) {
+							dataRes << " - " << result.toArray().at(i).toString().toStdString() << endl;
+						}
+					if (result.isObject())
+						for (const auto& key : result.toObject().keys()) {
+							dataRes << " - " << key.toStdString() << ": " << result.toObject().value(key).toString().toStdString() << endl;
+						}
+				}
+				WriteToLog("Server responded with data: " + dataRes.str());
+			}
+
+		}
+
+		errorRes.clear();
+		dataRes.clear();
+
+		if (reply.isSuccess())
+		{
+			std::cout << "network request success" << endl;
+			string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + query["id"].toStdString();
+				//+ " ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
+			if (!testingDBManager) {
+				WriteToCustomLog("Updating entry with: " + sqlQuery, "queries");
+				ExecuteTargetSql(targetApp, sqlQuery);
+			}
+			//reply.readJson();
+		}
+		else {
+			std::cout << "network request failed" << endl;
+		}
+		//exit:
+			//reply.networkReply()->deleteLater();
+			//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+		});
+	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+	loop.exec();
 }
 
 int DatabaseManager::connectToRemoteDB (string &target_app)
@@ -103,206 +201,129 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	
 	WriteToLog(string("Attempting to connect to Remote Database"));
 	targetApp = target_app;
-	HKEY hKeyLocal = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
-	QString schemaLocal = QString::fromStdString(GetStrVal(hKeyLocal, "Schema", REG_SZ));
-	if (!checkValidConnections(schemaLocal))
-	{
-		RegCloseKey(hKeyLocal);
-		return 0;
-	}
-
-	HKEY hKeyCloud = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Cloud"));
-	QString schemaRemote = QString::fromStdString(GetStrVal(hKeyCloud, "Schema", REG_SZ));
-	QString dbUrl = QString::fromStdString(GetStrVal(hKeyCloud, "url", REG_SZ));
-	dbUrl = "https://webportal.henchmantrak.com/files/ntunnel_mysql.php";
+	QString targetSchema;
 	QSqlDatabase db;
-	string pass;
-	QString user;
-	QString server;
-	int port;
-
-	if (QString::fromStdString(GetStrVal(hKeyCloud, "UseProxy", REG_SZ)).toInt())
-	{
-		server = QString::fromStdString(GetStrVal(hKeyCloud, "proxyhost", REG_SZ));
-		port = QString::fromStdString(GetStrVal(hKeyCloud, "proxyport", REG_SZ)).toInt();
-		user = QString::fromStdString(GetStrVal(hKeyCloud, "proxyusername", REG_SZ));
-		pass = GetStrVal(hKeyCloud, "proxypassword", REG_SZ);
-	}
-	else
-	{
-		server = QString::fromStdString(GetStrVal(hKeyCloud, "Server", REG_SZ));
-		port = QString::fromStdString(GetStrVal(hKeyCloud, "Port", REG_SZ)).toInt();
-		user = QString::fromStdString(GetStrVal(hKeyCloud, "Username", REG_SZ));
-		pass = GetStrVal(hKeyCloud, "Password", REG_SZ);
-	}
-		
-	if (pass != "") pass =
-		QByteArray::fromBase64Encoding(pass.data()).decoded;
-
-	RegCloseKey(hKeyCloud);
-	RegCloseKey(hKeyLocal);
-	
-	vector<QString> queries;
-
 	try {
-		WriteToLog("Creating session to db " +schemaLocal.toStdString());
+		HKEY hKeyLocal = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
+		targetSchema = QString::fromStdString(GetStrVal(hKeyLocal, "Schema", REG_SZ));
+		RegCloseKey(hKeyLocal);
+		if (!checkValidConnections(targetSchema))
+		{
+			throw HenchmanServiceException("Provided schema not valid");
+		}
+	
+		HKEY hKeyCloud = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Cloud"));
 
-		db = QSqlDatabase::database(schemaLocal);
-		db.setDatabaseName(schemaLocal);
+		//QString dbUrl = QString::fromStdString(GetStrVal(hKeyCloud, "url", REG_SZ));
+		QString dbUrl = defaultProtocol + "://" + apiUrl;
+		//dbUrl = "https://webportal.henchmantrak.com/files/ntunnel_mysql.php";
+		//dbUrl = "http://webportal.henchmantrak.com/webapi/public/api/employees/7";
+		//dbUrl = defaultProtocol + "://webportal.henchmantrak.com/webapi/public/api/portals/exec_query";
+		//dbUrl = "https://localhost/ntunnel_mysql.php";
+		//dbUrl = defaultProtocol + "://localhost/webapi/public/api/portals/exec_query";
 
-		//db.open();
+		RegCloseKey(hKeyCloud);
+		QUrl url(dbUrl);
+		if (dbUrl.trimmed().isEmpty()) {
+			/*WriteToLog("No target Database Url provided");
+			return 0;*/
+			throw HenchmanServiceException("No target Database Url provided");
+		}
+		
+		WriteToLog("Creating session to db " + targetSchema.toStdString());
 
+		
+		db = QSqlDatabase::database(targetSchema);
+		//db.database(targetSchema);
+		
 		if (!db.open())
 		{
-			WriteToError(string("Failed to open DB Connection"));
-			return 0;
+			/*WriteToError(string("Failed to open DB Connection"));
+			return 0;*/
+			throw HenchmanServiceException("Failed to open DB Connection");
 		}
 
-		db.transaction();
+		//db.transaction();
 
-		QSqlQuery query(db);
-		QString queryText = "SELECT * FROM cloudupdate WHERE posted = 0 ORDER BY id LIMIT " + QString::number(queryLimit);
-		//QString queryText = "SHOW TABLES";
-		
-		if (!query.exec(queryText))
+
+		requestRunning = true;
+
+		if (netManager)
 		{
-			WriteToError(string("Failed to exec query to cloudupdate table"));
-			query.clear();
+			netManager->deleteLater();
+			netManager = nullptr;
+		}
+		if (restManager)
+		{
+			restManager->deleteLater();
+			restManager = nullptr;
+		}
+		netManager = new QNetworkAccessManager(this);
+		if(!testingDBManager)
+			netManager->setStrictTransportSecurityEnabled(true);
+		netManager->setAutoDeleteReplies(true);
+		netManager->setTransferTimeout(30000);
+		restManager = new QRestAccessManager(netManager, this);
+
+		vector<QMap<QString, QString>> queries;
+		//vector<QString> queries;
+		QSqlQuery query(db);
+		QString queryText = testingDBManager ? "SHOW TABLES" : "SELECT * FROM cloudupdate WHERE posted = 0 ORDER BY id LIMIT " + QString::number(queryLimit);
+		query.prepare(queryText);
+		if (!query.exec())
+		{
+			//query.clear();
 			query.finish();
-			db.close();
 			WriteToLog(string("Closing DB Session"));
-			return 0;
+			/*WriteToError(string("Failed to exec query to cloudupdate table"));
+			return 0;*/
+			throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
 		}
 
 		bool continueLoop = query.next();
+		int count = 0;
+		//QEventLoop requestLoop(this);
+		cout << "Updating backend Database with url: " << dbUrl.toStdString() << endl;
 		while (continueLoop)
 		{
-			QString res = query.value(2).toString().replace(QRegularExpression("(NOW|CURDATE|CURTIME)+", QRegularExpression::MultilineOption | QRegularExpression::DotMatchesEverythingOption | QRegularExpression::UseUnicodePropertiesOption), "\'" + query.value(3).toString().replace("T", " ") + "\'").replace("()", "");
+			count++;
+			/*QString id;
+			QString res;*/
+			QMap<QString, QString> res;
+			//QString res;
 			if (!testingDBManager) {
-				WriteToLog("Query Result: " + res.toStdString());
-				queries.push_back(res);
+				res["id"] = query.value(0).toString();
+				res["query"] = query.value(2).toString().replace(QRegularExpression("(NOW|CURDATE|CURTIME)+", QRegularExpression::MultilineOption | QRegularExpression::DotMatchesEverythingOption | QRegularExpression::UseUnicodePropertiesOption), "\'" + query.value(3).toString().replace("T", " ") + "\'").replace("()", "");
 			}
-			continueLoop = query.next();
+			else {
+				res["id"] = "0";
+				res["query"] = "SHOW TABLES";
+			}
+			WriteToCustomLog("Query Result: " + res["query"].toStdString(), "queries");
+			makeNetworkRequest(url, res);
+			//queries.push_back(res);
+			continueLoop = testingDBManager ? count < 5 : query.next();
+			
 		}
 		query.clear();
 		query.finish();
 		
 		db.close();
+		connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+		//connect(restManager->networkAccessManager(), &QNetworkAccessManager::finished, &requestLoop, &QEventLoop::quit);
 		
 	}
 	catch (exception& e)
 	{
-		WriteToError("Throwing Exception: " + string(e.what()));
-		throw e;
-	}
-
-	if (queries.size() <= 0)
-	{
-		queries.clear();
-		WriteToLog(string("No entries in the cloudupdate table"));
-		//netReply = networkManager->get(request);
+		if(db.isOpen())
+			db.close();
+		WriteToError("DatabaseManager::connectToRemoteDB has thrown an exception: " + string(e.what()));
+		//connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+		QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 		return 0;
 	}
-	
-	if (dbUrl.trimmed().isEmpty()) {
-		WriteToLog("No target Database Url provided");
-		queries.clear();
-		return 0;
-	}
-
-	form = new QHttpMultiPart(QHttpMultiPart::FormDataType);
-
-	QHttpPart actnPart;
-	actnPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"actn\""));
-	actnPart.setBody("Q");
-	form->append(actnPart);
-	//parts.push_back(actnPart);
-	QHttpPart hostPart;
-	hostPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"host\""));
-	hostPart.setBody(server.toUtf8());
-	//parts.push_back(hostPart);
-	form->append(hostPart);
-	QHttpPart portPart;
-	portPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"port\""));
-	portPart.setBody(QString::number(port).toUtf8());
-	//parts.push_back(portPart);
-	form->append(portPart);
-	QHttpPart loginPart;
-	loginPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"login\""));
-	loginPart.setBody(user.toUtf8());
-	//parts.push_back(loginPart);
-	form->append(loginPart);
-	QHttpPart passwordPart;
-	passwordPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"password\""));
-	passwordPart.setBody(pass.data());
-	//parts.push_back(passwordPart);
-	form->append(passwordPart);
-	QHttpPart schemaPart;
-	schemaPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"db\""));
-	schemaPart.setBody(schemaRemote.toUtf8());
-	//parts.push_back(schemaPart);
-	form->append(schemaPart);
-	QHttpPart decodePart;
-	decodePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"encodeBase64\""));
-	decodePart.setBody("1");
-	form->append(decodePart);
-
-	if(!testingDBManager)
-		for (const auto& query : queries)
-		{
-			QHttpPart queryPart;
-			queryPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"q[]\""));
-			WriteToLog("Running query: " + query.toStdString() + " on server.\n");
-			QByteArray querySection = QByteArray(query.toUtf8()).toBase64();
-			queryPart.setBody(querySection);
-			form->append(queryPart);
-		}
-	else {
-		QString testQuery = "SHOW TABLES;";
-		QHttpPart queryPart;
-		queryPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"q[]\""));
-		WriteToLog("Running query: " + testQuery.toStdString() + " on server.\n");
-		QByteArray querySection = QByteArray(testQuery.toUtf8()).toBase64();
-		queryPart.setBody(querySection);
-		form->append(queryPart);
-	}
-	
-	if (netReply) {
-		netReply->abort();
-		netReply->deleteLater();
-		netReply = nullptr;
-	}
-
-	try {
-		networkManager = new QNetworkAccessManager(this);
-		networkManager->setAutoDeleteReplies(true);
-		connect(
-			networkManager,
-			&QNetworkAccessManager::finished,
-			this,
-			&QCoreApplication::quit,
-			Qt::QueuedConnection
-		);
-		QNetworkRequest request(dbUrl);
-		WriteToLog("Making get request to " + dbUrl.toStdString());
-		netReply = networkManager->post(request, form);
-		netReply->setParent(networkManager);
-		form->setParent(netReply);
-		connect(
-			netReply,
-			&QNetworkReply::finished,
-			this,
-			&DatabaseManager::parseData,
-			Qt::DirectConnection
-		);
-		
-		requestRunning = true;
-	}
-	catch (exception& e)
-	{
-		WriteToError("Throwing Exception: " + string(e.what()));
-		throw e;
-	}
+	//connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
 
@@ -415,139 +436,148 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 
 		db.close();
 
+		db.setDatabaseName(schema);
+
 	}
 	catch (exception& e)
 	{
-		WriteToError("Throwing Exception: " + string(e.what()));
-		throw e;
+		WriteToError("DatabaseManager::connectToLocalDB has thrown an exception: " + string(e.what()));
+		return 0;
 	}
 	return 1;
 }
 
 int DatabaseManager::ExecuteTargetSqlScript(string& targetApp, string& filename)
 {
-
+	int successCount = 0;
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
 	QString schema = QString::fromStdString(GetStrVal(hKey, "Schema", REG_SZ));
 	RegCloseKey(hKey);
-
-	QFile file(filename.data());
-
-	if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-		cout << "Failed to open target file" << endl;
-		return 0;
-	}
-	cout << "Successfully opened target file: " << filename.data() << endl;
-
-	QTextStream in(&file);
-	QString sql = in.readAll();
-
-	QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
-
-	int successCount = 0;
-
 	QSqlDatabase db = QSqlDatabase::database(schema);
+	QFile file(filename.data());
+	try {
 
-	if (!db.open())
+		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+			throw HenchmanServiceException("Failed to open target file");
+		}
+		cout << "Successfully opened target file: " << filename << endl;
+		WriteToLog("Successfully opened target file: " + filename);
+
+		QTextStream in(&file);
+		QString sql = in.readAll();
+
+		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
+
+		if (!db.open())
+		{
+			throw HenchmanServiceException("Failed to open DB Connection");
+		}
+
+		db.transaction();
+		QSqlQuery query(db);
+
+		if (!query.exec("USE " + schema + ";")) {
+			/*cout << "Failed to execute initial DB Query" << endl;
+			return 0;*/
+			throw HenchmanServiceException("Failed to execute initial DB Query");
+		}
+
+		foreach(const QString & statement, sqlStatements)
+		{
+			if (statement.trimmed() == "")
+				continue;
+			if (query.exec(statement))
+				successCount++;
+			else {
+				//qDebug() << "Failed: " << statement << "\nReason: " << query.lastError();
+				if(statement.length() <= 128)
+					throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+				else
+					throw HenchmanServiceException("Failed executing statement. Reason provided: " + query.lastError().text().toStdString());
+
+			}
+			query.clear();
+		}
+		query.finish();
+		if (!db.commit())
+			db.rollback();
+		db.close();
+		file.close();
+	}
+	catch (exception& e)
 	{
-		cout << "Failed to open DB Connection" << endl;
-		return 0;
+		if (file.isOpen())
+			file.close();
+		if (db.isOpen()) {
+			if (!db.commit())
+				db.rollback();
+			db.close();
+		}
+		WriteToError("DatabaseManager::ExecuteTargetSqlScript has thrown an exception: " + string(e.what()));
+		//return 0;
 	}
-	db.transaction();
-	QSqlQuery query(db);
-
-	if (!query.exec("USE " + schema + ";")) {
-		cout << "Failed to execute initial DB Query" << endl;
-		return 0;
-	}
-
-	foreach(const QString & statement, sqlStatements)
-	{
-		if (statement.trimmed() == "")
-			continue;
-		if (query.exec(statement))
-			successCount++;
-		else
-			qDebug() << "Failed: " << statement << "\nReason: " << query.lastError();
-		query.clear();
-	}
-	query.finish();
-	if (!db.commit())
-		db.rollback();
-	db.close();
 	return successCount;
 }
 
 int DatabaseManager::ExecuteTargetSql(string& targetApp, string& sqlQuery)
 {
-
+	int successCount = 0;
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
 	QString schema = QString::fromStdString(GetStrVal(hKey, "Schema", REG_SZ));
 	RegCloseKey(hKey);
-
 	QSqlDatabase db = QSqlDatabase::database(schema);
+	try {
 
-
-	if (!db.open())
-	{
-		WriteToError((string)"Failed to open DB Connection" );
-		return 0;
-	}
-	db.transaction();
-	QSqlQuery query(db);
-
-	QString sql = sqlQuery.data();
-
-	QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
-
-	int successCount = 0;
-
-	if (!query.exec("USE " + schema + ";")) {
-		WriteToError((string)"Failed to execute initial DB Query");
-		return 0;
-	}
-
-	foreach(const QString & statement, sqlStatements)
-	{
-		if (statement.trimmed() == "")
-			continue;
-		if (query.exec(statement))
-			successCount++;
-		else {
-			qDebug() << "Failed: " << statement << "\nReason: " << query.lastError();
-			WriteToError("Failed: " + statement.toStdString() + "\nReason: " + query.lastError().text().toStdString());
+		if (!db.open())
+		{
+			throw HenchmanServiceException("Failed to open DB Connection");
 		}
-		query.clear();
+		db.transaction();
+
+		QSqlQuery query(db);
+
+		QString sql = sqlQuery.data();
+
+		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
+
+
+		if (!query.exec("USE " + schema + ";")) {
+			/*WriteToError((string)"Failed to execute initial DB Query");
+			return 0;*/
+			throw HenchmanServiceException("Failed to execute initial DB Query");
+		}
+
+		foreach(const QString & statement, sqlStatements)
+		{
+			if (statement.trimmed() == "")
+				continue;
+			if (query.exec(statement))
+				successCount++;
+			else {
+				/*qDebug() << "Failed: " << statement << "\nReason: " << query.lastError();
+				WriteToError("Failed: " + statement.toStdString() + "\nReason: " + query.lastError().text().toStdString());*/
+				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+			}
+			query.clear();
+		}
+		query.finish();
+		if (!db.commit())
+			db.rollback();
+		db.close();
 	}
-	query.finish();
-	if (!db.commit())
-		db.rollback();
-	db.close();
+	catch (exception& e)
+	{
+		if (db.isOpen()) {
+			if (!db.commit())
+				db.rollback();
+			db.close();
+		}
+		WriteToError("DatabaseManager::ExecuteTargetSql has thrown an exception: " + string(e.what()));
+	}
 	return successCount;
 }
 
-void DatabaseManager::checkRequest()
-{
-	
-	
-	
-	if (!netReply) {
-		cout << "NetReply is NULL" << endl;
-		return;
-	}
-	
-	if (netReply->isFinished()) {
-		cout << "Request finished" << endl;
-		return;
-	}
-	if (netReply->isRunning()) {
-		cout << "Request running" << endl;
-		return;
-	}
-	
-}
-
-void DatabaseManager::parseData()
+void DatabaseManager::parseData(QNetworkReply *netReply)
 {
 	QRestReply restReply(netReply);
 	optional json = restReply.readJson();
@@ -574,7 +604,7 @@ void DatabaseManager::parseData()
 		WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
 	WriteToLog((string)"Parsing Response");
-
+	//string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
 	ExecuteTargetSql(targetApp, sqlQuery);
 
 	if (!json) {
@@ -604,19 +634,27 @@ void DatabaseManager::parseData()
 
 exit:
 	json.reset();
-	form->deleteLater();
+	/*form->deleteLater();
 	netReply->deleteLater();
+	networkManager->deleteLater();*/
 	
 	/*form = nullptr;
 	netReply = nullptr;*/
 
 	requestRunning = false;
-	networkManager->clearAccessCache();
+	/*networkManager->clearAccessCache();
+	networkManager->clearConnectionCache();*/
 	return;
 }
 
 void DatabaseManager::performCleanup()
 {
-	networkManager->deleteLater();
-	return;
+	if (netManager) {
+		netManager->deleteLater();
+		netManager = nullptr;
+	}
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
 }

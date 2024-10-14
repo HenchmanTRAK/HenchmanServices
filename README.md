@@ -12,7 +12,8 @@ HenchmanService is a Windows service that provides functionality for managing an
 
 To get started with HenchmanService, follow these steps:
 
-1. Clone the repository: `git clone https://github.com/your-username/HenchmanService.git`.
+1. Clone the repository: `git clone https://github.com/HenchmanTRAK/HenchmanService.git`.
+2. Move yourself into it, eg. `cd HenchmanService`.
 2. Build the project using `cmake --build .`.
 3. Create a service.ini file and define the required fields.
 4. Install the service by running the executable with the `--install` argument.
@@ -54,14 +55,14 @@ HenchmanService requires a configuration file in .ini format to function properl
 The following is an example of what needs to be included in the .ini file:
 
 ```ini
-[Mail]
+[EMAIL]
 Username = your_mail_username
 Password = your_mail_password
 
 [WAMP]
-MySQL_DIR = path_to_mysql_exe
-Apache_DIR = path_to_apache_exe
-PHP_DIR = path_to_php_exe
+MySQL_DIR	= path_to_mysql_exe
+Apache_DIR	= path_to_apache_exe
+PHP_DIR		= path_to_php_exe
 
 [TRAK]
 TRAK_DIR = path_to_trak_executable
@@ -69,29 +70,44 @@ INI_FILE = name_of_trak_ini
 EXE_FILE = name_of_trak_exe
 APP_NAME = name_of_trak_application
 
+[API]
+Username = username_to_backend_api
+Password = password_to_backend_api
+defaultProt = protocol_used_for_api_calls
+url = url_to_backend_api
+numberOfQueries= number_of_cloudupdate_queries
+
 [DEVELOPMENT]
 testingMain=0|1
 testingDBManager=0|1
+
 ```
 
- - `[Mail]` section:
-  - `Username` key: Specifies the username for the mail login.
-  - `Password` key: Specifies the password for the mail login.
+ - `[EMAIL]` section:
+	- `Username` : Specifies the username for the mail login. `default: ""`
+	- `Password` : Specifies the password for the mail login. `default: ""`
 
  - `[WAMP]` section:
-  - `MySQL_DIR` key: Specifies the path to the folder that contains the MySQL executable.
-  - `Apache_DIR` key: Specifies the path to the folder that contains the Apache executable.
-  - `PHP_DIR` key: Specifies the path to the folder that contains the PHP executable.
+	- `MySQL_DIR` : Specifies the path to the folder that contains the MySQL executable. `default: ""`
+	- `Apache_DIR` : Specifies the path to the folder that contains the Apache executable. `default: ""`
+	- `PHP_DIR` : Specifies the path to the folder that contains the PHP executable. `default: ""`
 
  - `[TRAK]` section:
-  - `TRAK_DIR` key: Specifies the path to the TRAK executable.
-  - `INI_FILE` key: Specifies the name of the TRAK ini file.
-  - `EXE_FILE` key: Specifies the name of the TRAK executable.
-  - `APP_NAME` key: Specifies the name of the TRAK application.
+	- `TRAK_DIR` : Specifies the path to the TRAK executable. `default: ""`
+	- `INI_FILE` : Specifies the name of the TRAK ini file. `default: ""`
+	- `EXE_FILE` : Specifies the name of the TRAK executable. `default: ""`
+	- `APP_NAME` : Specifies the name of the TRAK application. `default: ""`
+
+ - `[API]` section:
+	- `Username` : Specifies the username for the backend API. `default: ""`
+	- `Password` : Specifies the password for the backend API. `default: ""`
+	- `defaultProt` : http or https; Specifies the default http protocol used for all network requests. `default: https`
+	- `url` : Specifies the URL of the backend API, exclusive of the protocol. `default: webportal.henchmantrak.com/webapi/public/api/portals/exec_query`
+	- `numberOfQueries` : Specified the maximum number of queries the application will attempt to run in a cycle. `default: 10`
 
  - `[DEVELOPMENT]` section:
-	- `testingMain` key: 0 or 1; specifies if app should build in testing mode
-	- `testingDBManager` key: 0 or 1; specifies if app db manager should build in testing mode
+	- `testingMain` : 0 or 1; Specifies if app should build in testing mode. `default: 0`
+	- `testingDBManager` : 0 or 1; Specifies if app db manager should build in testing mode. `default: 0`
 
 Make sure to replace include outlined with the appropriate values for your setup to work.
 

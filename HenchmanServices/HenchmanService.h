@@ -15,6 +15,9 @@
 #include <strsafe.h>
 #include <tchar.h>
 #include <TlHelp32.h>
+#include <Windows.h>
+#include <WinSock2.h>
+#include <Ws2tcpip.h>
 
 #include <future>
 #include <thread>
@@ -23,7 +26,7 @@
 #include <QCoreApplication>
 #include <QString>
 #include <QTimer>
-#include <QTcpSocket>
+//#include <QTcpSocket>
 
 #include "SimpleIni.h"
 
@@ -35,12 +38,9 @@
 #include "SQLiteManager.h"
 #include "TRAKManager.h"
 
-//#include <Windows.h>
-//#include <WinSock2.h>
-//#include <Ws2tcpip.h>
 
 #pragma comment(lib, "advapi32.lib")
-//#pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Ws2_32.lib")
 
 // TODO: Reference additional headers your program requires here.
 #define SERVICE_NAME			"HenchmanService"
@@ -211,10 +211,6 @@ class HenchmanService {
     std::string mail_username = "";
     std::string mail_password = "";
 
-    SQLite_Manager *SQLiteM = nullptr;
-    TRAKManager* TrakM = nullptr;
-    DatabaseManager* dbManager = nullptr;
-
 	static clock_t tmr1;
 	static clock_t tmrkabTRAK;
 	static clock_t tmrcribTRAK;
@@ -251,6 +247,7 @@ private:
 public:
     std::stringstream logx;
     std::string app_path = "";
+    std::unique_ptr<DatabaseManager> dbManager;
 
     /**
     * Constructor for the HenchmanService class. Initializes the service and loads configuration settings from an INI file.

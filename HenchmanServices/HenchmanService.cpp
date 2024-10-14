@@ -1017,29 +1017,32 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
 		
+	a = new QCoreApplication(argc, argv);
 	HenchmanService service;
 	service.SetRequiredParameters();
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
-		a = new QCoreApplication(argc, argv);
-
+		// clean up the mess that is the memory right now, dear lord.
+		// also switching over to using api calls rather than talking directly to database.
+		
 		service.MainFunction();
 
 		WriteToLog("Waiting for QT to finish execution...");
-		if (!testing)
+		//service.dbManager->performCleanup();
+		//a->
+		/*if(!service.dbManager->requestRunning && !testing)
 			QTimer::singleShot(30000, a, &QCoreApplication::quit);
-		else
-			QTimer::singleShot(1000, a, &QCoreApplication::quit);
-		a->exec();
-
+		if(!service.dbManager->requestRunning && testing)
+			QTimer::singleShot(1000, a, &QCoreApplication::quit);*/
+		//a->exec();
 		WriteToLog("Service sleeping for 30000 ms...");
 		if (!testing)
 			Sleep(30000);
-		/*else
-			Sleep(10000);*/
+		else
+			Sleep(5000);
 	
-		delete a;
 	}
+	delete a;
 
 	//delete dbManager;
 	return ERROR_SUCCESS;
@@ -1354,19 +1357,13 @@ bool HenchmanService::setMailLogin(string& username, string& password) {
 		}
 		mail_username = username;
 		mail_password = password;
-		string tableName = "TestTable";
-		vector<string> cols;
-		cols.push_back(username);
-		cols.push_back(password);
-		SQLiteM->AddRow(tableName, cols);
-		cols.clear();
-		return true;
 	}
 	catch (exception& e)
 	{
 		WriteToError("HenchmanService::setMailLogin threw exception: " + (string)e.what());
+		return false;
 	}
-	return false;
+	return true;
 }
 
 //void HenchmanService::ConnectWithSMTP() {
@@ -1925,26 +1922,35 @@ int HenchmanService::SetRequiredParameters()
 
 	}
 	
-	SQLiteM = new SQLite_Manager(installDir + "\\", databaseName);
-	SQLiteM->ToggleConsoleLogging();
-
-
 	RegCloseKey(hKey);
+	
+	SQLite_Manager SQLiteM(installDir + "\\", databaseName);
+	if(testing)
+		SQLiteM.ToggleConsoleLogging();
 
-	SQLiteM->InitDB();
+
+
+	SQLiteM.InitDB();
 
 	string tableName = "TestTable";
 	vector<string> cols;
 	cols.push_back("username TEXT NOT NULL");
 	cols.push_back("password TEXT NOT NULL");
-	SQLiteM->CreateTable(tableName, cols);
+	SQLiteM.CreateTable(tableName, cols);
+	cols.clear();
 
 	string username = ini.GetValue("EMAIL", "Username", "");
 	string password = ini.GetValue("EMAIL", "Password", "");
 	if (password != "")
 		password = QByteArray(password.data()).toBase64();
 	//string encodedPass = base64(password);
-	setMailLogin(username, password);
+	if (setMailLogin(username, password))
+	{
+		cols.push_back(username);
+		cols.push_back(password);
+		SQLiteM.AddRow(tableName, cols);
+		cols.clear();
+	}
 
 	currDir.clear();
 	installDir.clear();
@@ -1956,7 +1962,8 @@ int HenchmanService::SetRequiredParameters()
 	tableName.clear();
 	cols.clear();
 
-	delete SQLiteM;
+	dbManager = make_unique<DatabaseManager>(a);
+
 	return 0;
 }
 
@@ -1966,13 +1973,10 @@ int HenchmanService::MainFunction()
 
 	//HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME).data());
 	
-
 	//SQLiteM.ToggleConsoleLogging();
 
-	dbManager = new DatabaseManager(a);
-
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-
+	WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = GetSvcStatus("wampmysqld64");
 	string mysql_dir = GetStrVal(hKey, "MySQL_DIR", REG_SZ);
 	try {
@@ -2017,6 +2021,7 @@ int HenchmanService::MainFunction()
 			WriteToLog("Removed Local MYSQL service...");
 	}
 
+	WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = GetSvcStatus("wampapache64");
 	string apache_dir = GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	try {
@@ -2075,7 +2080,6 @@ int HenchmanService::MainFunction()
 
 	RegCloseKey(hKey);
 	
-
 	if (!dbManager->isInternetConnected())
 	{
 		WriteToLog("Failed to confirm network connection");
@@ -2086,27 +2090,33 @@ int HenchmanService::MainFunction()
 
 	//dbManager = new DatabaseManager(a);
 
-	TrakM = new TRAKManager;
+	TRAKManager TrakM;
 
-	TrakM->CreateDataModule(dbManager);
+	TrakM.CreateDataModule();
 
-	dbManager->connectToRemoteDB(TrakM->appType);
 	WriteToLog("Checking if TRAK is Running");
-	if (!ProcessExists(TrakM->appName)) {
+	if (!ProcessExists(TrakM.appName)) {
 		WriteToError("TRAK process is not running");
-		string targetExe = TrakM->appDir + TrakM->appName;
+		string targetExe = TrakM.appDir + TrakM.appName;
 		WriteToLog("TRAK process not running, starting with path: " + targetExe);
-		thread runningTrak(ShellExecuteApp, targetExe, "");
-		runningTrak.join();
-		/*if (!ShellExecuteApp(targetExe, ""))
+		if (!ShellExecuteApp(targetExe, ""))
 		{
 			WriteToError("Failed to start " + targetExe);
-		}*/
+		}
 	}
+
+	dbManager->connectToLocalDB(TrakM.appType);
+
+	//string sqlFile = TrakM.appDir + "database\\kabtraktest1_20170111.sql";
+	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
+	//sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\cloudupdate.sql";
+	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
+
+	dbManager->connectToRemoteDB(TrakM.appType);
+
 	WriteToLog("Performing Cleanup");
-	dbManager->deleteLater();
-	dbManager = nullptr;
-	delete TrakM;
+	//dbManager->deleteLater();
+	//dbManager = nullptr;
 	
 	std::cout << "Exiting Main Function" << endl;
 	/*auto future = async(launch::async, &thread::join, runTrak);
@@ -2116,7 +2126,7 @@ int HenchmanService::MainFunction()
 	}
 	delete runTrak;*/
 	
-	return 0;
+	return a->exec();
 }
 
 int main(int argc, char* argv[])
