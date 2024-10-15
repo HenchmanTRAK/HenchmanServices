@@ -2,20 +2,13 @@
 #define SERVICE_HELPER_H
 #pragma once
 
-//#include <QtCore>
 
-//#include "openssl/crypto.h"
-//#include "openssl/err.h"
-//#include "openssl/ssl.h"
+#include <iostream>
 
-#include <ctime>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
+
 #include <QString>
-//#include <WinBase.h>
 
 #include "RegistryManager.h"
 

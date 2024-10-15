@@ -3,10 +3,8 @@
 
 #pragma once
 
-
+#include <iostream>
 #include <vector>
-#include <sstream>
-#include <string>
 
 #include <sqlite3.h>
 #include <SQLiteCpp/SQLiteCpp.h>

@@ -11,7 +11,9 @@ QCoreApplication* a;
 
 bool testing = false;
 
-string ShowCerts(SSL* ssl)
+// ShowCerts - Prints out the given certificate.
+/*
+static string ShowCerts(SSL* ssl)
 {
 	X509* cert;
 	char* line = {};
@@ -33,9 +35,11 @@ string ShowCerts(SSL* ssl)
 		return "No certificates.\n";
 	}
 }
+*/
 
 // InitCTX - initialize the SSL engine.
-SSL_CTX* InitCTX(void)
+/*
+static SSL_CTX* InitCTX(void)
 {
 	const SSL_METHOD* method;
 	SSL_CTX* ctx;
@@ -53,7 +57,10 @@ SSL_CTX* InitCTX(void)
 	}
 	return ctx;
 }
+*/
 
+// sslError - Handles errors in the SSL connection.
+/*
 void sslError(SSL* ssl, int received, stringstream& logi)
 {
 	const int err = SSL_get_error(ssl, received);
@@ -82,8 +89,9 @@ void sslError(SSL* ssl, int received, stringstream& logi)
 		//kill(getpid(), SIGKILL);
 	}
 }
+*/
 
-const char* GetMimeTypeFromFileName(char* szFileExt)
+static const char* GetMimeTypeFromFileName(char* szFileExt)
 {
 	// cout << "EXT " << szFileExt;
 	for (unsigned int i = 0; i < sizeof(MimeTypes) / sizeof(MimeTypes[0]); i++)
@@ -96,7 +104,7 @@ const char* GetMimeTypeFromFileName(char* szFileExt)
 	return MimeTypes[0][1];   //if does not match any,  "application/octet-stream" is returned
 }
 
-bool ProcessExists(string& exeFileName)
+static bool ProcessExists(string& exeFileName)
 {
 	HANDLE SnapshotHandle;
 	SnapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -125,7 +133,7 @@ bool ProcessExists(string& exeFileName)
 	return result;
 }
 
-bool FileInUse(string fileName) {
+static bool FileInUse(string fileName) {
 	HANDLE fileRes;
 	//struct stat buffer;
 	std::cout << "Checking if: " << fileName << " is being used" << endl;
@@ -141,7 +149,7 @@ bool FileInUse(string fileName) {
 	return result;
 }
 
-int ShellExecuteApp(string appName, string params)
+static int ShellExecuteApp(string appName, string params)
 {
 	SHELLEXECUTEINFOA SEInfo;
 	DWORD ExitCode;
@@ -1048,7 +1056,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	return ERROR_SUCCESS;
 }
 
-int RunAsService(int argc, char* argv[])
+static int RunAsService(int argc, char* argv[])
 {
 	if (lstrcmpiA(argv[1], "--install") == 0)
 	{
@@ -1059,7 +1067,7 @@ int RunAsService(int argc, char* argv[])
 		//string currDir = buff;
 		//currDir.resize(byteLength);
 		string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-		struct stat buffer;
+		//struct stat buffer;
 		if (installDir == "" || installDir != buff)
 		{
 			installDir = buff;
@@ -1116,7 +1124,7 @@ int RunAsService(int argc, char* argv[])
 	return 0;
 }
 
-int RunAsServiceTest(int argc, char* argv[])
+static int RunAsServiceTest(int argc, char* argv[])
 {
 	if (lstrcmpiA(argv[1], "--install") == 0 || testing)
 	{
@@ -1127,7 +1135,7 @@ int RunAsServiceTest(int argc, char* argv[])
 		//string currDir = buff;
 		//currDir.resize(byteLength);
 		string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-		struct stat buffer;
+		/*struct stat buffer;*/
 		if (installDir == "" || installDir != buff)
 		{
 			installDir = buff;
