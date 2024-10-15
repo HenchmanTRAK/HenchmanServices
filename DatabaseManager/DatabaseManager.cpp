@@ -98,6 +98,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 	//netManager->deleteLater();
 	//connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 	//restManager->deleteLater();
+	WriteToCustomLog("Query Result: " + query["query"].toStdString(), "queries");
 	QJsonDocument doc = QJsonDocument::fromJson("{\"sql\": \"" + query["query"].toUtf8() + "\"}");
 	//doc.object()["sql"] = query["query"];
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, query](QRestReply& reply) {
@@ -124,7 +125,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 		stringstream errorRes;
 		stringstream dataRes;
 		if (!json) {
-			WriteToError((string)"Recieved empty data or failed to parse JSON.");
+			WriteToLog((string)"Recieved empty data or failed to parse JSON.");
 			//goto exit;
 			return;
 		}
@@ -132,7 +133,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 			int status = reply.httpStatus();
 			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 			qWarning() << "A HTTP error has occured: " << status << reason;
-			WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+			WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
 
 			if (response.value().count() > 0) {
 				for (const auto& result : response.value()) {
@@ -146,7 +147,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 						}
 				}
 
-				WriteToError("Server responded with error: " + errorRes.str());
+				WriteToLog("Server responded with error: " + errorRes.str());
 			}
 		}
 		if (reply.isHttpStatusSuccess()) {
@@ -299,7 +300,6 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 				res["id"] = "0";
 				res["query"] = "SHOW TABLES";
 			}
-			WriteToCustomLog("Query Result: " + res["query"].toStdString(), "queries");
 			makeNetworkRequest(url, res);
 			//queries.push_back(res);
 			continueLoop = testingDBManager ? count < 5 : query.next();
