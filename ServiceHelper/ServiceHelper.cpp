@@ -129,7 +129,7 @@ string GetLogsPath(string app_path)
 	return logsPath;
 }
 
-void WriteLog(char *targetFile, char * log)
+void WriteLog(char *targetFile, string log)
 {
 	fstream fs(targetFile, ios::out | ios_base::app);
 	if (fs) {
@@ -140,8 +140,7 @@ void WriteLog(char *targetFile, char * log)
 		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
 		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
 		cout << "---| " << dateBuf << " " << timeBuf << " |--- " << log << endl;
-		fs << "---| " << dateBuf << " " << timeBuf << " |--- ";
-		fs << log << '\n';
+		fs << "---| " << dateBuf << " " << timeBuf << " |--- " << log << "\n";
 		fs.close();
 	}
 
@@ -151,7 +150,7 @@ void WriteToLog(string log)
 {
 	string logDir = GetLogsPath();
 	logDir.append("log.txt");
-	WriteLog(logDir.data(), log.data());
+	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
 }
@@ -160,7 +159,7 @@ void WriteToError(string log)
 {
 	string logDir = GetLogsPath().data();
 	logDir.append("error.txt");
-	WriteLog(logDir.data(), log.data());
+	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
 }
@@ -169,7 +168,7 @@ void WriteToCustomLog(string log, string logName)
 {
 	string logDir = GetLogsPath();
 	logDir.append(logName+".txt");
-	WriteLog(logDir.data(), log.data());
+	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
 }

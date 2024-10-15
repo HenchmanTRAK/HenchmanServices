@@ -2122,7 +2122,7 @@ int HenchmanService::MainFunction()
 
 	dbManager->connectToRemoteDB(TrakM.appType);
 
-	WriteToLog("Performing Cleanup");
+	//WriteToLog("Performing Cleanup");
 	//dbManager->deleteLater();
 	//dbManager = nullptr;
 	

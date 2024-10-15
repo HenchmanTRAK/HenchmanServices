@@ -7,7 +7,7 @@
 #include <optional>
 
 #include <QObject>
-//#include <QString>
+#include <QString>
 //#include <QSqlQueryModel>
 #include <QSqlDatabase>
 #include <QSqlDriver>
@@ -15,9 +15,9 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QFile>
-//#include <QTextStream>
-//#include <QUrl>
-//#include <QUrlQuery>
+#include <QTextStream>
+#include <QUrl>
+#include <QUrlQuery>
 #include <QHttpMultiPart>
 //#include <QHttpPart>
 #include <QNetworkAccessManager>
@@ -28,10 +28,10 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QEventLoop>
-//#include <QRegularExpression>
+#include <QRegularExpression>
 #include <QTimer>
 #include <QCoreApplication>
-//#include <QMap>
+#include <QMap>
 
 #include <SimpleIni.h>
 
@@ -151,5 +151,8 @@ private:
 
     void makeNetworkRequest(QUrl &url, QMap<QString, QString> &query);
 };
+
+static std::string parseArray(QJsonArray array);
+static std::string parseObject(QJsonObject object);
 
 #endif
