@@ -3,37 +3,35 @@
 #pragma once
 
 
+#include <iostream>
 #include <optional>
-#include <string>
-#include <vector>
-//#include <mysql/jdbc.h>
-//#include <mysqlx/xdevapi.h>
 
 #include <QObject>
-#include <QString>
-#include <QSqlQueryModel>
+//#include <QString>
+//#include <QSqlQueryModel>
 #include <QSqlDatabase>
 #include <QSqlDriver>
-#include <QSqlRecord>
+//#include <QSqlRecord>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QFile>
-#include <QTextStream>
-#include <QUrl>
-#include <QUrlQuery>
+//#include <QTextStream>
+//#include <QUrl>
+//#include <QUrlQuery>
 #include <QHttpMultiPart>
-#include <QHttpPart>
+//#include <QHttpPart>
 #include <QNetworkAccessManager>
 #include <QRestAccessManager>
+#include <QNetworkReply>
 #include <QRestReply>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QEventLoop>
-#include <QRegularExpression>
+//#include <QRegularExpression>
 #include <QTimer>
 #include <QCoreApplication>
-#include <QMap>
+//#include <QMap>
 
 #include <SimpleIni.h>
 

@@ -6,34 +6,34 @@
 #pragma once
 
 
-#include "openssl/crypto.h"
-#include "openssl/err.h"
-#include "openssl/ssl.h"
+//#include "openssl/crypto.h"
+//#include "openssl/err.h"
+//#include "openssl/ssl.h"
 
 
-#include <netlistmgr.h>
-#include <strsafe.h>
-#include <tchar.h>
-#include <TlHelp32.h>
+//#include <netlistmgr.h>
+//#include <strsafe.h>
+//#include <tchar.h>
 #include <Windows.h>
-#include <WinSock2.h>
-#include <Ws2tcpip.h>
+#include <TlHelp32.h>
+//#include <WinSock2.h>
+//#include <Ws2tcpip.h>
 
-#include <future>
-#include <thread>
-
-#include <QByteArray>
-#include <QCoreApplication>
-#include <QString>
-#include <QTimer>
+//#include <future>
+//#include <thread>
+//
+//#include <QByteArray>
+//#include <QCoreApplication>
+//#include <QString>
+//#include <QTimer>
 //#include <QTcpSocket>
 
 #include "SimpleIni.h"
 
-#include "DatabaseManager.h"
-#include "EventManager.h"
 #include "HenchmanServiceException.h"
+#include "EventManager.h"
 #include "RegistryManager.h"
+#include "DatabaseManager.h"
 #include "ServiceHelper.h"
 #include "SQLiteManager.h"
 #include "TRAKManager.h"

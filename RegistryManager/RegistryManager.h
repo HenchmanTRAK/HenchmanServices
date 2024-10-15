@@ -5,7 +5,7 @@
 
 #include <iostream>
 //#include <tchar.h>
-#include <string>
+//#include <string>
 #include <Windows.h>
 HKEY OpenKey(HKEY hRootKey, std::string strKey);
 

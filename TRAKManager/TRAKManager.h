@@ -2,16 +2,17 @@
 #define TRAK_MANAGER_H
 #pragma once
 
-#include <map>
+#include <iostream>
+//#include <map>
 
-#include "SimpleIni.h"
+#include <SimpleIni.h>
 
-#include <QByteArray>
+//#include <QByteArray>
 
 #include "HenchmanServiceException.h"
-#include "RegistryManager.h"
+//#include "RegistryManager.h"
 #include "ServiceHelper.h"
-#include "DatabaseManager.h"
+//#include "DatabaseManager.h"
 
 class TRAKManager {
 private:

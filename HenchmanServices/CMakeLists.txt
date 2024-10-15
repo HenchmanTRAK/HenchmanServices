@@ -40,6 +40,7 @@ target_link_libraries(
 set_target_properties(
 	HenchmanService PROPERTIES 
 	LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator'\""
+	AUTOMOC TRUE
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
