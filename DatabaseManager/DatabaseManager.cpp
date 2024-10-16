@@ -5,6 +5,8 @@
 
 using namespace std;
 
+static array<string, 2> timeStamp;
+
 static string checkValidDrivers()
 {
 	stringstream results;
@@ -19,7 +21,7 @@ static int checkValidConnections(QString &targetConnection)
 {
 	for (const auto& str : QSqlDatabase::connectionNames())
 	{
-		cout << " - " << str.toUtf8().data() << endl;
+		std::cout << " - " << str.toUtf8().data() << endl;
 		if (str == targetConnection)
 			return TRUE;
 	}
@@ -50,7 +52,7 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 	}
 	RegCloseKey(hKey);
 
-	cout << "init db manager" << endl;
+	std::cout << "init db manager" << endl;
 	
 	targetApp = "";
 	requestRunning = false;
@@ -59,7 +61,7 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent)
 
 DatabaseManager::~DatabaseManager() 
 {
-	cout << "Deleting DatabaseManager" << endl;
+	std::cout << "Deleting DatabaseManager" << endl;
 
 	if (netManager)
 	{
@@ -155,7 +157,7 @@ static string parseObject(QJsonObject object)
 void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &query)
 {
 	QEventLoop loop(this);
-	
+	std::cout << timeStamp[0] << " " << timeStamp[1] << endl;
 	QNetworkRequest request(url);
 	QString concatenated = apiUsername+":"+apiPassword;
 	QByteArray credentials = concatenated.toLocal8Bit().toBase64();
@@ -167,14 +169,14 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 	data["sql"] = query["query"];	
 	QJsonDocument doc(data);
 
-	WriteToCustomLog("Running Query: " + doc.toJson().toStdString(), "queries");
+	ServiceHelper::WriteToCustomLog("Running query number: " + query["number"].toStdString() + " \n query: " + doc.toJson().toStdString(), "queries-" + timeStamp[0]);
 
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, query](QRestReply& reply) {
 		std::cout << "networkrequested" << endl;
 		//QString query = query;
 		if (reply.error() != QNetworkReply::NoError) {
 			qWarning() << "A Network error has occured: " << reply.error() << reply.errorString();
-			WriteToError("A Network error has occured: " + reply.errorString().toStdString());
+			ServiceHelper::WriteToError("A Network error has occured: " + reply.errorString().toStdString());
 			return;
 		}
 
@@ -183,27 +185,27 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 		
 		if (!reply.isHttpStatusSuccess()) {
 			qWarning() << "A HTTP error has occured: " << status << reason;
-			WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+			ServiceHelper::WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
 		}
 
 		if (reply.isHttpStatusSuccess()) {
 			qDebug() << "Request was successful: " << status << reason;
-			WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
+			ServiceHelper::WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
 		}
-		WriteToLog((string)"Parsing Response");
+		ServiceHelper::WriteToLog((string)"Parsing Response");
 		
 		QByteArray jsonRes = reply.readBody();
-		WriteToCustomLog("Webportal response: " + jsonRes.toStdString(), "queries");
+		//WriteToCustomLog("Webportal response: " + jsonRes.toStdString(), "queries");
 		//jsonRes = jsonRes.last((jsonRes.size() - query.size()));
 
 		int startingIndex = jsonRes.lastIndexOf('>') < 0 ? 0 : jsonRes.lastIndexOf('>');
 		int endingIndex = jsonRes.lastIndexOf(']') < 0 ? jsonRes.size() : jsonRes.lastIndexOf(']');
 		jsonRes = jsonRes.sliced(startingIndex, endingIndex);
 
-		cout << jsonRes.toStdString() << endl;
+		std::cout << jsonRes.toStdString() << endl;
 		optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
 		if (!json) {
-			WriteToLog((string)"Recieved empty data or failed to parse JSON.");
+			ServiceHelper::WriteToLog((string)"Recieved empty data or failed to parse JSON.");
 			//goto exit;
 			return;
 		}
@@ -213,7 +215,8 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 		else if (json->isObject())
 			parsedVal = parseObject(json->object());
 
-		WriteToLog("Server responded with: \n" + parsedVal);
+		ServiceHelper::WriteToCustomLog("Webportal response: " + parsedVal, "queries-" + timeStamp[0]);
+		ServiceHelper::WriteToLog("Server responded with: \n" + parsedVal);
 
 		if (reply.isSuccess())
 		{
@@ -221,7 +224,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 			string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + query["id"].toStdString();
 				//+ " ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
 			if (!testingDBManager) {
-				WriteToCustomLog("Updating query with id: " + query["id"].toStdString(), "queries");
+				ServiceHelper::WriteToCustomLog("Updating query with id: " + query["id"].toStdString(), "queries-" + timeStamp[0]);
 				ExecuteTargetSql(targetApp, sqlQuery);
 			}
 		}
@@ -236,7 +239,8 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 int DatabaseManager::connectToRemoteDB (string &target_app)
 {
 	
-	WriteToLog(string("Attempting to connect to Remote Database"));
+	ServiceHelper::WriteToLog(string("Attempting to connect to Remote Database"));
+	timeStamp = ServiceHelper::timestamp();
 	targetApp = target_app;
 	QString targetSchema;
 	QSqlDatabase db;
@@ -260,7 +264,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 			throw HenchmanServiceException("No target Database Url provided");
 		}
 		
-		WriteToLog("Creating session to db " + targetSchema.toStdString());
+		ServiceHelper::WriteToLog("Creating session to db " + targetSchema.toStdString());
 
 		
 		db = QSqlDatabase::database(targetSchema);
@@ -304,14 +308,16 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		if (!query.exec())
 		{
 			query.finish();
-			WriteToLog(string("Closing DB Session"));
+			ServiceHelper::WriteToLog(string("Closing DB Session"));
 			throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
 		}
 
 		bool continueLoop = query.next();
 		int count = 0;
 
-		WriteToLog("Updating backend Database with url: " + dbUrl.toStdString());
+		ServiceHelper::WriteToLog("Updating backend Database with url: " + dbUrl.toStdString());
+		
+		ServiceHelper::WriteToCustomLog("Starting network requests", "queries-" + timeStamp[0]);
 		while (continueLoop)
 		{
 			count++;
@@ -320,7 +326,26 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 			
 			if (!testingDBManager) {
 				res["id"] = query.value(0).toString();
-				res["query"] = query.value(2).toString().replace(QRegularExpression("(NOW|CURDATE|CURTIME)+", QRegularExpression::MultilineOption | QRegularExpression::DotMatchesEverythingOption | QRegularExpression::UseUnicodePropertiesOption), "\'" + query.value(3).toString().replace("T", " ") + "\'").replace("()", "");
+				res["query"] = query
+					.value(2)
+					.toString()
+					.replace(
+						QRegularExpression("(NOW|CURDATE|CURTIME)+", 
+							QRegularExpression::MultilineOption | 
+							QRegularExpression::DotMatchesEverythingOption | 
+							QRegularExpression::UseUnicodePropertiesOption
+						), 
+						"\'" + 
+						query
+						.value(3)
+						.toString()
+						.replace("T", " "
+						) + "\'"
+					)
+					.replace(
+						"()", 
+						""
+					);
 				//string str = res["query"].toStdString();
 
 				/*QString::iterator new_end =
@@ -340,9 +365,12 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 				res["id"] = "0";
 				res["query"] = "SHOW TABLES";
 			}
+			res["number"] = QString::number(count);
 			makeNetworkRequest(url, res);
 			continueLoop = testingDBManager ? count < 5 : query.next();
 		}
+		ServiceHelper::WriteToCustomLog("Finished network requests", "queries-" + timeStamp[0]);
+
 		query.clear();
 		query.finish();
 		
@@ -355,7 +383,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 	{
 		if(db.isOpen())
 			db.close();
-		WriteToError("DatabaseManager::connectToRemoteDB has thrown an exception: " + string(e.what()));
+		ServiceHelper::WriteToError("DatabaseManager::connectToRemoteDB has thrown an exception: " + string(e.what()));
 		//connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 		QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 		return 0;
@@ -375,10 +403,10 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 
 		if (!QSqlDatabase::isDriverAvailable(dbtype))
 		{
-			WriteToError((string)("Provided Database Driver is not available"));
+			ServiceHelper::WriteToError((string)("Provided Database Driver is not available"));
 			RegCloseKey(hKey);
-			WriteToError((string)("The following Databases are supported"));
-			WriteToError(checkValidDrivers());
+			ServiceHelper::WriteToError((string)("The following Databases are supported"));
+			ServiceHelper::WriteToError(checkValidDrivers());
 			return 0;
 		}
 
@@ -394,7 +422,7 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 			string pass = GetStrVal(hKey, "Password", REG_SZ);
 
 			//cout << "Pulled the following values from registy: " << server.toUtf8().data() << " " << port << " " << schema.toUtf8().data() << " " << user.toUtf8().data() << " " << (pass != "" ? decodeBase64(pass) : pass.data()) << endl;
-			WriteToLog((string)"Creating session to db");
+			ServiceHelper::WriteToLog((string)"Creating session to db");
 
 		
 			db = QSqlDatabase::addDatabase(dbtype, schema);
@@ -413,14 +441,14 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 
 		if (!db.open())
 		{
-			WriteToError((string)"DB Connection failed to open");
+			ServiceHelper::WriteToError((string)"DB Connection failed to open");
 			db.close();
 			return 0;
 		}
-		WriteToLog((string)"DB Connection successfully opened");
+		ServiceHelper::WriteToLog((string)"DB Connection successfully opened");
 		if (!db.driver()->hasFeature(QSqlDriver::Transactions))
 		{
-			WriteToError((string)"Selected Driver does not support transactions");
+			ServiceHelper::WriteToError((string)"Selected Driver does not support transactions");
 			db.close();
 			return 0;
 		}
@@ -435,7 +463,7 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 		while (continueLoop)
 		{
 			QString res = query.value(0).toString();
-			cout << res.toUtf8().data() << endl;
+			std::cout << res.toUtf8().data() << endl;
 			if (res.toUtf8().data() == schema) {
 				dbFound = true;
 				continueLoop = false;
@@ -447,22 +475,22 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 		}
 		query.clear();
 
-		cout << "Was Target DB Found? " << (dbFound ? "Yes" : "No") << endl;
+		std::cout << "Was Target DB Found? " << (dbFound ? "Yes" : "No") << endl;
 		if (!dbFound) {
-			WriteToLog((string)"Generating Database");
+			ServiceHelper::WriteToLog((string)"Generating Database");
 			QString targetQuery = "CREATE DATABASE " + schema + " CHARACTER SET utf8 COLLATE utf8_general_ci";
 			query.prepare(targetQuery);
 			if (!query.exec()) {
-				WriteToError((string)"Failed to create database");
+				ServiceHelper::WriteToError((string)"Failed to create database");
 			}
 			else {
-				WriteToLog((string)"Successfully created Database");
+				ServiceHelper::WriteToLog((string)"Successfully created Database");
 			}
 
 			while (query.next())
 			{
 				QString res = query.value(0).toString();
-				cout << res.toUtf8().data() << endl;
+				std::cout << res.toUtf8().data() << endl;
 			}
 		}
 
@@ -479,7 +507,7 @@ int DatabaseManager::connectToLocalDB(string& target_app)
 	}
 	catch (exception& e)
 	{
-		WriteToError("DatabaseManager::connectToLocalDB has thrown an exception: " + string(e.what()));
+		ServiceHelper::WriteToError("DatabaseManager::connectToLocalDB has thrown an exception: " + string(e.what()));
 		return 0;
 	}
 	return 1;
@@ -498,8 +526,8 @@ int DatabaseManager::ExecuteTargetSqlScript(string& targetApp, string& filename)
 		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
 			throw HenchmanServiceException("Failed to open target file");
 		}
-		cout << "Successfully opened target file: " << filename << endl;
-		WriteToLog("Successfully opened target file: " + filename);
+		//std::cout << "Successfully opened target file: " << filename << endl;
+		ServiceHelper::WriteToLog("Successfully opened target file: " + filename);
 
 		QTextStream in(&file);
 		QString sql = in.readAll();
@@ -551,7 +579,7 @@ int DatabaseManager::ExecuteTargetSqlScript(string& targetApp, string& filename)
 				db.rollback();
 			db.close();
 		}
-		WriteToError("DatabaseManager::ExecuteTargetSqlScript has thrown an exception: " + string(e.what()));
+		ServiceHelper::WriteToError("DatabaseManager::ExecuteTargetSqlScript has thrown an exception: " + string(e.what()));
 		//return 0;
 	}
 	return successCount;
@@ -610,7 +638,7 @@ int DatabaseManager::ExecuteTargetSql(string& targetApp, string& sqlQuery)
 				db.rollback();
 			db.close();
 		}
-		WriteToError("DatabaseManager::ExecuteTargetSql has thrown an exception: " + string(e.what()));
+		ServiceHelper::WriteToError("DatabaseManager::ExecuteTargetSql has thrown an exception: " + string(e.what()));
 	}
 	return successCount;
 }
@@ -626,27 +654,27 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 
 	if (restReply.error() != QNetworkReply::NoError) {
 		qWarning() << "A Network error has occured: " << restReply.error() << restReply.errorString();
-		WriteToError("A Network error has occured: " + restReply.errorString().toStdString());
+		ServiceHelper::WriteToError("A Network error has occured: " + restReply.errorString().toStdString());
 		goto exit;
 	}
 	if (!restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qWarning() << "A HTTP error has occured: " << status << reason;
-		WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+		ServiceHelper::WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
 	if (restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qDebug() << "Request was successful: " << status << reason;
-		WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
+		ServiceHelper::WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
-	WriteToLog((string)"Parsing Response");
+	ServiceHelper::WriteToLog((string)"Parsing Response");
 	//string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
 	ExecuteTargetSql(targetApp, sqlQuery);
 
 	if (!json) {
-		WriteToError((string)"Recieved empty data or failed to parse JSON.");
+		ServiceHelper::WriteToError((string)"Recieved empty data or failed to parse JSON.");
 		goto exit;
 	}
 
@@ -657,7 +685,7 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 			}
 		}
 
-		WriteToError("Server responded with error: " + errorRes.str());
+		ServiceHelper::WriteToError("Server responded with error: " + errorRes.str());
 	}
 
 	if (response.value()["data"].toArray().count() > 0) {
@@ -667,7 +695,7 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 			}
 
 		}
-		WriteToLog("Server responded with data: " + dataRes.str());
+		ServiceHelper::WriteToLog("Server responded with data: " + dataRes.str());
 	}
 
 exit:

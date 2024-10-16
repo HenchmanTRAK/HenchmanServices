@@ -4,7 +4,7 @@
 
 using namespace std;
 
-long int microseconds() 
+long int ServiceHelper::microseconds()
 {
 	struct timespec tp;
 	timespec_get(&tp, TIME_UTC);
@@ -12,7 +12,7 @@ long int microseconds()
 	return ms;
 }
 
-bool Contain(QString str, QString search)
+bool ServiceHelper::Contain(QString str, QString search)
 {
 	//cout << "searching: " << str.data() << " for: " << search.data() << endl;
 	size_t found = str.toStdString().find(search.toStdString());
@@ -22,7 +22,7 @@ bool Contain(QString str, QString search)
 	return 0;
 }
 
-const char * fileBasename(QString path)
+const char * ServiceHelper::fileBasename(QString path)
 {
 	return path.toStdString().substr(path.toStdString().find_last_of("/\\") + 1).data();
 	// without extension
@@ -30,7 +30,7 @@ const char * fileBasename(QString path)
 	// string file_without_extension = base_filename.substr(0, p);
 }
 
-const char * get_file_contents(const char* filename)
+const char * ServiceHelper::get_file_contents(const char* filename)
 {
 	bool result = false;
 	if (ifstream is{ filename, ios::binary | ios::ate })
@@ -46,7 +46,7 @@ const char * get_file_contents(const char* filename)
 	throw(errno);
 }
 
-const char * GetFileExtension(const QString& FileName)
+const char * ServiceHelper::GetFileExtension(const QString& FileName)
 {
 	if (FileName.toStdString().find_last_of(".") != string::npos)
 		return FileName.toStdString().substr(FileName.toStdString().find_last_of(".") + 1).data();
@@ -73,7 +73,7 @@ const char * GetFileExtension(const QString& FileName)
 //	return output;
 //}
 
-string GetExportsPath(string app_path) 
+string ServiceHelper::GetExportsPath(string app_path)
 {
 	string exportsPath;
 	int _results = 0;
@@ -101,7 +101,7 @@ string GetExportsPath(string app_path)
 	return exportsPath;
 }
 
-string GetLogsPath(string app_path) 
+string ServiceHelper::GetLogsPath(string app_path)
 {
 	string logsPath;
 	int _results = 0;
@@ -129,51 +129,62 @@ string GetLogsPath(string app_path)
 	return logsPath;
 }
 
-void WriteLog(char *targetFile, string log)
+array<string, 2> ServiceHelper::timestamp()
+{
+	time_t timer = time(NULL);
+	struct tm currDateTime = *localtime(&timer);
+	char dateBuf[120];
+	char timeBuf[120];
+	strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
+	strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
+	string date(dateBuf);
+	string time(timeBuf);
+	return { date, time };
+}
+
+void ServiceHelper::WriteLog(char *targetFile, string log)
 {
 	fstream fs(targetFile, ios::out | ios_base::app);
 	if (fs) {
-		time_t timer = time(NULL);
-		struct tm currDateTime = *localtime(&timer);
-		char dateBuf[120];
-		char timeBuf[120];
-		strftime(dateBuf, sizeof(dateBuf), "%F", &currDateTime);
-		strftime(timeBuf, sizeof(timeBuf), "%T", &currDateTime);
-		cout << "---| " << dateBuf << " " << timeBuf << " |--- " << log << endl;
-		fs << "---| " << dateBuf << " " << timeBuf << " |--- " << log << "\n";
+		array dateTime = timestamp();
+		cout << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << log << endl;
+		fs << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << log << endl;
 		fs.close();
 	}
 
 }
 
-void WriteToLog(string log)
+void ServiceHelper::WriteToLog(string log)
 {
+	array dateTime = timestamp();
 	string logDir = GetLogsPath();
-	logDir.append("log.txt");
+	logDir.append(dateTime[0] + "-log.txt");
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
 }
 
-void WriteToError(string log)
+void ServiceHelper::WriteToError(string log)
 {
+	array dateTime = timestamp();
 	string logDir = GetLogsPath().data();
-	logDir.append("error.txt");
+	logDir.append(dateTime[0] + "-error.txt");
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
 }
 
-void WriteToCustomLog(string log, string logName)
+void ServiceHelper::WriteToCustomLog(string log, string logName)
 {
 	string logDir = GetLogsPath();
-	logDir.append(logName+".txt");
+	logDir.append(logName + ".txt");
+	cout << logDir << endl;
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
 }
 
-void sanitize(string& stringValue)
+void ServiceHelper::sanitize(string& stringValue)
 {
 	// Add backslashes.
 	for (auto i = stringValue.begin();;) {
@@ -198,7 +209,7 @@ void sanitize(string& stringValue)
 	);
 }
 
-void removeQuotes(string& stringValue)
+void ServiceHelper::removeQuotes(string& stringValue)
 {
 	// Removes others.
 	stringValue.erase(
