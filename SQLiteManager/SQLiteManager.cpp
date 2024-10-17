@@ -34,7 +34,7 @@ SQLite_Manager::SQLite_Manager(string db_dir, string db_name)
 	catch (exception& e)
 	{
 		//throw e;
-		WriteToError( "SQLiteManager::SQLite_Manager threw an exception : " + string(e.what()));
+		ServiceHelper::WriteToError( "SQLiteManager::SQLite_Manager threw an exception : " + string(e.what()));
 	}
 }
 

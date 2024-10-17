@@ -27,7 +27,7 @@ bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 		iniFile = ini.GetValue("TRAK", "INI_FILE", "");
 		appName = ini.GetValue("TRAK", "EXE_FILE", "");
 		appType = ini.GetValue("TRAK", "APP_NAME", "");
-		WriteToLog("Using " + appDir + iniFile);
+		ServiceHelper::WriteToLog("Using " + appDir + iniFile);
 		return TRUE;
 	}
 	return FALSE;
@@ -35,47 +35,47 @@ bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 
 void TRAKManager::conHenchmanAfterConnect()
 {
-	WriteToLog((string)"Connected to local MYSQL database...");
+	ServiceHelper::WriteToLog((string)"Connected to local MYSQL database...");
 }
 
 void TRAKManager::conHenchmanAfterDisconnect()
 {
-	WriteToLog((string)"Disconnected from local MYSQL database...");
+	ServiceHelper::WriteToLog((string)"Disconnected from local MYSQL database...");
 }
 
 void TRAKManager::conHenchmanConnectionLost()
 {
-	WriteToLog((string)"Lost connection to local MYSQL database...\nretrying...");
+	ServiceHelper::WriteToLog((string)"Lost connection to local MYSQL database...\nretrying...");
 }
 
 void TRAKManager::conHenchmanError(exception& e)
 {
 	stringstream error;
 	error << "Local MYSQL database encountered an error: " << e.what() << "\n";
-	WriteToLog(error.str());
+	ServiceHelper::WriteToLog(error.str());
 	error.clear();
 }
 
 void TRAKManager::conRemoteAfterConnect()
 {
-	WriteToLog((string)"Connected to remote database...");
+	ServiceHelper::WriteToLog((string)"Connected to remote database...");
 }
 
 void TRAKManager::conRemoteAfterDisconnect()
 {
-	WriteToLog((string)"Disconnected from remote database...");
+	ServiceHelper::WriteToLog((string)"Disconnected from remote database...");
 }
 
 void TRAKManager::conRemoteConnectionLost()
 {
-	WriteToLog((string)"Lost connection to remote database...\nretrying...");
+	ServiceHelper::WriteToLog((string)"Lost connection to remote database...\nretrying...");
 }
 
 void TRAKManager::conRemoteError(exception& e)
 {
 	stringstream error;
 	error << "Remote database encountered an error: " << e.what() << "\n";
-	WriteToLog(error.str());
+	ServiceHelper::WriteToLog(error.str());
 	error.clear();
 }
 
@@ -92,7 +92,7 @@ const {
 			string key = val.pItem;
 			string value = iniFile.GetValue(section.data(), val.pItem, "");
 			//sanitize(value);
-			removeQuotes(value);
+			ServiceHelper::removeQuotes(value);
 			if (key == "Password" && value != "")
 				value = QByteArray(value.data()).toBase64();
 			/*GetStrVal(hKey, key.data(), REG_SZ);
@@ -112,7 +112,7 @@ const {
 	}
 	catch (exception& e)
 	{
-		WriteToError("An error occurred: " + string(e.what()));
+		ServiceHelper::WriteToError("An error occurred: " + string(e.what()));
 	}
 	keys.clear();
 	map.clear();
@@ -144,11 +144,11 @@ void TRAKManager::CreateDataModule()
 			WriteToError("No TRAK application could be found");
 			return;
 		}*/
-		WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
+		ServiceHelper::WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
 	}
 	catch (exception& e)
 	{
-		WriteToError("TRAKManager::CreateDataModule thrw an exception: " + string(e.what()));
+		ServiceHelper::WriteToError("TRAKManager::CreateDataModule thrw an exception: " + string(e.what()));
 		return;
 	}
 	
@@ -162,13 +162,13 @@ void TRAKManager::CreateDataModule()
 			throw HenchmanServiceException("Failed to Load INI File: " + appDir + iniFile);
 		}
 		
-		WriteToLog((string)"Adding Cloud entries to registry");
+		ServiceHelper::WriteToLog((string)"Adding Cloud entries to registry");
 		string section = "Cloud";
 		saveINIToRegistry(ini, section);
-		WriteToLog((string)"Adding Database entries to registry");
+		ServiceHelper::WriteToLog((string)"Adding Database entries to registry");
 		section = "Database";
 		saveINIToRegistry(ini, section);
-		WriteToLog((string)"Adding Customer entries to registry");
+		ServiceHelper::WriteToLog((string)"Adding Customer entries to registry");
 		section = "Customer";
 		saveINIToRegistry(ini, section);
 
@@ -180,7 +180,7 @@ void TRAKManager::CreateDataModule()
 	}
 	catch (exception &e)
 	{
-		WriteToError("TRAKManager::CreateDataModule thrw an exception: " + string(e.what()));
+		ServiceHelper::WriteToError("TRAKManager::CreateDataModule thrw an exception: " + string(e.what()));
 	}
 
 }

@@ -118,7 +118,7 @@ static bool ProcessExists(string& exeFileName)
 		transform(targetEXE.begin(), targetEXE.end(), targetEXE.begin(), ::toupper);
 		string processEXE = QString::fromWCharArray(ProcessEntry32.szExeFile).toStdString();
 		transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
-		string processEXEFileName = fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile));
+		string processEXEFileName = ServiceHelper::fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile));
 		transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
 		//WriteToLog("Checking if target exe: " + targetEXE + " is process: " + processEXEFileName);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
@@ -158,7 +158,7 @@ static int ShellExecuteApp(string appName, string params)
 	string StartInString;
 
 	if (!filesystem::exists(appName)) {
-		WriteToError("Could not find Target EXE: " + appName);
+		ServiceHelper::WriteToError("Could not find Target EXE: " + appName);
 		return 0;
 	}
 
@@ -180,7 +180,7 @@ static int ShellExecuteApp(string appName, string params)
 		//do {
 			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
 			exitCodeMessage << "Target: " << exeFile << " return exit code : " << ExitCode;
-			WriteToLog(exitCodeMessage.str());
+			ServiceHelper::WriteToLog(exitCodeMessage.str());
 			exitCodeMessage.clear();
 		//} while (ExitCode != STILL_ACTIVE);
 		return 1;
@@ -659,7 +659,7 @@ void __stdcall DoStopSvc(const char* sService)
 		}
 	}
 	printf("Service stopped successfully\n");
-	WriteToLog("Service has stopped");
+	ServiceHelper::WriteToLog("Service has stopped");
 stop_cleanup:
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
@@ -1035,7 +1035,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 		
 		service.MainFunction();
 
-		WriteToLog("Waiting for QT to finish execution...");
+		ServiceHelper::WriteToLog("Waiting for QT to finish execution...");
 		//service.dbManager->performCleanup();
 		//a->
 		/*if(!service.dbManager->requestRunning && !testing)
@@ -1043,7 +1043,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 		if(!service.dbManager->requestRunning && testing)
 			QTimer::singleShot(1000, a, &QCoreApplication::quit);*/
 		//a->exec();
-		WriteToLog("Service sleeping for 30000 ms...");
+		ServiceHelper::WriteToLog("Service sleeping for 30000 ms...");
 		if (!testing)
 			Sleep(30000);
 		else
@@ -1347,7 +1347,7 @@ vector<string> HenchmanService::Explode(const string& Seperator, string& s, int&
 	}
 	catch (exception& e)
 	{
-		WriteToError("HenchmanService::Explode threw exception: " + (string)e.what());
+		ServiceHelper::WriteToError("HenchmanService::Explode threw exception: " + (string)e.what());
 	}
 	return results;
 }
@@ -1368,7 +1368,7 @@ bool HenchmanService::setMailLogin(string& username, string& password) {
 	}
 	catch (exception& e)
 	{
-		WriteToError("HenchmanService::setMailLogin threw exception: " + (string)e.what());
+		ServiceHelper::WriteToError("HenchmanService::setMailLogin threw exception: " + (string)e.what());
 		return false;
 	}
 	return true;
@@ -1906,7 +1906,7 @@ int HenchmanService::SetRequiredParameters()
 	{
 		string key = val.pItem;
 		string value = ini.GetValue("WAMP", val.pItem, "");
-		removeQuotes(value);
+		ServiceHelper::removeQuotes(value);
 
 		GetStrVal(hKey, key.data(), REG_SZ);
 		SetStrVal(hKey, key.data(), value, REG_SZ);
@@ -1920,7 +1920,7 @@ int HenchmanService::SetRequiredParameters()
 	{
 		string key = val.pItem;
 		string value = ini.GetValue("TRAK", val.pItem, "");
-		removeQuotes(value);
+		ServiceHelper::removeQuotes(value);
 
 		GetStrVal(hKey, key.data(), REG_SZ);
 		SetStrVal(hKey, key.data(), value, REG_SZ);
@@ -1984,30 +1984,30 @@ int HenchmanService::MainFunction()
 	//SQLiteM.ToggleConsoleLogging();
 
 	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	WriteToLog("Checking for Local MYSQL service...");
+	ServiceHelper::WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = GetSvcStatus("wampmysqld64");
 	string mysql_dir = GetStrVal(hKey, "MySQL_DIR", REG_SZ);
 	try {
 		//std::cout << mysql_dir << endl;
 		switch (wampMySQLSvcStatus) {
 		case -1: {
-			WriteToError("MySQL Service errored with unknown error");
+			ServiceHelper::WriteToError("MySQL Service errored with unknown error");
 			//throw HenchmanServiceException("MySQL Service errored with unknown error");
 			/*if(ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
 				WriteToLog("Removed Local MYSQL service...");*/
 			if (!ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install-manual wampmysqld64"))
 				throw HenchmanServiceException("Failed to install Local MYSQL service");
-			WriteToLog("Local MYSQL service installed...");
+			ServiceHelper::WriteToLog("Local MYSQL service installed...");
 			if (!StartTargetSvc("wampmysqld64"))
 				throw HenchmanServiceException("Failed to start Local MYSQL service");
-			WriteToLog("Local MYSQL Service Started");
+			ServiceHelper::WriteToLog("Local MYSQL Service Started");
 			break;
 
 		}
 		case 1: {
-			WriteToLog("Local MYSQL Service has stopped...");
+			ServiceHelper::WriteToLog("Local MYSQL Service has stopped...");
 			if (StartTargetSvc("wampmysqld64"))
-				WriteToLog("Successfully Restarted Local MYSQL Service");
+				ServiceHelper::WriteToLog("Successfully Restarted Local MYSQL Service");
 			else {
 				throw HenchmanServiceException("Failed to start Local MYSQL service");
 				//WriteToLog("Failed to start Local MYSQL Service...");
@@ -2017,19 +2017,19 @@ int HenchmanService::MainFunction()
 			break;
 		}
 		default: {
-			WriteToLog("Local MYSQL Service has not stopped or errored \nIt returned with status code: " + wampMySQLSvcStatus);
+			ServiceHelper::WriteToLog("Local MYSQL Service has not stopped or errored \nIt returned with status code: " + wampMySQLSvcStatus);
 			break;
 		}
 		}
 	}
 	catch (exception& e) 
 	{
-		WriteToError("HenchmanService::MainFunction threw exception in wampMySQLSvcThread: " + (string)e.what());
+		ServiceHelper::WriteToError("HenchmanService::MainFunction threw exception in wampMySQLSvcThread: " + (string)e.what());
 		if (ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
-			WriteToLog("Removed Local MYSQL service...");
+			ServiceHelper::WriteToLog("Removed Local MYSQL service...");
 	}
 
-	WriteToLog("Checking for Local Apache service...");
+	ServiceHelper::WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = GetSvcStatus("wampapache64");
 	string apache_dir = GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	try {
@@ -2038,16 +2038,16 @@ int HenchmanService::MainFunction()
 
 		switch (wampApacheSvcStatus) {
 		case -1: {
-			WriteToError("Apache Service errored with unknown error");
+			ServiceHelper::WriteToError("Apache Service errored with unknown error");
 			/*if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
 				WriteToLog("Apache Service stopped...");
 			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
 				WriteToLog("Apache Service uninstalled...");*/
 			if (!ShellExecuteApp(apache_dir + "\\httpd.exe", " -k install -n wampapache64"))
 				throw HenchmanServiceException("Failed to install Apache service");
-			WriteToLog("Apache Service installed...");
+			ServiceHelper::WriteToLog("Apache Service installed...");
 			if (StartTargetSvc("wampapache64"))
-				WriteToLog("Apache Services started...");
+				ServiceHelper::WriteToLog("Apache Services started...");
 			else {
 				throw HenchmanServiceException("Failed to start Apache service");
 			}
@@ -2055,9 +2055,9 @@ int HenchmanService::MainFunction()
 
 		}
 		case 1: {
-			WriteToLog("Apache Service has stopped...");
+			ServiceHelper::WriteToLog("Apache Service has stopped...");
 			if (StartTargetSvc("wampapache64"))
-				WriteToLog("Successfully Restarted Apache Service");
+				ServiceHelper::WriteToLog("Successfully Restarted Apache Service");
 			else {
 				throw HenchmanServiceException("Failed to start Apache Service");
 				/*WriteToLog("Failed to start Apache Service...");
@@ -2069,7 +2069,7 @@ int HenchmanService::MainFunction()
 			break;
 		}
 		default: {
-			WriteToLog("Apache Service has not stopped or errored \nIt returned with status code: " + wampApacheSvcStatus);
+			ServiceHelper::WriteToLog("Apache Service has not stopped or errored \nIt returned with status code: " + wampApacheSvcStatus);
 			/*if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
 				WriteToLog("Apache Service stopped...");
 			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
@@ -2079,18 +2079,18 @@ int HenchmanService::MainFunction()
 		}
 	}
 	catch (exception& e) {
-		WriteToError("HenchmanService::MainFunction threw exception in wampApacheSvcThread: " + (string)e.what());
+		ServiceHelper::WriteToError("HenchmanService::MainFunction threw exception in wampApacheSvcThread: " + (string)e.what());
 		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
-			WriteToLog("Apache Service stopped...");
+			ServiceHelper::WriteToLog("Apache Service stopped...");
 		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
-			WriteToLog("Apache Service uninstalled...");
+			ServiceHelper::WriteToLog("Apache Service uninstalled...");
 	}
 
 	RegCloseKey(hKey);
 	
 	if (!dbManager->isInternetConnected())
 	{
-		WriteToLog("Failed to confirm network connection");
+		ServiceHelper::WriteToLog("Failed to confirm network connection");
 		return 0;
 	}
 
@@ -2102,14 +2102,14 @@ int HenchmanService::MainFunction()
 
 	TrakM.CreateDataModule();
 
-	WriteToLog("Checking if TRAK is Running");
+	ServiceHelper::WriteToLog("Checking if TRAK is Running");
 	if (!ProcessExists(TrakM.appName)) {
-		WriteToError("TRAK process is not running");
+		ServiceHelper::WriteToError("TRAK process is not running");
 		string targetExe = TrakM.appDir + TrakM.appName;
-		WriteToLog("TRAK process not running, starting with path: " + targetExe);
+		ServiceHelper::WriteToLog("TRAK process not running, starting with path: " + targetExe);
 		if (!ShellExecuteApp(targetExe, ""))
 		{
-			WriteToError("Failed to start " + targetExe);
+			ServiceHelper::WriteToError("Failed to start " + targetExe);
 		}
 	}
 
@@ -2122,7 +2122,7 @@ int HenchmanService::MainFunction()
 
 	dbManager->connectToRemoteDB(TrakM.appType);
 
-	WriteToLog("Performing Cleanup");
+	//WriteToLog("Performing Cleanup");
 	//dbManager->deleteLater();
 	//dbManager = nullptr;
 	
