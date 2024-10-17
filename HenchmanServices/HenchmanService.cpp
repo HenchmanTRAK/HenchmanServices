@@ -1042,12 +1042,13 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 			QTimer::singleShot(30000, a, &QCoreApplication::quit);
 		if(!service.dbManager->requestRunning && testing)
 			QTimer::singleShot(1000, a, &QCoreApplication::quit);*/
-		//a->exec();
+		
+		a->exec();
 		ServiceHelper::WriteToLog("Service sleeping for 30000 ms...");
 		if (!testing)
 			Sleep(30000);
 		else
-			Sleep(5000);
+			Sleep(5);
 	
 	}
 	delete a;
@@ -2091,6 +2092,7 @@ int HenchmanService::MainFunction()
 	if (!dbManager->isInternetConnected())
 	{
 		ServiceHelper::WriteToLog("Failed to confirm network connection");
+		QTimer::singleShot(100, a, &QCoreApplication::quit);
 		return 0;
 	}
 
@@ -2134,7 +2136,8 @@ int HenchmanService::MainFunction()
 	}
 	delete runTrak;*/
 	
-	return a->exec();
+	//return a->exec();
+	return 0;
 }
 
 int main(int argc, char* argv[])
