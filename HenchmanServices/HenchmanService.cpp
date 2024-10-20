@@ -1057,6 +1057,40 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	return ERROR_SUCCESS;
 }
 
+void setContextMenuCommands(string verb, string command)
+{
+	string verbName = verb;
+	std::erase(verbName, ' ');
+	HKEY hKey = OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+verbName));
+	SetStrVal(hKey, "MUIVerb", verb, REG_SZ);
+	RegCloseKey(hKey);
+	hKey = OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+ verbName +"\\command"));
+	SetStrVal(hKey, "", command, REG_SZ);
+	RegCloseKey(hKey);
+}
+
+void setContextMenu(string installDir)
+{
+	HKEY hKey = OpenKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
+	SetStrVal(hKey, "MUIVerb", "HenchmanService", REG_SZ);
+	SetStrVal(hKey, "ExtendedSubCommandsKey", string(SERVICE_NAME), REG_SZ);
+	SetStrVal(hKey, "Extended", "", REG_SZ);
+	SetStrVal(hKey, "AppliesTo", string("System.ItemName:\"").append(SERVICE_NAME).append(".exe\""), REG_SZ);
+
+	RegCloseKey(hKey);
+
+	setContextMenuCommands("Start Service", "\"" + installDir + "\\HenchmanService.exe\" \"--start\" \"%1\"");
+	setContextMenuCommands("Stop Service", "\"" + installDir + "\\HenchmanService.exe\" \"--stop\" \"%1\"");
+	setContextMenuCommands("Install Service", "\"" + installDir + "\\HenchmanService.exe\" \"--install\" \"%1\"");
+	setContextMenuCommands("Remove Service", "\"" + installDir + "\\HenchmanService.exe\" \"--remove\" \"%1\"");
+
+}
+
+void removeContextMenu()
+{
+	RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
+}
+
 static int RunAsService(int argc, char* argv[])
 {
 	if (lstrcmpiA(argv[1], "--install") == 0)
@@ -1076,6 +1110,7 @@ static int RunAsService(int argc, char* argv[])
 			SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
 		}
 		RegCloseKey(hKey);
+		setContextMenu(installDir);
 		DoInstallSvc();
 		//getchar();
 		Sleep(1000);
@@ -1087,6 +1122,7 @@ static int RunAsService(int argc, char* argv[])
 	{
 		DoStopSvc();
 		DoDeleteSvc();
+		removeContextMenu();
 		getchar();
 		return 0;
 	}
@@ -1145,12 +1181,13 @@ static int RunAsServiceTest(int argc, char* argv[])
 			SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
 		}
 		RegCloseKey(hKey);
-		//DoInstallSvc();
+		setContextMenu(installDir);
 		std::cout << "Installing..." << endl;
+		//DoInstallSvc();
 		//getchar();
 		Sleep(1000);
-		//ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", "--start");
 		std::cout << "Starting..." << endl;
+		//ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", "--start");
 		//getchar();
 		//return 0;
 	}
@@ -1161,6 +1198,7 @@ static int RunAsServiceTest(int argc, char* argv[])
 		//DoDeleteSvc();
 		std::cout << "stopping..." << endl;
 		std::cout << "removing..." << endl;
+		removeContextMenu();
 		getchar();
 		return 0;
 	}
@@ -1359,7 +1397,8 @@ vector<string> HenchmanService::Explode(const string& Seperator, string& s)
 	return Explode(Seperator, s, limit);
 }
 
-bool HenchmanService::setMailLogin(string& username, string& password) {
+bool HenchmanService::setMailLogin(string& username, string& password) 
+{
 	try {
 		if (username.length() <= 1 || password.length() <= 1) {
 			throw HenchmanServiceException("No SMTP email or password provided.");
@@ -2142,6 +2181,9 @@ int HenchmanService::MainFunction()
 
 int main(int argc, char* argv[])
 {
+
+	//std::cout << argc << ":" << argv[1] << endl;
+
 	CSimpleIniA ini;
 
 	SI_Error rc = ini.LoadFile(".\\service.ini");

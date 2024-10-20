@@ -9,6 +9,8 @@
 #include <Windows.h>
 HKEY OpenKey(HKEY hRootKey, std::string strKey);
 
+int RemoveKey(HKEY hRootKey, std::string strKey);
+
 void SetStrVal(HKEY &hKey, const char* lpValue, std::string data, DWORD type);
 
 void SetVal(HKEY &hKey, const char* lpValue, DWORD data, DWORD type);

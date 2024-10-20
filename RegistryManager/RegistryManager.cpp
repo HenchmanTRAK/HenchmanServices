@@ -22,6 +22,15 @@ HKEY OpenKey(HKEY hRootKey, string strKey)
 	return hKey;
 }
 
+int RemoveKey(HKEY hRootKey, string strKey)
+{
+	//string strKey = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\" + SERVICE_NAME;
+	//cout << strKey << endl;
+	LONG nError = RegDeleteKeyA(hRootKey, strKey.data());
+
+	return nError;
+}
+
 void SetStrVal(HKEY &hKey, const char * lpValue, string data, DWORD type)
 {
 	LONG nError = RegSetValueExA(hKey, lpValue, NULL, type, (LPBYTE)data.c_str(), data.size() + 1);
