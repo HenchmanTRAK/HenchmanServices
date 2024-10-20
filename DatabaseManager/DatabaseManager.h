@@ -3,18 +3,15 @@
 #pragma once
 
 
+#include <iostream>
 #include <optional>
-#include <string>
-#include <vector>
-//#include <mysql/jdbc.h>
-//#include <mysqlx/xdevapi.h>
 
 #include <QObject>
 #include <QString>
-#include <QSqlQueryModel>
+//#include <QSqlQueryModel>
 #include <QSqlDatabase>
 #include <QSqlDriver>
-#include <QSqlRecord>
+//#include <QSqlRecord>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QFile>
@@ -22,9 +19,10 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QHttpMultiPart>
-#include <QHttpPart>
+//#include <QHttpPart>
 #include <QNetworkAccessManager>
 #include <QRestAccessManager>
+#include <QNetworkReply>
 #include <QRestReply>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -153,5 +151,8 @@ private:
 
     void makeNetworkRequest(QUrl &url, QMap<QString, QString> &query);
 };
+
+static std::string parseArray(QJsonArray array);
+static std::string parseObject(QJsonObject object);
 
 #endif
