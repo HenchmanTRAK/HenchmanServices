@@ -1057,7 +1057,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	return ERROR_SUCCESS;
 }
 
-void setContextMenuCommands(string verb, string command)
+static void setContextMenuCommands(string verb, string command)
 {
 	string verbName = verb;
 	std::erase(verbName, ' ');
@@ -1069,7 +1069,7 @@ void setContextMenuCommands(string verb, string command)
 	RegCloseKey(hKey);
 }
 
-void setContextMenu(string installDir)
+static void setContextMenu(string installDir)
 {
 	HKEY hKey = OpenKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
 	SetStrVal(hKey, "MUIVerb", "HenchmanService", REG_SZ);
@@ -1086,7 +1086,7 @@ void setContextMenu(string installDir)
 
 }
 
-void removeContextMenu()
+static void removeContextMenu()
 {
 	RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
 }

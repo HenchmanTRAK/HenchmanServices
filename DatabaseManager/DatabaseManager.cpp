@@ -169,7 +169,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 	data["sql"] = query["query"];	
 	QJsonDocument doc(data);
 
-	ServiceHelper::WriteToCustomLog("Running query number: " + query["number"].toStdString() + " \n query: " + doc.toJson().toStdString(), "queries-" + timeStamp[0]);
+	ServiceHelper::WriteToCustomLog("Running query number: " + query["number"].toStdString() + " \n query: " + doc.toJson().toStdString(), timeStamp[0]+ "-queries");
 
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, query](QRestReply& reply) {
 		std::cout << "networkrequested" << endl;
@@ -215,7 +215,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 		else if (json->isObject())
 			parsedVal = parseObject(json->object());
 
-		ServiceHelper::WriteToCustomLog("Webportal response: " + parsedVal, "queries-" + timeStamp[0]);
+		ServiceHelper::WriteToCustomLog("Webportal response: " + parsedVal, timeStamp[0] + "-queries");
 		ServiceHelper::WriteToLog("Server responded with: \n" + parsedVal);
 
 		if (reply.isSuccess())
@@ -224,7 +224,7 @@ void  DatabaseManager::makeNetworkRequest(QUrl &url, QMap<QString, QString> &que
 			string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + query["id"].toStdString();
 				//+ " ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
 			if (!testingDBManager) {
-				ServiceHelper::WriteToCustomLog("Updating query with id: " + query["id"].toStdString(), "queries-" + timeStamp[0]);
+				ServiceHelper::WriteToCustomLog("Updating query with id: " + query["id"].toStdString(), timeStamp[0] + "-queries");
 				ExecuteTargetSql(targetApp, sqlQuery);
 			}
 		}
@@ -316,8 +316,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 		int count = 0;
 
 		ServiceHelper::WriteToLog("Updating backend Database with url: " + dbUrl.toStdString());
-		
-		ServiceHelper::WriteToCustomLog("Starting network requests", "queries-" + timeStamp[0]);
+		ServiceHelper::WriteToCustomLog("Starting network requests to: " + dbUrl.toStdString(), timeStamp[0] + "-queries");
 		while (continueLoop)
 		{
 			count++;
@@ -369,7 +368,7 @@ int DatabaseManager::connectToRemoteDB (string &target_app)
 			makeNetworkRequest(url, res);
 			continueLoop = testingDBManager ? count < 5 : query.next();
 		}
-		ServiceHelper::WriteToCustomLog("Finished network requests", "queries-" + timeStamp[0]);
+		ServiceHelper::WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
 
 		query.clear();
 		query.finish();
