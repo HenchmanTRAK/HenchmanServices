@@ -11,6 +11,7 @@ QCoreApplication* a;
 
 bool testing = false;
 
+
 // ShowCerts - Prints out the given certificate.
 /*
 static string ShowCerts(SSL* ssl)
@@ -2158,8 +2159,14 @@ int HenchmanService::MainFunction()
 
 	//string sqlFile = TrakM.appDir + "database\\kabtraktest1_20170111.sql";
 	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
-	//sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\cloudupdate.sql";
-	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
+	/*cout << "running tools" << endl;
+	string sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\tools.sql";
+	dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);*/
+	
+	string query = "SELECT * from tools ORDER BY id ASC";
+	//vector results = dbManager->ExecuteTargetSql(TrakM.appType, query);
+	//string query = "SELECT * from tools";
+	dbManager->AddToolsIfNotExists("http://localhost/webapi/public/api/portals/exec_query", query);
 
 	dbManager->connectToRemoteDB(TrakM.appType);
 

@@ -11,7 +11,7 @@
 //#include <QSqlQueryModel>
 #include <QSqlDatabase>
 #include <QSqlDriver>
-//#include <QSqlRecord>
+#include <QSqlRecord>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QFile>
@@ -117,11 +117,14 @@ public:
     *
     * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
     */
-    int ExecuteTargetSql(std::string& targetApp, std::string& sqlQuery);
+    //int ExecuteTargetSql(std::string& targetApp, std::string& sqlQuery);
+    std::vector<QMap<QString, QString>> ExecuteTargetSql(std::string& targetApp, std::string sqlQuery);
 
     bool isInternetConnected();
 
     void performCleanup();
+
+    int AddToolsIfNotExists(std::string url, std::string query);
 
 public slots:
     /**
@@ -148,8 +151,9 @@ private:
     QString apiUsername = "";
     QString apiPassword = "";
     QString apiUrl = "";
+    int lastToolID;
 
-    void makeNetworkRequest(QUrl &url, QMap<QString, QString> &query);
+    int makeNetworkRequest(QString &url, QMap<QString, QString> &query, QJsonDocument& results);
 };
 
 static std::string parseArray(QJsonArray array);
