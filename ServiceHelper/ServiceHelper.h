@@ -19,9 +19,16 @@
 //
 //char* decodeBase64(std::string string);
 
-// String Sanatizer provided by Simple on Stackoverflow
-// https://stackoverflow.com/a/34221488
-
+/**
+ * @class ServiceHelper
+ * @brief The ServiceHelper class provides various utility functions for logging, error handling,
+ * file operations, string manipulation and	more.
+ *
+ * The ServiceHelper class is used throughout the HenchmanService application, and doesn't service any specific functionality outside of holding a collection of non-specific utility functions.
+ *
+ * @author Willem Swanepoel
+ * @version 1.0
+ */
 class ServiceHelper
 {
 public:
@@ -48,6 +55,8 @@ public:
 
 	static const char* GetFileExtension(const QString& FileName);
 
+	// String Sanatizer provided by Simple on Stackoverflow
+	// https://stackoverflow.com/a/34221488
 	static void sanitize(std::string& stringValue);
 
 	static void removeQuotes(std::string& stringValue);

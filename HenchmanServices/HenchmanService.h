@@ -155,10 +155,13 @@ const char MimeTypes[][2][128] = {
 
 /**
 * @class HenchmanService
-* @brief Main Service for HenchmanTRAK Entry Point.
+* @brief The HenchmanService class is the main entry point and controller for the Henchman Service.
 *
 * This class has the role of installing, controlling and managing the HenchmanService.
 *
+* @author Willem Swanepoel
+* @version 1.0
+* 
 * @details
 *
 * The `HenchmanService` class has the following members:

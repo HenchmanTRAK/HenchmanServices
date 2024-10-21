@@ -41,13 +41,13 @@
 
 
 /**
-* The DatabaseManager class is responsible for managing database connections and executing SQL queries.
+* @class DatabaseManager
+* @brief The DatabaseManager class is responsible for managing database connections and executing SQL queries.
 *
 * This class provides methods for connecting to both remote and local databases, as well as executing SQL scripts and queries.
 *
-* @class DatabaseManager
 * @author Willem Swanepoel
-* @version 1
+* @version 1.0
 */
 class DatabaseManager : public QObject
 {
@@ -108,22 +108,44 @@ public:
     int ExecuteTargetSqlScript(std::string& targetApp, std::string& filename);
 
     /**
-    * Executes a SQL query on a local database.
-    *
-    * @param targetApp - The name of the target application.
-    * @param sqlQuery - The SQL query to execute.
-    *
-    * @return Returns the number of SQL statements successfully executed. Returns 0 if the connection to the local database is invalid.
-    *
-    * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
+     * Executes a SQL query on a local database and returns the results as a vector of QMap objects.
+     *
+     * This function connects to a local database, executes the given SQL query, and returns the results as a vector of QMap objects.
+     * Each QMap object represents a row in the query result and contains the column names as keys and the corresponding values as values.
+     *
+     * @param targetApp - The name of the target application.
+     * @param sqlQuery - The SQL query to execute.
+     *
+     * @return Returns a vector of QMap objects representing the query results. Each QMap object contains the column names as keys and the corresponding values as values.
+     *
+     * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
     */
-    //int ExecuteTargetSql(std::string& targetApp, std::string& sqlQuery);
     std::vector<QMap<QString, QString>> ExecuteTargetSql(std::string& targetApp, std::string sqlQuery);
 
+    /**
+     * Checks if the internet connection is available by attempting to connect to www.google.com on port 80.
+     *
+     * This function creates a QTcpSocket object, connects to www.google.com on port 80, and waits for the connection to be established.
+     * If the connection is successful within the specified timeout, the function returns true. Otherwise, it returns false.
+     *
+     * @return Returns true if the internet connection is available, otherwise returns false.
+     *
+     * @throws None
+    */
     bool isInternetConnected();
 
     void performCleanup();
 
+    /**
+     * Adds tools to the database if they do not already exist.
+     *
+     * This function retrieves a list of tools from the local database and checks if each tool already exists on the remote database.
+     * If a tool does not exist, it is inserted into the remote database using an SQL query.
+     *
+     * @return Returns 0 if the function completes successfully, otherwise returns an error code.
+     *
+     * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+    */
     int AddToolsIfNotExists(std::string url, std::string query);
 
 public slots:
@@ -153,10 +175,31 @@ private:
     QString apiUrl = "";
     int lastToolID;
 
+    /**
+     * Sends a network request to the specified URL with the provided query data and stores the response in the results QJsonDocument.
+     *
+     * @param url The URL to send the network request to.
+     * @param query The query data to be sent in the request.
+     * @param results The QJsonDocument to store the response in.
+     *
+     * @return Returns 1 if the network request was successful, otherwise returns 0.
+     *
+     * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
+    */
     int makeNetworkRequest(QString &url, QMap<QString, QString> &query, QJsonDocument& results);
 };
 
+/**
+    * Parses a QJsonArray into a string representation.
+    *
+    * @param array The QJsonArray to be parsed.
+    *
+    * @return The string representation of the QJsonArray.
+    *
+    * @throws None.
+*/
 static std::string parseArray(QJsonArray array);
+
 static std::string parseObject(QJsonObject object);
 
 #endif
