@@ -1087,151 +1087,6 @@ static void removeContextMenu()
 	RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
 }
 
-static int RunAsService(int argc, char* argv[])
-{
-	if (lstrcmpiA(argv[1], "--install") == 0)
-	{
-		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-		char buff[MAX_PATH];
-		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-		//buff[byteLength + 1] = '\0';
-		//string currDir = buff;
-		//currDir.resize(byteLength);
-		string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-		//struct stat buffer;
-		if (installDir == "" || installDir != buff)
-		{
-			installDir = buff;
-			std::cout << installDir << endl;
-			SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
-		}
-		RegCloseKey(hKey);
-		setContextMenu(installDir);
-		DoInstallSvc();
-		//getchar();
-		Sleep(1000);
-		ShellExecuteApp(installDir+"\\"+SERVICE_NAME + ".exe", "--start");
-		return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--remove") == 0)
-	{
-		DoStopSvc();
-		DoDeleteSvc();
-		removeContextMenu();
-		getchar();
-		return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--start") == 0)
-	{
-		DoStartSvc();
-		return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--stop") == 0)
-	{
-		DoStopSvc();
-		return 0;
-	}
-
-	SERVICE_TABLE_ENTRYA ServiceTable[] =
-	{
-		{(char *)SERVICE_NAME, (LPSERVICE_MAIN_FUNCTIONA)SvcMain},
-		{NULL, NULL}
-	};
-
-	if (!StartServiceCtrlDispatcherA(ServiceTable))
-	{
-		std::cout << "Failed to find Registered Service Controller." << std::endl;
-		std::cout << "Press enter to install service or hit CTRL+C to exit..." << std::endl;
-		int c = getchar();
-		if (c == '\n' || c == EOF)
-			ShellExecuteApp(string(SERVICE_NAME) + ".exe", "--install");
-		std::cout << "Press any key to exit..." << endl;
-		/*SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
-		ErrorMessage(TEXT("GetProcessId"));*/
-		return 0;
-	}
-
-	return 0;
-}
-
-static int RunAsServiceTest(int argc, char* argv[])
-{
-	if (lstrcmpiA(argv[1], "--install") == 0 || testing)
-	{
-		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-		char buff[MAX_PATH];
-		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-		//buff[byteLength + 1] = '\0';
-		//string currDir = buff;
-		//currDir.resize(byteLength);
-		string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-		/*struct stat buffer;*/
-		if (installDir == "" || installDir != buff)
-		{
-			installDir = buff;
-			installDir.resize(byteLength);
-			std::cout << installDir << endl;
-			SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
-		}
-		RegCloseKey(hKey);
-		setContextMenu(installDir);
-		std::cout << "Installing..." << endl;
-		//DoInstallSvc();
-		//getchar();
-		Sleep(1000);
-		std::cout << "Starting..." << endl;
-		//ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", "--start");
-		//getchar();
-		//return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--remove") == 0)
-	{
-		//DoStopSvc();
-		//DoDeleteSvc();
-		std::cout << "stopping..." << endl;
-		std::cout << "removing..." << endl;
-		removeContextMenu();
-		getchar();
-		return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--start") == 0)
-	{
-		//DoStartSvc();
-		std::cout << "starting..." << endl;
-		return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--stop") == 0)
-	{
-		//DoStopSvc();
-		std::cout << "stopping..." << endl;
-		return 0;
-	}
-	//a = new QCoreApplication(argc, argv);
-
-	SvcMain(argc, argv);
-	//SERVICE_TABLE_ENTRYA ServiceTable[] =
-	//{
-	//	{string(SERVICE_NAME).data(), (LPSERVICE_MAIN_FUNCTIONA)SvcMain},
-	//	{NULL, NULL}
-	//};
-
-	//if (!StartServiceCtrlDispatcherA(ServiceTable))
-	//{
-	//	std::cout << "StartServiceCtrlDispatcher Failed" << std::endl;
-	//	/*SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
-	//	ErrorMessage(TEXT("GetProcessId"));*/
-	//	return 0;
-	//}
-	return 0;
-	//return a->exec();
-}
-
 //HenchmanService::HenchmanService()
 //{
 //
@@ -2191,13 +2046,6 @@ int main(int argc, char* argv[])
 		
 	}
 
-	if (lstrcmpiA(argv[1], "--stop") == 0)
-	{
-		//DoStopSvc();
-		std::cout << "stopping..." << endl;
-		return 0;
-	}
-
 	if (lstrcmpiA(argv[1], "--remove") == 0)
 	{
 		if (!testing) {
@@ -2209,7 +2057,7 @@ int main(int argc, char* argv[])
 			std::cout << "removing..." << endl;
 		}
 		removeContextMenu();
-		getchar();
+		int c = getchar();
 		return 0;
 	}
 
@@ -2228,6 +2076,7 @@ int main(int argc, char* argv[])
 			DoStopSvc();
 		else
 			std::cout << "stopping..." << endl;
+		int c = getchar();
 		return 0;
 	}
 

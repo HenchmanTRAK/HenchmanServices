@@ -214,10 +214,10 @@ class HenchmanService {
     std::string mail_username = "";
     std::string mail_password = "";
 
-	static clock_t tmr1;
+	/*static clock_t tmr1;
 	static clock_t tmrkabTRAK;
 	static clock_t tmrcribTRAK;
-	static clock_t tmrPortaTRAK;
+	static clock_t tmrPortaTRAK;*/
 
 	/*SOCKET mailSocket = INVALID_SOCKET;
 	struct addrinfo* mailAddrInfo = nullptr;
@@ -225,10 +225,10 @@ class HenchmanService {
 	SSL* ssl;*/
 
 
-    bool kReport;
+    /*bool kReport;
     bool cReport;
-    bool pReport;
-    bool update;
+    bool pReport;*/
+    bool update = FALSE;
 	
 	/*bool report = false;
 	bool update = false;*/
