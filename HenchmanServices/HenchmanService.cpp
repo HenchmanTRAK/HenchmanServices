@@ -1046,9 +1046,10 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 			Sleep(5);
 	
 	}
-	delete a;
+	
+	a->deleteLater();
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service has exited", 0);
-	//delete dbManager;
+
 	return ERROR_SUCCESS;
 }
 
