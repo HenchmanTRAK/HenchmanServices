@@ -3,7 +3,6 @@
 
 #pragma once
 
-
 #include <event_log.h>
 
 #include <iostream>

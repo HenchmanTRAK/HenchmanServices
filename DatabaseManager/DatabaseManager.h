@@ -5,6 +5,8 @@
 
 #include <iostream>
 #include <optional>
+#include <vector>
+#include <string>
 
 #include <QObject>
 #include <QString>
@@ -18,7 +20,7 @@
 #include <QTextStream>
 #include <QUrl>
 #include <QUrlQuery>
-#include <QHttpMultiPart>
+//#include <QHttpMultiPart>
 //#include <QHttpPart>
 #include <QNetworkAccessManager>
 #include <QRestAccessManager>
@@ -48,6 +50,19 @@
 *
 * @author Willem Swanepoel
 * @version 1.0
+* 
+* @details
+* 
+* * The `DatabaseManager` class performs the following tasks:
+* 
+* - Stores required values from ini file to be used for database connections.
+* - Provides methods for establishing connection to local database.
+* - Provides methods for establishing connection to remote database.
+* - Provides methods for executing SQL scripts and singular SQL queries.
+* - Provides method for confirming internet connectivity.
+* - Provides method for making post request to remote api.
+* - Provides method for checking and ensuring all systems tools are updated on the remote database.
+* - Provides methods for parsing array and objects into strings for logging.
 */
 class DatabaseManager : public QObject
 {
@@ -56,9 +71,10 @@ class DatabaseManager : public QObject
 public:
     bool requestRunning;
     int queryLimit = 10;
+    std::string targetApp;
 
     /**
-    * Constructor for the DatabaseManager class.
+    * @brief Constructor for the DatabaseManager class.
     *
     * @param parent - The parent object of the DatabaseManager instance. Defaults to nullptr.
     *
@@ -67,63 +83,63 @@ public:
     DatabaseManager(QObject* parent = nullptr);
 
     /**
-    * Destructor for the DatabaseManager class.
+    * @brief Destructor for the DatabaseManager class.
     *
     * @throws None
     */
 	~DatabaseManager();
 
     /**
-    * Connects to a remote database and retrieves queries to execute.
-    *
-    * @param target_app - The name of the target application.
+    * @brief Retrievs queries storied in cloudupdate table and executes them on remote api.
+    * 
+    * Fetches a number of queries, up to the `queryLimit`, stored in the cloudupdate table from the local database and executes them on the remote database via api connection.
     *
     * @return Returns 0 if the connection to the local database is invalid, otherwise returns the number of queries retrieved.
     *
     * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the remote database.
     */
-    int connectToRemoteDB(std::string& target_app);
+    int connectToRemoteDB();
 
     /**
-    * Connects to a local database and performs various operations.
-    *
-    * @param target_app - The name of the target application.
+    * @brief Connects to the local database and performs various configuration steps if required.
+    * 
+    * Establishes baseline connection settings to the local MySQL database and ensures the desired database exists within it.
     *
     * @return Returns 1 if the connection to the local database is successful, otherwise returns 0.
     *
     * @throws Throws an exception if there is an error opening the database connection or if there is an error creating the database.
     */
-    int connectToLocalDB(std::string& target_app);
+    int connectToLocalDB();
 
     /**
-    * Executes a SQL script file on a local database.
+    * @brief Executes a target SQL script file on a local database.
+    * 
+    * Takes a passed SQL script path and executes it query by query on the local database.
     *
-    * @param targetApp - The name of the target application.
-    * @param filename - The path to the SQL script file.
+    * @param filepath - The path to the SQL script file.
     *
     * @return Returns the number of SQL statements successfully executed.
     *
     * @throws None
     */
-    int ExecuteTargetSqlScript(std::string& targetApp, std::string& filename);
+    int ExecuteTargetSqlScript(std::string& filepath);
 
     /**
-     * Executes a SQL query on a local database and returns the results as a vector of QMap objects.
+     * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
      *
      * This function connects to a local database, executes the given SQL query, and returns the results as a vector of QMap objects.
      * Each QMap object represents a row in the query result and contains the column names as keys and the corresponding values as values.
      *
-     * @param targetApp - The name of the target application.
      * @param sqlQuery - The SQL query to execute.
      *
      * @return Returns a vector of QMap objects representing the query results. Each QMap object contains the column names as keys and the corresponding values as values.
      *
      * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
     */
-    std::vector<QMap<QString, QString>> ExecuteTargetSql(std::string& targetApp, std::string sqlQuery);
+    std::vector<QMap<QString, QString>> ExecuteTargetSql(std::string sqlQuery);
 
     /**
-     * Checks if the internet connection is available by attempting to connect to www.google.com on port 80.
+     * @brief Checks if the internet connection is available by attempting to connect to www.google.com on port 80.
      *
      * This function creates a QTcpSocket object, connects to www.google.com on port 80, and waits for the connection to be established.
      * If the connection is successful within the specified timeout, the function returns true. Otherwise, it returns false.
@@ -134,10 +150,18 @@ public:
     */
     bool isInternetConnected();
 
+    /**
+     * @brief Cleans up resources used by the DatabaseManager.
+     *
+     * This function deletes the QNetworkAccessManager and QRestAccessManager instances used by the DatabaseManager,
+     * setting their pointers to nullptr.
+     *
+     * @throws None.
+    */
     void performCleanup();
 
     /**
-     * Adds tools to the database if they do not already exist.
+     * @brief Adds tools to the database if they do not already exist.
      *
      * This function retrieves a list of tools from the local database and checks if each tool already exists on the remote database.
      * If a tool does not exist, it is inserted into the remote database using an SQL query.
@@ -146,11 +170,44 @@ public:
      *
      * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
     */
-    int AddToolsIfNotExists(std::string url, std::string query);
+    int AddToolsIfNotExists();
+
+    int AddKabsIfNotExists();
+
+    int AddDrawersIfNotExists();
+
+    int AddToolsInDrawersIfNotExists();
+
+    /**
+     * @brief Parses a QJsonArray into a string representation.
+     *
+     * @param array The QJsonArray to be parsed.
+     *
+     * @return The string representation of the QJsonArray.
+     *
+     * @throws None.
+    */
+    static std::string parseArray(QJsonArray array);
+
+    /**
+     * @brief Parses a QJsonObject and returns a formatted string.
+     *
+     * This function takes a QJsonObject and recursively parses its keys and values.
+     * If a key's value is a string, the key-value pair is added to the formatted string.
+     * If a key's value is an object, the function calls itself to parse the nested object.
+     * If a key's value is an array, the function calls another function to parse the array.
+     *
+     * @param object The QJsonObject to be parsed.
+     *
+     * @return The formatted string representing the parsed QJsonObject.
+     *
+     * @throws None.
+    */
+    static std::string parseObject(QJsonObject object);
 
 public slots:
     /**
-    * Parses the data received from a network request.
+    * @brief Parses the data received from a network request.
     *
     * This function takes the network reply and performs various operations on it.
     * It checks for network and HTTP errors, logs the response status, executes a SQL query,
@@ -162,21 +219,23 @@ public slots:
     void parseData(QNetworkReply* netReply);
 
 private:
-    std::string targetApp;
     //QNetworkRequest* request;
     QNetworkAccessManager* netManager = nullptr;
     //QNetworkReply* netReply;
     QRestAccessManager* restManager = nullptr;
-    QHttpMultiPart* form = nullptr;
     bool testingDBManager = false;
-    QString defaultProtocol = "";
     QString apiUsername = "";
     QString apiPassword = "";
     QString apiUrl = "";
-    int lastToolID;
+    int numToolsChecked = 0;
+    int numKabsChecked = 0;
+    int numDrawersChecked = 0;
+    int numToolsInDrawersChecked = 0;
 
     /**
-     * Sends a network request to the specified URL with the provided query data and stores the response in the results QJsonDocument.
+     * @brief Sends a network request to the specified URL with the provided query data.
+     *
+     * Ensures the request has appropriate headers and parses the data returned before logging it, then returns the pure json through the results pointer.
      *
      * @param url The URL to send the network request to.
      * @param query The query data to be sent in the request.
@@ -188,18 +247,5 @@ private:
     */
     int makeNetworkRequest(QString &url, QMap<QString, QString> &query, QJsonDocument& results);
 };
-
-/**
-    * Parses a QJsonArray into a string representation.
-    *
-    * @param array The QJsonArray to be parsed.
-    *
-    * @return The string representation of the QJsonArray.
-    *
-    * @throws None.
-*/
-static std::string parseArray(QJsonArray array);
-
-static std::string parseObject(QJsonObject object);
 
 #endif
