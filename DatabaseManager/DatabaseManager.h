@@ -43,72 +43,94 @@
 
 
 /**
-* @class DatabaseManager
-* @brief The DatabaseManager class is responsible for managing database connections and executing SQL queries.
-*
-* This class provides methods for connecting to both remote and local databases, as well as executing SQL scripts and queries.
-*
-* @author Willem Swanepoel
-* @version 1.0
-* 
-* @details
-* 
-* * The `DatabaseManager` class performs the following tasks:
-* 
-* - Stores required values from ini file to be used for database connections.
-* - Provides methods for establishing connection to local database.
-* - Provides methods for establishing connection to remote database.
-* - Provides methods for executing SQL scripts and singular SQL queries.
-* - Provides method for confirming internet connectivity.
-* - Provides method for making post request to remote api.
-* - Provides method for checking and ensuring all systems tools are updated on the remote database.
-* - Provides methods for parsing array and objects into strings for logging.
-*/
+ * @class DatabaseManager
+ *
+ * @brief The DatabaseManager class provides functions for managing database connections and executing SQL queries.
+ *
+ * This class allows you to connect to a local MySQL database and a remote MySQL database, execute SQL queries, and retrieve query results.
+ * It provides methods for connecting to the databases, executing SQL queries, and retrieving query results.
+ *
+ * @author Willem Swanepoel
+ * @version 2.0
+ *
+ * @details
+ * - The DatabaseManager class uses the MySQL Connector/C++ library for database operations.
+ * - The class handles exceptions for common errors that may occur during database operations.
+ * - The class provides a convenient way to manage database connections and execute SQL queries within your application.
+ *
+ * @see QSqlDatabase
+ * @see QSqlQuery
+ */
 class DatabaseManager : public QObject
 {
     Q_OBJECT
 
 public:
+    /**
+     * @var bool requestRunning
+     *
+     * @brief Flag indicating whether a request is currently running.
+     *
+     * This flag is used to prevent multiple requests from running concurrently.
+     */
     bool requestRunning;
+
+    /**
+     * @var int queryLimit
+     *
+     * @brief The maximum number of queries to retrieve from the cloudupdate table.
+     *
+     * This variable determines the number of queries to fetch from the cloudupdate table and execute on the remote API.
+     */
     int queryLimit = 10;
+
+    /**
+     * @var std::string targetApp
+     *
+     * @brief The target application for the database operations.
+     *
+     * This variable stores the name of the target application for the database operations.
+     */
     std::string targetApp;
 
     /**
-    * @brief Constructor for the DatabaseManager class.
-    *
-    * @param parent - The parent object of the DatabaseManager instance. Defaults to nullptr.
-    *
-    * @throws None
-    */
+     * @brief Constructs a DatabaseManager object.
+     *
+     * This constructor initializes the DatabaseManager object with the specified database names.
+     *
+     * @param parent - The parent object of the DatabaseManager instance. Defaults to nullptr.
+     * 
+     * @throws None
+     */
     DatabaseManager(QObject* parent = nullptr);
 
     /**
-    * @brief Destructor for the DatabaseManager class.
-    *
-    * @throws None
-    */
+     * @brief Destroys the DatabaseManager object and performs cleanup operations.
+     *
+     * This destructor performs cleanup operations by deleting the QSqlDatabase objects and setting their pointers to nullptr.
+     */
 	~DatabaseManager();
 
     /**
-    * @brief Retrievs queries storied in cloudupdate table and executes them on remote api.
-    * 
-    * Fetches a number of queries, up to the `queryLimit`, stored in the cloudupdate table from the local database and executes them on the remote database via api connection.
-    *
-    * @return Returns 0 if the connection to the local database is invalid, otherwise returns the number of queries retrieved.
-    *
-    * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the remote database.
-    */
+     * @brief Connects to the remote database and performs various configuration steps if required.
+     *
+     * Establishes baseline connection settings to the remote MySQL database and ensures the desired database exists within it.
+     *
+     * @return Returns 1 if the connection to the remote database is successful, otherwise returns 0.
+     *
+     * @throws Throws an exception if there is an error opening the database connection or if there is an error creating the database.
+     */
     int connectToRemoteDB();
 
     /**
-    * @brief Connects to the local database and performs various configuration steps if required.
-    * 
-    * Establishes baseline connection settings to the local MySQL database and ensures the desired database exists within it.
-    *
-    * @return Returns 1 if the connection to the local database is successful, otherwise returns 0.
-    *
-    * @throws Throws an exception if there is an error opening the database connection or if there is an error creating the database.
-    */
+     * @brief Connects to the local database and performs various configuration steps if required.
+     *
+     * Establishes baseline connection settings to the local MySQL database and ensures the desired database exists within it.
+     *
+     * @return Returns 1 if the connection to the local database is successful, otherwise returns 0.
+     *
+     * @throws Throws an exception if there is an error opening the database connection or if there is an error creating the database.
+     */
     int connectToLocalDB();
 
     /**
@@ -172,10 +194,43 @@ public:
     */
     int AddToolsIfNotExists();
 
+    /**
+     * @brief Adds missing itemkabs to the database if they do not already exist.
+     *
+     * This function checks the number of itemkabs in the database and if it is less than the specified number of kabs to check,
+     * it retrieves the missing itemkabs from the cloudupdate table and adds them to the database.
+     *
+     * @return Returns 0 if the number of itemkabs in the database is greater than or equal to the number of kabs to check,
+     *         otherwise returns 1.
+     *
+     * @throws None.
+     */
     int AddKabsIfNotExists();
 
+    /**
+     * @brief Adds missing itemkabdrawers to the database if they do not already exist.
+     *
+     * This function checks the number of itemkabdrawers in the database and if it is less than the specified number of drawers to check,
+     * it retrieves the missing itemkabdrawers from the cloudupdate table and adds them to the database.
+     *
+     * @return Returns 0 if the number of itemkabdrawers in the database is greater than or equal to the number of drawers to check,
+     *         otherwise returns 1.
+     *
+     * @throws None.
+     */
     int AddDrawersIfNotExists();
 
+    /**
+     * @brief Adds missing tools in drawers to the database if they do not already exist.
+     *
+     * This function checks the number of tools in drawers in the database and if it is less than the specified number of tools to check,
+     * it retrieves the missing tools in drawers from the cloudupdate table and adds them to the database.
+     *
+     * @return Returns 0 if the number of tools in drawers in the database is greater than or equal to the number of tools to check,
+     *         otherwise returns 1.
+     *
+     * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+     */
     int AddToolsInDrawersIfNotExists();
 
     /**

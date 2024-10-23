@@ -1827,7 +1827,6 @@ int HenchmanService::SetRequiredParameters()
 		SQLiteM.ToggleConsoleLogging();
 
 
-
 	SQLiteM.InitDB();
 
 	string tableName = "TestTable";
