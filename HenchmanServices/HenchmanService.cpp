@@ -1860,6 +1860,7 @@ int HenchmanService::SetRequiredParameters()
 	cols.clear();
 
 	dbManager = make_unique<DatabaseManager>(a);
+	sqliteManager = make_unique<SQLiteManager2>(a);
 
 	return 0;
 }

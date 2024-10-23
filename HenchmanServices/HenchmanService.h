@@ -35,6 +35,7 @@
 #include "RegistryManager.h"
 #include "DatabaseManager.h"
 #include "ServiceHelper.h"
+#include "SQLiteManager2.h"
 #include "SQLiteManager.h"
 #include "TRAKManager.h"
 
@@ -251,6 +252,7 @@ public:
     std::stringstream logx;
     std::string app_path = "";
     std::unique_ptr<DatabaseManager> dbManager;
+    std::unique_ptr<SQLiteManager2> sqliteManager;
 
     /**
     * Constructor for the HenchmanService class. Initializes the service and loads configuration settings from an INI file.

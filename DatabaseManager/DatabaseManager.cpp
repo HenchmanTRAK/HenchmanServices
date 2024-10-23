@@ -7,7 +7,7 @@ using namespace std;
 
 static array<string, 2> timeStamp;
 
-static string checkValidDrivers()
+string checkValidDrivers()
 {
 	stringstream results;
 	for (const auto& str : QSqlDatabase::drivers())

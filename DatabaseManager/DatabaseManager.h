@@ -7,6 +7,7 @@
 #include <optional>
 #include <vector>
 #include <string>
+#include <sstream>
 
 #include <QObject>
 #include <QString>
@@ -302,5 +303,7 @@ private:
     */
     int makeNetworkRequest(QString &url, QMap<QString, QString> &query, QJsonDocument& results);
 };
+
+std::string checkValidDrivers();
 
 #endif
