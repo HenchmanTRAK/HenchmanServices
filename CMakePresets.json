@@ -12,12 +12,23 @@
       },
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe"
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_TOOLCHAIN_FILE": {
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        }
       },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
+      },
+      "vendor": {
+        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+          "hostOS": [
+            "Windows"
+          ]
+        }
       }
     },
     {
@@ -115,7 +126,7 @@
   ],
   "vendor": {
     "qt-project.org/Presets": {
-      "checksum": "rJPLgy8xxtQBt6kRfAOyl8jxnFE="
+      "checksum": "Hbr6z6nNE6UkHJfwdOJ8fbIamgc="
     }
   }
 }

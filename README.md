@@ -141,3 +141,7 @@ HenchmanService is licensed under the [MIT License](LICENSE).
 For any questions or inquiries, you can reach out to [wjaco.swanepoel@gmail.com](mailto:wjaco.swanepoel@gmail.com).
 
 I hope this helps! Let me know if you need any further assistance.
+
+## Todo
+
+ - Seperate out service functions from main application logic.

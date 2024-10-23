@@ -84,28 +84,26 @@ const {
 	CSimpleIniA::TNamesDepend keys;
 	iniFile.GetAllKeys(section.data(), keys);
 	map<string, string> map;
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section).data());
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section).data());
 	try 
 	{
 		for (auto const& val : keys)
 		{
 			string key = val.pItem;
 			string value = iniFile.GetValue(section.data(), val.pItem, "");
-			//sanitize(value);
+			
 			ServiceHelper::removeQuotes(value);
 			if (key == "Password" && value != "")
 				value = QByteArray(value.data()).toBase64();
-			/*GetStrVal(hKey, key.data(), REG_SZ);
-			SetStrVal(hKey, key.data(), map[key], REG_SZ);*/
+			
 			if (key == "kabID" || key == "portaID" || key == "cribID")
 			{
 				value = key;
 				key = "trakID";
-				//map[key] = value;
 			}
 			map[key] = value;
-			GetStrVal(hKey, key.data(), REG_SZ);
-			SetStrVal(hKey, key.data(), map[key].data(), REG_SZ);
+			RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
+			RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
 			key.clear();
 			value.clear();
 		}
@@ -124,26 +122,21 @@ void TRAKManager::CreateDataModule()
 	CSimpleIniA ini;
 	ini.SetUnicode();
 
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
-	string serviceInstallDir = GetStrVal(hKey, "Install_DIR", REG_SZ) + "\\service.ini";
+	string serviceInstallDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ) + "\\service.ini";
 	RegCloseKey(hKey);
 	try 
 	{
 		SI_Error rc = ini.LoadFile(serviceInstallDir.data());
 		if (rc < 0) {
-			/*WriteToError("Failed to Load INI File: " + serviceInstallDir);
-			return;*/
 			throw HenchmanServiceException("Failed to Load INI File: " + serviceInstallDir);
 		}
 	
 
 		if (!TRAKExists(ini))
 			throw HenchmanServiceException("No TRAK application could be found");
-		/*{
-			WriteToError("No TRAK application could be found");
-			return;
-		}*/
+
 		ServiceHelper::WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
 	}
 	catch (exception& e)
@@ -157,8 +150,6 @@ void TRAKManager::CreateDataModule()
 
 		SI_Error rc = ini.LoadFile((appDir + iniFile).data());
 		if (rc < 0) {
-			/*WriteToError("Failed to Load INI File: "+ appDir + iniFile);
-			return;*/
 			throw HenchmanServiceException("Failed to Load INI File: " + appDir + iniFile);
 		}
 		
@@ -171,11 +162,6 @@ void TRAKManager::CreateDataModule()
 		ServiceHelper::WriteToLog((string)"Adding Customer entries to registry");
 		section = "Customer";
 		saveINIToRegistry(ini, section);
-
-		cout << "Connecting to Local MySQL Database" << endl;
-
-		//dbManager->deleteLater();
-		//dbManager = nullptr;
 		
 	}
 	catch (exception &e)
@@ -184,6 +170,10 @@ void TRAKManager::CreateDataModule()
 	}
 
 }
+		//cout << "Connecting to Local MySQL Database" << endl;
+
+		//dbManager->deleteLater();
+		//dbManager = nullptr;
 
 		//string sqlFile = appDir + "database\\qkabmaster.sql";
 		//dbManager->ExecuteTargetSqlScript(appType, sqlFile);

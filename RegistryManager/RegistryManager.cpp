@@ -4,7 +4,7 @@
 
 using namespace std;
 
-HKEY OpenKey(HKEY hRootKey, string strKey) 
+HKEY RegistryManager::OpenKey(HKEY hRootKey, string strKey)
 {
 	HKEY hKey;
 	//string strKey = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\" + SERVICE_NAME;
@@ -22,7 +22,7 @@ HKEY OpenKey(HKEY hRootKey, string strKey)
 	return hKey;
 }
 
-int RemoveKey(HKEY hRootKey, string strKey)
+int RegistryManager::RemoveKey(HKEY hRootKey, string strKey)
 {
 	//string strKey = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\" + SERVICE_NAME;
 	//cout << strKey << endl;
@@ -31,23 +31,27 @@ int RemoveKey(HKEY hRootKey, string strKey)
 	return nError;
 }
 
-void SetStrVal(HKEY &hKey, const char * lpValue, string data, DWORD type)
+int RegistryManager::SetVal(HKEY &hKey, const char * lpValue, string data, DWORD type)
 {
 	LONG nError = RegSetValueExA(hKey, lpValue, NULL, type, (LPBYTE)data.c_str(), data.size() + 1);
 
 	if (nError)
 		cout << "Error: " << nError << " Could not set registry value: " << (char*)lpValue << endl;
+
+	return nError;
 }
 
-void SetVal(HKEY &hKey, const char* lpValue, DWORD data, DWORD type)
+int RegistryManager::SetVal(HKEY &hKey, const char* lpValue, DWORD data, DWORD type)
 {
 	LONG nError = RegSetValueExA(hKey, lpValue, NULL, type, (LPBYTE)&data, sizeof(data));
 
 	if (nError)
 		cout << "Error: " << nError << " Could not set registry value: " << (char*)lpValue << endl;
+
+	return nError;
 }
 
-string GetStrVal(HKEY &hKey, const char* lpValue, DWORD type)
+string RegistryManager::GetStrVal(HKEY &hKey, const char* lpValue, DWORD type)
 {
 	DWORD buffSize = 1024;
 	char data[1024] = "\0";
@@ -74,7 +78,7 @@ string GetStrVal(HKEY &hKey, const char* lpValue, DWORD type)
 	return reply;
 }
 
-DWORD GetVal(HKEY &hKey, const char* lpValue, DWORD type)
+DWORD RegistryManager::GetVal(HKEY &hKey, const char* lpValue, DWORD type)
 {
 	DWORD size = sizeof(DWORD);
 	DWORD data = 0;

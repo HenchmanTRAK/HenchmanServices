@@ -3,7 +3,6 @@
 #
 cmake_minimum_required (VERSION 3.25)
 
-
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -11,8 +10,9 @@ if (POLICY CMP0141)
 endif()
 
 if(MSVC)
-  target_compile_options(<target> PUBLIC "/ZI")
-  target_link_options(<target> PUBLIC "/INCREMENTAL")
+	message(status "target: " <target>)
+	target_compile_options(<target> PUBLIC "/ZI")
+	target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
 
 # set the project version. 
@@ -22,12 +22,13 @@ endif()
 #set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 file(READ version PROJECT_VER)
 
-project ("HenchmanServices" VERSION ${PROJECT_VER} LANGUAGES CXX C)
-if(EXISTS $ENV{VCPKG_ROOT})
-	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+
+project (HenchmanService VERSION ${PROJECT_VER} LANGUAGES CXX C)
+#if(EXISTS $ENV{VCPKG_ROOT})
+#	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 #elseif(EXISTS $ENV{VCPKG_INSTALLATION_ROOT})
 #	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake)
-endif()
+#endif()
 
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
@@ -41,12 +42,12 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 #    OUTPUT_VARIABLE outVar
 #)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 message(STATUS "Using c++ standard c++${CMAKE_CXX_STANDARD}")
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -64,15 +65,14 @@ include (InstallRequiredSystemLibraries)
 
 # Second, for multi-config builds (e.g. msvc)
 foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
-    string( TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG )
-	string( TOLOWER ${OUTPUTCONFIG} CONFIGTYPE)
-    set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} )
-    set( CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} )
-    set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY} )
+	string( TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG )
+	string( TOLOWER ${OUTPUTCONFIG} CONFIGTYPE )
+	set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} )
+	set( CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} )
+	set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY} )
 	set (CMAKE_CXX_FLAGS_${OUTPUTCONFIG}                "/ZI /Od")
-    set (CMAKE_EXE_LINKER_FLAGS_${OUTPUTCONFIG}         "/${CONFIGTYPE}")
+	set (CMAKE_EXE_LINKER_FLAGS_${OUTPUTCONFIG}         "/${CONFIGTYPE}")
 endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
-
 
 set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
@@ -80,17 +80,26 @@ message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
 qt_standard_project_setup()
 
+
 #INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
 #COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
 
 find_package(Doxygen REQUIRED dot)
 if(DOXYGEN_FOUND)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+
 add_custom_target(
 	DOC ALL
-	${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+	Doxygen::doxygen ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 	COMMENT "Generating API documentation with Doxygen" VERBATIM
+)
+
+add_custom_command(
+	TARGET DOC POST_BUILD
+    COMMAND make.bat
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/latex
+    COMMENT "Running latex pdf creator"
 )
 endif(DOXYGEN_FOUND)
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
@@ -157,7 +166,6 @@ set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 
 FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
 
-file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 #set(mysql-concpp_DIR "C:/Program Files/MySQL/MySQL Connector C++ 9.0")
 
 #add_library(my_openssl INTERFACE)
@@ -180,6 +188,8 @@ add_subdirectory (DatabaseManager)
 add_subdirectory (TRAKManager)
 #add_subdirectory (HenchmanServiceMailer)
 add_subdirectory (HenchmanServices)
+
+file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # App bundles on macOS have an .app suffix
 if(APPLE)
@@ -220,7 +230,7 @@ configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONL
 
 file(
 	COPY ${CMAKE_SOURCE_DIR}/resources/ 
-	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} 
+	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 	FILES_MATCHING
 	PATTERN "*.dll"
 )
@@ -252,7 +262,6 @@ install (
 )
 endif()
 
-
 install(
 	TARGETS HenchmanService
 	#COMPONENT HenchmanService
@@ -265,15 +274,29 @@ install(
 install (PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
         DESTINATION ${CMAKE_INSTALL_BINDIR}	COMPONENT Runtime)
 install(SCRIPT ${deploy_script} COMPONENT Runtime)
+
 message(STATUS "Found Doxy: " ${DOXYGEN_FOUND})
+
 if(DOXYGEN_FOUND)
 	install(
-		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/html 
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/html 
 		DESTINATION share/docs COMPONENT Documentation
 	)
 endif(DOXYGEN_FOUND)
-
+IF (WIN32)
+	# for windows, use nsis
+    SET(CPACK_GENERATOR NSIS)
+ENDIF(WIN32)
 
 include(CPackConfig)
+MESSAGE(STATUS "CPack: " ${CPACK_GENERATOR})
+
+add_custom_target(
+	Generate_Project_Installer
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cmake --build . --config $<CONFIG> --target PACKAGE
+	COMMENT "Generate installer for project using custom target" VERBATIM
+)
 
 #"generator": "Ninja",
+#"generator": "Visual Studio 17 2022",

@@ -33,8 +33,8 @@ DatabaseManager::DatabaseManager(QObject* parent)
 : QObject(parent)
 {
 	CSimpleIniA ini;
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
 	SI_Error rc = ini.LoadFile(installDir.append("\\service.ini").c_str());
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
@@ -59,10 +59,10 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	
 	targetApp = "";
 	requestRunning = false;
-	numToolsChecked = GetVal(hKey, "numToolsChecked", REG_DWORD);
-	numKabsChecked = GetVal(hKey, "numKabsChecked", REG_DWORD);
-	numDrawersChecked = GetVal(hKey, "numDrawersChecked", REG_DWORD);
-	numToolsInDrawersChecked = GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
+	numToolsChecked = RegistryManager::GetVal(hKey, "numToolsChecked", REG_DWORD);
+	numKabsChecked = RegistryManager::GetVal(hKey, "numKabsChecked", REG_DWORD);
+	numDrawersChecked = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
+	numToolsInDrawersChecked = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
 	RegCloseKey(hKey);
 
 }
@@ -320,8 +320,8 @@ int DatabaseManager::AddToolsIfNotExists()
 		}
 
 	}
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	SetVal(hKey, "numToolsChecked", numToolsChecked, REG_DWORD);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numToolsChecked", numToolsChecked, REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//performCleanup();
@@ -407,8 +407,8 @@ int DatabaseManager::AddKabsIfNotExists()
 		}
 
 	}
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	SetVal(hKey, "numKabsChecked", numKabsChecked, REG_DWORD);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numKabsChecked", numKabsChecked, REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//performCleanup();
@@ -498,8 +498,8 @@ int DatabaseManager::AddDrawersIfNotExists()
 		}
 
 	}
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	SetVal(hKey, "numDrawersChecked", numDrawersChecked, REG_DWORD);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numDrawersChecked", numDrawersChecked, REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -591,8 +591,8 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 		}
 
 	}
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	SetVal(hKey, "numToolsInDrawersChecked", numToolsInDrawersChecked, REG_DWORD);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numToolsInDrawersChecked", numToolsInDrawersChecked, REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -606,8 +606,8 @@ int DatabaseManager::connectToRemoteDB()
 	QSqlDatabase db;
 	bool result = false;
 	try {
-		HKEY hKeyLocal = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
-		targetSchema = QString::fromStdString(GetStrVal(hKeyLocal, "Schema", REG_SZ));
+		HKEY hKeyLocal = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
+		targetSchema = QString::fromStdString(RegistryManager::GetStrVal(hKeyLocal, "Schema", REG_SZ));
 		RegCloseKey(hKeyLocal);
 
 		if (!checkValidConnections(targetSchema))
@@ -736,9 +736,9 @@ int DatabaseManager::connectToLocalDB()
 {
 	timeStamp = ServiceHelper::timestamp();
 	try {
-		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
+		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 
-		QString dbtype = QString::fromStdString(GetStrVal(hKey, "Database", REG_SZ));
+		QString dbtype = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Database", REG_SZ));
 
 		if (!QSqlDatabase::isDriverAvailable(dbtype))
 		{
@@ -749,16 +749,16 @@ int DatabaseManager::connectToLocalDB()
 			return 0;
 		}
 
-		QString schema = QString::fromStdString(GetStrVal(hKey, "Schema", REG_SZ));
+		QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
 
 		QSqlDatabase db;
 		if (!checkValidConnections(schema))
 		{
 
-			QString server = QString::fromStdString(GetStrVal(hKey, "Server", REG_SZ));
-			int port = QString::fromStdString(GetStrVal(hKey, "Port", REG_SZ)).toInt();
-			QString user = QString::fromStdString(GetStrVal(hKey, "Username", REG_SZ));
-			string pass = GetStrVal(hKey, "Password", REG_SZ);
+			QString server = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Server", REG_SZ));
+			int port = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Port", REG_SZ)).toInt();
+			QString user = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Username", REG_SZ));
+			string pass = RegistryManager::GetStrVal(hKey, "Password", REG_SZ);
 
 			ServiceHelper::WriteToLog((string)"Creating session to db");
 					
@@ -853,8 +853,8 @@ int DatabaseManager::connectToLocalDB()
 int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 {
 	int successCount = 0;
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
-	QString schema = QString::fromStdString(GetStrVal(hKey, "Schema", REG_SZ));
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
+	QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
 	RegCloseKey(hKey);
 	QSqlDatabase db = QSqlDatabase::database(schema);
 	QFile file(filepath.data());
@@ -921,8 +921,8 @@ vector<QMap<QString, QString>> DatabaseManager::ExecuteTargetSql(string sqlQuery
 	QMap<QString, QString> queryResult;
 	queryResult["success"] = "0";
 	resultVector.push_back( queryResult);
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
-	QString schema = QString::fromStdString(GetStrVal(hKey, "Schema", REG_SZ));
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
+	QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
 	RegCloseKey(hKey);
 	QSqlDatabase db = QSqlDatabase::database(schema);
 
