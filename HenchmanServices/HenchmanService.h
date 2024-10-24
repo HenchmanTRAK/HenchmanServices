@@ -259,7 +259,7 @@ public:
     *
     * @throws None
     */
-    //HenchmanService();
+    HenchmanService();
 
     /**
     * Destructor for the HenchmanService class.
@@ -267,7 +267,7 @@ public:
     *
     * @throws None
     */
-    //~HenchmanService();
+    ~HenchmanService();
 
     int SetRequiredParameters();
 

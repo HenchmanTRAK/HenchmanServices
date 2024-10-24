@@ -27,7 +27,7 @@ const char * EventManager::EventMessage(const char *lpszFunction, string msg)
 	/*LPVOID lpMsgBuf;
 	LPVOID lpDisplayBuf;*/
 	DWORD dw = GetLastError();
-	cout << lpszFunction << "logged with message: " << msg << endl;
+	cout << lpszFunction << " logged with message: " << msg << endl;
 
 	FormatMessageA(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | 

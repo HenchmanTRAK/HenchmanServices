@@ -7,6 +7,7 @@ target_link_libraries(
 	SQLiteManager2 PUBLIC
 	Qt6::Core
 	Qt6::Sql
+	HenchmanServiceException
 	RegistryManager
 	DatabaseManager
 	ServiceHelper

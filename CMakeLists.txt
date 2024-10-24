@@ -162,6 +162,7 @@ FetchContent_Declare(
 	QMYSQL
 	URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip
 )
+
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 
 FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
