@@ -24,10 +24,8 @@ EventManager::~EventManager()
 const char * EventManager::EventMessage(const char *lpszFunction, string msg)
 {
 	// Retrieve the system error message for the last-error code
-	/*LPVOID lpMsgBuf;
-	LPVOID lpDisplayBuf;*/
 	DWORD dw = GetLastError();
-	cout << lpszFunction << "logged with message: " << msg << endl;
+	cout << lpszFunction << " logged with message: " << msg << endl;
 
 	FormatMessageA(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | 
@@ -48,28 +46,21 @@ const char * EventManager::EventMessage(const char *lpszFunction, string msg)
 		LocalSize(lpDisplayBuf) / sizeof(TCHAR),
 		TEXT("%s returned with %d: %s"),
 		lpszFunction, dw, lpMsgBuf);
-	//MessageBox(NULL, (LPCTSTR)lpDisplayBuf, TEXT("Error"), MB_OK);
-	//LocalFree(lpMsgBuf);
-	//WriteToLog((char*)lpDisplayBuf);
-	//LocalFree(lpDisplayBuf);
-	//ExitProcess(dw);
+	
 	return (LPCTSTR)lpDisplayBuf;
 }
 
 void EventManager::ReportCustomEvent(const char *function, std::string msg, int type)
 {
 	LPCTSTR lpszStrings[2];
-	//DWORD errorCode = GetLastError();
+	
 	WORD EventType;
 	DWORD EventId;
-	//bool isError = errorCode != NO_ERROR;
-	//TCHAR Buffer[80];
+	
 	hEventSource = RegisterEventSourceA(NULL, eventSource.data());
 
 	if (NULL != hEventSource)
 	{
-		//StringCchPrintf(Buffer, 80, TEXT("%s failed with %d"), szFunction, GetLastError());
-
 		lpszStrings[0] = eventSource.c_str();
 		lpszStrings[1] = EventMessage(function, msg);
 		switch (type)
@@ -91,28 +82,6 @@ void EventManager::ReportCustomEvent(const char *function, std::string msg, int 
 			EventType = EVENTLOG_SUCCESS;
 			break;
 		}
-
-		/*if (errorCode == 0 || eventType == 0) {
-			lpszStrings[1] = SuccessMessage(szFunction, msg);
-		}
-		else if (errorCode > 0 && msg == "")
-		{
-			lpszStrings[1] = ErrorMessage(szFunction);
-			EventType = EVENTLOG_ERROR_TYPE;
-			
-		}
-		else if (eventType == 2) {
-			lpszStrings[1] = ErrorMessage(szFunction);
-			EventType = EVENTLOG_WARNING_TYPE;
-			EventId = SVC_WARNING;
-		}
-		else {
-			lpszStrings[1] = InformationMessage(szFunction, msg);
-			EventType = EVENTLOG_INFORMATION_TYPE;
-			EventId = SVC_INFORMATION;
-		}*/
-
-
 
 		ReportEventA(
 			hEventSource,	// event log handle

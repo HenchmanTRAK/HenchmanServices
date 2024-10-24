@@ -1030,10 +1030,30 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	a = new QCoreApplication(argc, argv);
 	HenchmanService service;
 	service.SetRequiredParameters();
+	int counter = 0;
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		
 		service.MainFunction();
+
+		service.sqliteManager->UpdateEntry(
+			"Test",
+			{"id = 1"},
+			{ 
+				{"string", "string + " + to_string(counter++)} 
+			}
+		);
+
+		service.sqliteManager->RemoveEntry(
+			"Test",
+			{"updatedAt <= datetime('now', 'localtime')"}
+		);
+
+		service.sqliteManager->GetEntry(
+			"TestTable",
+			{"*", "COUNT(*) count"},
+			{"updatedAt <= datetime('now', 'localtime')"}
+			);
 
 		ServiceHelper::WriteToLog("Waiting for QT to finish execution...");
 		
@@ -1086,128 +1106,119 @@ static void removeContextMenu()
 	RegistryManager::RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
 }
 
-//HenchmanService::HenchmanService()
-//{
-//
-//	logx;
-//	mailSocket = INVALID_SOCKET;
-//	ctx;
-//	ssl;
-//	mailAddrInfo = NULL;
-//	app_path = "";
-//	mail_username = "";
-//	mail_password = "";
-//	SQLiteM = nullptr;
-//	TrakM = nullptr;
-//	dbManager = nullptr;
-//
-//	CSimpleIniA ini;
-//
-//	//CSimpleIni ini;
-//	ini.SetUnicode();
-//
-//	logx << "Service Has Started" << endl << endl;
-//
-//	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME).data());
-//
-//	char buff[MAX_PATH];
-//	int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-//	string currDir = buff;
-//	currDir.resize(byteLength);
-//	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-//	
-//	string databaseName = GetStrVal(hKey, "DatabaseName", REG_SZ);
-//	string dbName = "henchmanService.db3";
-//	if (databaseName == "" || databaseName != dbName)
-//	{
-//		databaseName = dbName;
-//		SetStrVal(hKey, "DatabaseName", databaseName.data(), REG_SZ);
-//	}
-//	
-//	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
-//	if (rc < 0) {
-//		cerr << "Failed to Load INI File" << endl;
-//	}
-//
-//	CSimpleIniA::TNamesDepend keys;
-//	ini.GetAllKeys("WAMP", keys);
-//	for (auto const& val : keys)
-//	{
-//		string key = val.pItem;
-//		string value = ini.GetValue("WAMP", val.pItem, "");
-//		removeQuotes(value);
-//
-//		GetStrVal(hKey, key.data(), REG_SZ);
-//		SetStrVal(hKey, key.data(), value.data(), REG_SZ);
-//
-//		key.clear();
-//		value.clear();
-//	}
-//
-//	ini.GetAllKeys("TRAK", keys);
-//	for (auto const& val : keys)
-//	{
-//		string key = val.pItem;
-//		string value = ini.GetValue("TRAK", val.pItem, "");
-//		removeQuotes(value);
-//
-//		GetStrVal(hKey, key.data(), REG_SZ);
-//		SetStrVal(hKey, key.data(), value.data(), REG_SZ);
-//
-//		key.clear();
-//		value.clear();
-//	}
-//
-//	SQLiteM = new SQLite_Manager(installDir + "\\", databaseName.data());
-//
-//	//SQLiteM.ToggleConsoleLogging();
-//
-//	SQLiteM->InitDB();
-//
-//	string tableName = "TestTable";
-//	vector<string> cols;
-//	cols.push_back("username TEXT NOT NULL");
-//	cols.push_back("password TEXT NOT NULL");
-//	SQLiteM->CreateTable(tableName, cols);
-//
-//	string username = ini.GetValue("Email", "Username", "");
-//	string password = ini.GetValue("Email", "Password", "");
-//	if(password != "")
-//		password = QByteArray(password.data()).toBase64();
-//	//string encodedPass = base64(password);
-//	setMailLogin(username, password);
-//
-//	tableName.clear();
-//	cols.clear();
-//	currDir.clear();
-//	username.clear();
-//	password.clear();
-//	installDir.clear();
-//	keys.clear();
-//	databaseName.clear();
-//	dbName.clear();
-//
-//	RegCloseKey(hKey);
-//
-//	WriteToLog(logx.str());
-//	logx.clear();
-//
-//
-//	dbManager = new DatabaseManager(a);
-//
-//	dbManager->deleteLater();
-//}
+HenchmanService::HenchmanService()
+{
+	CSimpleIniA ini;
 
-//HenchmanService::~HenchmanService()
-//{
-//	std::cout << "Deconstructing HenchmanService" << endl;
-//	//delete SQLiteM;
-//	//delete TrakM;
-//	//delete dbManager;
-//	//dbManager->deleteLater();
-//
-//	//logx.clear();
-//}
+	ini.SetUnicode();
+
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+
+	string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
+
+	string databaseName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
+
+	string dbName = "henchmanService.db3";
+
+	if (databaseName == "" || databaseName != dbName)
+	{
+		databaseName = dbName;
+		RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
+	}
+	cout << "Install dir: " << installDir << endl;
+	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
+	if (rc < 0) {
+		cerr << "Failed to Load INI File" << endl;
+	}
+
+	CSimpleIniA::TNamesDepend keys;
+	ini.GetAllKeys("WAMP", keys);
+	for (auto const& val : keys)
+	{
+		string key = val.pItem;
+		string value = ini.GetValue("WAMP", val.pItem, "");
+		ServiceHelper::removeQuotes(value);
+
+		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
+		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
+
+		key.clear();
+		value.clear();
+	}
+
+	ini.GetAllKeys("TRAK", keys);
+	for (auto const& val : keys)
+	{
+		string key = val.pItem;
+		string value = ini.GetValue("TRAK", val.pItem, "");
+		ServiceHelper::removeQuotes(value);
+
+		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
+		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
+
+		key.clear();
+		value.clear();
+
+	}
+
+	RegCloseKey(hKey);
+
+	sqliteManager = make_unique<SQLiteManager2>(a);
+	
+	string tableName = "TestTable";
+	vector<string> columns;
+	columns.push_back("username TEXT NOT NULL");
+	columns.push_back("password TEXT NOT NULL");
+	sqliteManager->CreateTable(
+		tableName,
+		columns
+	);
+
+	columns.clear();
+
+	string username = ini.GetValue("EMAIL", "Username", "");
+	string password = ini.GetValue("EMAIL", "Password", "");
+	if (password != "")
+		password = QByteArray(password.data()).toBase64();
+	//string encodedPass = base64(password);
+	if (setMailLogin(username, password))
+	{
+		map<string, string> data;
+		data["username"] = username;
+		data["password"] = password;
+		
+		sqliteManager->AddEntry(
+			tableName,
+			data
+		);
+
+		data.clear();
+	}
+
+	dbManager = make_unique<DatabaseManager>(a);
+
+	/*currDir.clear();
+	installDir.clear();
+	keys.clear();
+	databaseName.clear();
+	dbName.clear();
+	username.clear();
+	password.clear();
+	tableName.clear();
+	columns.clear();*/
+
+}
+
+HenchmanService::~HenchmanService()
+{
+	std::cout << "Deconstructing HenchmanService" << endl;
+	//delete SQLiteM;
+	//delete TrakM;
+	//delete dbManager;
+	//dbManager->deleteLater();
+
+	//logx.clear();
+}
 
 vector<string> HenchmanService::Explode(const string& Seperator, string& s, int& limit)
 {
@@ -1766,101 +1777,19 @@ bool HenchmanService::setMailLogin(string& username, string& password)
 
 int HenchmanService::SetRequiredParameters()
 {
-	CSimpleIniA ini;
 
-	ini.SetUnicode();
+	string tableName = "Test";
+	sqliteManager->CreateTable(
+		tableName,
+		{"string TEXT"}
+	);
 
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-
-	char buff[MAX_PATH];
-	int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-	string currDir = buff;
-	currDir.resize(byteLength);
-	string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
-	string databaseName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
-	string dbName = "henchmanService.db3";
-	if (databaseName == "" || databaseName != dbName)
-	{
-		databaseName = dbName;
-		RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
-	}
-	cout << "Install dir: " << installDir << endl;
-	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
-	if (rc < 0) {
-		cerr << "Failed to Load INI File" << endl;
-	}
-
-	CSimpleIniA::TNamesDepend keys;
-	ini.GetAllKeys("WAMP", keys);
-	for (auto const& val : keys)
-	{
-		string key = val.pItem;
-		string value = ini.GetValue("WAMP", val.pItem, "");
-		ServiceHelper::removeQuotes(value);
-
-		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
-
-		key.clear();
-		value.clear();
-	}
-
-	ini.GetAllKeys("TRAK", keys);
-	for (auto const& val : keys)
-	{
-		string key = val.pItem;
-		string value = ini.GetValue("TRAK", val.pItem, "");
-		ServiceHelper::removeQuotes(value);
-
-		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
-
-		key.clear();
-		value.clear();
-
-	}
-	
-	RegCloseKey(hKey);
-	
-	SQLite_Manager SQLiteM(installDir + "\\", databaseName);
-	if(testing)
-		SQLiteM.ToggleConsoleLogging();
-
-
-	SQLiteM.InitDB();
-
-	string tableName = "TestTable";
-	vector<string> cols;
-	cols.push_back("username TEXT NOT NULL");
-	cols.push_back("password TEXT NOT NULL");
-	SQLiteM.CreateTable(tableName, cols);
-	cols.clear();
-
-	string username = ini.GetValue("EMAIL", "Username", "");
-	string password = ini.GetValue("EMAIL", "Password", "");
-	if (password != "")
-		password = QByteArray(password.data()).toBase64();
-	//string encodedPass = base64(password);
-	if (setMailLogin(username, password))
-	{
-		cols.push_back(username);
-		cols.push_back(password);
-		SQLiteM.AddRow(tableName, cols);
-		cols.clear();
-	}
-
-	currDir.clear();
-	installDir.clear();
-	keys.clear();
-	databaseName.clear();
-	dbName.clear();
-	username.clear();
-	password.clear();
-	tableName.clear();
-	cols.clear();
-
-	dbManager = make_unique<DatabaseManager>(a);
-	sqliteManager = make_unique<SQLiteManager2>(a);
+	sqliteManager->AddEntry(
+		tableName,
+		{
+			{"string", "Hello World!"}
+		}
+	);
 
 	return 0;
 }
