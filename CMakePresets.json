@@ -13,10 +13,7 @@
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe",
-        "CMAKE_TOOLCHAIN_FILE": {
-          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-          "type": "FILEPATH"
-        }
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
       },
       "condition": {
         "type": "equals",
@@ -126,7 +123,7 @@
   ],
   "vendor": {
     "qt-project.org/Presets": {
-      "checksum": "Hbr6z6nNE6UkHJfwdOJ8fbIamgc="
+      "checksum": "rF74cemCncPrdEl+C/FZlUqkXr4="
     }
   }
 }

@@ -7,7 +7,7 @@ using namespace std;
 
 static array<string, 2> timeStamp;
 
-static string checkValidDrivers()
+string checkValidDrivers()
 {
 	stringstream results;
 	for (const auto& str : QSqlDatabase::drivers())
@@ -34,7 +34,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 {
 	CSimpleIniA ini;
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
+	string installDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ);
 	SI_Error rc = ini.LoadFile(installDir.append("\\service.ini").c_str());
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
@@ -93,7 +93,7 @@ bool DatabaseManager::isInternetConnected()
 	return connected;
 }
 
-string DatabaseManager::parseArray(QJsonArray array)
+string DatabaseManager::parseData(QJsonArray array)
 {
 	stringstream dataRes;
 	if (array.count() <= 0) {
@@ -107,11 +107,11 @@ string DatabaseManager::parseArray(QJsonArray array)
 		}
 		if (result.isObject())
 		{	
-			res = parseObject(result.toObject());
+			res = parseData(result.toObject());
 		}
 		if (result.isArray())
 		{
-			res = parseArray(result.toArray());
+			res = parseData(result.toArray());
 		}
 		dataRes << " - " << res << endl;
 		continue;
@@ -120,7 +120,7 @@ string DatabaseManager::parseArray(QJsonArray array)
 	return dataRes.str();
 }
 
-string DatabaseManager::parseObject(QJsonObject object)
+string DatabaseManager::parseData(QJsonObject object)
 {
 	stringstream dataRes;
 
@@ -135,11 +135,11 @@ string DatabaseManager::parseObject(QJsonObject object)
 		}
 		if (object.value(key).isObject())
 		{
-			res = "\n\t" + parseObject(object.value(key).toObject());
+			res = "\n\t" + parseData(object.value(key).toObject());
 		}
 		if (object.value(key).isArray())
 		{
-			res = "\n\t" + parseArray(object.value(key).toArray());
+			res = "\n\t" + parseData(object.value(key).toArray());
 		}
 		dataRes << " - " << key.toStdString() << ": " << res << endl;
 		continue;
@@ -148,7 +148,7 @@ string DatabaseManager::parseObject(QJsonObject object)
 	return dataRes.str();
 }
 
-int DatabaseManager::makeNetworkRequest(QString &url, QMap<QString, QString> &query, QJsonDocument &results)
+int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDocument &results)
 {
 	int result = 0;
 	QEventLoop loop(this);
@@ -200,7 +200,7 @@ int DatabaseManager::makeNetworkRequest(QString &url, QMap<QString, QString> &qu
 		/*if(startingIndex < endingIndex)
 			jsonRes = jsonRes.sliced(startingIndex, endingIndex);*/
 
-		std::cout << jsonRes.toStdString() << endl;
+		//std::cout << jsonRes.toStdString() << endl;
 		optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
 		if (!json) {
 			ServiceHelper::WriteToLog((string)"Recieved empty data or failed to parse JSON.");
@@ -209,9 +209,9 @@ int DatabaseManager::makeNetworkRequest(QString &url, QMap<QString, QString> &qu
 		results = *json;
 		string parsedVal;
 		if (json->isArray())
-			parsedVal = parseArray(json->array());
+			parsedVal = parseData(json->array());
 		else if (json->isObject())
-			parsedVal = parseObject(json->object());
+			parsedVal = parseData(json->object());
 
 		ServiceHelper::WriteToCustomLog("Webportal response: \n" + parsedVal, timeStamp[0] + "-queries");
 		ServiceHelper::WriteToLog("Server responded with: \n" + parsedVal);
@@ -265,7 +265,7 @@ int DatabaseManager::AddToolsIfNotExists()
 	for (const auto  result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
-		QMap<QString, QString> res;
+		QStringMap res;
 		res["id"] = result["id"];
 		QString queryKeys;
 		QString queryValues;
@@ -356,7 +356,7 @@ int DatabaseManager::AddKabsIfNotExists()
 	for (const auto result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
-		QMap<QString, QString> res;
+		QStringMap res;
 		res["id"] = result["id"];
 		QString queryKeys;
 		QString queryValues;
@@ -443,7 +443,7 @@ int DatabaseManager::AddDrawersIfNotExists()
 	for (const auto result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
-		QMap<QString, QString> res;
+		QStringMap res;
 		res["id"] = result["id"];
 		QString queryKeys;
 		QString queryValues;
@@ -533,7 +533,7 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 	for (const auto result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
-		QMap<QString, QString> res;
+		QStringMap res;
 		res["id"] = result["id"];
 		QString queryKeys;
 		QString queryValues;
@@ -641,7 +641,7 @@ int DatabaseManager::connectToRemoteDB()
 		restManager = new QRestAccessManager(netManager, this);
 		
 
-		vector<QMap<QString, QString>> queries;
+		vector<QStringMap> queries;
 		QSqlQuery query(db);
 		QString queryText = testingDBManager ? "SHOW TABLES" : "SELECT * FROM cloudupdate WHERE posted = 0 ORDER BY id LIMIT " + QString::number(queryLimit);
 		query.prepare(queryText);
@@ -662,7 +662,7 @@ int DatabaseManager::connectToRemoteDB()
 		{
 			count++;
 			
-			QMap<QString, QString> res;
+			QStringMap res;
 			
 			if (!testingDBManager) {
 				res["id"] = query.value(0).toString();
@@ -914,11 +914,11 @@ int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 	return successCount;
 }
 
-vector<QMap<QString, QString>> DatabaseManager::ExecuteTargetSql(string sqlQuery)
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 {
 	int successCount = 0;
-	vector<QMap<QString, QString>> resultVector;
-	QMap<QString, QString> queryResult;
+	vector<QStringMap> resultVector;
+	QStringMap queryResult;
 	queryResult["success"] = "0";
 	resultVector.push_back( queryResult);
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());

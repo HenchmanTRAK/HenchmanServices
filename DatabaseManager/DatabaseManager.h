@@ -7,6 +7,7 @@
 #include <optional>
 #include <vector>
 #include <string>
+#include <sstream>
 
 #include <QObject>
 #include <QString>
@@ -40,6 +41,8 @@
 #include "HenchmanServiceException.h"
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
+
+typedef QMap<QString, QString> QStringMap;
 
 
 /**
@@ -158,7 +161,7 @@ public:
      *
      * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
     */
-    std::vector<QMap<QString, QString>> ExecuteTargetSql(std::string sqlQuery);
+    std::vector<QStringMap> ExecuteTargetSql(std::string sqlQuery);
 
     /**
      * @brief Checks if the internet connection is available by attempting to connect to www.google.com on port 80.
@@ -242,7 +245,7 @@ public:
      *
      * @throws None.
     */
-    static std::string parseArray(QJsonArray array);
+    static std::string parseData(QJsonArray array);
 
     /**
      * @brief Parses a QJsonObject and returns a formatted string.
@@ -258,7 +261,7 @@ public:
      *
      * @throws None.
     */
-    static std::string parseObject(QJsonObject object);
+    static std::string parseData(QJsonObject object);
 
 public slots:
     /**
@@ -300,7 +303,9 @@ private:
      *
      * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
     */
-    int makeNetworkRequest(QString &url, QMap<QString, QString> &query, QJsonDocument& results);
+    int makeNetworkRequest(QString &url, QStringMap &query, QJsonDocument& results);
 };
+
+std::string checkValidDrivers();
 
 #endif

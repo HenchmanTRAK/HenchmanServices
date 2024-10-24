@@ -24,11 +24,11 @@ file(READ version PROJECT_VER)
 
 
 project (HenchmanService VERSION ${PROJECT_VER} LANGUAGES CXX C)
-#if(EXISTS $ENV{VCPKG_ROOT})
-#	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+if(EXISTS $ENV{VCPKG_ROOT})
+	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 #elseif(EXISTS $ENV{VCPKG_INSTALLATION_ROOT})
 #	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake)
-#endif()
+endif()
 
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
@@ -162,6 +162,7 @@ FetchContent_Declare(
 	QMYSQL
 	URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip
 )
+
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 
 FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
@@ -184,6 +185,7 @@ add_subdirectory (RegistryManager)
 add_subdirectory (ServiceHelper)
 add_subdirectory (EventManager)
 add_subdirectory (SQLiteManager)
+add_subdirectory (SQLiteManager2)
 add_subdirectory (DatabaseManager)
 add_subdirectory (TRAKManager)
 #add_subdirectory (HenchmanServiceMailer)
