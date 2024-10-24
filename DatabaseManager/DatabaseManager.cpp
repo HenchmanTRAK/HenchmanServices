@@ -34,7 +34,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 {
 	CSimpleIniA ini;
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
+	string installDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ);
 	SI_Error rc = ini.LoadFile(installDir.append("\\service.ini").c_str());
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;

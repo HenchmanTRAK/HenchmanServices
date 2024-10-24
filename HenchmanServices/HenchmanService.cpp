@@ -1013,7 +1013,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	DWORD typesSupported = RegistryManager::GetVal(hKey, "TypesSupported", REG_DWORD);
 
 	HKEY serviceKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	string installDir = RegistryManager::GetStrVal(serviceKey, "Install_Dir", REG_SZ);
+	string installDir = RegistryManager::GetStrVal(serviceKey, "InstallDir", REG_SZ);
 	RegCloseKey(serviceKey);
 
 	installDir.append("\\event_log.dll");
@@ -1114,17 +1114,8 @@ HenchmanService::HenchmanService()
 
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 
-	string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
+	string installDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ);
 
-	string databaseName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
-
-	string dbName = "henchmanService.db3";
-
-	if (databaseName == "" || databaseName != dbName)
-	{
-		databaseName = dbName;
-		RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
-	}
 	cout << "Install dir: " << installDir << endl;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
 	if (rc < 0) {
@@ -1951,13 +1942,13 @@ int main(int argc, char* argv[])
 		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 		char buff[MAX_PATH];
 		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-		string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
+		string installDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ);
 
 		if (installDir == "" || installDir != buff)
 		{
 			installDir = buff;
 			std::cout << installDir << endl;
-			RegistryManager::SetVal(hKey, "Install_DIR", installDir, REG_SZ);
+			RegistryManager::SetVal(hKey, "InstallDIR", installDir, REG_SZ);
 		}
 		RegCloseKey(hKey);
 		setContextMenu(installDir);

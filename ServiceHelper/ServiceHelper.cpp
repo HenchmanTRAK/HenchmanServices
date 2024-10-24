@@ -79,7 +79,7 @@ string ServiceHelper::GetExportsPath(string app_path)
 	int _results = 0;
 	char buff[1024];
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
+	string installDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -107,7 +107,7 @@ string ServiceHelper::GetLogsPath(string app_path)
 	int _results = 0;
 	char buff[1024];
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ);
+	string installDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);

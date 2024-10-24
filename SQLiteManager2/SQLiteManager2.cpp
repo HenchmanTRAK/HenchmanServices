@@ -7,11 +7,10 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 {
 
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	QString installDir = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Install_DIR", REG_SZ));
-	RegCloseKey(hKey);
+	QString installDir = QString::fromStdString(RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ));
+	QString dbName = QString::fromStdString(RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ));
 
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
-	
 	ini.beginGroup("SYSTEM");
 	databaseName = ini.value("database", "").toString()+".db3";
 	ini.endGroup();
@@ -19,8 +18,13 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	QSqlDatabase db;
 
 	try{
-		if(databaseName.isEmpty())
+		if(databaseName.isEmpty() && dbName.isEmpty())
 			throw HenchmanServiceException("No database name specified in service.ini");
+
+		if(databaseName.isEmpty() && !dbName.isEmpty())
+			databaseName = dbName;
+		else
+			RegistryManager::SetVal(hKey, "DatabaseName", databaseName.toStdString(), REG_SZ);
 
 		if (!QSqlDatabase::isDriverAvailable("QSQLITE"))
 			throw HenchmanServiceException("QSQLITE database driver was not found");
@@ -49,6 +53,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 		ServiceHelper::WriteToLog("SQLiteManager::SQLiteManager threw and exception: " + (std::string)e.what());
 	}
 
+	RegCloseKey(hKey);
 }
 
 SQLiteManager2::~SQLiteManager2()
@@ -134,8 +139,7 @@ int SQLiteManager2::CreateTable(
 
 		std::stringstream queryText;
 		queryText << "CREATE TABLE IF NOT EXISTS";
-		queryText << " " << newTable;
-		queryText << " (";
+		queryText << " " << newTable << " (";
 		queryText << "id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\n";
 		queryText << "createdAt TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),\n";
 		queryText << "updatedAt TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),\n";
@@ -151,6 +155,7 @@ int SQLiteManager2::CreateTable(
 
 		queryText.clear();
 		queryText.str(std::string());
+
 		queryText << "CREATE TRIGGER IF NOT EXISTS set_updatedAt_on_" << newTable << "\n";
 		queryText << "AFTER UPDATE ON " << newTable << "\n";
 		queryText << "WHEN OLD.updatedAt <> (datetime('now', 'localtime'))\n";
