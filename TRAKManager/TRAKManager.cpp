@@ -124,7 +124,7 @@ void TRAKManager::CreateDataModule()
 
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
-	string serviceInstallDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ) + "\\service.ini";
+	string serviceInstallDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ) + "\\service.ini";
 	RegCloseKey(hKey);
 	try 
 	{

@@ -1013,7 +1013,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	DWORD typesSupported = RegistryManager::GetVal(hKey, "TypesSupported", REG_DWORD);
 
 	HKEY serviceKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	string installDir = RegistryManager::GetStrVal(serviceKey, "InstallDir", REG_SZ);
+	string installDir = RegistryManager::GetStrVal(serviceKey, "INSTALLDIR", REG_SZ);
 	RegCloseKey(serviceKey);
 
 	installDir.append("\\event_log.dll");
@@ -1035,7 +1035,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	{
 		
 		service.MainFunction();
-
+#if false
 		service.sqliteManager->UpdateEntry(
 			"Test",
 			{"id = 1"},
@@ -1054,7 +1054,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 			{"*", "COUNT(*) count"},
 			{"updatedAt <= datetime('now', 'localtime')"}
 			);
-
+#endif
 		ServiceHelper::WriteToLog("Waiting for QT to finish execution...");
 		
 		a->exec();
@@ -1114,7 +1114,7 @@ HenchmanService::HenchmanService()
 
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 
-	string installDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ);
+	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
 
 	cout << "Install dir: " << installDir << endl;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
@@ -1769,6 +1769,7 @@ bool HenchmanService::setMailLogin(string& username, string& password)
 int HenchmanService::SetRequiredParameters()
 {
 
+#if false
 	string tableName = "Test";
 	sqliteManager->CreateTable(
 		tableName,
@@ -1781,7 +1782,7 @@ int HenchmanService::SetRequiredParameters()
 			{"string", "Hello World!"}
 		}
 	);
-
+#endif
 	return 0;
 }
 
@@ -1909,12 +1910,13 @@ int HenchmanService::MainFunction()
 	string sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\tools.sql";
 	dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);*/
 
-	if(!(dbManager->AddKabsIfNotExists() ||
+	if (!(dbManager->AddKabsIfNotExists() ||
 		dbManager->AddDrawersIfNotExists() ||
 		dbManager->AddToolsIfNotExists() ||
-		dbManager->AddToolsInDrawersIfNotExists()
-		))
+		dbManager->AddToolsInDrawersIfNotExists())
+		) {
 		dbManager->connectToRemoteDB();
+	}
 	
 	std::cout << "Exiting Main Function" << endl;
 	
@@ -1942,13 +1944,13 @@ int main(int argc, char* argv[])
 		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 		char buff[MAX_PATH];
 		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-		string installDir = RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ);
+		string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
 
 		if (installDir == "" || installDir != buff)
 		{
 			installDir = buff;
 			std::cout << installDir << endl;
-			RegistryManager::SetVal(hKey, "InstallDIR", installDir, REG_SZ);
+			RegistryManager::SetVal(hKey, "INSTALLDIR", installDir, REG_SZ);
 		}
 		RegCloseKey(hKey);
 		setContextMenu(installDir);

@@ -5,42 +5,54 @@
 SQLiteManager2::SQLiteManager2(QObject *parent)
 : QObject(parent)
 {
+	std::cout << "Constructing SQLiteManager2" << std::endl;
 
+	std::cout << "Fetching values from registry" << std::endl;
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	QString installDir = QString::fromStdString(RegistryManager::GetStrVal(hKey, "InstallDIR", REG_SZ));
-	QString dbName = QString::fromStdString(RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ));
+	QString installDir = QString::fromStdString(RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ));
+	std::string dbName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
 
+	std::cout << "Fetching values from ini file" << std::endl;
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
 	ini.beginGroup("SYSTEM");
-	databaseName = ini.value("database", "").toString()+".db3";
+	databaseName = ini.value("database", "").toString().toStdString() + ".db3";
+	databaseLocation = (
+		ini.value("databaseLocation", "").toString() == ""
+		? installDir
+		: ini.value("databaseLocation", "").toString()
+		).toStdString();
 	ini.endGroup();
 	
 	QSqlDatabase db;
 
 	try{
-		if(databaseName.isEmpty() && dbName.isEmpty())
+		std::cout << "Initializing requirements" << std::endl;
+
+		if(QString::fromStdString(databaseName).isEmpty() && QString::fromStdString(dbName).isEmpty())
 			throw HenchmanServiceException("No database name specified in service.ini");
 
-		if(databaseName.isEmpty() && !dbName.isEmpty())
+		if(QString::fromStdString(databaseName).isEmpty() && !QString::fromStdString(dbName).isEmpty())
 			databaseName = dbName;
 		else
-			RegistryManager::SetVal(hKey, "DatabaseName", databaseName.toStdString(), REG_SZ);
+			RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
 
-		if (!QSqlDatabase::isDriverAvailable("QSQLITE"))
+		std::cout << "Checking for driver availability" << std::endl;
+		if (!QSqlDatabase::isDriverAvailable(databaseDriver.data()))
 			throw HenchmanServiceException("QSQLITE database driver was not found");
 
-		if (QSqlDatabase::contains(databaseName))
-			db = QSqlDatabase::database(databaseName);
+		std::cout << "Checking if database has been previously defined" << std::endl;
+		if (QSqlDatabase::contains(databaseName.data()))
+			db = QSqlDatabase::database(databaseName.data());
 		else {
-			db = QSqlDatabase::addDatabase(dbDriver, databaseName);
+			db = QSqlDatabase::addDatabase(databaseDriver.data(), databaseName.data());
+			db.setDatabaseName(QString::fromStdString(databaseLocation + "\\" + databaseName));
 		}
-		db.setDatabaseName(installDir+"\\"+databaseName);
 
+		std::cout << "Initializing Database" << std::endl;
 		if (!db.open())
-		{
 			throw HenchmanServiceException("Failed to open database");
-		}
-		std::cout << "Db opened" << std::endl;
+
+		std::cout << "Checking if database file is hidden" << std::endl;
 		int attr = GetFileAttributesA(db.databaseName().toUtf8());
 		if (!(attr & FILE_ATTRIBUTE_HIDDEN))
 		{
@@ -68,7 +80,7 @@ void SQLiteManager2::ExecQuery(
 {
 	std::vector<stringmap> resultVector;
 	stringmap queryResult;
-	QSqlDatabase db = QSqlDatabase::database(databaseName);
+	QSqlDatabase db = QSqlDatabase::database(databaseName.data());
 
 	try {
 		if (!db.open())
@@ -91,10 +103,10 @@ void SQLiteManager2::ExecQuery(
 				query.lastQuery().toStdString() +
 				"\n Error Code: " +
 				query.lastError().nativeErrorCode().toStdString() +
-				"\n Driver Error: " +
-				query.lastError().driverText().toStdString() +
 				"\n Database Statement: " +
 				query.lastError().databaseText().toStdString() +
+				"\n Driver Error: " +
+				query.lastError().driverText().toStdString() +
 				"\n General Error Text: " +
 				query.lastError().text().toStdString()
 			);
@@ -123,11 +135,9 @@ void SQLiteManager2::ExecQuery(
 		db.rollback();
 		db.close();
 		throw HenchmanServiceException("SQLiteManager2::ExecQuery errored with exception: " + (std::string)e.what());
-		/*ServiceHelper::WriteToLog("SQLiteManager::ExecQuery threw and exception: " + (std::string)e.what());*/
 	}
 	if (results)
 		resultVector.swap(*results);
-	//results->swap(resultVector);
 }
 
 int SQLiteManager2::CreateTable(
