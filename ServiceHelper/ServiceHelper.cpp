@@ -178,7 +178,7 @@ void ServiceHelper::WriteToCustomLog(string log, string logName)
 {
 	string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
-	cout << logDir << endl;
+	//cout << logDir << endl;
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
