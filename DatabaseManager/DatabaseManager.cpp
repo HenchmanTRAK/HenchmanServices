@@ -59,10 +59,11 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	
 	targetApp = "";
 	requestRunning = false;
-	numToolsChecked = RegistryManager::GetVal(hKey, "numToolsChecked", REG_DWORD);
-	numKabsChecked = RegistryManager::GetVal(hKey, "numKabsChecked", REG_DWORD);
-	numDrawersChecked = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
-	numToolsInDrawersChecked = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
+	databaseTablesChecked["tools"] = RegistryManager::GetVal(hKey, "numToolsChecked", REG_DWORD);
+	databaseTablesChecked["kabs"] = RegistryManager::GetVal(hKey, "numKabsChecked", REG_DWORD);
+	databaseTablesChecked["kabDrawers"] = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
+	databaseTablesChecked["kabDrawerBins"] = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
+	databaseTablesChecked["users"] = RegistryManager::GetVal(hKey, "numUsersChecked", REG_DWORD);
 	RegCloseKey(hKey);
 
 }
@@ -239,16 +240,17 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 
 int DatabaseManager::AddToolsIfNotExists()
 {
+	QString targetKey = "tools";
 	timeStamp = ServiceHelper::timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tools");
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= numToolsChecked)
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		return 0;
 	}
 
 	string query = 
 		"SELECT * from tools ORDER BY id ASC LIMIT " + 
-		to_string(numToolsChecked) + ", " + to_string(queryLimit);
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 	
 	performCleanup();
@@ -310,18 +312,18 @@ int DatabaseManager::AddToolsIfNotExists()
 			QJsonObject result = reply.object();
 			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
-				numToolsChecked++;
+				databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
 			Sleep(100);
-			numToolsChecked += queryLimit;
+			databaseTablesChecked[targetKey] += queryLimit;
 			break;
 		}
 
 	}
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numToolsChecked", numToolsChecked, REG_DWORD);
+	RegistryManager::SetVal(hKey, "numToolsChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//performCleanup();
@@ -330,16 +332,17 @@ int DatabaseManager::AddToolsIfNotExists()
 
 int DatabaseManager::AddKabsIfNotExists()
 {
+	QString targetKey = "kabs";
 	timeStamp = ServiceHelper::timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabs");
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= numKabsChecked)
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		return 0;
 	}
 
 	string query =
 		"SELECT * from itemkabs ORDER BY id ASC LIMIT " +
-		to_string(numKabsChecked) + ", " + to_string(queryLimit);
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
 	performCleanup();
@@ -397,18 +400,18 @@ int DatabaseManager::AddKabsIfNotExists()
 			QJsonObject result = reply.object();
 			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
-				numKabsChecked++;
+				databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
 			Sleep(100);
-			numKabsChecked += queryLimit;
+			databaseTablesChecked[targetKey] += queryLimit;
 			break;
 		}
 
 	}
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numKabsChecked", numKabsChecked, REG_DWORD);
+	RegistryManager::SetVal(hKey, "numKabsChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//performCleanup();
@@ -417,16 +420,17 @@ int DatabaseManager::AddKabsIfNotExists()
 
 int DatabaseManager::AddDrawersIfNotExists()
 {
+	QString targetKey = "kabDrawers";
 	timeStamp = ServiceHelper::timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawers");
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= numDrawersChecked)
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		return 0;
 	}
 
 	string query =
 		"SELECT * from itemkabdrawers ORDER BY id ASC LIMIT " +
-		to_string(numDrawersChecked) + ", " + to_string(queryLimit);
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
 	performCleanup();
@@ -488,18 +492,18 @@ int DatabaseManager::AddDrawersIfNotExists()
 			QJsonObject result = reply.object();
 			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
-				numDrawersChecked++;
+				databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
 			Sleep(100);
-			numDrawersChecked += queryLimit;
+			databaseTablesChecked[targetKey] += queryLimit;
 			break;
 		}
 
 	}
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numDrawersChecked", numDrawersChecked, REG_DWORD);
+	RegistryManager::SetVal(hKey, "numDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -507,16 +511,17 @@ int DatabaseManager::AddDrawersIfNotExists()
 
 int DatabaseManager::AddToolsInDrawersIfNotExists()
 {
+	QString targetKey = "kabDrawerBins";
 	timeStamp = ServiceHelper::timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawerbins");
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= numToolsInDrawersChecked)
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		return 0;
 	}
 
 	string query =
 		"SELECT * from itemkabdrawerbins ORDER BY id ASC LIMIT " +
-		to_string(numToolsInDrawersChecked) + ", " + to_string(queryLimit);
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
 	performCleanup();
@@ -580,19 +585,108 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 			QJsonObject result = reply.object();
 			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
-				numToolsInDrawersChecked++;
+				databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
 			Sleep(100);
-			numToolsInDrawersChecked += queryLimit;
+			databaseTablesChecked[targetKey] += queryLimit;
 			
 			break;
 		}
 
 	}
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numToolsInDrawersChecked", numToolsInDrawersChecked, REG_DWORD);
+	RegistryManager::SetVal(hKey, "numToolsInDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
+
+int DatabaseManager::AddUsersIfNotExists()
+{
+	QString targetKey = "users";
+	timeStamp = ServiceHelper::timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+
+	string query =
+		"SELECT * from users ORDER BY id ASC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	for (auto &result : sqlQueryResults) {
+		if (result.firstKey() == "success")
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+		result.remove("id");
+		QString queryKeys = "";
+		QString queryValues = "";
+		QString conditionals = "";
+		int count = result.size();
+		for (const auto& key : result.keys()) {
+			count--;
+			if (!(key == "id" || result.value(key) == "" || result.value(key) == "0"))
+			{
+				std::cout << "Process Loop: " << key.toStdString() << ": " << result.value(key).toStdString() << std::endl;
+				result[key] = "'" + result.value(key) + "'";
+				queryKeys.append("`" + key + "`" + (count > 1 ? ", " : ""));
+				queryValues.append(result.value(key) + (count > 1 ? ", " : ""));
+				conditionals.append(key + "=" + result.value(key) + (count > 1 ? " AND " : ""));
+			}
+			continue;
+		}
+
+		/*if (queryKeys.size() > 0 && queryKeys[queryKeys.size() - 2].toLatin1() == ',')
+			queryKeys.chop(2);
+
+		if (queryValues.size() > 0 && queryValues[queryValues.size() - 2].toLatin1() == ',')
+			queryValues.chop(2);*/
+
+		res["query"] = "INSERT INTO users (" +
+			queryKeys +
+			") SELECT " +
+			queryValues +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE "+
+			conditionals +
+			" ORDER BY id DESC LIMIT 1)";
+		qDebug() << res["query"];
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			std::cout << result["result"].toString().toStdString() << endl;
+			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			std::cout << "No rows were altered on db" << endl;
+			Sleep(100);
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+
+			//break;
+		}
+
+	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -920,7 +1014,6 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 	vector<QStringMap> resultVector;
 	QStringMap queryResult;
 	queryResult["success"] = "0";
-	resultVector.push_back( queryResult);
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
 	QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
 	RegCloseKey(hKey);
@@ -954,12 +1047,12 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 				QSqlRecord record(query.record());
 				
 				queryResult["success"] = QString::number(successCount);
-				resultVector[0] = queryResult;
+				resultVector.push_back(queryResult);
 				
 				while (query.next())
 				{
 					queryResult.clear();
-
+					std::cout << "{" << std::endl;
 					for (int i = 0; i <= record.count() - 1; i++)
 					{
 						queryResult[record.fieldName(i)] = query.value(i).toString();
@@ -967,6 +1060,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 					}
 
 					resultVector.push_back(queryResult);
+					std::cout << "}" << std::endl;
 				}
 			}
 			else {
@@ -1056,6 +1150,24 @@ exit:
 	requestRunning = false;
 
 	return;
+}
+
+void processKeysAndValues(QStringMap &map)
+{
+	for (const auto& key : map.keys()) {
+		map.remove("id");
+		map.remove("success");
+		if (map.value(key) == "" || map.value(key) == "0")
+			continue;
+
+		map[key] = "'" + map.value(key) + "'";
+
+		/*keys.push_back(key);
+		values.push_back(result.value(key));
+		queryKeys += "`" + key + "`, ";
+
+		queryValues += "'" + result[key] + "', ";*/
+	}
 }
 
 void DatabaseManager::performCleanup()

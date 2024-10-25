@@ -237,6 +237,18 @@ public:
     int AddToolsInDrawersIfNotExists();
 
     /**
+     * @brief Adds tools to the database if they do not already exist.
+     *
+     * This function retrieves a list of tools from the local database and checks if each tool already exists on the remote database.
+     * If a tool does not exist, it is inserted into the remote database using an SQL query.
+     *
+     * @return Returns 0 if the function completes successfully, otherwise returns an error code.
+     *
+     * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+     */
+    int AddUsersIfNotExists();
+
+    /**
      * @brief Parses a QJsonArray into a string representation.
      *
      * @param array The QJsonArray to be parsed.
@@ -264,31 +276,76 @@ public:
     static std::string parseData(QJsonObject object);
 
 public slots:
+
     /**
-    * @brief Parses the data received from a network request.
-    *
-    * This function takes the network reply and performs various operations on it.
-    * It checks for network and HTTP errors, logs the response status, executes a SQL query,
-    * reads the JSON response, and prints any errors or data received.
-    *
-    * @throws Throws an exception if there is a network or HTTP error, or if there is an error
-    *         executing the SQL query or parsing the JSON response.
-    */
+     * @brief Parses the data received from a network request.
+     *
+     * This function takes the network reply and performs various operations on it.
+     * It checks for network and HTTP errors, logs the response status, executes a SQL query,
+     * reads the JSON response, and prints any errors or data received.
+     *
+     * @param netReply The QNetworkReply object containing the response from the network request.
+     *
+     * @throws Throws an exception if there is a network or HTTP error, or if there is an error
+     *         executing the SQL query or parsing the JSON response.
+     */
     void parseData(QNetworkReply* netReply);
 
 private:
-    //QNetworkRequest* request;
+    /**
+     * @brief The network access manager object.
+     *
+     * This object is used to make network requests to the database server.
+     */
     QNetworkAccessManager* netManager = nullptr;
-    //QNetworkReply* netReply;
+
+    /**
+     * @brief The REST access manager object.
+     *
+     * This object is used to make RESTful network requests to the database server.
+     */
     QRestAccessManager* restManager = nullptr;
+
+    /**
+     * @brief A flag indicating whether the database manager is in testing mode.
+     *
+     * This flag is used to determine whether the database manager should use test data or not.
+     */
     bool testingDBManager = false;
+    
+    /**
+     * @brief The API username.
+     *
+     * This is the username used to authenticate with the database server.
+     */
     QString apiUsername = "";
+
+    /**
+     * @brief The API password.
+     *
+     * This is the password used to authenticate with the database server.
+     */
     QString apiPassword = "";
+
+    /**
+     * @brief The API URL.
+     *
+     * This is the URL of the database server.
+     */
     QString apiUrl = "";
-    int numToolsChecked = 0;
-    int numKabsChecked = 0;
-    int numDrawersChecked = 0;
-    int numToolsInDrawersChecked = 0;
+
+    /**
+     * @brief A map of database tables and their corresponding check status.
+     *
+     * This map is used to keep track of the status of each database table.
+     */
+    QMap<QString, int> databaseTablesChecked = {
+        {"tools", 0},
+        {"kabs", 0},
+        {"kabDrawers", 0},
+        {"kabDrawerBins", 0},
+        {"users", 0}
+    };
 
     /**
      * @brief Sends a network request to the specified URL with the provided query data.
