@@ -1006,7 +1006,6 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	int argc = 0;
 	char* argv[1];
 
-	
 	// add registering registering application in event log and removing on exit.
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
 	string evtMsgFile = RegistryManager::GetStrVal(hKey, "EventMessageFile", REG_SZ);
@@ -1017,20 +1016,18 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	RegCloseKey(serviceKey);
 
 	installDir.append("\\event_log.dll");
-	std::cout << evtMsgFile << " | " << installDir << endl;
 	if (evtMsgFile != installDir) {
-		std::cout << "setting new event message file" << endl;
 		RegistryManager::SetVal(hKey, "EventMessageFile", installDir, REG_SZ);
 	}
 	RegistryManager::SetVal(hKey, "TypesSupported", 7, REG_DWORD);
+
 	RegCloseKey(hKey);
 
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
 		
 	a = new QCoreApplication(argc, argv);
 	HenchmanService service;
-	service.SetRequiredParameters();
-	int counter = 0;
+	
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		
@@ -1790,10 +1787,58 @@ int HenchmanService::MainFunction()
 {
 	update = TRUE;
 
+	checkStateOfMySQL();
+	checkStateOfApache();
+	
+	if (!dbManager->isInternetConnected())
+	{
+		ServiceHelper::WriteToLog("Failed to confirm network connection");
+		QTimer::singleShot(100, a, &QCoreApplication::quit);
+		return 0;
+	}
+
+	//ConnectWithSMTP();
+
+	//dbManager = new DatabaseManager(a);
+
+	TRAKManager TrakM;
+
+	TrakM.CreateDataModule();
+
+	ServiceHelper::WriteToLog("Checking if TRAK is Running");
+	if (!ProcessExists(TrakM.appName)) {
+		ServiceHelper::WriteToError("TRAK process is not running");
+		string targetExe = TrakM.appDir + TrakM.appName;
+		ServiceHelper::WriteToLog("TRAK process not running, starting with path: " + targetExe);
+		if (!ShellExecuteApp(targetExe, ""))
+		{
+			ServiceHelper::WriteToError("Failed to start " + targetExe);
+		}
+	}
+	dbManager->targetApp = TrakM.appType;
+
+	dbManager->connectToLocalDB();
+
+	if (!(dbManager->AddKabsIfNotExists() ||
+		dbManager->AddDrawersIfNotExists() ||
+		dbManager->AddToolsIfNotExists() ||
+		dbManager->AddToolsInDrawersIfNotExists())
+		) {
+		dbManager->connectToRemoteDB();
+	}
+	
+	std::cout << "Exiting Main Function" << endl;
+	
+	return 0;
+}
+
+void HenchmanService::checkStateOfMySQL()
+{
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
+	RegCloseKey(hKey);
 	ServiceHelper::WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = GetSvcStatus("wampmysqld64");
-	string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
 	try {
 		switch (wampMySQLSvcStatus) {
 		case -1: {
@@ -1822,19 +1867,23 @@ int HenchmanService::MainFunction()
 		}
 		}
 	}
-	catch (exception& e) 
+	catch (exception& e)
 	{
 		ServiceHelper::WriteToError("HenchmanService::MainFunction threw exception in wampMySQLSvcThread: " + (string)e.what());
 		if (ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
 			ServiceHelper::WriteToLog("Removed Local MYSQL service...");
 	}
 
+}
+
+void HenchmanService::checkStateOfApache()
+{
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string apache_dir = RegistryManager::GetStrVal(hKey, "Apache_DIR", REG_SZ);
+	RegCloseKey(hKey);
 	ServiceHelper::WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = GetSvcStatus("wampapache64");
-	string apache_dir = RegistryManager::GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	try {
-
-		std::cout << apache_dir << endl;
 
 		switch (wampApacheSvcStatus) {
 		case -1: {
@@ -1872,57 +1921,7 @@ int HenchmanService::MainFunction()
 		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
 			ServiceHelper::WriteToLog("Apache Service uninstalled...");
 	}
-
-	RegCloseKey(hKey);
-	
-	if (!dbManager->isInternetConnected())
-	{
-		ServiceHelper::WriteToLog("Failed to confirm network connection");
-		QTimer::singleShot(100, a, &QCoreApplication::quit);
-		return 0;
-	}
-
-	//ConnectWithSMTP();
-
-	//dbManager = new DatabaseManager(a);
-
-	TRAKManager TrakM;
-
-	TrakM.CreateDataModule();
-
-	ServiceHelper::WriteToLog("Checking if TRAK is Running");
-	if (!ProcessExists(TrakM.appName)) {
-		ServiceHelper::WriteToError("TRAK process is not running");
-		string targetExe = TrakM.appDir + TrakM.appName;
-		ServiceHelper::WriteToLog("TRAK process not running, starting with path: " + targetExe);
-		if (!ShellExecuteApp(targetExe, ""))
-		{
-			ServiceHelper::WriteToError("Failed to start " + targetExe);
-		}
-	}
-	dbManager->targetApp = TrakM.appType;
-
-	dbManager->connectToLocalDB();
-
-	//string sqlFile = TrakM.appDir + "database\\kabtraktest1_20170111.sql";
-	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
-	/*cout << "running tools" << endl;
-	string sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\tools.sql";
-	dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);*/
-
-	if (!(dbManager->AddKabsIfNotExists() ||
-		dbManager->AddDrawersIfNotExists() ||
-		dbManager->AddToolsIfNotExists() ||
-		dbManager->AddToolsInDrawersIfNotExists())
-		) {
-		dbManager->connectToRemoteDB();
-	}
-	
-	std::cout << "Exiting Main Function" << endl;
-	
-	return 0;
 }
-
 int main(int argc, char* argv[])
 {
 
@@ -2006,13 +2005,13 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	SERVICE_TABLE_ENTRYA ServiceTable[] =
+	SERVICE_TABLE_ENTRY ServiceTable[] =
 	{
-		{(char*)SERVICE_NAME, (LPSERVICE_MAIN_FUNCTIONA)SvcMain},
+		{QString(SERVICE_NAME).toStdWString().data(), (LPSERVICE_MAIN_FUNCTION)SvcMain},
 		{NULL, NULL}
 	};
 
-	if (!StartServiceCtrlDispatcherA(ServiceTable))
+	if (!StartServiceCtrlDispatcher(ServiceTable))
 	{
 		std::cout << "Failed to find Registered Service Controller." << std::endl;
 		std::cout << "Press enter to install service or hit CTRL+C to exit..." << std::endl;

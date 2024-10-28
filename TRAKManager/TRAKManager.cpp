@@ -138,17 +138,10 @@ void TRAKManager::CreateDataModule()
 			throw HenchmanServiceException("No TRAK application could be found");
 
 		ServiceHelper::WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
-	}
-	catch (exception& e)
-	{
-		ServiceHelper::WriteToError("TRAKManager::CreateDataModule thrw an exception: " + string(e.what()));
-		return;
-	}
 	
-	try {
 		cout << "app dir: " << appDir << iniFile << endl;
 
-		SI_Error rc = ini.LoadFile((appDir + iniFile).data());
+		rc = ini.LoadFile((appDir + iniFile).data());
 		if (rc < 0) {
 			throw HenchmanServiceException("Failed to Load INI File: " + appDir + iniFile);
 		}

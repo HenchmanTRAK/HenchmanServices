@@ -37,8 +37,6 @@
 #include <QCoreApplication>
 #include <QMap>
 
-#include <SimpleIni.h>
-
 #include "HenchmanServiceException.h"
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
