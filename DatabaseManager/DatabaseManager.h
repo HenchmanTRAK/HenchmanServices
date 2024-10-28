@@ -11,6 +11,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QSettings>
 //#include <QSqlQueryModel>
 #include <QSqlDatabase>
 #include <QSqlDriver>
@@ -43,7 +44,6 @@
 #include "RegistryManager.h"
 
 typedef QMap<QString, QString> QStringMap;
-
 
 /**
  * @class DatabaseManager
@@ -360,7 +360,21 @@ private:
      *
      * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
     */
-    int makeNetworkRequest(QString &url, QStringMap &query, QJsonDocument& results);
+    int makeNetworkRequest(QString &url, QStringMap &query, QJsonDocument* results = nullptr);
+
+    /**
+     * @brief Processes the keys and values in the provided map and stores the results in the provided results array.
+     *
+     * This function iterates over the keys in the provided map and performs the following operations:
+     * - If the key is not "id", it adds quotes around the corresponding value.
+     * - It appends the key and the quoted value to the queryKeys and queryValues strings, respectively.
+     *
+     * After processing all the keys and values, the function stores the queryKeys and queryValues strings in the provided results array.
+     *
+     * @param map The map containing the keys and values to process.
+     * @param results The array to store the processed queryKeys and queryValues strings.
+     */
+    void processKeysAndValues(QStringMap& map, QString(&results)[]);
 };
 
 std::string checkValidDrivers();

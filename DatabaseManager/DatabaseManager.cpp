@@ -32,9 +32,10 @@ static int checkValidConnections(QString &targetConnection)
 DatabaseManager::DatabaseManager(QObject* parent) 
 : QObject(parent)
 {
-	CSimpleIniA ini;
 	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+
+	/*CSimpleIniA ini;
 	SI_Error rc = ini.LoadFile(installDir.append("\\service.ini").c_str());
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
@@ -53,7 +54,17 @@ DatabaseManager::DatabaseManager(QObject* parent)
 					"API", 
 					"url", 
 					"webportal.henchmantrak.com/webapi/public/api/portals/exec_query"));
-	}
+	}*/
+
+	QSettings ini(installDir.append("\\service.ini").data(), QSettings::IniFormat, this);
+	ini.sync();
+	testingDBManager = ini.value("DEVELOPMENT/testingDBManager", 0).toBool();
+	ini.beginGroup("API");
+	queryLimit = ini.value("numberOfQueries", 10).toInt();
+	apiUsername = ini.value("Username", "").toString();
+	apiPassword = ini.value("Password", "").toString();
+	apiUrl.append(ini.value("url", "https://webportal.henchmantrak.com/webapi/public/api/portals/exec_query").toString());
+	ini.endGroup();
 
 	std::cout << "init db manager" << endl;
 	
@@ -149,7 +160,7 @@ string DatabaseManager::parseData(QJsonObject object)
 	return dataRes.str();
 }
 
-int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDocument &results)
+int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDocument *results)
 {
 	int result = 0;
 	QEventLoop loop(this);
@@ -207,7 +218,9 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 			ServiceHelper::WriteToLog((string)"Recieved empty data or failed to parse JSON.");
 			return;
 		}
-		results = *json;
+		if(results)
+			json.value().swap(*results);
+		
 		string parsedVal;
 		if (json->isArray())
 			parsedVal = parseData(json->array());
@@ -249,7 +262,7 @@ int DatabaseManager::AddToolsIfNotExists()
 	}
 
 	string query = 
-		"SELECT * from tools ORDER BY id ASC LIMIT " + 
+		"SELECT * from tools ORDER BY id DESC LIMIT " + 
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 	
@@ -264,49 +277,29 @@ int DatabaseManager::AddToolsIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 	
-	for (const auto  result : sqlQueryResults) {
+	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
-		QString queryKeys;
-		QString queryValues;
-		vector<QString> keys;
-		vector<QString> values;
 
-		for (const auto & key : result.keys()) {
-			if (key == "id" || result[key] == "" || result[key] == "0")
-			{
-				continue;
-			}
-			keys.push_back(key);
-			values.push_back(result.value(key));
-			queryKeys += "`"+key + "`, ";
-			
-			queryValues += "'" + result[key] + "', ";
-		}
-		if(queryKeys.size()	> 0 && queryKeys[queryKeys.size() - 2].toLatin1() == ',')
-			queryKeys.chop(2);
+		QString results[2];
 
-		if (queryValues.size() > 0 && queryValues[queryValues.size() - 2].toLatin1() == ',')
-			queryValues.chop(2);
+		processKeysAndValues(result, results);
 
 		res["query"] = "INSERT INTO tools (" +
-			queryKeys + 
-			") SELECT " + 
-			queryValues + 
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE custId = '" + 
-			result.value("custId") + 
-			"' AND PartNo = '" + 
-			result.value("PartNo") + 
-			"' AND description = '" + 
-			result.value("description") + 
-			"' AND stockcode = '" + 
-			result.value("stockcode") + 
-			"' ORDER BY id DESC LIMIT 1)";
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE " +
+			"custId="+result.value("custId")+
+			" AND PartNo="+result.value("PartNo")+
+			" AND stockcode="+result.value("stockcode")+
+			" ORDER BY id DESC LIMIT 1)";
 
-		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, reply)) {
+		qDebug() << res["query"];
+ 		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
@@ -316,9 +309,11 @@ int DatabaseManager::AddToolsIfNotExists()
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
-			Sleep(100);
-			databaseTablesChecked[targetKey] += queryLimit;
-			break;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			//break;
+			continue;
 		}
 
 	}
@@ -341,7 +336,7 @@ int DatabaseManager::AddKabsIfNotExists()
 	}
 
 	string query =
-		"SELECT * from itemkabs ORDER BY id ASC LIMIT " +
+		"SELECT * from itemkabs ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
@@ -356,45 +351,28 @@ int DatabaseManager::AddKabsIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
-	for (const auto result : sqlQueryResults) {
+	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
-		QString queryKeys;
-		QString queryValues;
-		vector<QString> keys;
-		vector<QString> values;
 
-		for (const auto& key : result.keys()) {
-			if (key == "id" || result[key] == "" || result[key] == "0")
-			{
-				continue;
-			}
-			keys.push_back(key);
-			values.push_back(result.value(key));
-			queryKeys += "`" + key + "`, ";
+		QString results[2];
 
-			queryValues += "'" + result[key] + "', ";
-		}
-		if (queryKeys.size() > 0 && queryKeys[queryKeys.size() - 2].toLatin1() == ',')
-			queryKeys.chop(2);
-
-		if (queryValues.size() > 0 && queryValues[queryValues.size() - 2].toLatin1() == ',')
-			queryValues.chop(2);
-
+		processKeysAndValues(result, results);
+		
 		res["query"] = "INSERT INTO itemkabs (" +
-			queryKeys +
+			results[0] +
 			") SELECT " +
-			queryValues +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabs WHERE custId = '" +
-			result.value("custId") +
-			"' AND kabId = '" +
-			result.value("kabId") +
-			"' ORDER BY id DESC LIMIT 1)";
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabs WHERE " +
+			"custId="+result.value("custId")+
+			" AND kabId="+result.value("kabId")+
+			" ORDER BY id DESC LIMIT 1)";
+		qDebug() << res["query"];
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, reply)) {
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
@@ -404,9 +382,11 @@ int DatabaseManager::AddKabsIfNotExists()
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
-			Sleep(100);
-			databaseTablesChecked[targetKey] += queryLimit;
-			break;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			//break;
+			continue;
 		}
 
 	}
@@ -429,7 +409,7 @@ int DatabaseManager::AddDrawersIfNotExists()
 	}
 
 	string query =
-		"SELECT * from itemkabdrawers ORDER BY id ASC LIMIT " +
+		"SELECT * from itemkabdrawers ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
@@ -444,49 +424,29 @@ int DatabaseManager::AddDrawersIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
-	for (const auto result : sqlQueryResults) {
+	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
-		QString queryKeys;
-		QString queryValues;
-		vector<QString> keys;
-		vector<QString> values;
 
-		for (const auto& key : result.keys()) {
-			if (key == "id" || result[key] == "" || result[key] == "0")
-			{
-				continue;
-			}
-			keys.push_back(key);
-			values.push_back(result.value(key));
-			queryKeys += "`" + key + "`, ";
+		QString results[2];
 
-			queryValues += "'" + result[key] + "', ";
-		}
-		if (queryKeys.size() > 0 && queryKeys[queryKeys.size() - 2].toLatin1() == ',')
-			queryKeys.chop(2);
-
-		if (queryValues.size() > 0 && queryValues[queryValues.size() - 2].toLatin1() == ',')
-			queryValues.chop(2);
+		processKeysAndValues(result, results);
 
 		res["query"] = "INSERT INTO itemkabdrawers (" +
-			queryKeys +
+			results[0] +
 			") SELECT " +
-			queryValues +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE custId = '" +
-			result.value("custId") +
-			"' AND kabId = '" +
-			result.value("kabId") +
-			"' AND remarks = '" +
-			result.value("remarks") +
-			"' AND drawerCode = '" +
-			result.value("drawerCode") +
-			"' ORDER BY id DESC LIMIT 1)";
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE " +
+			"custId="+result.value("custId")+
+			" AND kabId="+result.value("kabId") +
+			" AND drawerCode="+result.value("drawerCode")+
+			" ORDER BY id DESC LIMIT 1)";
+		qDebug() << res["query"];
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, reply)) {
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
@@ -496,9 +456,11 @@ int DatabaseManager::AddDrawersIfNotExists()
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
-			Sleep(100);
-			databaseTablesChecked[targetKey] += queryLimit;
-			break;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			//break;
+			continue;
 		}
 
 	}
@@ -520,7 +482,7 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 	}
 
 	string query =
-		"SELECT * from itemkabdrawerbins ORDER BY id ASC LIMIT " +
+		"SELECT * from itemkabdrawerbins ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
@@ -535,51 +497,31 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
-	for (const auto result : sqlQueryResults) {
+	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
-		QString queryKeys;
-		QString queryValues;
-		vector<QString> keys;
-		vector<QString> values;
 
-		for (const auto& key : result.keys()) {
-			if (key == "id" || result[key] == "" || result[key] == "0")
-			{
-				continue;
-			}
-			keys.push_back(key);
-			values.push_back(result.value(key));
-			queryKeys += "`" + key + "`, ";
+		QString results[2];
 
-			queryValues += "'" + result[key] + "', ";
-		}
-		if (queryKeys.size() > 0 && queryKeys[queryKeys.size() - 2].toLatin1() == ',')
-			queryKeys.chop(2);
-
-		if (queryValues.size() > 0 && queryValues[queryValues.size() - 2].toLatin1() == ',')
-			queryValues.chop(2);
+		processKeysAndValues(result, results);
 
 		res["query"] = "INSERT INTO itemkabdrawerbins (" +
-			queryKeys +
+			results[0] +
 			") SELECT " +
-			queryValues +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawerbins WHERE custId = '" +
-			result.value("custId") +
-			"' AND kabId = '" +
-			result.value("kabId") +
-			"' AND itemId = '" +
-			result.value("itemId") +
-			"' AND drawerNum = '" +
-			result.value("drawerNum") +
-			"' AND toolNumber = '" +
-			result.value("toolNumber") +
-			"' ORDER BY id DESC LIMIT 1)";
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawerbins WHERE " +
+			"custId="+ result.value("custId") +
+			"AND kabId="+ result.value("kabId") +
+			"AND toolNumber=" + result.value("toolNumber")+
+			"AND drawerNum=" + result.value("drawerNum") +
+			"AND itemId=" + result.value("itemId") +
+			" ORDER BY id DESC LIMIT 1)";
+		qDebug() << res["query"];
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, reply)) {
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
@@ -589,10 +531,11 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
-			Sleep(100);
-			databaseTablesChecked[targetKey] += queryLimit;
-			
-			break;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			continue;
+			//break;
 		}
 
 	}
@@ -614,7 +557,7 @@ int DatabaseManager::AddUsersIfNotExists()
 	}
 
 	string query =
-		"SELECT * from users ORDER BY id ASC LIMIT " +
+		"SELECT * from users ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
@@ -635,39 +578,32 @@ int DatabaseManager::AddUsersIfNotExists()
 		QStringMap res;
 		res["id"] = result["id"];
 		result.remove("id");
-		QString queryKeys = "";
-		QString queryValues = "";
-		QString conditionals = "";
-		int count = result.size();
-		for (const auto& key : result.keys()) {
-			count--;
-			if (!(key == "id" || result.value(key) == "" || result.value(key) == "0"))
-			{
-				std::cout << "Process Loop: " << key.toStdString() << ": " << result.value(key).toStdString() << std::endl;
-				result[key] = "'" + result.value(key) + "'";
-				queryKeys.append("`" + key + "`" + (count > 1 ? ", " : ""));
-				queryValues.append(result.value(key) + (count > 1 ? ", " : ""));
-				conditionals.append(key + "=" + result.value(key) + (count > 1 ? " AND " : ""));
-			}
-			continue;
-		}
 
-		/*if (queryKeys.size() > 0 && queryKeys[queryKeys.size() - 2].toLatin1() == ',')
-			queryKeys.chop(2);
+		QString results[2];
 
-		if (queryValues.size() > 0 && queryValues[queryValues.size() - 2].toLatin1() == ',')
-			queryValues.chop(2);*/
+		processKeysAndValues(result, results);
 
 		res["query"] = "INSERT INTO users (" +
-			queryKeys +
+			results[0] +
 			") SELECT " +
-			queryValues +
+			results[1] +
 			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE "+
-			conditionals +
+			"userId="+result.value("userId")+
+			" AND custId="+result.value("custId")+
+			(result.value("scaleId").isEmpty() 
+				? "" 
+				: " AND scaleId="+result.value("scaleId"))+
+			(result.value("kabId").isEmpty()
+				? ""
+				: " AND kabId=" + result.value("kabId")) +
+			(result.value("cribId").isEmpty()
+				? ""
+				: " AND cribId=" + result.value("cribId")) +
 			" ORDER BY id DESC LIMIT 1)";
 		qDebug() << res["query"];
+
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, reply)) {
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
@@ -677,10 +613,10 @@ int DatabaseManager::AddUsersIfNotExists()
 				continue;
 			}
 			std::cout << "No rows were altered on db" << endl;
-			Sleep(100);
 			databaseTablesChecked[targetKey]++;
 			//databaseTablesChecked[targetKey] += queryLimit;
-
+			//Sleep(100);
+			continue;
 			//break;
 		}
 
@@ -777,14 +713,52 @@ int DatabaseManager::connectToRemoteDB()
 					)
 					.replace("()", "");
 
+				HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+				string trakType = RegistryManager::GetStrVal(hKey, "APP_NAME", REG_SZ);
+				RegCloseKey(hKey);
+				hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer"));
+				QString trakId = QString::fromStdString(RegistryManager::GetStrVal(hKey, "trakID", REG_SZ));
+				QString custid = QString::fromStdString(RegistryManager::GetStrVal(hKey, "ID", REG_SZ));
+				QString idNum = QString::fromStdString(RegistryManager::GetStrVal(hKey, trakId.toStdString().data(), REG_SZ));
+				RegCloseKey(hKey);
+
+				if (res["query"].contains("custId =", Qt::CaseInsensitive))
+				{
+					int index = res["query"].indexOf("custId", Qt::CaseInsensitive);
+					QString substr = res["query"].mid(index, res["query"].size() - index);
+					int startpoint = substr.indexOf("=");
+					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
+					QString substr2 = substr.first(endpoint);
+
+					res["query"].replace(substr2, "custId = '" + custid +"'");
+				}
+				
+				trakId.chop(2);
+				trakId.append("Id");
+
+				if (res["query"].contains(trakId + " =", Qt::CaseInsensitive))
+				{
+
+					int index = res["query"].indexOf(trakId.data(), Qt::CaseInsensitive);
+					QString substr = res["query"].mid(index, res["query"].size() - index);
+					int startpoint = substr.indexOf("=");
+					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
+					QString substr2 = substr.first(endpoint);
+
+					res["query"].replace(substr2, trakId + " = '" + idNum + "'");
+				}
+				
+				if (res["query"].contains(" id "))
+					continue;
 			}
 			else {
 				res["id"] = "0";
 				res["query"] = "SHOW TABLES";
 			}
 			res["number"] = QString::number(count);
-			QJsonDocument reply;
-			if (makeNetworkRequest(apiUrl, res, reply))
+			qDebug() << res["query"];
+
+			if (makeNetworkRequest(apiUrl, res))
 			{
 				std::cout << "request successful" << endl;
 				string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + res["id"].toStdString();
@@ -810,7 +784,7 @@ int DatabaseManager::connectToRemoteDB()
 		query.finish();
 		
 		db.close();
-		performCleanup();
+		//performCleanup();
 		result = true;
 		
 	}
@@ -1052,15 +1026,15 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 				while (query.next())
 				{
 					queryResult.clear();
-					std::cout << "{" << std::endl;
+					//std::cout << "{" << std::endl;
 					for (int i = 0; i <= record.count() - 1; i++)
 					{
 						queryResult[record.fieldName(i)] = query.value(i).toString();
-						std::cout << record.fieldName(i).toStdString() << ": " << query.value(i).toString().toStdString() << endl;
+						//std::cout << record.fieldName(i).toStdString() << ": " << query.value(i).toString().toStdString() << endl;
 					}
 
 					resultVector.push_back(queryResult);
-					std::cout << "}" << std::endl;
+					//std::cout << "}" << std::endl;
 				}
 			}
 			else {
@@ -1145,29 +1119,37 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 
 exit:
 	json.reset();
-	performCleanup();
+	//performCleanup();
 
 	requestRunning = false;
 
 	return;
 }
 
-void processKeysAndValues(QStringMap &map)
+void DatabaseManager::processKeysAndValues(QStringMap &map, QString (&results)[])
 {
+	QString queryKeys = "";
+	QString queryValues = "";
+	//QString conditionals = "";
+	int count = map.size();
+	QStringList keys = map.keys();
+	
 	for (const auto& key : map.keys()) {
-		map.remove("id");
-		map.remove("success");
-		if (map.value(key) == "" || map.value(key) == "0")
-			continue;
-
-		map[key] = "'" + map.value(key) + "'";
-
-		/*keys.push_back(key);
-		values.push_back(result.value(key));
-		queryKeys += "`" + key + "`, ";
-
-		queryValues += "'" + result[key] + "', ";*/
+		count--;
+		if (!(key == "id" || map.value(key).isEmpty() || map.value(key) == "0"))
+		{
+			//std::cout << "Process Loop: " << key.toStdString() << ": " << map.value(key).toStdString() << std::endl;
+			map[key] = "'" + map.value(key) + "'";
+			queryKeys.append((queryKeys.size() > 0 ? ", " : "") + ("`" + key + "`"));
+			queryValues.append((queryValues.size() > 0 ? ", " : "") + map.value(key));
+			//conditionals.append((conditionals.size() > 0 ? " AND " : "") +key + "=" + map.value(key));
+		}
+		continue;
 	}
+	
+	results[0] = queryKeys;
+	results[1] = queryValues;
+	//results[2] = conditionals;
 }
 
 void DatabaseManager::performCleanup()

@@ -14,6 +14,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 
 	std::cout << "Fetching values from ini file" << std::endl;
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
+	ini.sync();
 	ini.beginGroup("SYSTEM");
 	databaseName = ini.value("database", "").toString().toStdString() + ".db3";
 	databaseLocation = (
