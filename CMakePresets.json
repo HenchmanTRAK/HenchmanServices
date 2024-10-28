@@ -34,7 +34,7 @@
       "inherits": "windows-base",
       "architecture": {
         "value": "x64",
-        "strategy": "external"
+        "strategy": "set"
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
@@ -123,7 +123,7 @@
   ],
   "vendor": {
     "qt-project.org/Presets": {
-      "checksum": "rF74cemCncPrdEl+C/FZlUqkXr4="
+      "checksum": "SSLuT4qVvYq0rfEuKfhdFWfTslY="
     }
   }
 }
