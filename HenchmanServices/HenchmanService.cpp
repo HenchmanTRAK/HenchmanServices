@@ -1913,8 +1913,7 @@ int HenchmanService::MainFunction()
 	if (!(dbManager->AddKabsIfNotExists() ||
 		dbManager->AddDrawersIfNotExists() ||
 		dbManager->AddToolsIfNotExists() ||
-		dbManager->AddToolsInDrawersIfNotExists() || 
-		dbManager->AddUsersIfNotExists())
+		dbManager->AddToolsInDrawersIfNotExists())
 		) {
 		dbManager->connectToRemoteDB();
 	}
