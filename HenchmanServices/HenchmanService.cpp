@@ -1208,42 +1208,33 @@ HenchmanService::~HenchmanService()
 	//logx.clear();
 }
 
-vector<string> HenchmanService::Explode(const string& Seperator, string& s, int& limit)
+vector<string> HenchmanService::Explode(const string& Seperator, string& s, int limit)
 {
 	vector<string> results;
 	try {
 		if (s == "")
-			throw HenchmanServiceException("No String was Provided");
-		if (limit < 0)
-			throw HenchmanServiceException("Invalid Integer Provided");
+			throw HenchmanServiceException("No String was provided");
+		if (Seperator == "")
+			throw HenchmanServiceException("Invalid Seperator provided");
+		if (limit > s.size())
+			throw HenchmanServiceException("Invalid Integer provided");
 
-		if (Seperator == "") {
-			results.push_back(s);
+		size_t pos = 0;
+		string token;
+		while ((pos = s.find(Seperator)) != string::npos and (limit <= 0 ? true : results.size() <= limit)) {
+			std::cout << results.size() << endl;
+			token = s.substr(0, pos);
+			results.push_back(token);
+			s.erase(0, pos + Seperator.length());
 		}
-		else {
-			size_t pos = 0;
-			string token;
-			while ((pos = s.find(Seperator)) != string::npos and (limit == 0 ? true : results.size() <= limit)) {
-				std::cout << results.size() << endl;
-				token = s.substr(0, pos);
-				results.push_back(token);
-				s.erase(0, pos + Seperator.length());
-			}
-			results.push_back(s);
-			token.clear();
-		}
+		//results.push_back(s);
+		token.clear();
 	}
 	catch (exception& e)
 	{
 		ServiceHelper::WriteToError("HenchmanService::Explode threw exception: " + (string)e.what());
 	}
 	return results;
-}
-
-vector<string> HenchmanService::Explode(const string& Seperator, string& s)
-{
-	int limit = -1;
-	return Explode(Seperator, s, limit);
 }
 
 bool HenchmanService::setMailLogin(string& username, string& password) 
