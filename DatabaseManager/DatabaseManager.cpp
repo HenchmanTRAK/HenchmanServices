@@ -736,17 +736,14 @@ int DatabaseManager::connectToRemoteDB()
 					.toString()
 					.replace(
 						QRegularExpression(
-							"(NOW|CURDATE|CURTIME)+", 
-							QRegularExpression::MultilineOption | 
-							QRegularExpression::DotMatchesEverythingOption | 
-							QRegularExpression::UseUnicodePropertiesOption
-						), 
+							"(NOW|CURDATE|CURTIME)+",
+							QRegularExpression::MultilineOption
+						),
 						"\'" + query
 						.value(3)
 						.toString()
 						.replace("T", " ") + "\'"
-					)
-					.replace("()", "");
+					).replace("()", "").simplified();
 
 				HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 				string trakType = RegistryManager::GetStrVal(hKey, "APP_NAME", REG_SZ);
@@ -781,6 +778,61 @@ int DatabaseManager::connectToRemoteDB()
 					QString substr2 = substr.first(endpoint);
 
 					res["query"].replace(substr2, trakId + " = '" + idNum + "'");
+				}
+				if (res["query"].contains("insert")) {
+					int startpoint = res["query"].indexOf("(")+1;
+					int endpoint = res["query"].indexOf(")", startpoint, Qt::CaseInsensitive) - startpoint;
+					qDebug() << res["query"].first(startpoint);
+					vector queryStart = ExplodeString(res["query"].first(startpoint-1).toStdString(), " ");
+					
+					//QString columns = res["query"].mid(startpoint, endpoint);
+					vector splitCols = ExplodeString(res["query"].mid(startpoint, endpoint).toStdString(), ", ");
+					startpoint = res["query"].indexOf("(", startpoint) + 1;
+					endpoint = res["query"].indexOf(")", startpoint, Qt::CaseInsensitive) - startpoint;
+					//QString values = res["query"].mid(startpoint, endpoint);
+					vector splitVals = ExplodeString(res["query"].mid(startpoint, endpoint).toStdString(), ", ");
+					
+					qDebug() << queryStart;
+					qDebug() << splitCols;
+					qDebug() << splitVals;
+					
+					QStringMap map;
+					for (int i = 0; i < splitCols.size(); i++) {
+						string col = splitCols.at(i);
+						string val = splitVals.at(i);
+
+						if (val.empty() || val == "''")
+							continue;
+						if(val[0] != '\'')
+							val = "'" + val + "'";
+						map[col.data()] = val.data();
+					}
+
+					if (queryStart.at(queryStart.size() - 1) != "kabemployeeitemtransactions")
+					{
+
+					}
+
+					/*
+						"INSERT INTO users (" +
+							results[0] +
+							") SELECT " +
+							results[1] +
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE " +
+							"userId=" + result.value("userId") +
+							" AND custId=" + result.value("custId") +
+							(result.value("scaleId").isEmpty()
+								? ""
+								: " AND scaleId=" + result.value("scaleId")) +
+							(result.value("kabId").isEmpty()
+								? ""
+								: " AND kabId=" + result.value("kabId")) +
+							(result.value("cribId").isEmpty()
+								? ""
+								: " AND cribId=" + result.value("cribId")) +
+							" ORDER BY id DESC LIMIT 1)";
+					*/
+					qDebug() << map;
 				}
 				
 				if (res["query"].contains(" id "))
