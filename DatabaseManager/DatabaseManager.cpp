@@ -75,6 +75,8 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	databaseTablesChecked["kabDrawers"] = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
 	databaseTablesChecked["kabDrawerBins"] = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
 	databaseTablesChecked["users"] = RegistryManager::GetVal(hKey, "numUsersChecked", REG_DWORD);
+	databaseTablesChecked["employees"] = RegistryManager::GetVal(hKey, "numEmployeesChecked", REG_DWORD);
+	databaseTablesChecked["jobs"] = RegistryManager::GetVal(hKey, "numJobsChecked", REG_DWORD);
 	RegCloseKey(hKey);
 
 }
@@ -180,7 +182,7 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 	data["sql"] = query["query"];	
 	QJsonDocument doc(data);
 
-	ServiceHelper().WriteToCustomLog("Running query number: " + query["number"].toStdString() + " \n query: " + doc.toJson().toStdString(), timeStamp[0]+ "-queries");
+	ServiceHelper().WriteToCustomLog("Making query to: " +url.toStdString() + "\nRunning query number : " + query["number"].toStdString() + " \nquery : " + doc.toJson().toStdString(), timeStamp[0]+ " - queries");
 
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
 		std::cout << "networkrequested" << endl;
@@ -415,9 +417,158 @@ int DatabaseManager::AddUsersIfNotExists()
 	return 1;
 }
 
+int DatabaseManager::AddEmployeesIfNotExists()
+{
+	QString targetKey = "employees";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM employees");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+
+	string query =
+		"SELECT * from employees ORDER BY id DESC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	for (auto& result : sqlQueryResults) {
+		if (result.firstKey() == "success")
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+		result.remove("id");
+
+		QString results[2];
+
+		processKeysAndValues(result, results);
+
+		res["query"] = 
+			"INSERT INTO employees ("+
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM employees WHERE"+
+			" userId=" + result.value("userId") +
+			" AND custId=" + result.value("custId") +
+			" ORDER BY id DESC LIMIT 1)";
+
+		qDebug() << res["query"];
+
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			std::cout << result["result"].toString().toStdString() << endl;
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			std::cout << "No rows were altered on db" << endl;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			continue;
+			//break;
+		}
+
+	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numEmployeesChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
+
+int DatabaseManager::AddJobsIfNotExists()
+{
+	QString targetKey = "jobs";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM jobs");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+
+	string query =
+		"SELECT * from jobs ORDER BY id ASC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	for (auto& result : sqlQueryResults) {
+		if (result.firstKey() == "success")
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+		result.remove("id");
+
+		QString results[2];
+
+		processKeysAndValues(result, results);
+
+		res["query"] =
+			"INSERT INTO jobs (" +
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE" +
+			" trailId=" + result.value("trailId") +
+			" AND custId=" + result.value("custId") +
+			" ORDER BY id DESC LIMIT 1)";
+
+		qDebug() << res["query"];
+
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			std::cout << result["result"].toString().toStdString() << endl;
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			std::cout << "No rows were altered on db" << endl;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			continue;
+			//break;
+		}
+
+	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numJobsChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
+
 /* TODO
  - upload jobs
- - upload employees
 */
 
 // KabTRAK Syncs
@@ -885,6 +1036,17 @@ int DatabaseManager::connectToRemoteDB()
 							" ORDER BY id DESC LIMIT 1)";
 						break;
 					case jobs:
+						res["query"] = "INSERT INTO jobs (";
+						res["query"] += columns.data();
+						res["query"] += ") SELECT ";
+						res["query"] += values.data();
+						res["query"] +=
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE";
+						res["query"] +=
+							" trailId=" + map.value("trailId") +
+							" AND custId=" + map.value("custId") +
+							" ORDER BY id DESC LIMIT 1)";
+						break;
 					case kabs: 
 						res["query"] = 
 							"INSERT INTO itemkabs (";

@@ -57,14 +57,6 @@ private:
 	bool portaTRAKExists();
 	bool cribTRAKExists();*/
 
-	/**
-	* @brief Saves the contents of an INI file to the Windows registry under a specific section.
-	*
-	* @param iniFile - the INI file to save
-	* @param section - the section in the registry to save the INI file contents to
-	*
-	* @throws None
-	*/
 	void saveINIToRegistry() const;
 	
 	void saveINIToRegistry(std::string section) const;
@@ -77,6 +69,8 @@ private:
 	void conRemoteAfterDisconnect();
 	void conRemoteConnectionLost();
 	void conRemoteError(std::exception& e);
+
+	int exportGeneralTables();
 
 public:
 	/**

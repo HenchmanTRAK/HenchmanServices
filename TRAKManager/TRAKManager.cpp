@@ -202,13 +202,26 @@ void TRAKManager::CreateDataModule()
 }
 		//cout << "Connecting to Local MySQL Database" << endl;
 
-
+int TRAKManager::exportGeneralTables()
+{
+	return (
+		databaseManager->AddToolsIfNotExists() 
+		|| databaseManager->AddUsersIfNotExists() 
+		|| databaseManager->AddEmployeesIfNotExists()
+		|| databaseManager->AddJobsIfNotExists()
+		? 1
+		: 0
+		);
+}
 
 int TRAKManager::UploadCurrentStateToRemote()
 {
-	if (!databaseManager || databaseManager->AddToolsIfNotExists())
+	if (!databaseManager)
 		return 1;
 	
+	if (exportGeneralTables())
+		return 1;
+
 	switch (traktype)
 	{
 	case kabtrak: {
