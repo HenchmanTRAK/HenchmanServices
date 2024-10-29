@@ -258,6 +258,7 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 //
 //}
 
+// Misc Syncs
 int DatabaseManager::AddToolsIfNotExists()
 {
 	QString targetKey = "tools";
@@ -332,6 +333,94 @@ int DatabaseManager::AddToolsIfNotExists()
 	return 1;
 }
 
+int DatabaseManager::AddUsersIfNotExists()
+{
+	QString targetKey = "users";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+
+	string query =
+		"SELECT * from users ORDER BY id DESC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	for (auto& result : sqlQueryResults) {
+		if (result.firstKey() == "success")
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+		result.remove("id");
+
+		QString results[2];
+
+		processKeysAndValues(result, results);
+
+		res["query"] = "INSERT INTO users (" +
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE " +
+			"userId=" + result.value("userId") +
+			" AND custId=" + result.value("custId") +
+			(result.value("scaleId").isEmpty()
+				? ""
+				: " AND scaleId=" + result.value("scaleId")) +
+			(result.value("kabId").isEmpty()
+				? ""
+				: " AND kabId=" + result.value("kabId")) +
+			(result.value("cribId").isEmpty()
+				? ""
+				: " AND cribId=" + result.value("cribId")) +
+			" ORDER BY id DESC LIMIT 1)";
+		qDebug() << res["query"];
+
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			std::cout << result["result"].toString().toStdString() << endl;
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			std::cout << "No rows were altered on db" << endl;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			continue;
+			//break;
+		}
+
+	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
+
+/* TODO
+ - upload jobs
+ - upload employees
+*/
+
+// KabTRAK Syncs
 int DatabaseManager::AddKabsIfNotExists()
 {
 	QString targetKey = "kabs";
@@ -553,87 +642,26 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 	return 1;
 }
 
-int DatabaseManager::AddUsersIfNotExists()
-{
-	QString targetKey = "users";
-	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
-	{
-		return 0;
-	}
+// CribTRAK Syncs
 
-	string query =
-		"SELECT * from users ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+/* TODO
+ - upload cribconsumables
+ - upload cribs
+ - upload cribtoollocation
+ - upload cribtoollockers
+ - upload cribtools
+ - upload kittools
+ - upload tooltransfer
+*/
 
-	performCleanup();
+// PortaTRAK Syncs
 
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+/* TODO
+ - upload itemkits
+ - upload kitcategory
+ - upload kitlocation
+*/
 
-	restManager = new QRestAccessManager(netManager, this);
-
-	for (auto &result : sqlQueryResults) {
-		if (result.firstKey() == "success")
-			continue;
-		QStringMap res;
-		res["id"] = result["id"];
-		result.remove("id");
-
-		QString results[2];
-
-		processKeysAndValues(result, results);
-
-		res["query"] = "INSERT INTO users (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE "+
-			"userId="+result.value("userId")+
-			" AND custId="+result.value("custId")+
-			(result.value("scaleId").isEmpty() 
-				? "" 
-				: " AND scaleId="+result.value("scaleId"))+
-			(result.value("kabId").isEmpty()
-				? ""
-				: " AND kabId=" + result.value("kabId")) +
-			(result.value("cribId").isEmpty()
-				? ""
-				: " AND cribId=" + result.value("cribId")) +
-			" ORDER BY id DESC LIMIT 1)";
-		qDebug() << res["query"];
-
-		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
-				continue;
-			QJsonObject result = reply.object();
-			std::cout << result["result"].toString().toStdString() << endl;
-			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-				databaseTablesChecked[targetKey]++;
-				continue;
-			}
-			std::cout << "No rows were altered on db" << endl;
-			databaseTablesChecked[targetKey]++;
-			//databaseTablesChecked[targetKey] += queryLimit;
-			//Sleep(100);
-			continue;
-			//break;
-		}
-
-	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	return 1;
-}
 
 int DatabaseManager::connectToRemoteDB()
 {

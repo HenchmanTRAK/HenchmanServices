@@ -110,35 +110,8 @@ const {
 	{
 		CSimpleIniA::TNamesDepend sections;
 		ini.GetAllSections(sections);
-		map<string, string> map;
 		for (auto const& sec : sections) {
-			//cout << sec.nOrder << " " << " " << sec.pItem << endl;
-			ServiceHelper().WriteToLog("Adding " + (string)sec.pItem + " entries to registry");
-			CSimpleIniA::TNamesDepend keys;
-			ini.GetAllKeys(sec.pItem, keys);
-			HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + sec.pItem).data());
-			for (auto const& val : keys)
-			{
-				string key = val.pItem;
-				string value = ini.GetValue(sec.pItem, val.pItem, "");
-				ServiceHelper().removeQuotes(value);
-				if (key == "Password" && value != "")
-					value = QByteArray(value.data()).toBase64();
-			
-				if (key == "kabID" || key == "portaID" || key == "cribID")
-				{
-					value = key;
-					key = "trakID";
-				}
-				map[key] = value;
-				RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-				RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
-				key.clear();
-				value.clear();
-			}
-			keys.clear();
-			map.clear();
-			RegCloseKey(hKey);
+			saveINIToRegistry(sec.pItem);
 		}
 		sections.clear();
 	}
