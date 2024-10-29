@@ -12,7 +12,14 @@
 #include "HenchmanServiceException.h"
 //#include "RegistryManager.h"
 #include "ServiceHelper.h"
-//#include "DatabaseManager.h"
+#include "DatabaseManager.h"
+
+enum Trak_Type {
+	unknown = 0,
+	kabtrak = 1,
+	cribtrak = 2,
+	portatrak = 3
+};
 
 /**
  * @class TRAKManager
@@ -27,6 +34,10 @@
  */
 class TRAKManager {
 private:
+	DatabaseManager *databaseManager = nullptr;
+
+	Trak_Type traktype = unknown;
+
 	/**
 	* @brief Checks if the TRAK application exists by reading the TRAK_DIR, INI_FILE,
 	* EXE_FILE, and APP_NAME values from the given CSimpleIniA object. If the
@@ -54,7 +65,7 @@ private:
 	*
 	* @throws None
 	*/
-	void saveINIToRegistry(CSimpleIniA& iniFile, std::string& section) const;
+	void saveINIToRegistry() const;
 
 	void conHenchmanAfterConnect();
 	void conHenchmanAfterDisconnect();
@@ -86,8 +97,8 @@ public:
 	*/
 	std::string appName;
 
-	/*TRAKManager();
-	~TRAKManager();*/
+	TRAKManager(DatabaseManager *dbManager = nullptr);
+	~TRAKManager();
 
 	/**
 	 * @brief Creates a data module by loading an INI file and adding its contents to the registry.
@@ -99,6 +110,8 @@ public:
 	 *
 	 */
 	void CreateDataModule();
+
+	int UploadCurrentStateToRemote();
 };
 
 #endif

@@ -1280,7 +1280,7 @@ int HenchmanService::MainFunction()
 
 	//dbManager = new DatabaseManager(a);
 
-	TRAKManager TrakM;
+	TRAKManager TrakM(dbManager.get());
 
 	TrakM.CreateDataModule();
 
@@ -1298,13 +1298,21 @@ int HenchmanService::MainFunction()
 
 	dbManager->connectToLocalDB();
 
-	if (!(dbManager->AddKabsIfNotExists() ||
+	if (!TrakM.UploadCurrentStateToRemote())
+	{
+		dbManager->connectToRemoteDB();
+	}
+	else {
+		QTimer::singleShot(1000, a, &QCoreApplication::quit);
+	}
+
+	/*if (!(dbManager->AddKabsIfNotExists() ||
 		dbManager->AddDrawersIfNotExists() ||
 		dbManager->AddToolsIfNotExists() ||
 		dbManager->AddToolsInDrawersIfNotExists())
 		) {
 		dbManager->connectToRemoteDB();
-	}
+	}*/
 	
 	std::cout << "Exiting Main Function" << endl;
 	

@@ -298,8 +298,8 @@ int DatabaseManager::AddToolsIfNotExists()
 			results[0] +
 			") SELECT " +
 			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE " +
-			"custId="+result.value("custId")+
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE" +
+			" custId="+result.value("custId")+
 			" AND PartNo="+result.value("PartNo")+
 			" AND stockcode="+result.value("stockcode")+
 			" ORDER BY id DESC LIMIT 1)";

@@ -11,13 +11,22 @@ using namespace std;
 //string TRAKManager::appName = "";
 //string TRAKManager::appType="";
 
-//TRAKManager::TRAKManager()
-//{
-//	appDir = "";
-//	iniFile = "";
-//	appName = "";
-//
-//}
+TRAKManager::TRAKManager(DatabaseManager *dbManager)
+{
+	appDir = "";
+	iniFile = "";
+	appName = "";
+	appType = "";
+	if (dbManager)
+		databaseManager = dbManager;
+
+}
+
+TRAKManager::~TRAKManager()
+{
+	if (databaseManager)
+		databaseManager = nullptr;
+}
 
 bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 {
@@ -27,6 +36,14 @@ bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 		iniFile = ini.GetValue("TRAK", "INI_FILE", "");
 		appName = ini.GetValue("TRAK", "EXE_FILE", "");
 		appType = ini.GetValue("TRAK", "APP_NAME", "");
+
+		if (appType == "kabTRAK")
+			traktype = kabtrak;
+		if (appType == "cribTRAK")
+			traktype = cribtrak;
+		if (appType == "portaTRAK")
+			traktype = portatrak;
+
 		ServiceHelper().WriteToLog("Using " + appDir + iniFile);
 		return TRUE;
 	}
@@ -79,42 +96,57 @@ void TRAKManager::conRemoteError(exception& e)
 	error.clear();
 }
 
-void TRAKManager::saveINIToRegistry(CSimpleIniA &iniFile, string &section)
+void TRAKManager::saveINIToRegistry()
 const {
-	CSimpleIniA::TNamesDepend keys;
-	iniFile.GetAllKeys(section.data(), keys);
-	map<string, string> map;
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section).data());
+	CSimpleIniA ini;
+	ini.SetUnicode();
+
+	SI_Error rc = ini.LoadFile((appDir + iniFile).data());
+	if (rc < 0) {
+		throw HenchmanServiceException("Failed to Load INI File: " + appDir + iniFile);
+	}
+	
 	try 
 	{
-		for (auto const& val : keys)
-		{
-			string key = val.pItem;
-			string value = iniFile.GetValue(section.data(), val.pItem, "");
-			
-			ServiceHelper().removeQuotes(value);
-			if (key == "Password" && value != "")
-				value = QByteArray(value.data()).toBase64();
-			
-			if (key == "kabID" || key == "portaID" || key == "cribID")
+		CSimpleIniA::TNamesDepend sections;
+		ini.GetAllSections(sections);
+		map<string, string> map;
+		for (auto const& sec : sections) {
+			//cout << sec.nOrder << " " << " " << sec.pItem << endl;
+			ServiceHelper().WriteToLog("Adding " + (string)sec.pItem + " entries to registry");
+			CSimpleIniA::TNamesDepend keys;
+			ini.GetAllKeys(sec.pItem, keys);
+			HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + sec.pItem).data());
+			for (auto const& val : keys)
 			{
-				value = key;
-				key = "trakID";
+				string key = val.pItem;
+				string value = ini.GetValue(sec.pItem, val.pItem, "");
+				ServiceHelper().removeQuotes(value);
+				if (key == "Password" && value != "")
+					value = QByteArray(value.data()).toBase64();
+			
+				if (key == "kabID" || key == "portaID" || key == "cribID")
+				{
+					value = key;
+					key = "trakID";
+				}
+				map[key] = value;
+				RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
+				RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
+				key.clear();
+				value.clear();
 			}
-			map[key] = value;
-			RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-			RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
-			key.clear();
-			value.clear();
+			keys.clear();
+			map.clear();
+			RegCloseKey(hKey);
 		}
+		sections.clear();
 	}
 	catch (exception& e)
 	{
 		ServiceHelper().WriteToError(e.what());
 	}
-	keys.clear();
-	map.clear();
-	RegCloseKey(hKey);
+	
 }
 
 void TRAKManager::CreateDataModule()
@@ -140,21 +172,8 @@ void TRAKManager::CreateDataModule()
 		ServiceHelper().WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
 	
 		cout << "app dir: " << appDir << iniFile << endl;
-
-		rc = ini.LoadFile((appDir + iniFile).data());
-		if (rc < 0) {
-			throw HenchmanServiceException("Failed to Load INI File: " + appDir + iniFile);
-		}
 		
-		ServiceHelper().WriteToLog((string)"Adding Cloud entries to registry");
-		string section = "Cloud";
-		saveINIToRegistry(ini, section);
-		ServiceHelper().WriteToLog((string)"Adding Database entries to registry");
-		section = "Database";
-		saveINIToRegistry(ini, section);
-		ServiceHelper().WriteToLog((string)"Adding Customer entries to registry");
-		section = "Customer";
-		saveINIToRegistry(ini, section);
+		saveINIToRegistry();
 		
 	}
 	catch (exception &e)
@@ -165,9 +184,31 @@ void TRAKManager::CreateDataModule()
 }
 		//cout << "Connecting to Local MySQL Database" << endl;
 
-int UploadCurrentStateToRemote()
+
+
+int TRAKManager::UploadCurrentStateToRemote()
 {
-	return 0;
+	if (!databaseManager || databaseManager->AddToolsIfNotExists())
+		return 1;
+	
+	switch (traktype)
+	{
+	case kabtrak: {
+		return (databaseManager->AddKabsIfNotExists() |
+			databaseManager->AddDrawersIfNotExists() |
+			databaseManager->AddToolsInDrawersIfNotExists());
+	}
+	case cribtrak: {
+		return 1;
+	}
+	case portatrak: {
+		return 1;
+	}
+	default: {
+	
+	}
+	}
+	return 1;
 }
 
 		//dbManager->deleteLater();
