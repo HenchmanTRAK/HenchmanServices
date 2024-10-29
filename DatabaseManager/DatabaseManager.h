@@ -5,8 +5,9 @@
 
 #include <iostream>
 #include <optional>
-#include <vector>
 #include <string>
+#include <vector>
+#include <map>
 #include <sstream>
 
 #include <QObject>
@@ -40,8 +41,57 @@
 #include "HenchmanServiceException.h"
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
+#include "SQLiteManager2.h"
 
 typedef QMap<QString, QString> QStringMap;
+
+static enum table_enums{
+    tools,
+    users,
+	employees,
+    jobs,
+    kabs,
+    drawers,
+    toolbins,
+    cribs,
+    cribconsumables,
+    cribtoollocation,
+    cribtoollockers,
+    cribtools,
+    kittools,
+    tooltransfer,
+    itemkits,
+    kitcategory,
+    kitlocation,
+    kabemployeeitemtransactions,
+    cribemployeeitemtransactions,
+    portaemployeeitemtransactions,
+    lokkaemployeeitemtransactions
+};
+
+static std::map<std::string, table_enums> table_map = {
+    {"tools", tools},
+    {"users", users},
+    {"employees", employees},
+    {"jobs", jobs},
+    {"itemkabs", kabs},
+    {"itemkabdrawers", drawers},
+    {"itemkabdrawerbins", toolbins},
+    {"cribs", cribs},
+    {"cribconsumables", cribconsumables},
+    {"cribtoollocation", cribtoollocation},
+    {"cribtoollockers", cribtoollockers},
+    {"cribtools", cribtools},
+    {"kittools", kittools},
+    {"tooltransfer", tooltransfer},
+    {"itemkits", itemkits},
+    {"kitcategory", kitcategory},
+    {"kitlocation", kitlocation},
+    {"kabemployeeitemtransactions", kabemployeeitemtransactions},
+    {"cribemployeeitemtransactions", cribemployeeitemtransactions},
+    {"portaemployeeitemtransactions", portaemployeeitemtransactions},
+    {"lokkaemployeeitemtransactions", lokkaemployeeitemtransactions}
+};
 
 /**
  * @class DatabaseManager

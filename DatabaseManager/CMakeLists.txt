@@ -14,6 +14,7 @@ target_link_libraries(
 	HenchmanServiceException
 	RegistryManager
 	ServiceHelper
+	SQLiteManager2
 	#mysql::concpp
 )
 

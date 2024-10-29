@@ -146,15 +146,13 @@ const {
 			ServiceHelper().removeQuotes(value);
 			if (key == "Password" && value != "")
 				value = QByteArray(value.data()).toBase64();
-
-			if (key == "kabID" || key == "portaID" || key == "cribID")
-			{
-				value = key;
-				key = "trakID";
-			}
 			map[key] = value;
 			RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
 			RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
+			if (key == "kabID" || key == "portaID" || key == "cribID")
+			{
+				RegistryManager::SetVal(hKey, "trakID", key.data(), REG_SZ);
+			}
 			key.clear();
 			value.clear();
 		}
