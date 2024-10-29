@@ -1,6 +1,18 @@
 
 #include "HenchmanServiceMailer.h"
 
+static const char* GetMimeTypeFromFileName(char* szFileExt)
+{
+	// cout << "EXT " << szFileExt;
+	for (unsigned int i = 0; i < sizeof(MimeTypes) / sizeof(MimeTypes[0]); i++)
+	{
+		if (strcmp(MimeTypes[i][0], szFileExt) == 0)
+		{
+			return MimeTypes[i][1];
+		}
+	}
+	return MimeTypes[0][1];   //if does not match any,  "application/octet-stream" is returned
+}
 
 //void HenchmanService::ConnectWithSMTP() {
 //	WSADATA wsaData;
@@ -187,7 +199,7 @@
 //		WSACleanup();
 //	}
 //	catch (exception& e) {
-//		WriteToError("HenchmanService::ConnectWithSMTP threw exception: " + (string)e.what());
+//		WriteToError("an exception was thrown: " + (string)e.what());
 //		WriteToError(logx.str());
 //	}
 //	//logx.str(string());
@@ -384,7 +396,7 @@
 //
 //	}
 //	catch (exception& e) {
-//		WriteToError("HenchmanService::SendEmail threw exception: " + (string)e.what());
+//		WriteToError("an exception was thrown: " + (string)e.what());
 //		WriteToError(logx.str());
 //	}
 //	//logx.str(string());

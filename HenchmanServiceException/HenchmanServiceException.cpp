@@ -17,27 +17,26 @@ HenchmanServiceException::HenchmanServiceException(
 )
 {
 	caller = location;
-	cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
+	//cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
 
 	int substringStart = string(caller.function_name()).find_first_of(" ")+1;
 	int substringEnd = string(caller.function_name()).find_first_of("(")-substringStart;
-	if (substringStart >= substringEnd)
-		functionName = __FUNCTION__;
-	else
-		functionName = 
-			string(caller.function_name())
-			.substr(
-				substringStart,
-				substringEnd
-			);
-	if (functionName[0] == '_')
+	vector exploded = ExplodeString((
+		substringStart >= substringEnd
+		? __FUNCTION__
+		: string(caller.function_name())
+		.substr(
+			substringStart,
+			substringEnd
+		)), " ");
+
+	exploded = ExplodeString(exploded[exploded.size() - 1], "::", 2);
+	functionName = "";
+	for (int i = 0; i < exploded.size(); i++)
 	{
-		functionName =
-			functionName
-			.substr(
-				functionName.find_first_of(" ")+1,
-				functionName.size()
-			);
+		functionName.append(exploded[i]);
+		if (i < exploded.size() - 1)
+			functionName.append("::");
 	}
 
 	errorMessage = msg;
