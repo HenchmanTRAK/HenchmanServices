@@ -66,6 +66,8 @@ private:
 	* @throws None
 	*/
 	void saveINIToRegistry() const;
+	
+	void saveINIToRegistry(std::string section) const;
 
 	void conHenchmanAfterConnect();
 	void conHenchmanAfterDisconnect();
