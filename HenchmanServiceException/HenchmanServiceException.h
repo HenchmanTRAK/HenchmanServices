@@ -7,6 +7,7 @@
 #include <source_location>
 
 #include "EventManager.h"
+#include "ServiceHelper.h"
 
 
 class HenchmanServiceException : public std::exception {

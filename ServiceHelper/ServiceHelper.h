@@ -5,6 +5,9 @@
 
 #include <array>
 #include <iostream>
+#include <source_location>
+#include <string>
+#include <vector>
 
 #include <filesystem>
 #include <fstream>
@@ -12,6 +15,7 @@
 #include <QString>
 
 #include "RegistryManager.h"
+#include "HenchmanServiceException.h"
 
 
 
@@ -31,6 +35,7 @@
 class ServiceHelper
 {
 public:
+	ServiceHelper(const std::source_location&caller = std::source_location::current());
 
 	/**
 	 * @brief Returns a timestamp as a std::array<std::string, 2>.
@@ -42,7 +47,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static std::array<std::string, 2> timestamp();
+	std::array<std::string, 2> timestamp();
 
 	/**
 	 * @brief Returns the exports path for the given application path.
@@ -56,7 +61,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static std::string GetExportsPath(std::string app_path = "");
+	std::string GetExportsPath(std::string app_path = "");
 
 	/**
 	 * @brief Returns the logs path for the given application path.
@@ -70,7 +75,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static std::string GetLogsPath(std::string app_path = "");
+	std::string GetLogsPath(std::string app_path = "");
 
 	/**
 	 * @brief Writes the given log message to the log file.
@@ -81,7 +86,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static void WriteToLog(std::string log);
+	void WriteToLog(std::string log);
 
 	/**
 	 * @brief Writes the given error message to the error file.
@@ -92,7 +97,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static void WriteToError(std::string log);
+	void WriteToError(std::string log);
 
 	/**
 	 * @brief Writes the given log message to the custom log file.
@@ -104,7 +109,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static void WriteToCustomLog(std::string log, std::string logName);
+	void WriteToCustomLog(std::string log, std::string logName);
 
 	/**
 	 * @brief Returns the current time in microseconds.
@@ -113,7 +118,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static long int microseconds();
+	long int microseconds();
 
 	/**
 	 * @brief Checks if the given string contains the search string.
@@ -125,7 +130,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static bool Contain(QString str, QString search);
+	bool Contain(QString str, QString search);
 
 	/**
 	 * @brief Returns the base name of the given file path.
@@ -136,7 +141,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static const char* fileBasename(QString path);
+	const char* fileBasename(QString path);
 
 	/**
 	 * @brief Reads the contents of a file and returns them as a C-style string.
@@ -147,7 +152,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static const char* get_file_contents(const char* filename);
+	const char* get_file_contents(const char* filename);
 
 	/**
 	 * @brief Returns the file extension of the given file name.
@@ -158,7 +163,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static const char* GetFileExtension(const QString& FileName);
+	const char* GetFileExtension(const QString& FileName);
 
 	// String Sanatizer provided by Simple on Stackoverflow
 	// https://stackoverflow.com/a/34221488
@@ -172,7 +177,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static void sanitize(std::string& stringValue);
+	void sanitize(std::string& stringValue);
 
 	/**
 	 * @brief Removes quotes from a string.
@@ -181,11 +186,16 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static void removeQuotes(std::string& stringValue);
+	void removeQuotes(std::string& stringValue);
 
 private:
-	static void WriteLog(char* targetFile, std::string log);
+	std::string functionName;
+	//std::source_location caller;
+
+	void WriteLog(char* targetFile, std::string log);
 
 };
+
+std::vector<std::string> ExplodeString(const std::string& targetString, const char* seperator, int maxLen = -1);
 
 #endif

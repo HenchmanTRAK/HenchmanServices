@@ -180,64 +180,71 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 	data["sql"] = query["query"];	
 	QJsonDocument doc(data);
 
-	ServiceHelper::WriteToCustomLog("Running query number: " + query["number"].toStdString() + " \n query: " + doc.toJson().toStdString(), timeStamp[0]+ "-queries");
+	ServiceHelper().WriteToCustomLog("Running query number: " + query["number"].toStdString() + " \n query: " + doc.toJson().toStdString(), timeStamp[0]+ "-queries");
 
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
 		std::cout << "networkrequested" << endl;
-		if (reply.error() != QNetworkReply::NoError) {
-			qWarning() << "A Network error has occured: " << reply.error() << reply.errorString();
-			ServiceHelper::WriteToError("A Network error has occured: " + reply.errorString().toStdString());
-			return;
+		try {
+			if (reply.error() != QNetworkReply::NoError) {
+				qWarning() << "A Network error has occured: " << reply.error() << reply.errorString();
+				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+				//ServiceHelper().WriteToError("A Network error has occured: " + reply.errorString().toStdString());
+				//return;
+			}
+
+			int status = reply.httpStatus();
+			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+
+			if (!reply.isHttpStatusSuccess()) {
+				qWarning() << "A HTTP error has occured: " << status << reason;
+				ServiceHelper().WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+			}
+
+			if (reply.isHttpStatusSuccess()) {
+				qDebug() << "Request was successful: " << status << reason;
+				ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
+			}
+			ServiceHelper().WriteToLog((string)"Parsing Response");
+
+			QByteArray jsonRes = reply.readBody();
+
+			int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
+			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
+			std::cout << "starting index: " << startingIndex << " ending index: " << endingIndex << endl;
+			/*if(startingIndex < endingIndex)
+				jsonRes = jsonRes.sliced(startingIndex, endingIndex);*/
+
+				//std::cout << jsonRes.toStdString() << endl;
+			optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
+			if (!json) {
+				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
+				return;
+			}
+			if (results)
+				json.value().swap(*results);
+
+			string parsedVal;
+			if (json->isArray())
+				parsedVal = parseData(json->array());
+			else if (json->isObject())
+				parsedVal = parseData(json->object());
+
+			ServiceHelper().WriteToCustomLog("Webportal response: \n" + parsedVal, timeStamp[0] + "-queries");
+			ServiceHelper().WriteToLog("Server responded with: \n" + parsedVal);
+
+			result = reply.isSuccess();
+
+			if (reply.isSuccess())
+			{
+				std::cout << "network request success" << endl;
+			}
+			else {
+				std::cout << "network request failed" << endl;
+			}
 		}
-
-		int status = reply.httpStatus();
-		QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-		
-		if (!reply.isHttpStatusSuccess()) {
-			qWarning() << "A HTTP error has occured: " << status << reason;
-			ServiceHelper::WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
-		}
-
-		if (reply.isHttpStatusSuccess()) {
-			qDebug() << "Request was successful: " << status << reason;
-			ServiceHelper::WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
-		}
-		ServiceHelper::WriteToLog((string)"Parsing Response");
-		
-		QByteArray jsonRes = reply.readBody();
-
-		int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-		int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-		std::cout << "starting index: " << startingIndex << " ending index: " << endingIndex << endl;
-		/*if(startingIndex < endingIndex)
-			jsonRes = jsonRes.sliced(startingIndex, endingIndex);*/
-
-		//std::cout << jsonRes.toStdString() << endl;
-		optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-		if (!json) {
-			ServiceHelper::WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-			return;
-		}
-		if(results)
-			json.value().swap(*results);
-		
-		string parsedVal;
-		if (json->isArray())
-			parsedVal = parseData(json->array());
-		else if (json->isObject())
-			parsedVal = parseData(json->object());
-
-		ServiceHelper::WriteToCustomLog("Webportal response: \n" + parsedVal, timeStamp[0] + "-queries");
-		ServiceHelper::WriteToLog("Server responded with: \n" + parsedVal);
-
-		result = reply.isSuccess();
-
-		if (reply.isSuccess())
-		{
-			std::cout << "network request success" << endl;
-		}
-		else {
-			std::cout << "network request failed" << endl;
+		catch (exception& e) {
+			ServiceHelper().WriteToError(e.what());
+			reply.networkReply()->close();
 		}
 		});
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
@@ -254,7 +261,7 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 int DatabaseManager::AddToolsIfNotExists()
 {
 	QString targetKey = "tools";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tools");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -303,7 +310,7 @@ int DatabaseManager::AddToolsIfNotExists()
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
@@ -328,7 +335,7 @@ int DatabaseManager::AddToolsIfNotExists()
 int DatabaseManager::AddKabsIfNotExists()
 {
 	QString targetKey = "kabs";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabs");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -376,7 +383,7 @@ int DatabaseManager::AddKabsIfNotExists()
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
@@ -401,7 +408,7 @@ int DatabaseManager::AddKabsIfNotExists()
 int DatabaseManager::AddDrawersIfNotExists()
 {
 	QString targetKey = "kabDrawers";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawers");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -450,7 +457,7 @@ int DatabaseManager::AddDrawersIfNotExists()
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
@@ -474,7 +481,7 @@ int DatabaseManager::AddDrawersIfNotExists()
 int DatabaseManager::AddToolsInDrawersIfNotExists()
 {
 	QString targetKey = "kabDrawerBins";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawerbins");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -525,7 +532,7 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
@@ -549,7 +556,7 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 int DatabaseManager::AddUsersIfNotExists()
 {
 	QString targetKey = "users";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -608,7 +615,7 @@ int DatabaseManager::AddUsersIfNotExists()
 				continue;
 			QJsonObject result = reply.object();
 			std::cout << result["result"].toString().toStdString() << endl;
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
@@ -630,8 +637,8 @@ int DatabaseManager::AddUsersIfNotExists()
 
 int DatabaseManager::connectToRemoteDB()
 {
-	ServiceHelper::WriteToLog(string("Attempting to connect to Remote Database"));
-	timeStamp = ServiceHelper::timestamp();
+	ServiceHelper().WriteToLog(string("Attempting to connect to Remote Database"));
+	timeStamp = ServiceHelper().timestamp();
 	QString targetSchema;
 	QSqlDatabase db;
 	bool result = false;
@@ -650,7 +657,7 @@ int DatabaseManager::connectToRemoteDB()
 		if (apiUrl.trimmed().isEmpty())
 			throw HenchmanServiceException("No target Database Url provided");
 		
-		ServiceHelper::WriteToLog("Creating session to db " + targetSchema.toStdString());
+		ServiceHelper().WriteToLog("Creating session to db " + targetSchema.toStdString());
 		
 		db = QSqlDatabase::database(targetSchema);
 		
@@ -678,12 +685,12 @@ int DatabaseManager::connectToRemoteDB()
 		if (!query.exec())
 		{
 			query.finish();
-			ServiceHelper::WriteToLog(string("Closing DB Session"));
+			ServiceHelper().WriteToLog(string("Closing DB Session"));
 			throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
 		}
 
-		ServiceHelper::WriteToLog("Updating backend Database with url: " + apiUrl.toStdString());
-		ServiceHelper::WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
+		ServiceHelper().WriteToLog("Updating backend Database with url: " + apiUrl.toStdString());
+		ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
 		
 		bool continueLoop = query.next();
 		int count = 0;
@@ -764,7 +771,7 @@ int DatabaseManager::connectToRemoteDB()
 				string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + res["id"].toStdString();
 
 				if (!testingDBManager) {
-					ServiceHelper::WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+					ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for(const auto result: queryResult)
@@ -774,11 +781,12 @@ int DatabaseManager::connectToRemoteDB()
 			}
 			else {
 				std::cout << "request failed" << endl;
+				break;
 			}
 
 			continueLoop = testingDBManager ? count < 5 : query.next();
 		}
-		ServiceHelper::WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
+		ServiceHelper().WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
 
 		query.clear();
 		query.finish();
@@ -792,7 +800,7 @@ int DatabaseManager::connectToRemoteDB()
 	{
 		if(db.isOpen())
 			db.close();
-		ServiceHelper::WriteToError("DatabaseManager::connectToRemoteDB has thrown an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 	}
 
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
@@ -802,7 +810,7 @@ int DatabaseManager::connectToRemoteDB()
 
 int DatabaseManager::connectToLocalDB()
 {
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	try {
 		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 
@@ -810,10 +818,10 @@ int DatabaseManager::connectToLocalDB()
 
 		if (!QSqlDatabase::isDriverAvailable(dbtype))
 		{
-			ServiceHelper::WriteToError((string)("Provided Database Driver is not available"));
+			ServiceHelper().WriteToError((string)("Provided Database Driver is not available"));
 			RegCloseKey(hKey);
-			ServiceHelper::WriteToError((string)("The following Databases are supported"));
-			ServiceHelper::WriteToError(checkValidDrivers());
+			ServiceHelper().WriteToError((string)("The following Databases are supported"));
+			ServiceHelper().WriteToError(checkValidDrivers());
 			return 0;
 		}
 
@@ -828,7 +836,7 @@ int DatabaseManager::connectToLocalDB()
 			QString user = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Username", REG_SZ));
 			string pass = RegistryManager::GetStrVal(hKey, "Password", REG_SZ);
 
-			ServiceHelper::WriteToLog((string)"Creating session to db");
+			ServiceHelper().WriteToLog((string)"Creating session to db");
 					
 			db = QSqlDatabase::addDatabase(dbtype, schema);
 			db.setHostName(server);
@@ -846,14 +854,14 @@ int DatabaseManager::connectToLocalDB()
 
 		if (!db.open())
 		{
-			ServiceHelper::WriteToError((string)"DB Connection failed to open");
+			ServiceHelper().WriteToError((string)"DB Connection failed to open");
 			db.close();
 			return 0;
 		}
-		ServiceHelper::WriteToLog((string)"DB Connection successfully opened");
+		ServiceHelper().WriteToLog((string)"DB Connection successfully opened");
 		if (!db.driver()->hasFeature(QSqlDriver::Transactions))
 		{
-			ServiceHelper::WriteToError((string)"Selected Driver does not support transactions");
+			ServiceHelper().WriteToError((string)"Selected Driver does not support transactions");
 			db.close();
 			return 0;
 		}
@@ -882,14 +890,14 @@ int DatabaseManager::connectToLocalDB()
 
 		std::cout << "Was Target DB Found? " << (dbFound ? "Yes" : "No") << endl;
 		if (!dbFound) {
-			ServiceHelper::WriteToLog((string)"Generating Database");
+			ServiceHelper().WriteToLog((string)"Generating Database");
 			QString targetQuery = "CREATE DATABASE " + schema + " CHARACTER SET utf8 COLLATE utf8_general_ci";
 			query.prepare(targetQuery);
 			if (!query.exec()) {
-				ServiceHelper::WriteToError((string)"Failed to create database");
+				ServiceHelper().WriteToError((string)"Failed to create database");
 			}
 			else {
-				ServiceHelper::WriteToLog((string)"Successfully created Database");
+				ServiceHelper().WriteToLog((string)"Successfully created Database");
 			}
 
 			while (query.next())
@@ -912,7 +920,7 @@ int DatabaseManager::connectToLocalDB()
 	}
 	catch (exception& e)
 	{
-		ServiceHelper::WriteToError("DatabaseManager::connectToLocalDB has thrown an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
 	return 1;
@@ -931,7 +939,7 @@ int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) 
 			throw HenchmanServiceException("Failed to open target file");
 
-		ServiceHelper::WriteToLog("Successfully opened target file: " + filepath);
+		ServiceHelper().WriteToLog("Successfully opened target file: " + filepath);
 
 		QTextStream in(&file);
 		QString sql = in.readAll();
@@ -977,7 +985,7 @@ int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 				db.rollback();
 			db.close();
 		}
-		ServiceHelper::WriteToError("DatabaseManager::ExecuteTargetSqlScript has thrown an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 	}
 	return successCount;
 }
@@ -1054,7 +1062,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 				db.rollback();
 			db.close();
 		}
-		ServiceHelper::WriteToError("DatabaseManager::ExecuteTargetSql has thrown an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 		resultVector[0] = queryResult;
 
 	}
@@ -1073,27 +1081,27 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 
 	if (restReply.error() != QNetworkReply::NoError) {
 		qWarning() << "A Network error has occured: " << restReply.error() << restReply.errorString();
-		ServiceHelper::WriteToError("A Network error has occured: " + restReply.errorString().toStdString());
+		ServiceHelper().WriteToError("A Network error has occured: " + restReply.errorString().toStdString());
 		goto exit;
 	}
 	if (!restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qWarning() << "A HTTP error has occured: " << status << reason;
-		ServiceHelper::WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+		ServiceHelper().WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
 	if (restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qDebug() << "Request was successful: " << status << reason;
-		ServiceHelper::WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
+		ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
-	ServiceHelper::WriteToLog((string)"Parsing Response");
+	ServiceHelper().WriteToLog((string)"Parsing Response");
 
 	ExecuteTargetSql(sqlQuery);
 
 	if (!json) {
-		ServiceHelper::WriteToError((string)"Recieved empty data or failed to parse JSON.");
+		ServiceHelper().WriteToError((string)"Recieved empty data or failed to parse JSON.");
 		goto exit;
 	}
 
@@ -1104,7 +1112,7 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 			}
 		}
 
-		ServiceHelper::WriteToError("Server responded with error: " + errorRes.str());
+		ServiceHelper().WriteToError("Server responded with error: " + errorRes.str());
 	}
 
 	if (response.value()["data"].toArray().count() > 0) {
@@ -1114,7 +1122,7 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 			}
 
 		}
-		ServiceHelper::WriteToLog("Server responded with data: " + dataRes.str());
+		ServiceHelper().WriteToLog("Server responded with data: " + dataRes.str());
 	}
 
 exit:

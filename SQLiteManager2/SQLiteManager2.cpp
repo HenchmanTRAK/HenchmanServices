@@ -63,7 +63,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	
 		db.close();
 	}catch (std::exception& e){
-		ServiceHelper::WriteToLog("SQLiteManager::SQLiteManager threw and exception: " + (std::string)e.what());
+		ServiceHelper().WriteToError(e.what());
 	}
 
 	RegCloseKey(hKey);
@@ -135,7 +135,7 @@ void SQLiteManager2::ExecQuery(
 	catch (std::exception& e) {
 		db.rollback();
 		db.close();
-		throw HenchmanServiceException("SQLiteManager2::ExecQuery errored with exception: " + (std::string)e.what());
+		throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
 	}
 	if (results)
 		resultVector.swap(*results);
@@ -180,7 +180,7 @@ int SQLiteManager2::CreateTable(
 
 	}catch(std::exception& e){
 		
-		ServiceHelper::WriteToLog("SQLiteManager::CreateTable threw and exception: " + (std::string)e.what());
+		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
 	return 1;
@@ -251,7 +251,7 @@ int SQLiteManager2::AddEntry(
 		ExecQuery(queryText.str());
 
 	}catch(std::exception& e){
-		ServiceHelper::WriteToLog("SQLiteManager::AddEntry threw and exception: " + (std::string)e.what());
+		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
 	return 1;
@@ -309,7 +309,7 @@ int SQLiteManager2::UpdateEntry(
 
 	}
 	catch (std::exception& e) {
-		ServiceHelper::WriteToLog("SQLiteManager::UpdateEntry threw and exception: " + (std::string)e.what());
+		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
 	return 1;
@@ -344,7 +344,7 @@ int SQLiteManager2::RemoveEntry(
 
 	}
 	catch (std::exception& e) {
-		ServiceHelper::WriteToLog("SQLiteManager::RemoveEntry threw and exception: " + (std::string)e.what());
+		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
 	return 1;
@@ -410,7 +410,7 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 
 	}
 	catch (std::exception& e) {
-		ServiceHelper::WriteToLog("SQLiteManager::GetEntry threw and exception: " + (std::string)e.what());
+		ServiceHelper().WriteToError(e.what());
 		return results;
 	}
 	return results;

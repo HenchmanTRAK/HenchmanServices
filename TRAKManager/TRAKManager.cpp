@@ -27,7 +27,7 @@ bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 		iniFile = ini.GetValue("TRAK", "INI_FILE", "");
 		appName = ini.GetValue("TRAK", "EXE_FILE", "");
 		appType = ini.GetValue("TRAK", "APP_NAME", "");
-		ServiceHelper::WriteToLog("Using " + appDir + iniFile);
+		ServiceHelper().WriteToLog("Using " + appDir + iniFile);
 		return TRUE;
 	}
 	return FALSE;
@@ -35,47 +35,47 @@ bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 
 void TRAKManager::conHenchmanAfterConnect()
 {
-	ServiceHelper::WriteToLog((string)"Connected to local MYSQL database...");
+	ServiceHelper().WriteToLog((string)"Connected to local MYSQL database...");
 }
 
 void TRAKManager::conHenchmanAfterDisconnect()
 {
-	ServiceHelper::WriteToLog((string)"Disconnected from local MYSQL database...");
+	ServiceHelper().WriteToLog((string)"Disconnected from local MYSQL database...");
 }
 
 void TRAKManager::conHenchmanConnectionLost()
 {
-	ServiceHelper::WriteToLog((string)"Lost connection to local MYSQL database...\nretrying...");
+	ServiceHelper().WriteToLog((string)"Lost connection to local MYSQL database...\nretrying...");
 }
 
 void TRAKManager::conHenchmanError(exception& e)
 {
 	stringstream error;
 	error << "Local MYSQL database encountered an error: " << e.what() << "\n";
-	ServiceHelper::WriteToLog(error.str());
+	ServiceHelper().WriteToLog(error.str());
 	error.clear();
 }
 
 void TRAKManager::conRemoteAfterConnect()
 {
-	ServiceHelper::WriteToLog((string)"Connected to remote database...");
+	ServiceHelper().WriteToLog((string)"Connected to remote database...");
 }
 
 void TRAKManager::conRemoteAfterDisconnect()
 {
-	ServiceHelper::WriteToLog((string)"Disconnected from remote database...");
+	ServiceHelper().WriteToLog((string)"Disconnected from remote database...");
 }
 
 void TRAKManager::conRemoteConnectionLost()
 {
-	ServiceHelper::WriteToLog((string)"Lost connection to remote database...\nretrying...");
+	ServiceHelper().WriteToLog((string)"Lost connection to remote database...\nretrying...");
 }
 
 void TRAKManager::conRemoteError(exception& e)
 {
 	stringstream error;
 	error << "Remote database encountered an error: " << e.what() << "\n";
-	ServiceHelper::WriteToLog(error.str());
+	ServiceHelper().WriteToLog(error.str());
 	error.clear();
 }
 
@@ -92,7 +92,7 @@ const {
 			string key = val.pItem;
 			string value = iniFile.GetValue(section.data(), val.pItem, "");
 			
-			ServiceHelper::removeQuotes(value);
+			ServiceHelper().removeQuotes(value);
 			if (key == "Password" && value != "")
 				value = QByteArray(value.data()).toBase64();
 			
@@ -110,7 +110,7 @@ const {
 	}
 	catch (exception& e)
 	{
-		ServiceHelper::WriteToError("An error occurred: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 	}
 	keys.clear();
 	map.clear();
@@ -137,7 +137,7 @@ void TRAKManager::CreateDataModule()
 		if (!TRAKExists(ini))
 			throw HenchmanServiceException("No TRAK application could be found");
 
-		ServiceHelper::WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
+		ServiceHelper().WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
 	
 		cout << "app dir: " << appDir << iniFile << endl;
 
@@ -146,24 +146,29 @@ void TRAKManager::CreateDataModule()
 			throw HenchmanServiceException("Failed to Load INI File: " + appDir + iniFile);
 		}
 		
-		ServiceHelper::WriteToLog((string)"Adding Cloud entries to registry");
+		ServiceHelper().WriteToLog((string)"Adding Cloud entries to registry");
 		string section = "Cloud";
 		saveINIToRegistry(ini, section);
-		ServiceHelper::WriteToLog((string)"Adding Database entries to registry");
+		ServiceHelper().WriteToLog((string)"Adding Database entries to registry");
 		section = "Database";
 		saveINIToRegistry(ini, section);
-		ServiceHelper::WriteToLog((string)"Adding Customer entries to registry");
+		ServiceHelper().WriteToLog((string)"Adding Customer entries to registry");
 		section = "Customer";
 		saveINIToRegistry(ini, section);
 		
 	}
 	catch (exception &e)
 	{
-		ServiceHelper::WriteToError("TRAKManager::CreateDataModule thrw an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 	}
 
 }
 		//cout << "Connecting to Local MySQL Database" << endl;
+
+int UploadCurrentStateToRemote()
+{
+	return 0;
+}
 
 		//dbManager->deleteLater();
 		//dbManager = nullptr;
