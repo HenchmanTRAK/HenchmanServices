@@ -239,7 +239,8 @@ void ServiceHelper::WriteToError(string log)
 {
 	array dateTime = timestamp();
 	string logDir = GetLogsPath().data();
-	logDir.append(dateTime[0] + "-error.txt");
+	//logDir.append(dateTime[0] + "-error.txt");
+	logDir.append(dateTime[0] + "-log.txt");
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();

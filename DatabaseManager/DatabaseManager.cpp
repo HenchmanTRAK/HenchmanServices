@@ -182,7 +182,11 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 	data["sql"] = query["query"];	
 	QJsonDocument doc(data);
 
-	ServiceHelper().WriteToCustomLog("Making query to: " +url.toStdString() + "\nRunning query number : " + query["number"].toStdString() + " \nquery : " + doc.toJson().toStdString(), timeStamp[0]+ " - queries");
+	ServiceHelper().WriteToCustomLog(
+		"Making query to: " +url.toStdString() + 
+		"\nRunning query number : " + query["number"].toStdString() + 
+		" \nquery : " + doc.toJson().toStdString(), 
+		timeStamp[0]+ "-queries");
 
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
 		std::cout << "networkrequested" << endl;
@@ -270,7 +274,7 @@ int DatabaseManager::AddToolsIfNotExists()
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Tools");
 	string query = 
 		"SELECT * from tools ORDER BY id DESC LIMIT " + 
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -344,7 +348,7 @@ int DatabaseManager::AddUsersIfNotExists()
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Users");
 	string query =
 		"SELECT * from users ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -426,7 +430,7 @@ int DatabaseManager::AddEmployeesIfNotExists()
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Employees");
 	string query =
 		"SELECT * from employees ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -501,7 +505,7 @@ int DatabaseManager::AddJobsIfNotExists()
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Jobs");
 	string query =
 		"SELECT * from jobs ORDER BY id ASC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -567,10 +571,6 @@ int DatabaseManager::AddJobsIfNotExists()
 	return 1;
 }
 
-/* TODO
- - upload jobs
-*/
-
 // KabTRAK Syncs
 int DatabaseManager::AddKabsIfNotExists()
 {
@@ -581,7 +581,7 @@ int DatabaseManager::AddKabsIfNotExists()
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Kabs");
 	string query =
 		"SELECT * from itemkabs ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -654,7 +654,7 @@ int DatabaseManager::AddDrawersIfNotExists()
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Kab Drawers");
 	string query =
 		"SELECT * from itemkabdrawers ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -727,7 +727,7 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Kab tools in bins");
 	string query =
 		"SELECT * from itemkabdrawerbins ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -909,6 +909,7 @@ int DatabaseManager::connectToRemoteDB()
 
 				if (res["query"].contains("custId =", Qt::CaseInsensitive) && !skipQuery)
 				{
+					ServiceHelper().WriteToLog("Checking custId is same as device settings");
 					int index = res["query"].indexOf("custId", Qt::CaseInsensitive);
 					QString substr = res["query"].mid(index, res["query"].size() - index);
 					int startpoint = substr.indexOf("=")+1;
@@ -927,7 +928,7 @@ int DatabaseManager::connectToRemoteDB()
 
 				if (res["query"].contains(QString(trakId.data()) + " =", Qt::CaseInsensitive) && !skipQuery)
 				{
-
+					ServiceHelper().WriteToLog("Checking trakId is same as device settings");
 					int index = res["query"].indexOf(trakId.data(), Qt::CaseInsensitive);
 					QString substr = res["query"].mid(index, res["query"].size() - index);
 					int startpoint = substr.indexOf("=")+1;
@@ -943,6 +944,7 @@ int DatabaseManager::connectToRemoteDB()
 				}
 
 				if (res["query"].contains("insert") && !skipQuery) {
+					ServiceHelper().WriteToLog("Parsing insert to prevent duplication creation");
 					int startpoint = res["query"].indexOf("(") + 1;
 					int endpoint = res["query"].indexOf(")", startpoint, Qt::CaseInsensitive) - startpoint;
 					string queryStart = res["query"].first(startpoint - 1).toStdString();
@@ -965,16 +967,24 @@ int DatabaseManager::connectToRemoteDB()
 
 						if (val.empty() || val == "''" || col == "id")
 							continue;
+						if (val[0] != '\'')
+							val = "'" + val + "'";
+						map[col.data()] = val.data();
 
-						if (((col == "kabId" || col == "cribId" || col == "scaleId") && (val != "'" + idNum + "'")) || (col == "custId" && val != custId ))
+						string keyCheck = ((col == trakId || col == "custId") ? col : "");
+						string valueCheck = "'"+(col == trakId ? idNum : col == "custId" ? custId : "")+"'";
+						if ((!valueCheck.empty() && !keyCheck.empty()) && (map[keyCheck.data()].toStdString() != valueCheck))
 						{
+							ServiceHelper().WriteToLog(
+								"Query is not for current device. Device value: " +
+								valueCheck +
+								". Query value: " +
+								val
+							);
 							qDebug() << "skipping query";
 							skipQuery = true;
 							break;
 						}
-						if (val[0] != '\'')
-							val = "'" + val + "'";
-						map[col.data()] = val.data();
 						columns.append(col + (i < splitColumns.size() ? ", " : ""));
 						values.append(val + (i < splitColumns.size() ? ", " : ""));
 					}
@@ -990,26 +1000,25 @@ int DatabaseManager::connectToRemoteDB()
 					switch (table_map[splitQueryStart.at(splitQueryStart.size() - 1)])
 					{
 					case tools: 
-						res["query"] = "INSERT INTO tools (";
-						res["query"].append(columns.data())
-							.append(") SELECT ")
-							.append(values.data());
-						res["query"] +=
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE";
-						res["query"].append(" custId=" + map.value("custId"))
-							.append(" AND PartNo=" + map.value("PartNo"))
-							.append(" AND stockcode=" + map.value("stockcode"))
-							.append(" ORDER BY id DESC LIMIT 1)");
+						res["query"] = 
+							"INSERT INTO tools ("+
+							QString(columns.data())+
+							") SELECT "+
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE"+
+							" custId=" + map.value("custId")+
+							" AND PartNo=" + map.value("PartNo")+
+							" AND stockcode=" + map.value("stockcode")+
+							" ORDER BY id DESC LIMIT 1)";
 						break;
 
 					case users: 
-						res["query"] = "INSERT INTO users (";
-						res["query"] += columns.data();
-						res["query"] += ") SELECT ";
-						res["query"] += values.data();
-						res["query"] +=
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE";
-						res["query"] += 
+						res["query"] = 
+							"INSERT INTO users ("+
+							QString(columns.data())+ 
+							") SELECT "+ 
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE"+
 							" userId=" + map.value("userId") +
 							" AND custId=" + map.value("custId") +
 						(map.value("scaleId").isEmpty()
@@ -1021,59 +1030,48 @@ int DatabaseManager::connectToRemoteDB()
 						(map.value("cribId").isEmpty()
 							? ""
 							: " AND cribId=" + map.value("cribId")) +
-						" ORDER BY id DESC LIMIT 1)";
+							" ORDER BY id DESC LIMIT 1)";
 						break;
 					case employees:
-						res["query"] = "INSERT INTO employees (";
-						res["query"] += columns.data();
-						res["query"] += ") SELECT ";
-						res["query"] += values.data();
-						res["query"] +=
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM employees WHERE";
-						res["query"] +=
+						res["query"] = 
+							"INSERT INTO employees (" +
+							QString(columns.data()) +
+							") SELECT " +
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM employees WHERE"+
 							" userId=" + map.value("userId") +
 							" AND custId=" + map.value("custId") +
 							" ORDER BY id DESC LIMIT 1)";
 						break;
 					case jobs:
-						res["query"] = "INSERT INTO jobs (";
-						res["query"] += columns.data();
-						res["query"] += ") SELECT ";
-						res["query"] += values.data();
-						res["query"] +=
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE";
-						res["query"] +=
+						res["query"] = 
+							"INSERT INTO jobs ("+
+							QString(columns.data())+
+							") SELECT "+ 
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE"+
 							" trailId=" + map.value("trailId") +
 							" AND custId=" + map.value("custId") +
 							" ORDER BY id DESC LIMIT 1)";
 						break;
 					case kabs: 
 						res["query"] = 
-							"INSERT INTO itemkabs (";
-						res["query"] += 
-							columns.data();
-						res["query"] += 
-							") SELECT ";
-						res["query"] += 
-							values.data();
-						res["query"] += 
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabs WHERE";
-						res["query"] += 
+							"INSERT INTO itemkabs ("+
+							QString(columns.data())+
+							") SELECT "+
+							QString(values.data())+ 
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabs WHERE"+
 							" custId=" + map.value("custId") +
 							" AND kabId=" + map.value("kabId") +
 							" ORDER BY id DESC LIMIT 1)";
 						break;
 					case drawers: 
-						res["query"] = "INSERT INTO itemkabdrawers (";
-						res["query"] +=
-							columns.data();
-						res["query"] +=
-							") SELECT ";
-						res["query"] +=
-							values.data();
-						res["query"] +=
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE";
-						res["query"] +=
+						res["query"] = 
+							"INSERT INTO itemkabdrawers ("+
+							QString(columns.data())+
+							") SELECT "+
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE"+
 							" custId=" + map.value("custId") +
 							" AND kabId=" + map.value("kabId") +
 							" AND drawerCode=" + map.value("drawerCode") +
@@ -1081,16 +1079,11 @@ int DatabaseManager::connectToRemoteDB()
 						break;
 					case toolbins: 
 						res["query"] =
-							"INSERT INTO itemkabdrawerbins (";
-						res["query"] +=
-							columns.data();
-						res["query"] +=
-							") SELECT ";
-						res["query"] += 
-							values.data();
-						res["query"] +=
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawerbins WHERE";
-						res["query"] +=
+							"INSERT INTO itemkabdrawerbins ("+
+							QString(columns.data())+
+							") SELECT "+
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawerbins WHERE"+
 							" custId=" + map.value("custId") +
 							" AND kabId=" + map.value("kabId") +
 							" AND toolNumber=" + map.value("toolNumber") +
@@ -1113,12 +1106,13 @@ int DatabaseManager::connectToRemoteDB()
 					case portaemployeeitemtransactions:
 					case lokkaemployeeitemtransactions:
 					default: 
-						res["query"] = queryStart.data();
-						res["query"] += "(";
-						res["query"] += columns.data();
-						res["query"] += ") VALUES (";
-						res["query"] += values.data();
-						res["query"] += ")";
+						res["query"] = QString::fromStdString(
+							queryStart + "(" +
+							columns +
+							") VALUES ("+
+							values+
+							")"
+						);
 						break;
 					}
 
