@@ -26,7 +26,6 @@
 
 typedef std::map<std::string, std::string> stringmap;
 
-
 /**
  * @class SQLiteManager2
  *

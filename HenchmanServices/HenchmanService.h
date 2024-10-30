@@ -14,7 +14,6 @@
 //#include <netlistmgr.h>
 //#include <strsafe.h>
 //#include <tchar.h>
-#include <cctype>
 #include <Windows.h>
 #include <TlHelp32.h>
 //#include <WinSock2.h>

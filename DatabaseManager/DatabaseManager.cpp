@@ -75,6 +75,8 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	databaseTablesChecked["kabDrawers"] = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
 	databaseTablesChecked["kabDrawerBins"] = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
 	databaseTablesChecked["users"] = RegistryManager::GetVal(hKey, "numUsersChecked", REG_DWORD);
+	databaseTablesChecked["employees"] = RegistryManager::GetVal(hKey, "numEmployeesChecked", REG_DWORD);
+	databaseTablesChecked["jobs"] = RegistryManager::GetVal(hKey, "numJobsChecked", REG_DWORD);
 	RegCloseKey(hKey);
 
 }
@@ -180,64 +182,75 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 	data["sql"] = query["query"];	
 	QJsonDocument doc(data);
 
-	ServiceHelper::WriteToCustomLog("Running query number: " + query["number"].toStdString() + " \n query: " + doc.toJson().toStdString(), timeStamp[0]+ "-queries");
+	ServiceHelper().WriteToCustomLog(
+		"Making query to: " +url.toStdString() + 
+		"\nRunning query number : " + query["number"].toStdString() + 
+		" \nquery : " + doc.toJson().toStdString(), 
+		timeStamp[0]+ "-queries");
 
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
 		std::cout << "networkrequested" << endl;
-		if (reply.error() != QNetworkReply::NoError) {
-			qWarning() << "A Network error has occured: " << reply.error() << reply.errorString();
-			ServiceHelper::WriteToError("A Network error has occured: " + reply.errorString().toStdString());
-			return;
+		try {
+			if (reply.error() != QNetworkReply::NoError) {
+				qWarning() << "A Network error has occured: " << reply.error() << reply.errorString();
+				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+				//ServiceHelper().WriteToError("A Network error has occured: " + reply.errorString().toStdString());
+				//return;
+			}
+
+			int status = reply.httpStatus();
+			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+
+			if (!reply.isHttpStatusSuccess()) {
+				qWarning() << "A HTTP error has occured: " << status << reason;
+				ServiceHelper().WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+			}
+
+			if (reply.isHttpStatusSuccess()) {
+				qDebug() << "Request was successful: " << status << reason;
+				ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
+			}
+			ServiceHelper().WriteToLog((string)"Parsing Response");
+
+			QByteArray jsonRes = reply.readBody();
+
+			int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
+			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
+			std::cout << "starting index: " << startingIndex << " ending index: " << endingIndex << endl;
+			/*if(startingIndex < endingIndex)
+				jsonRes = jsonRes.sliced(startingIndex, endingIndex);*/
+
+				//std::cout << jsonRes.toStdString() << endl;
+			optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
+			if (!json) {
+				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
+				return;
+			}
+			if (results)
+				json.value().swap(*results);
+
+			string parsedVal;
+			if (json->isArray())
+				parsedVal = parseData(json->array());
+			else if (json->isObject())
+				parsedVal = parseData(json->object());
+
+			ServiceHelper().WriteToCustomLog("Webportal response: \n" + parsedVal, timeStamp[0] + "-queries");
+			ServiceHelper().WriteToLog("Server responded with: \n" + parsedVal);
+
+			result = reply.isSuccess();
+
+			if (reply.isSuccess())
+			{
+				std::cout << "network request success" << endl;
+			}
+			else {
+				std::cout << "network request failed" << endl;
+			}
 		}
-
-		int status = reply.httpStatus();
-		QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-		
-		if (!reply.isHttpStatusSuccess()) {
-			qWarning() << "A HTTP error has occured: " << status << reason;
-			ServiceHelper::WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
-		}
-
-		if (reply.isHttpStatusSuccess()) {
-			qDebug() << "Request was successful: " << status << reason;
-			ServiceHelper::WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
-		}
-		ServiceHelper::WriteToLog((string)"Parsing Response");
-		
-		QByteArray jsonRes = reply.readBody();
-
-		int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-		int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-		std::cout << "starting index: " << startingIndex << " ending index: " << endingIndex << endl;
-		/*if(startingIndex < endingIndex)
-			jsonRes = jsonRes.sliced(startingIndex, endingIndex);*/
-
-		//std::cout << jsonRes.toStdString() << endl;
-		optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-		if (!json) {
-			ServiceHelper::WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-			return;
-		}
-		if(results)
-			json.value().swap(*results);
-		
-		string parsedVal;
-		if (json->isArray())
-			parsedVal = parseData(json->array());
-		else if (json->isObject())
-			parsedVal = parseData(json->object());
-
-		ServiceHelper::WriteToCustomLog("Webportal response: \n" + parsedVal, timeStamp[0] + "-queries");
-		ServiceHelper::WriteToLog("Server responded with: \n" + parsedVal);
-
-		result = reply.isSuccess();
-
-		if (reply.isSuccess())
-		{
-			std::cout << "network request success" << endl;
-		}
-		else {
-			std::cout << "network request failed" << endl;
+		catch (exception& e) {
+			ServiceHelper().WriteToError(e.what());
+			reply.networkReply()->close();
 		}
 		});
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
@@ -251,16 +264,17 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 //
 //}
 
+// Misc Syncs
 int DatabaseManager::AddToolsIfNotExists()
 {
 	QString targetKey = "tools";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tools");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Tools");
 	string query = 
 		"SELECT * from tools ORDER BY id DESC LIMIT " + 
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -291,8 +305,8 @@ int DatabaseManager::AddToolsIfNotExists()
 			results[0] +
 			") SELECT " +
 			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE " +
-			"custId="+result.value("custId")+
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE" +
+			" custId="+result.value("custId")+
 			" AND PartNo="+result.value("PartNo")+
 			" AND stockcode="+result.value("stockcode")+
 			" ORDER BY id DESC LIMIT 1)";
@@ -303,7 +317,7 @@ int DatabaseManager::AddToolsIfNotExists()
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
@@ -325,16 +339,249 @@ int DatabaseManager::AddToolsIfNotExists()
 	return 1;
 }
 
+int DatabaseManager::AddUsersIfNotExists()
+{
+	QString targetKey = "users";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+	ServiceHelper().WriteToLog("Exporting Users");
+	string query =
+		"SELECT * from users ORDER BY id DESC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	for (auto& result : sqlQueryResults) {
+		if (result.firstKey() == "success")
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+		result.remove("id");
+
+		QString results[2];
+
+		processKeysAndValues(result, results);
+
+		res["query"] = "INSERT INTO users (" +
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE " +
+			"userId=" + result.value("userId") +
+			" AND custId=" + result.value("custId") +
+			(result.value("scaleId").isEmpty()
+				? ""
+				: " AND scaleId=" + result.value("scaleId")) +
+			(result.value("kabId").isEmpty()
+				? ""
+				: " AND kabId=" + result.value("kabId")) +
+			(result.value("cribId").isEmpty()
+				? ""
+				: " AND cribId=" + result.value("cribId")) +
+			" ORDER BY id DESC LIMIT 1)";
+		qDebug() << res["query"];
+
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			std::cout << result["result"].toString().toStdString() << endl;
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			std::cout << "No rows were altered on db" << endl;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			continue;
+			//break;
+		}
+
+	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
+
+int DatabaseManager::AddEmployeesIfNotExists()
+{
+	QString targetKey = "employees";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM employees");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+	ServiceHelper().WriteToLog("Exporting Employees");
+	string query =
+		"SELECT * from employees ORDER BY id DESC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	for (auto& result : sqlQueryResults) {
+		if (result.firstKey() == "success")
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+		result.remove("id");
+
+		QString results[2];
+
+		processKeysAndValues(result, results);
+
+		res["query"] = 
+			"INSERT INTO employees ("+
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM employees WHERE"+
+			" userId=" + result.value("userId") +
+			" AND custId=" + result.value("custId") +
+			" ORDER BY id DESC LIMIT 1)";
+
+		qDebug() << res["query"];
+
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			std::cout << result["result"].toString().toStdString() << endl;
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			std::cout << "No rows were altered on db" << endl;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			continue;
+			//break;
+		}
+
+	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numEmployeesChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
+
+int DatabaseManager::AddJobsIfNotExists()
+{
+	QString targetKey = "jobs";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM jobs");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+	ServiceHelper().WriteToLog("Exporting Jobs");
+	string query =
+		"SELECT * from jobs ORDER BY id ASC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	for (auto& result : sqlQueryResults) {
+		if (result.firstKey() == "success")
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+		result.remove("id");
+
+		QString results[2];
+
+		processKeysAndValues(result, results);
+
+		res["query"] =
+			"INSERT INTO jobs (" +
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE" +
+			" trailId=" + result.value("trailId") +
+			" AND custId=" + result.value("custId") +
+			" ORDER BY id DESC LIMIT 1)";
+
+		qDebug() << res["query"];
+
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			std::cout << result["result"].toString().toStdString() << endl;
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			std::cout << "No rows were altered on db" << endl;
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			continue;
+			//break;
+		}
+
+	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numJobsChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
+
+// KabTRAK Syncs
 int DatabaseManager::AddKabsIfNotExists()
 {
 	QString targetKey = "kabs";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabs");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Kabs");
 	string query =
 		"SELECT * from itemkabs ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -376,7 +623,7 @@ int DatabaseManager::AddKabsIfNotExists()
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
@@ -401,13 +648,13 @@ int DatabaseManager::AddKabsIfNotExists()
 int DatabaseManager::AddDrawersIfNotExists()
 {
 	QString targetKey = "kabDrawers";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawers");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Kab Drawers");
 	string query =
 		"SELECT * from itemkabdrawers ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -450,7 +697,7 @@ int DatabaseManager::AddDrawersIfNotExists()
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
@@ -474,13 +721,13 @@ int DatabaseManager::AddDrawersIfNotExists()
 int DatabaseManager::AddToolsInDrawersIfNotExists()
 {
 	QString targetKey = "kabDrawerBins";
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawerbins");
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		return 0;
 	}
-
+	ServiceHelper().WriteToLog("Exporting Kab tools in bins");
 	string query =
 		"SELECT * from itemkabdrawerbins ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
@@ -525,7 +772,7 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
@@ -546,92 +793,31 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 	return 1;
 }
 
-int DatabaseManager::AddUsersIfNotExists()
-{
-	QString targetKey = "users";
-	timeStamp = ServiceHelper::timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
-	{
-		return 0;
-	}
+// CribTRAK Syncs
 
-	string query =
-		"SELECT * from users ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+/* TODO
+ - upload cribconsumables
+ - upload cribs
+ - upload cribtoollocation
+ - upload cribtoollockers
+ - upload cribtools
+ - upload kittools
+ - upload tooltransfer
+*/
 
-	performCleanup();
+// PortaTRAK Syncs
 
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+/* TODO
+ - upload itemkits
+ - upload kitcategory
+ - upload kitlocation
+*/
 
-	restManager = new QRestAccessManager(netManager, this);
-
-	for (auto &result : sqlQueryResults) {
-		if (result.firstKey() == "success")
-			continue;
-		QStringMap res;
-		res["id"] = result["id"];
-		result.remove("id");
-
-		QString results[2];
-
-		processKeysAndValues(result, results);
-
-		res["query"] = "INSERT INTO users (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE "+
-			"userId="+result.value("userId")+
-			" AND custId="+result.value("custId")+
-			(result.value("scaleId").isEmpty() 
-				? "" 
-				: " AND scaleId="+result.value("scaleId"))+
-			(result.value("kabId").isEmpty()
-				? ""
-				: " AND kabId=" + result.value("kabId")) +
-			(result.value("cribId").isEmpty()
-				? ""
-				: " AND cribId=" + result.value("cribId")) +
-			" ORDER BY id DESC LIMIT 1)";
-		qDebug() << res["query"];
-
-		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
-				continue;
-			QJsonObject result = reply.object();
-			std::cout << result["result"].toString().toStdString() << endl;
-			if (ServiceHelper::Contain(result["result"].toString(), "1 rows were affected")) {
-				databaseTablesChecked[targetKey]++;
-				continue;
-			}
-			std::cout << "No rows were altered on db" << endl;
-			databaseTablesChecked[targetKey]++;
-			//databaseTablesChecked[targetKey] += queryLimit;
-			//Sleep(100);
-			continue;
-			//break;
-		}
-
-	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	return 1;
-}
 
 int DatabaseManager::connectToRemoteDB()
 {
-	ServiceHelper::WriteToLog(string("Attempting to connect to Remote Database"));
-	timeStamp = ServiceHelper::timestamp();
+	ServiceHelper().WriteToLog(string("Attempting to connect to Remote Database"));
+	timeStamp = ServiceHelper().timestamp();
 	QString targetSchema;
 	QSqlDatabase db;
 	bool result = false;
@@ -650,7 +836,7 @@ int DatabaseManager::connectToRemoteDB()
 		if (apiUrl.trimmed().isEmpty())
 			throw HenchmanServiceException("No target Database Url provided");
 		
-		ServiceHelper::WriteToLog("Creating session to db " + targetSchema.toStdString());
+		ServiceHelper().WriteToLog("Creating session to db " + targetSchema.toStdString());
 		
 		db = QSqlDatabase::database(targetSchema);
 		
@@ -678,21 +864,22 @@ int DatabaseManager::connectToRemoteDB()
 		if (!query.exec())
 		{
 			query.finish();
-			ServiceHelper::WriteToLog(string("Closing DB Session"));
+			ServiceHelper().WriteToLog(string("Closing DB Session"));
 			throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
 		}
 
-		ServiceHelper::WriteToLog("Updating backend Database with url: " + apiUrl.toStdString());
-		ServiceHelper::WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
-		
-		bool continueLoop = query.next();
+		ServiceHelper().WriteToLog("Updating backend Database with url: " + apiUrl.toStdString());
+		ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
+
 		int count = 0;
 
-		while (continueLoop)
+		while (testingDBManager ? count < 5 : query.next())
 		{
 			count++;
+			bool skipQuery = false;
 			
 			QStringMap res;
+			res["number"] = QString::number(count);
 			
 			if (!testingDBManager) {
 				res["id"] = query.value(0).toString();
@@ -701,70 +888,250 @@ int DatabaseManager::connectToRemoteDB()
 					.toString()
 					.replace(
 						QRegularExpression(
-							"(NOW|CURDATE|CURTIME)+", 
-							QRegularExpression::MultilineOption | 
-							QRegularExpression::DotMatchesEverythingOption | 
-							QRegularExpression::UseUnicodePropertiesOption
-						), 
+							"(NOW|CURDATE|CURTIME)+",
+							QRegularExpression::MultilineOption
+						),
 						"\'" + query
 						.value(3)
 						.toString()
 						.replace("T", " ") + "\'"
-					)
-					.replace("()", "");
+					).replace("()", "").simplified();
+				qDebug() << res;
 
 				HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 				string trakType = RegistryManager::GetStrVal(hKey, "APP_NAME", REG_SZ);
 				RegCloseKey(hKey);
 				hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer"));
-				QString trakId = QString::fromStdString(RegistryManager::GetStrVal(hKey, "trakID", REG_SZ));
-				QString custid = QString::fromStdString(RegistryManager::GetStrVal(hKey, "ID", REG_SZ));
-				QString idNum = QString::fromStdString(RegistryManager::GetStrVal(hKey, trakId.toStdString().data(), REG_SZ));
+				string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+				string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+				string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
 				RegCloseKey(hKey);
 
-				if (res["query"].contains("custId =", Qt::CaseInsensitive))
+				if (res["query"].contains("custId =", Qt::CaseInsensitive) && !skipQuery)
 				{
+					ServiceHelper().WriteToLog("Checking custId is same as device settings");
 					int index = res["query"].indexOf("custId", Qt::CaseInsensitive);
 					QString substr = res["query"].mid(index, res["query"].size() - index);
-					int startpoint = substr.indexOf("=");
+					int startpoint = substr.indexOf("=")+1;
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
-					QString substr2 = substr.first(endpoint);
-
-					res["query"].replace(substr2, "custId = '" + custid +"'");
+					QString substr2 = substr.mid(startpoint, endpoint-startpoint).trimmed();
+					qDebug() << substr2 << " | " << custId;
+					if (substr2.toStdString() != custId) {
+						qDebug() << "skipping query";
+						skipQuery = true;
+						goto parsedQuery;
+					}
 				}
 				
-				trakId.chop(2);
+				trakId.resize(trakId.size()-2);
 				trakId.append("Id");
 
-				if (res["query"].contains(trakId + " =", Qt::CaseInsensitive))
+				if (res["query"].contains(QString(trakId.data()) + " =", Qt::CaseInsensitive) && !skipQuery)
 				{
-
+					ServiceHelper().WriteToLog("Checking trakId is same as device settings");
 					int index = res["query"].indexOf(trakId.data(), Qt::CaseInsensitive);
 					QString substr = res["query"].mid(index, res["query"].size() - index);
-					int startpoint = substr.indexOf("=");
+					int startpoint = substr.indexOf("=")+1;
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
-					QString substr2 = substr.first(endpoint);
-
-					res["query"].replace(substr2, trakId + " = '" + idNum + "'");
+					QString substr2 = substr.mid(startpoint, endpoint - startpoint).trimmed();
+					qDebug() << substr2 << " | " << idNum;
+					if (substr2.toStdString() != "'" + idNum + "'") {
+						qDebug() << "skipping query";
+						skipQuery = true;
+						goto parsedQuery;
+					}
+					//res["query"].replace(substr2, QString(trakId.data()) + " = '" + QString(idNum.data()) + "'");
 				}
-				
-				if (res["query"].contains(" id "))
-					continue;
+
+				if (res["query"].contains("insert") && !skipQuery) {
+					ServiceHelper().WriteToLog("Parsing insert to prevent duplication creation");
+					int startpoint = res["query"].indexOf("(") + 1;
+					int endpoint = res["query"].indexOf(")", startpoint, Qt::CaseInsensitive) - startpoint;
+					string queryStart = res["query"].first(startpoint - 1).toStdString();
+					vector splitQueryStart = ExplodeString(queryStart, " ");
+
+					string columns = res["query"].mid(startpoint, endpoint).toStdString();
+					vector splitColumns = ExplodeString(columns, ", ");
+
+					startpoint = res["query"].indexOf("(", startpoint) + 1;
+					endpoint = res["query"].indexOf(")", startpoint, Qt::CaseInsensitive) - startpoint;
+					string values = res["query"].mid(startpoint, endpoint).toStdString();
+					vector splitValues = ExplodeString(values, ", ");
+
+					QStringMap map;
+					columns.clear();
+					values.clear();
+					for (int i = 0; i < splitColumns.size(); i++) {
+						string col = splitColumns.at(i);
+						string val = splitValues.at(i);
+
+						if (val.empty() || val == "''" || col == "id")
+							continue;
+						if (val[0] != '\'')
+							val = "'" + val + "'";
+						map[col.data()] = val.data();
+
+						string keyCheck = ((col == trakId || col == "custId") ? col : "");
+						string valueCheck = "'"+(col == trakId ? idNum : col == "custId" ? custId : "")+"'";
+						if ((!valueCheck.empty() && !keyCheck.empty()) && (map[keyCheck.data()].toStdString() != valueCheck))
+						{
+							ServiceHelper().WriteToLog(
+								"Query is not for current device. Device value: " +
+								valueCheck +
+								". Query value: " +
+								val
+							);
+							qDebug() << "skipping query";
+							skipQuery = true;
+							break;
+						}
+						columns.append(col + (i < splitColumns.size() ? ", " : ""));
+						values.append(val + (i < splitColumns.size() ? ", " : ""));
+					}
+
+					if (skipQuery)
+						goto parsedQuery;
+
+					if (columns.ends_with(", "))
+						columns.resize(columns.size() - 2);
+					if (values.ends_with(", "))
+						values.resize(values.size() - 2);
+
+					switch (table_map[splitQueryStart.at(splitQueryStart.size() - 1)])
+					{
+					case tools: 
+						res["query"] = 
+							"INSERT INTO tools ("+
+							QString(columns.data())+
+							") SELECT "+
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE"+
+							" custId=" + map.value("custId")+
+							" AND PartNo=" + map.value("PartNo")+
+							" AND stockcode=" + map.value("stockcode")+
+							" ORDER BY id DESC LIMIT 1)";
+						break;
+
+					case users: 
+						res["query"] = 
+							"INSERT INTO users ("+
+							QString(columns.data())+ 
+							") SELECT "+ 
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE"+
+							" userId=" + map.value("userId") +
+							" AND custId=" + map.value("custId") +
+						(map.value("scaleId").isEmpty()
+							? ""
+							: " AND scaleId=" + map.value("scaleId")) +
+						(map.value("kabId").isEmpty()
+							? ""
+							: " AND kabId=" + map.value("kabId")) +
+						(map.value("cribId").isEmpty()
+							? ""
+							: " AND cribId=" + map.value("cribId")) +
+							" ORDER BY id DESC LIMIT 1)";
+						break;
+					case employees:
+						res["query"] = 
+							"INSERT INTO employees (" +
+							QString(columns.data()) +
+							") SELECT " +
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM employees WHERE"+
+							" userId=" + map.value("userId") +
+							" AND custId=" + map.value("custId") +
+							" ORDER BY id DESC LIMIT 1)";
+						break;
+					case jobs:
+						res["query"] = 
+							"INSERT INTO jobs ("+
+							QString(columns.data())+
+							") SELECT "+ 
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE"+
+							" trailId=" + map.value("trailId") +
+							" AND custId=" + map.value("custId") +
+							" ORDER BY id DESC LIMIT 1)";
+						break;
+					case kabs: 
+						res["query"] = 
+							"INSERT INTO itemkabs ("+
+							QString(columns.data())+
+							") SELECT "+
+							QString(values.data())+ 
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabs WHERE"+
+							" custId=" + map.value("custId") +
+							" AND kabId=" + map.value("kabId") +
+							" ORDER BY id DESC LIMIT 1)";
+						break;
+					case drawers: 
+						res["query"] = 
+							"INSERT INTO itemkabdrawers ("+
+							QString(columns.data())+
+							") SELECT "+
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE"+
+							" custId=" + map.value("custId") +
+							" AND kabId=" + map.value("kabId") +
+							" AND drawerCode=" + map.value("drawerCode") +
+							" ORDER BY id DESC LIMIT 1)";
+						break;
+					case toolbins: 
+						res["query"] =
+							"INSERT INTO itemkabdrawerbins ("+
+							QString(columns.data())+
+							") SELECT "+
+							QString(values.data())+
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawerbins WHERE"+
+							" custId=" + map.value("custId") +
+							" AND kabId=" + map.value("kabId") +
+							" AND toolNumber=" + map.value("toolNumber") +
+							" AND drawerNum=" + map.value("drawerNum") +
+							" AND itemId=" + map.value("itemId") +
+							" ORDER BY id DESC LIMIT 1)";
+						break;
+					case cribs:
+					case cribconsumables:
+					case cribtoollocation:
+					case cribtoollockers:
+					case cribtools:
+					case kittools:
+					case tooltransfer:
+					case itemkits:
+					case kitcategory:
+					case kitlocation:
+					case kabemployeeitemtransactions:
+					case cribemployeeitemtransactions:
+					case portaemployeeitemtransactions:
+					case lokkaemployeeitemtransactions:
+					default: 
+						res["query"] = QString::fromStdString(
+							queryStart + "(" +
+							columns +
+							") VALUES ("+
+							values+
+							")"
+						);
+						break;
+					}
+
+				}
 			}
 			else {
 				res["id"] = "0";
 				res["query"] = "SHOW TABLES";
 			}
-			res["number"] = QString::number(count);
-			qDebug() << res["query"];
+			qDebug() << res;
 
-			if (makeNetworkRequest(apiUrl, res))
+		parsedQuery:
+			if (skipQuery ? true : makeNetworkRequest(apiUrl, res))
 			{
-				std::cout << "request successful" << endl;
+				std::cout << (skipQuery ? "request skipped" : "request successful") << endl;
 				string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + res["id"].toStdString();
 
 				if (!testingDBManager) {
-					ServiceHelper::WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+					ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for(const auto result: queryResult)
@@ -774,11 +1141,10 @@ int DatabaseManager::connectToRemoteDB()
 			}
 			else {
 				std::cout << "request failed" << endl;
+				break;
 			}
-
-			continueLoop = testingDBManager ? count < 5 : query.next();
 		}
-		ServiceHelper::WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
+		ServiceHelper().WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
 
 		query.clear();
 		query.finish();
@@ -792,7 +1158,7 @@ int DatabaseManager::connectToRemoteDB()
 	{
 		if(db.isOpen())
 			db.close();
-		ServiceHelper::WriteToError("DatabaseManager::connectToRemoteDB has thrown an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 	}
 
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
@@ -802,7 +1168,7 @@ int DatabaseManager::connectToRemoteDB()
 
 int DatabaseManager::connectToLocalDB()
 {
-	timeStamp = ServiceHelper::timestamp();
+	timeStamp = ServiceHelper().timestamp();
 	try {
 		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 
@@ -810,10 +1176,10 @@ int DatabaseManager::connectToLocalDB()
 
 		if (!QSqlDatabase::isDriverAvailable(dbtype))
 		{
-			ServiceHelper::WriteToError((string)("Provided Database Driver is not available"));
+			ServiceHelper().WriteToError((string)("Provided Database Driver is not available"));
 			RegCloseKey(hKey);
-			ServiceHelper::WriteToError((string)("The following Databases are supported"));
-			ServiceHelper::WriteToError(checkValidDrivers());
+			ServiceHelper().WriteToError((string)("The following Databases are supported"));
+			ServiceHelper().WriteToError(checkValidDrivers());
 			return 0;
 		}
 
@@ -828,7 +1194,7 @@ int DatabaseManager::connectToLocalDB()
 			QString user = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Username", REG_SZ));
 			string pass = RegistryManager::GetStrVal(hKey, "Password", REG_SZ);
 
-			ServiceHelper::WriteToLog((string)"Creating session to db");
+			ServiceHelper().WriteToLog((string)"Creating session to db");
 					
 			db = QSqlDatabase::addDatabase(dbtype, schema);
 			db.setHostName(server);
@@ -846,14 +1212,14 @@ int DatabaseManager::connectToLocalDB()
 
 		if (!db.open())
 		{
-			ServiceHelper::WriteToError((string)"DB Connection failed to open");
+			ServiceHelper().WriteToError((string)"DB Connection failed to open");
 			db.close();
 			return 0;
 		}
-		ServiceHelper::WriteToLog((string)"DB Connection successfully opened");
+		ServiceHelper().WriteToLog((string)"DB Connection successfully opened");
 		if (!db.driver()->hasFeature(QSqlDriver::Transactions))
 		{
-			ServiceHelper::WriteToError((string)"Selected Driver does not support transactions");
+			ServiceHelper().WriteToError((string)"Selected Driver does not support transactions");
 			db.close();
 			return 0;
 		}
@@ -882,14 +1248,14 @@ int DatabaseManager::connectToLocalDB()
 
 		std::cout << "Was Target DB Found? " << (dbFound ? "Yes" : "No") << endl;
 		if (!dbFound) {
-			ServiceHelper::WriteToLog((string)"Generating Database");
+			ServiceHelper().WriteToLog((string)"Generating Database");
 			QString targetQuery = "CREATE DATABASE " + schema + " CHARACTER SET utf8 COLLATE utf8_general_ci";
 			query.prepare(targetQuery);
 			if (!query.exec()) {
-				ServiceHelper::WriteToError((string)"Failed to create database");
+				ServiceHelper().WriteToError((string)"Failed to create database");
 			}
 			else {
-				ServiceHelper::WriteToLog((string)"Successfully created Database");
+				ServiceHelper().WriteToLog((string)"Successfully created Database");
 			}
 
 			while (query.next())
@@ -912,7 +1278,7 @@ int DatabaseManager::connectToLocalDB()
 	}
 	catch (exception& e)
 	{
-		ServiceHelper::WriteToError("DatabaseManager::connectToLocalDB has thrown an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
 	return 1;
@@ -931,7 +1297,7 @@ int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) 
 			throw HenchmanServiceException("Failed to open target file");
 
-		ServiceHelper::WriteToLog("Successfully opened target file: " + filepath);
+		ServiceHelper().WriteToLog("Successfully opened target file: " + filepath);
 
 		QTextStream in(&file);
 		QString sql = in.readAll();
@@ -977,7 +1343,7 @@ int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 				db.rollback();
 			db.close();
 		}
-		ServiceHelper::WriteToError("DatabaseManager::ExecuteTargetSqlScript has thrown an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 	}
 	return successCount;
 }
@@ -1054,7 +1420,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 				db.rollback();
 			db.close();
 		}
-		ServiceHelper::WriteToError("DatabaseManager::ExecuteTargetSql has thrown an exception: " + string(e.what()));
+		ServiceHelper().WriteToError(e.what());
 		resultVector[0] = queryResult;
 
 	}
@@ -1073,27 +1439,27 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 
 	if (restReply.error() != QNetworkReply::NoError) {
 		qWarning() << "A Network error has occured: " << restReply.error() << restReply.errorString();
-		ServiceHelper::WriteToError("A Network error has occured: " + restReply.errorString().toStdString());
+		ServiceHelper().WriteToError("A Network error has occured: " + restReply.errorString().toStdString());
 		goto exit;
 	}
 	if (!restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qWarning() << "A HTTP error has occured: " << status << reason;
-		ServiceHelper::WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+		ServiceHelper().WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
 	if (restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qDebug() << "Request was successful: " << status << reason;
-		ServiceHelper::WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
+		ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
-	ServiceHelper::WriteToLog((string)"Parsing Response");
+	ServiceHelper().WriteToLog((string)"Parsing Response");
 
 	ExecuteTargetSql(sqlQuery);
 
 	if (!json) {
-		ServiceHelper::WriteToError((string)"Recieved empty data or failed to parse JSON.");
+		ServiceHelper().WriteToError((string)"Recieved empty data or failed to parse JSON.");
 		goto exit;
 	}
 
@@ -1104,7 +1470,7 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 			}
 		}
 
-		ServiceHelper::WriteToError("Server responded with error: " + errorRes.str());
+		ServiceHelper().WriteToError("Server responded with error: " + errorRes.str());
 	}
 
 	if (response.value()["data"].toArray().count() > 0) {
@@ -1114,7 +1480,7 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 			}
 
 		}
-		ServiceHelper::WriteToLog("Server responded with data: " + dataRes.str());
+		ServiceHelper().WriteToLog("Server responded with data: " + dataRes.str());
 	}
 
 exit:

@@ -5,8 +5,9 @@
 
 #include <iostream>
 #include <optional>
-#include <vector>
 #include <string>
+#include <vector>
+#include <map>
 #include <sstream>
 
 #include <QObject>
@@ -40,8 +41,57 @@
 #include "HenchmanServiceException.h"
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
+#include "SQLiteManager2.h"
 
 typedef QMap<QString, QString> QStringMap;
+
+static enum table_enums{
+    tools,
+    users,
+	employees,
+    jobs,
+    kabs,
+    drawers,
+    toolbins,
+    cribs,
+    cribconsumables,
+    cribtoollocation,
+    cribtoollockers,
+    cribtools,
+    kittools,
+    tooltransfer,
+    itemkits,
+    kitcategory,
+    kitlocation,
+    kabemployeeitemtransactions,
+    cribemployeeitemtransactions,
+    portaemployeeitemtransactions,
+    lokkaemployeeitemtransactions
+};
+
+static std::map<std::string, table_enums> table_map = {
+    {"tools", tools},
+    {"users", users},
+    {"employees", employees},
+    {"jobs", jobs},
+    {"itemkabs", kabs},
+    {"itemkabdrawers", drawers},
+    {"itemkabdrawerbins", toolbins},
+    {"cribs", cribs},
+    {"cribconsumables", cribconsumables},
+    {"cribtoollocation", cribtoollocation},
+    {"cribtoollockers", cribtoollockers},
+    {"cribtools", cribtools},
+    {"kittools", kittools},
+    {"tooltransfer", tooltransfer},
+    {"itemkits", itemkits},
+    {"kitcategory", kitcategory},
+    {"kitlocation", kitlocation},
+    {"kabemployeeitemtransactions", kabemployeeitemtransactions},
+    {"cribemployeeitemtransactions", cribemployeeitemtransactions},
+    {"portaemployeeitemtransactions", portaemployeeitemtransactions},
+    {"lokkaemployeeitemtransactions", lokkaemployeeitemtransactions}
+};
 
 /**
  * @class DatabaseManager
@@ -189,7 +239,7 @@ public:
      * This function retrieves a list of tools from the local database and checks if each tool already exists on the remote database.
      * If a tool does not exist, it is inserted into the remote database using an SQL query.
      *
-     * @return Returns 0 if the function completes successfully, otherwise returns an error code.
+     * @return Returns 0 if the number of tools in the database is lesser than or equal to the number of tools checked, otherwise returns 1.
      *
      * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
     */
@@ -201,8 +251,7 @@ public:
      * This function checks the number of itemkabs in the database and if it is less than the specified number of kabs to check,
      * it retrieves the missing itemkabs from the cloudupdate table and adds them to the database.
      *
-     * @return Returns 0 if the number of itemkabs in the database is greater than or equal to the number of kabs to check,
-     *         otherwise returns 1.
+     * @return Returns 0 if the number of kabs in the database is lesser than or equal to the number of kabs checked, otherwise returns 1.
      *
      * @throws None.
      */
@@ -214,8 +263,7 @@ public:
      * This function checks the number of itemkabdrawers in the database and if it is less than the specified number of drawers to check,
      * it retrieves the missing itemkabdrawers from the cloudupdate table and adds them to the database.
      *
-     * @return Returns 0 if the number of itemkabdrawers in the database is greater than or equal to the number of drawers to check,
-     *         otherwise returns 1.
+     * @return Returns 0 if the number of drawers in the database is lesser than or equal to the number of drawers checked, otherwise returns 1.
      *
      * @throws None.
      */
@@ -227,24 +275,47 @@ public:
      * This function checks the number of tools in drawers in the database and if it is less than the specified number of tools to check,
      * it retrieves the missing tools in drawers from the cloudupdate table and adds them to the database.
      *
-     * @return Returns 0 if the number of tools in drawers in the database is greater than or equal to the number of tools to check,
-     *         otherwise returns 1.
+     * @return Returns 0 if the number of tools in drawers in the database is lesser than or equal to the number of drawers tools in drawers checked, otherwise returns 1.
      *
      * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
      */
     int AddToolsInDrawersIfNotExists();
 
     /**
-     * @brief Adds tools to the database if they do not already exist.
+     * @brief Adds users to the database if they do not already exist.
      *
-     * This function retrieves a list of tools from the local database and checks if each tool already exists on the remote database.
-     * If a tool does not exist, it is inserted into the remote database using an SQL query.
+     * This function retrieves a list of users from the local database and checks if each user already exists on the remote database.
+     * If an user does not exist, it is inserted into the remote database using an SQL query.
      *
-     * @return Returns 0 if the function completes successfully, otherwise returns an error code.
+     * @return Returns 0 if the number of users in the database is lesser than or equal to the number of users checked, otherwise returns 1.
      *
      * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
      */
     int AddUsersIfNotExists();
+
+    /**
+     * @brief Adds employees to the database if they do not already exist.
+     *
+     * This function retrieves a list of employees from the local database and checks if each employee already exists on the remote database.
+     * If an employee does not exist, it is inserted into the remote database using an SQL query.
+     *
+     * @return Returns 0 if the number of employees in the database is lesser than or equal to the number of employees checked, otherwise returns 1.
+     *
+     * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+     */
+    int AddEmployeesIfNotExists();
+
+    /**
+     * @brief Adds jobs to the database if they do not already exist.
+     *
+     * This function retrieves a list of jobs from the local database and checks if each job already exists on the remote database.
+     * If a job does not exist, it is inserted into the remote database using an SQL query.
+     *
+     * @return Returns 0 if the number of jobs in the database is lesser than or equal to the number of jobs checked, otherwise returns 1.
+     *
+     * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+     */
+    int AddJobsIfNotExists();
 
     /**
      * @brief Parses a QJsonArray into a string representation.

@@ -17,6 +17,7 @@ target_link_libraries(
 	#OpenSSL::Crypto
 	#${OPENSSL_CRYPTO_LIBRARY} 
 	#${OPENSSL_SSL_LIBRARY}
+	HenchmanServiceException
 	RegistryManager
 )
 
