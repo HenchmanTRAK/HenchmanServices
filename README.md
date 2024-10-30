@@ -12,12 +12,12 @@ HenchmanService is a Windows service that provides functionality for managing an
 
 To get started with HenchmanService, follow these steps:
 
-1. Clone the repository: `git clone https://github.com/HenchmanTRAK/HenchmanService.git`.
-2. Move yourself into it, eg. `cd HenchmanService`.
-2. Build the project using `cmake --build .`.
-3. Create a service.ini file and define the required fields.
-4. Install the service by running the executable with the `--install` argument.
-5. Start the service by running the executable with the `--start` argument.
+1. Clone the repository; ``git clone https://github.com/HenchmanTRAK/HenchmanService.git``.
+2. Move yourself into it; eg. ``cd HenchmanService``.
+3. Build the project using ``cmake --build .``.
+4. Create a service.ini file and define the required fields.
+5. Install the service by running the executable or through the command line with the `--install` argument; eg. ``HenchmanService.exe --install``.
+6. Service should start automatically but can be started through right clicking the executable while holding shift and selecting `Start Service` from the `Control Service` context menu or through the command line with the `--start` argument; eg. ``HenchmanService.exe --start``.
 
 ## Dependencies
 
@@ -29,7 +29,15 @@ HenchmanService requires the following dependencies to build and run:
 
 ## Usage
 
-To use HenchmanService, you can interact with it through the command line or through the Windows Service Manager.
+To use HenchmanService, you can interact with it through the windows context menu, command line or through the Windows Service Manager.
+
+### Windows Context Menu
+
+To interact with HenchmanService through the windows context menu, you simply need to `hold the shift key and right click` the HenchmanService executable.
+
+A traditional Windows Context Menu should appear, from there you simply hover over the `Control Service` option within the context menu.
+
+A list of options will appear allowing you to start, stop, remove or install the service. Though the context menu will only be present if the service has been installed.
 
 ### Command Line
 
@@ -60,9 +68,9 @@ Username = your_mail_username
 Password = your_mail_password
 
 [WAMP]
-MySQL_DIR	= path_to_mysql_exe
-Apache_DIR	= path_to_apache_exe
-PHP_DIR		= path_to_php_exe
+MySQL_DIR = path_to_mysql_exe
+Apache_DIR = path_to_apache_exe
+PHP_DIR	= path_to_php_exe
 
 [TRAK]
 TRAK_DIR = path_to_trak_executable
@@ -73,13 +81,12 @@ APP_NAME = name_of_trak_application
 [API]
 Username = username_to_backend_api
 Password = password_to_backend_api
-defaultProt = protocol_used_for_api_calls
 url = url_to_backend_api
-numberOfQueries= number_of_cloudupdate_queries
+numberOfQueries = number_of_cloudupdate_queries
 
 [DEVELOPMENT]
-testingMain=0|1
-testingDBManager=0|1
+testingMain = 0|1
+testingDBManager = 0|1
 
 ```
 
@@ -101,8 +108,7 @@ testingDBManager=0|1
  - `[API]` section:
 	- `Username` : Specifies the username for the backend API. `default: ""`
 	- `Password` : Specifies the password for the backend API. `default: ""`
-	- `defaultProt` : http or https; Specifies the default http protocol used for all network requests. `default: https`
-	- `url` : Specifies the URL of the backend API, exclusive of the protocol. `default: webportal.henchmantrak.com/webapi/public/api/portals/exec_query`
+	- `url` : Specifies the URL of the backend API, exclusive of the protocol. `default: https://webportal.henchmantrak.com/webapi/public/api/portals/exec_query`
 	- `numberOfQueries` : Specified the maximum number of queries the application will attempt to run in a cycle. `default: 10`
 
  - `[DEVELOPMENT]` section:
@@ -133,3 +139,7 @@ HenchmanService is licensed under the [MIT License](LICENSE).
 For any questions or inquiries, you can reach out to [wjaco.swanepoel@gmail.com](mailto:wjaco.swanepoel@gmail.com).
 
 I hope this helps! Let me know if you need any further assistance.
+
+## Todo
+
+ - Seperate out service functions from main application logic.

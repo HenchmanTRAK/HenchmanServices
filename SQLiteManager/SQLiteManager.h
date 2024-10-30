@@ -3,18 +3,41 @@
 
 #pragma once
 
+#include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <vector>
+
+//#include <Windows.h>
 
 #include <sqlite3.h>
 #include <SQLiteCpp/SQLiteCpp.h>
 
+
 #include "HenchmanServiceException.h"
 #include "ServiceHelper.h"
 
-#include <Windows.h>
 
-// Manages the sqlite database associated with the HenchmanTRAK Service
+/**
+ * @class SQLite_Manager
+ *
+ * @brief The SQLite_Manager class provides functions for managing an SQLite database.
+ *
+ * This class allows you to interact with an SQLite database, creating tables, inserting rows, and retrieving data.
+ * It provides methods for initializing the database, creating tables, inserting rows, and retrieving all rows from a table.
+ * The class also provides methods for getting the name of the database and toggling console logging.
+ *
+ * @author Willem Swanepoel
+ * @version 1.0
+ *
+ * @details
+ * - The SQLite_Manager class uses the SQLite C++ library for database operations.
+ * - The class handles exceptions for common errors that may occur during database operations.
+ * - The class provides a convenient way to manage an SQLite database within your application.
+ *
+ * @see SQLite
+ * @see SQLite::Exception
+ */
 class SQLite_Manager
 {
 	std::string dbName;
@@ -22,70 +45,79 @@ class SQLite_Manager
 	bool logToConsole;
 public:
 	/**
-	* Constructs a SQLite_Manager object with the given database directory and name.
-	*
-	* @param db_dir - The directory where the database file will be stored.
-	* @param db_name - The name of the database file.
-	*
-	* @throws exception If there is an error opening or creating the database file.
-	*/
+	 * @brief Constructs a SQLite_Manager object with the given database directory and name.
+	 *
+	 * @param db_dir - The directory where the database file will be stored.
+	 * @param db_name - The name of the database file.
+	 *
+	 * @throws exception If there is an error opening or creating the database file.
+	 */
 	SQLite_Manager(std::string db_dir = "", std::string db_name = "");
 
 	/**
-	* Destructor for the SQLite_Manager class.
-	*
-	* This function is called when an instance of the SQLite_Manager class is destroyed.
-	* It clears the dbName and dbDir strings, and sets the logToConsole flag to NULL.
-	*
-	* @throws None
-	*/
+	 * @brief Destructor for the SQLite_Manager class.
+	 *
+	 * This function is called when an instance of the SQLite_Manager class is destroyed.
+	 * It clears the dbName and dbDir strings, and sets the logToConsole flag to NULL.
+	 *
+	 * @throws None
+	 */
 	~SQLite_Manager();
 
 	/**
-	* Toggles the logging to console for the SQLite_Manager.
-	*
-	* @throws None
-	*/
+	 * @brief Toggles the logging to console for the SQLite_Manager.
+	 *
+	 * @throws None
+	 */
 	void ToggleConsoleLogging();
+
 	/**
-	* Initializes the SQLite database by creating a table named "test" with two columns: "id" and "value".
-	*
-	* @return 0 if the database initialization is successful, otherwise an exception is thrown.
-	*
-	* @throws exception if there is an error opening or creating the database file.
-	*/
+	 * @brief Initializes the SQLite database by creating a table named "test" with two columns: "id" and "value".
+	 *
+	 * @return 0 if the database initialization is successful, otherwise an exception is thrown.
+	 *
+	 * @throws exception if there is an error opening or creating the database file.
+	 */
 	int InitDB();
 	
 	/**
-	* Returns the name of the database as a string.
-	*
-	* @return The name of the database as a string.
-	*/
+	 * @brief Returns the name of the database as a string.
+	 *
+	 * @return The name of the database as a string.
+	 */
 	std::string GetDBName();
 
 	/**
-	* Creates a table in the SQLite database with the given table name and columns.
-	*
-	* @param tableName - The name of the table to be created.
-	* @param cols - A vector of strings representing the columns of the table.
-	*
-	* @return 0 if the table is successfully created, otherwise an exception is thrown.
-	*
-	* @throws exception If there is an error opening or creating the database file, or if the query execution fails.
-	*/
+	 * @brief Creates a table in the SQLite database with the given table name and columns.
+	 *
+	 * @param tableName - The name of the table to be created.
+	 * @param cols - A vector of strings representing the columns of the table.
+	 *
+	 * @throws exception If there is an error creating the table.
+	 */
 	int CreateTable(std::string & tableName, std::vector<std::string> &cols);
 
 	/**
-	* Adds a row to the specified table in the SQLite database.
-	*
-	* @param targetTable - The name of the table to add the row to.
-	* @param values - A vector of strings representing the values to be inserted into the row.
-	*
-	* @return 0 if the row is successfully added, otherwise an exception is thrown.
-	*
-	* @throws exception If there is an error opening or creating the database file, or if the query execution fails.
-	*/
-	int AddRow(std::string& targetTable, std::vector<std::string>& values);
+	 * @brief Inserts a row into the specified table with the given values.
+	 *
+	 * @param tableName - The name of the table to insert the row into.
+	 * @param values - A vector of strings representing the values to insert.
+	 *
+	 * @throws exception If there is an error inserting the row.
+	 */
+
+	int AddRow(std::string& tableName, std::vector<std::string>& values);
 };
+
+/**
+ * @brief Retrieves all rows from the specified table.
+ *
+ * @param tableName - The name of the table to retrieve rows from.
+ *
+ * @return A vector of vectors of strings, where each inner vector represents a row and contains the values of each column.
+ *
+ * @throws exception If there is an error retrieving the rows.
+std::vector<std::vector<std::string>> GetAllRows(const std::string& tableName);
+ */
 
 #endif

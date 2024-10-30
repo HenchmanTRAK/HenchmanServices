@@ -4,6 +4,75 @@
 
 using namespace std;
 
+ServiceHelper::ServiceHelper(const std::source_location& caller)
+{
+	//cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
+	//caller = location;
+	int substringStart = string(caller.function_name()).find_first_of(" ") + 1;
+	int substringEnd = string(caller.function_name()).find_first_of("(") - substringStart;
+	/*if (substringStart >= substringEnd)
+		functionName = __FUNCTION__;
+	else
+		functionName =
+		string(caller.function_name())
+		.substr(
+			substringStart,
+			substringEnd
+		);*/
+	vector exploded = ExplodeString((
+		substringStart >= substringEnd 
+		? __FUNCTION__
+		: string(caller.function_name())
+		.substr(
+			substringStart,
+			substringEnd
+		)), " ");
+	
+	exploded = ExplodeString(exploded[exploded.size() - 1], "::", 2);
+	functionName = "";
+	for (int i = 0; i < exploded.size(); i++)
+	{
+		functionName.append(exploded[i]);
+		if(i < exploded.size() - 1)
+			functionName.append("::");
+	}
+}
+
+vector<string> ExplodeString(const string& targetString, const char *seperator, int maxLen)
+{
+	vector<string> results;
+	string s = targetString;
+	try {
+		if (s == "")
+			throw HenchmanServiceException("No String was provided");
+		if (seperator == "")
+			throw HenchmanServiceException("Invalid Seperator provided");
+
+		size_t pos = 0;
+		while ((pos = s.find(seperator)) != string::npos) {
+			//std::cout << results.size() << endl;
+			string token = s.substr(0, pos);
+			s.erase(0, pos + string(seperator).length());
+			if(token != "")
+				results.push_back(token);
+		}
+		if (s != "")
+			results.push_back(s);
+		if (maxLen > 0 && results.size() > maxLen)
+		{
+			results.resize(maxLen);
+		}
+			
+			//? true : results.size() < maxLen)
+		//token.clear();
+	}
+	catch (exception& e)
+	{
+		ServiceHelper().WriteToError(e.what());
+	}
+	return results;
+}
+
 long int ServiceHelper::microseconds()
 {
 	struct timespec tp;
@@ -78,8 +147,8 @@ string ServiceHelper::GetExportsPath(string app_path)
 	string exportsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -106,8 +175,8 @@ string ServiceHelper::GetLogsPath(string app_path)
 	string logsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -147,8 +216,10 @@ void ServiceHelper::WriteLog(char *targetFile, string log)
 	fstream fs(targetFile, ios::out | ios_base::app);
 	if (fs) {
 		array dateTime = timestamp();
-		cout << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << log << endl;
-		fs << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << log << endl;
+		stringstream logEntry;		
+		logEntry << "---| " << dateTime[0] << " " << dateTime[1] << " |--- "<< functionName << ": " << log;
+		cout << logEntry.str() << endl;
+		fs << logEntry.str() << endl;
 		fs.close();
 	}
 
@@ -168,7 +239,8 @@ void ServiceHelper::WriteToError(string log)
 {
 	array dateTime = timestamp();
 	string logDir = GetLogsPath().data();
-	logDir.append(dateTime[0] + "-error.txt");
+	//logDir.append(dateTime[0] + "-error.txt");
+	logDir.append(dateTime[0] + "-log.txt");
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
@@ -178,7 +250,7 @@ void ServiceHelper::WriteToCustomLog(string log, string logName)
 {
 	string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
-	cout << logDir << endl;
+	//cout << logDir << endl;
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();

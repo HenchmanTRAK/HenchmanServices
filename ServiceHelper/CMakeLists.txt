@@ -4,19 +4,20 @@ qt_add_library(ServiceHelper STATIC "ServiceHelper.cpp")
 message(STATUS "Checking for OpenSSL: " ${OPENSSL_VERSION})
 
 target_include_directories(
-	ServiceHelper PUBLIC 
+	ServiceHelper INTERFACE 
 	${CMAKE_CURRENT_SOURCE_DIR} 
 	#${OPENSSL_INCLUDE_DIR}
 )
 
 target_link_libraries(
-	ServiceHelper PRIVATE
+	ServiceHelper PUBLIC
 	Qt6::Core
 	#OpenSSL::applink
 	#OpenSSL::SSL
 	#OpenSSL::Crypto
 	#${OPENSSL_CRYPTO_LIBRARY} 
 	#${OPENSSL_SSL_LIBRARY}
+	HenchmanServiceException
 	RegistryManager
 )
 

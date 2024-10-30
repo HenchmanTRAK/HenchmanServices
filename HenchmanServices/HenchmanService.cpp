@@ -91,19 +91,6 @@ void sslError(SSL* ssl, int received, stringstream& logi)
 }
 */
 
-static const char* GetMimeTypeFromFileName(char* szFileExt)
-{
-	// cout << "EXT " << szFileExt;
-	for (unsigned int i = 0; i < sizeof(MimeTypes) / sizeof(MimeTypes[0]); i++)
-	{
-		if (strcmp(MimeTypes[i][0], szFileExt) == 0)
-		{
-			return MimeTypes[i][1];
-		}
-	}
-	return MimeTypes[0][1];   //if does not match any,  "application/octet-stream" is returned
-}
-
 static bool ProcessExists(string& exeFileName)
 {
 	HANDLE SnapshotHandle;
@@ -118,7 +105,7 @@ static bool ProcessExists(string& exeFileName)
 		transform(targetEXE.begin(), targetEXE.end(), targetEXE.begin(), ::toupper);
 		string processEXE = QString::fromWCharArray(ProcessEntry32.szExeFile).toStdString();
 		transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
-		string processEXEFileName = ServiceHelper::fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile));
+		string processEXEFileName = ServiceHelper().fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile));
 		transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
 		//WriteToLog("Checking if target exe: " + targetEXE + " is process: " + processEXEFileName);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
@@ -158,7 +145,7 @@ static int ShellExecuteApp(string appName, string params)
 	string StartInString;
 
 	if (!filesystem::exists(appName)) {
-		ServiceHelper::WriteToError("Could not find Target EXE: " + appName);
+		ServiceHelper().WriteToError("Could not find Target EXE: " + appName);
 		return 0;
 	}
 
@@ -175,12 +162,13 @@ static int ShellExecuteApp(string appName, string params)
 	SEInfo.lpParameters = paramStr.data();
 	//: SW_HIDE
 	SEInfo.nShow = paramStr == "" && SW_NORMAL;
+	ServiceHelper().WriteToLog("Executing target: " + appName + params);
 	if (ShellExecuteExA(&SEInfo)) {
 		stringstream exitCodeMessage;
 		//do {
 			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
-			exitCodeMessage << "Target: " << exeFile << " return exit code : " << ExitCode;
-			ServiceHelper::WriteToLog(exitCodeMessage.str());
+			exitCodeMessage << "Target: " << exeFile << " return exit code : " << to_string(ExitCode);
+			ServiceHelper().WriteToLog(exitCodeMessage.str());
 			exitCodeMessage.clear();
 		//} while (ExitCode != STILL_ACTIVE);
 		return 1;
@@ -659,7 +647,7 @@ void __stdcall DoStopSvc(const char* sService)
 		}
 	}
 	printf("Service stopped successfully\n");
-	ServiceHelper::WriteToLog("Service has stopped");
+	ServiceHelper().WriteToLog("Service has stopped");
 stop_cleanup:
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
@@ -1006,894 +994,113 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	int argc = 0;
 	char* argv[1];
 
-	
 	// add registering registering application in event log and removing on exit.
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
-	HKEY serviceKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	string evtMsgFile = GetStrVal(hKey, "EventMessageFile", REG_SZ);
-	DWORD typesSupported = GetVal(hKey, "TypesSupported", REG_DWORD);
-	string installDir = GetStrVal(serviceKey, "Install_Dir", REG_SZ);
-	installDir.append("\\event_log.dll");
-	std::cout << evtMsgFile << " | " << installDir << endl;
-	if (evtMsgFile != installDir) {
-		std::cout << "setting new event message file" << endl;
-		SetStrVal(hKey, "EventMessageFile", installDir, REG_SZ);
-	}
-	SetVal(hKey, "TypesSupported", 7, REG_DWORD);
-	RegCloseKey(hKey);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
+	string evtMsgFile = RegistryManager::GetStrVal(hKey, "EventMessageFile", REG_SZ);
+	DWORD typesSupported = RegistryManager::GetVal(hKey, "TypesSupported", REG_DWORD);
+
+	HKEY serviceKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string installDir = RegistryManager::GetStrVal(serviceKey, "INSTALLDIR", REG_SZ);
 	RegCloseKey(serviceKey);
+
+	installDir.append("\\event_log.dll");
+	if (evtMsgFile != installDir) {
+		RegistryManager::SetVal(hKey, "EventMessageFile", installDir, REG_SZ);
+	}
+	RegistryManager::SetVal(hKey, "TypesSupported", 7, REG_DWORD);
+
+	RegCloseKey(hKey);
 
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
 		
 	a = new QCoreApplication(argc, argv);
 	HenchmanService service;
-	service.SetRequiredParameters();
+	
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
-		// clean up the mess that is the memory right now, dear lord.
-		// also switching over to using api calls rather than talking directly to database.
 		
 		service.MainFunction();
+#if false
+		service.sqliteManager->UpdateEntry(
+			"Test",
+			{"id = 1"},
+			{ 
+				{"string", "string + " + to_string(counter++)} 
+			}
+		);
 
-		ServiceHelper::WriteToLog("Waiting for QT to finish execution...");
-		//service.dbManager->performCleanup();
-		//a->
-		/*if(!service.dbManager->requestRunning && !testing)
-			QTimer::singleShot(30000, a, &QCoreApplication::quit);
-		if(!service.dbManager->requestRunning && testing)
-			QTimer::singleShot(1000, a, &QCoreApplication::quit);*/
-		//a->exec();
-		ServiceHelper::WriteToLog("Service sleeping for 30000 ms...");
+		service.sqliteManager->RemoveEntry(
+			"Test",
+			{"updatedAt <= datetime('now', 'localtime')"}
+		);
+
+		service.sqliteManager->GetEntry(
+			"TestTable",
+			{"*", "COUNT(*) count"},
+			{"updatedAt <= datetime('now', 'localtime')"}
+			);
+#endif
+		ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
+		
+		a->exec();
+		ServiceHelper().WriteToLog("Service sleeping for 30000 ms...");
 		if (!testing)
 			Sleep(30000);
 		else
-			Sleep(5000);
+			Sleep(5);
 	
 	}
-	delete a;
+	
+	a->deleteLater();
+	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service has exited", 0);
 
-	//delete dbManager;
 	return ERROR_SUCCESS;
 }
 
-static int RunAsService(int argc, char* argv[])
+static void setContextMenuCommands(string verb, string command)
 {
-	if (lstrcmpiA(argv[1], "--install") == 0)
-	{
-		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-		char buff[MAX_PATH];
-		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-		//buff[byteLength + 1] = '\0';
-		//string currDir = buff;
-		//currDir.resize(byteLength);
-		string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-		//struct stat buffer;
-		if (installDir == "" || installDir != buff)
-		{
-			installDir = buff;
-			std::cout << installDir << endl;
-			SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
-		}
-		RegCloseKey(hKey);
-		DoInstallSvc();
-		//getchar();
-		Sleep(1000);
-		ShellExecuteApp(installDir+"\\"+SERVICE_NAME + ".exe", "--start");
-		return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--remove") == 0)
-	{
-		DoStopSvc();
-		DoDeleteSvc();
-		getchar();
-		return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--start") == 0)
-	{
-		DoStartSvc();
-		return 0;
-	}
-
-	if (lstrcmpiA(argv[1], "--stop") == 0)
-	{
-		DoStopSvc();
-		return 0;
-	}
-
-	SERVICE_TABLE_ENTRYA ServiceTable[] =
-	{
-		{(char *)SERVICE_NAME, (LPSERVICE_MAIN_FUNCTIONA)SvcMain},
-		{NULL, NULL}
-	};
-
-	if (!StartServiceCtrlDispatcherA(ServiceTable))
-	{
-		std::cout << "Failed to find Registered Service Controller." << std::endl;
-		std::cout << "Press enter to install service or hit CTRL+C to exit..." << std::endl;
-		int c = getchar();
-		if (c == '\n' || c == EOF)
-			ShellExecuteApp(string(SERVICE_NAME) + ".exe", "--install");
-		std::cout << "Press any key to exit..." << endl;
-		/*SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
-		ErrorMessage(TEXT("GetProcessId"));*/
-		return 0;
-	}
-
-	return 0;
+	string verbName = verb;
+	std::erase(verbName, ' ');
+	HKEY hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+verbName));
+	RegistryManager::SetVal(hKey, "MUIVerb", verb, REG_SZ);
+	RegCloseKey(hKey);
+	hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+ verbName +"\\command"));
+	RegistryManager::SetVal(hKey, "", command, REG_SZ);
+	RegCloseKey(hKey);
 }
 
-static int RunAsServiceTest(int argc, char* argv[])
+static void setContextMenu(string installDir)
 {
-	if (lstrcmpiA(argv[1], "--install") == 0 || testing)
-	{
-		HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-		char buff[MAX_PATH];
-		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-		//buff[byteLength + 1] = '\0';
-		//string currDir = buff;
-		//currDir.resize(byteLength);
-		string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-		/*struct stat buffer;*/
-		if (installDir == "" || installDir != buff)
-		{
-			installDir = buff;
-			installDir.resize(byteLength);
-			std::cout << installDir << endl;
-			SetStrVal(hKey, "Install_DIR", installDir, REG_SZ);
-		}
-		RegCloseKey(hKey);
-		//DoInstallSvc();
-		std::cout << "Installing..." << endl;
-		//getchar();
-		Sleep(1000);
-		//ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", "--start");
-		std::cout << "Starting..." << endl;
-		//getchar();
-		//return 0;
-	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
+	RegistryManager::SetVal(hKey, "MUIVerb", "HenchmanService", REG_SZ);
+	RegistryManager::SetVal(hKey, "ExtendedSubCommandsKey", string(SERVICE_NAME), REG_SZ);
+	RegistryManager::SetVal(hKey, "Extended", "", REG_SZ);
+	RegistryManager::SetVal(hKey, "AppliesTo", string("System.ItemName:\"").append(SERVICE_NAME).append(".exe\""), REG_SZ);
 
-	if (lstrcmpiA(argv[1], "--remove") == 0)
-	{
-		//DoStopSvc();
-		//DoDeleteSvc();
-		std::cout << "stopping..." << endl;
-		std::cout << "removing..." << endl;
-		getchar();
-		return 0;
-	}
+	RegCloseKey(hKey);
 
-	if (lstrcmpiA(argv[1], "--start") == 0)
-	{
-		//DoStartSvc();
-		std::cout << "starting..." << endl;
-		return 0;
-	}
+	setContextMenuCommands("Start Service", "\"" + installDir + "\\HenchmanService.exe\" \"--start\" \"%1\"");
+	setContextMenuCommands("Stop Service", "\"" + installDir + "\\HenchmanService.exe\" \"--stop\" \"%1\"");
+	setContextMenuCommands("Install Service", "\"" + installDir + "\\HenchmanService.exe\" \"--install\" \"%1\"");
+	setContextMenuCommands("Remove Service", "\"" + installDir + "\\HenchmanService.exe\" \"--remove\" \"%1\"");
 
-	if (lstrcmpiA(argv[1], "--stop") == 0)
-	{
-		//DoStopSvc();
-		std::cout << "stopping..." << endl;
-		return 0;
-	}
-	//a = new QCoreApplication(argc, argv);
-
-	SvcMain(argc, argv);
-	//SERVICE_TABLE_ENTRYA ServiceTable[] =
-	//{
-	//	{string(SERVICE_NAME).data(), (LPSERVICE_MAIN_FUNCTIONA)SvcMain},
-	//	{NULL, NULL}
-	//};
-
-	//if (!StartServiceCtrlDispatcherA(ServiceTable))
-	//{
-	//	std::cout << "StartServiceCtrlDispatcher Failed" << std::endl;
-	//	/*SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
-	//	ErrorMessage(TEXT("GetProcessId"));*/
-	//	return 0;
-	//}
-	return 0;
-	//return a->exec();
 }
 
-//HenchmanService::HenchmanService()
-//{
-//
-//	logx;
-//	mailSocket = INVALID_SOCKET;
-//	ctx;
-//	ssl;
-//	mailAddrInfo = NULL;
-//	app_path = "";
-//	mail_username = "";
-//	mail_password = "";
-//	SQLiteM = nullptr;
-//	TrakM = nullptr;
-//	dbManager = nullptr;
-//
-//	CSimpleIniA ini;
-//
-//	//CSimpleIni ini;
-//	ini.SetUnicode();
-//
-//	logx << "Service Has Started" << endl << endl;
-//
-//	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME).data());
-//
-//	char buff[MAX_PATH];
-//	int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-//	string currDir = buff;
-//	currDir.resize(byteLength);
-//	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-//	
-//	string databaseName = GetStrVal(hKey, "DatabaseName", REG_SZ);
-//	string dbName = "henchmanService.db3";
-//	if (databaseName == "" || databaseName != dbName)
-//	{
-//		databaseName = dbName;
-//		SetStrVal(hKey, "DatabaseName", databaseName.data(), REG_SZ);
-//	}
-//	
-//	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
-//	if (rc < 0) {
-//		cerr << "Failed to Load INI File" << endl;
-//	}
-//
-//	CSimpleIniA::TNamesDepend keys;
-//	ini.GetAllKeys("WAMP", keys);
-//	for (auto const& val : keys)
-//	{
-//		string key = val.pItem;
-//		string value = ini.GetValue("WAMP", val.pItem, "");
-//		removeQuotes(value);
-//
-//		GetStrVal(hKey, key.data(), REG_SZ);
-//		SetStrVal(hKey, key.data(), value.data(), REG_SZ);
-//
-//		key.clear();
-//		value.clear();
-//	}
-//
-//	ini.GetAllKeys("TRAK", keys);
-//	for (auto const& val : keys)
-//	{
-//		string key = val.pItem;
-//		string value = ini.GetValue("TRAK", val.pItem, "");
-//		removeQuotes(value);
-//
-//		GetStrVal(hKey, key.data(), REG_SZ);
-//		SetStrVal(hKey, key.data(), value.data(), REG_SZ);
-//
-//		key.clear();
-//		value.clear();
-//	}
-//
-//	SQLiteM = new SQLite_Manager(installDir + "\\", databaseName.data());
-//
-//	//SQLiteM.ToggleConsoleLogging();
-//
-//	SQLiteM->InitDB();
-//
-//	string tableName = "TestTable";
-//	vector<string> cols;
-//	cols.push_back("username TEXT NOT NULL");
-//	cols.push_back("password TEXT NOT NULL");
-//	SQLiteM->CreateTable(tableName, cols);
-//
-//	string username = ini.GetValue("Email", "Username", "");
-//	string password = ini.GetValue("Email", "Password", "");
-//	if(password != "")
-//		password = QByteArray(password.data()).toBase64();
-//	//string encodedPass = base64(password);
-//	setMailLogin(username, password);
-//
-//	tableName.clear();
-//	cols.clear();
-//	currDir.clear();
-//	username.clear();
-//	password.clear();
-//	installDir.clear();
-//	keys.clear();
-//	databaseName.clear();
-//	dbName.clear();
-//
-//	RegCloseKey(hKey);
-//
-//	WriteToLog(logx.str());
-//	logx.clear();
-//
-//
-//	dbManager = new DatabaseManager(a);
-//
-//	dbManager->deleteLater();
-//}
-
-//HenchmanService::~HenchmanService()
-//{
-//	std::cout << "Deconstructing HenchmanService" << endl;
-//	//delete SQLiteM;
-//	//delete TrakM;
-//	//delete dbManager;
-//	//dbManager->deleteLater();
-//
-//	//logx.clear();
-//}
-
-vector<string> HenchmanService::Explode(const string& Seperator, string& s, int& limit)
+static void removeContextMenu()
 {
-	vector<string> results;
-	try {
-		if (s == "")
-			throw HenchmanServiceException("No String was Provided");
-		if (limit < 0)
-			throw HenchmanServiceException("Invalid Integer Provided");
-
-		if (Seperator == "") {
-			results.push_back(s);
-		}
-		else {
-			size_t pos = 0;
-			string token;
-			while ((pos = s.find(Seperator)) != string::npos and (limit == 0 ? true : results.size() <= limit)) {
-				std::cout << results.size() << endl;
-				token = s.substr(0, pos);
-				results.push_back(token);
-				s.erase(0, pos + Seperator.length());
-			}
-			results.push_back(s);
-			token.clear();
-		}
-	}
-	catch (exception& e)
-	{
-		ServiceHelper::WriteToError("HenchmanService::Explode threw exception: " + (string)e.what());
-	}
-	return results;
+	RegistryManager::RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
 }
 
-vector<string> HenchmanService::Explode(const string& Seperator, string& s)
-{
-	int limit = -1;
-	return Explode(Seperator, s, limit);
-}
-
-bool HenchmanService::setMailLogin(string& username, string& password) {
-	try {
-		if (username.length() <= 1 || password.length() <= 1) {
-			throw HenchmanServiceException("No SMTP email or password provided.");
-		}
-		mail_username = username;
-		mail_password = password;
-	}
-	catch (exception& e)
-	{
-		ServiceHelper::WriteToError("HenchmanService::setMailLogin threw exception: " + (string)e.what());
-		return false;
-	}
-	return true;
-}
-
-//void HenchmanService::ConnectWithSMTP() {
-//	WSADATA wsaData;
-//	int iResult;
-//
-//	struct sockaddr_in clientService;
-//	ZeroMemory(&clientService, sizeof(clientService));
-//	vector<string> files;
-//
-//	ctx = InitCTX();
-//
-//	char buff[1024];
-//	int buffLen = sizeof(buff);
-//
-//	struct addrinfo hints;
-//	string reply;
-//	int iProtocolPort;
-//	try {
-//		logx << "Socket setup started" << endl;
-//		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-//		if (iResult != NO_ERROR) {
-//			//printf("WSAStartup failed: %d\n", iResult);
-//			//WriteToError("Failed To Setup Socket");
-//			//return;
-//			throw HenchmanServiceException("Failed to Setup Socket");
-//		}
-//
-//		ZeroMemory(&hints, sizeof(hints));
-//		hints.ai_family = AF_UNSPEC;
-//		hints.ai_socktype = SOCK_STREAM;
-//		hints.ai_protocol = IPPROTO_TCP;
-//
-//		logx << "Getting Mail Address Info" << endl;
-//		iResult = getaddrinfo("mail.henchmantrak.com", "smtp", &hints, &mailAddrInfo);
-//		if (iResult != NO_ERROR) {
-//			//printf("getaddrinfo failed with error: %d\n", iResult);
-//			freeaddrinfo(mailAddrInfo);
-//			WSACleanup();
-//			//WriteToError("getaddrinfo failed with error: " + iResult);
-//			//return;
-//			throw HenchmanServiceException("getaddrinfo failed with error: " + iResult);
-//		}
-//		logx << "Setting up SMTP Mail Socket" << endl;
-//		mailSocket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-//		if (mailSocket == INVALID_SOCKET) {
-//			//printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
-//			freeaddrinfo(mailAddrInfo);
-//			WSACleanup();
-//			//WriteToError("Failed to connect to Socket: " + WSAGetLastError());
-//			//return;
-//			throw HenchmanServiceException("Failed to connect to Socket: " + WSAGetLastError());
-//		}
-//		logx << "Getting Mail Service Port" << endl;
-//		LPSERVENT lpServEntry = getservbyname("mail", 0);
-//		if (!lpServEntry) {
-//			logx << "Using IPPORT_SMTP" << endl;
-//			iProtocolPort = htons(IPPORT_SMTP);
-//		}
-//		else {
-//			logx << "Using port provided from lpServEntry" << endl;
-//			iProtocolPort = lpServEntry->s_port;
-//		}
-//		std::cout << "Connecting on port: " << iProtocolPort << endl;
-//
-//		clientService.sin_family = AF_INET;
-//		clientService.sin_port = iProtocolPort;
-//		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)mailAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
-//		logx << "Connecting to Mail Socket" << endl;
-//		iResult = connect(mailSocket, (SOCKADDR*)&clientService, sizeof(clientService));
-//		if (iResult == SOCKET_ERROR) {
-//			//printf("Unable to connect to server: %ld\n", WSAGetLastError());
-//			WSACleanup();
-//			freeaddrinfo(mailAddrInfo);
-//			//WriteToError("Unable to connect to server: " + WSAGetLastError());
-//			//return;
-//			throw HenchmanServiceException("Unable to connect to server: " + WSAGetLastError());
-//		}
-//		else {
-//			logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << iProtocolPort << endl;
-//		}
-//
-//		logx << "Initiating communication through SMTP" << endl;
-//		char szMsgLine[255] = "";
-//		sprintf(szMsgLine, "HELO %s%s", "mail.henchmantrak.com", CRLF);
-//		string E1 = "ehlo ";
-//		E1.append("mail.henchmantrak.com");
-//		E1.append(CRLF);
-//		char* hello = E1.data();
-//		char* hellotls = (char*)"STARTTLS\r\n";
-//
-//		// initiate connection
-//		iResult = recv(mailSocket, buff, sizeof(buff), 0);
-//		reply = buff;
-//		reply.resize(iResult);
-//		logx << "[Server] [" << iResult << "] " << buff << endl;
-//		//logx.adjustfield;
-//
-//		//memset(buff, 0, sizeof buff);
-//		buff[0] = '\0';
-//
-//		// send ehlo command
-//		send(mailSocket, hello, strlen(hello), 0);
-//		logx << "[HELO] " << hello << " " << iResult << endl;
-//
-//		iResult = recv(mailSocket, buff, sizeof(buff), 0);
-//		reply = buff;
-//		reply.resize(iResult);
-//		logx << "[Server] [" << iResult << "] " << reply << endl;
-//
-//		while (!Contain(buff, "250 ")) {
-//			iResult = recv(mailSocket, buff, sizeof(buff), 0);
-//			if (Contain(buff, "501 ") || Contain(buff, "503 ")) {
-//				freeaddrinfo(mailAddrInfo);
-//				closesocket(mailSocket);
-//				WSACleanup();
-//				//WriteToError(logx.str());
-//				//logx.str(string());
-//				//return;
-//				throw HenchmanServiceException("Target server responded with: " + string(buff) + "\n which contains 501 or 503");
-//			}
-//		}
-//
-//		if (!Contain(buff, "STARTTLS")) {
-//			logx << "[EXTERNAL_SERVER_NO_TLS] " << "mail.henchmantrak.com" << " " << buff << "[CLOSING_CONNECTION]" << endl;
-//			closesocket(mailSocket);
-//			freeaddrinfo(mailAddrInfo);
-//			WSACleanup();
-//			//WriteToError(logx.str());
-//			//logx.str(string());
-//			//return;
-//			throw HenchmanServiceException("Target SMTP server does not support TLS");
-//		}
-//
-//		memset(buff, 0, sizeof buff);
-//		buff[0] = '\0';
-//		char buff1[1024];
-//
-//		// starttls connecion
-//		send(mailSocket, hellotls, strlen(hellotls), 0);
-//		logx << "[STARTTLS] " << hellotls << endl;
-//
-//		iResult = recv(mailSocket, buff1, sizeof(buff1), 0);
-//		reply = buff1;
-//		reply.resize(iResult);
-//		logx << "[Server] " << iResult << " " << buff << endl;
-//
-//		ctx = InitCTX();
-//		ssl = SSL_new(ctx);
-//		SSL_set_fd(ssl, mailSocket);
-//
-//		logx << "Connection to smtp via tls" << endl;
-//
-//		if (SSL_connect(ssl) == -1) {
-//			ERR_print_errors_fp(stderr);            
-//			logx << "[TLS_SMTP_ERROR]" << endl;
-//			freeaddrinfo(mailAddrInfo);
-//			closesocket(mailSocket);
-//			WSACleanup();
-//			//WriteToError(logx.str());
-//			//logx.str(string());
-//			//return;
-//			throw HenchmanServiceException("Failed to establish TLS ssl connection to SMTP sever");
-//		}
-//		else {
-//			logx << "Connected with " << SSL_get_cipher(ssl) << " encryption" << endl;
-//			string cert = ShowCerts(ssl);
-//
-//			vector<string> attachments;
-//			for (const auto& entry : filesystem::directory_iterator(GetExportsPath())) {
-//				std::cout << entry.path().string() << endl;
-//				attachments.push_back(entry.path().string());
-//			}
-//			logx << "---" << "Generating and sending Email" << "---\r\n" << endl;
-//			WriteToLog(logx.str());
-//			//logx.str(string());
-//			logx.clear();
-//			SendEmail(ssl, attachments);
-//		}
-//		sslError(ssl, 1, logx);
-//
-//		closesocket(mailSocket);
-//		SSL_CTX_free(ctx);
-//		freeaddrinfo(mailAddrInfo);
-//		WSACleanup();
-//	}
-//	catch (exception& e) {
-//		WriteToError("HenchmanService::ConnectWithSMTP threw exception: " + (string)e.what());
-//		WriteToError(logx.str());
-//	}
-//	//logx.str(string());
-//	logx.clear();
-//}
-
-//void HenchmanService::SendEmail(SSL*& ssl, vector<string> attachments) {
-//
-//	char buff[1024] = "\0";
-//	int buffLen = sizeof(buff);
-//	try {
-//		int counter = 1;
-//		if (SSL_connect(ssl) == -1) {
-//			ERR_print_errors_fp(stderr);            
-//			logx << "[TLS_SMTP_ERROR]" << endl;
-//			//return;
-//			throw HenchmanServiceException("SSL certificate verification failed");
-//		}
-//		else {
-//			WriteToLog("Greeting email server");
-//			buff[0] = '\0';
-//			ostringstream f0;
-//			f0 << "EHLO " << "mail.henchmantrak.com" << "\r\n";
-//			string f00 = f0.str();
-//			char* helo = f00.data();
-//			logx << "SEND TO SERVER " << helo << endl;
-//			SSL_write(ssl, helo, strlen(helo));
-//			int bytes = SSL_read(ssl, buff, sizeof(buff));
-//			buff[bytes] = 0;
-//			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-//			WriteToLog(logx.str());
-//			//logx.str(string());
-//			logx.clear();
-//			if (!Contain(buff, "250")) throw HenchmanServiceException("Did not recieve status code 250");
-//			counter++;
-//
-//			WriteToLog("Generating authentication string");
-//			buff[0] = '\0';
-//			ostringstream f1;
-//			f1 << "AUTH PLAIN ";
-//			string f2;
-//			using namespace string_literals;
-//			f2 = mail_username + "\0"s + mail_username + "\0"s + QByteArray::fromBase64Encoding(mail_password.data()).decoded.toStdString();
-//			f1 << QByteArray(QByteArray::fromRawData(f2.c_str(), f2.size())).toBase64().toStdString();
-//			f1 << " \r\n";
-//			string f11 = f1.str();
-//			char* auth = f11.data();
-//			logx << "SEND TO SERVER " << auth << endl;
-//			SSL_write(ssl, auth, strlen(auth));
-//			bytes = SSL_read(ssl, buff, sizeof(buff));
-//			buff[bytes] = 0;
-//			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-//			WriteToLog(logx.str());
-//			//logx.str(string());
-//			logx.clear();
-//			if (!Contain(buff, "235")) throw HenchmanServiceException("Did not recieve status code 235");
-//			counter++;
-//
-//			buff[0] = '\0';
-//			ostringstream f4;
-//			f4 << "mail from: <" << mail_username << ">\r\n";
-//			string f44 = f4.str();
-//			char* fromemail = f44.data();
-//			logx << "SEND TO SERVER " << fromemail << endl;
-//			SSL_write(ssl, fromemail, strlen(fromemail));
-//			bytes = SSL_read(ssl, buff, sizeof(buff));
-//			buff[bytes] = 0;
-//			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-//			WriteToLog(logx.str());
-//			//logx.str(string());
-//			logx.clear();
-//			if (!Contain(buff, "250")) throw HenchmanServiceException("Did not recieve status code 250");
-//			counter++;
-//
-//			buff[0] = '\0';
-//			string rcpt = "rcpt to: <";
-//			rcpt.append("wjaco.swanepoel@gmail.com").append(">\r\n");
-//			char* rcpt1 = rcpt.data();
-//			logx << "SEND TO SERVER " << rcpt1 << endl;
-//			SSL_write(ssl, rcpt1, strlen(rcpt1));
-//			bytes = SSL_read(ssl, buff, sizeof(buff));
-//			buff[bytes] = 0;
-//			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-//			WriteToLog(logx.str());
-//			//logx.str(string());
-//			logx.clear();
-//			if (!Contain(buff, "250")) throw HenchmanServiceException("Did not recieve status code 250");
-//			counter++;
-//
-//			buff[0] = '\0';
-//			char* data = (char*)"DATA\r\n";
-//			logx << "SEND TO SERVER " << data << endl;
-//			SSL_write(ssl, data, strlen(data));
-//			bytes = SSL_read(ssl, buff, sizeof(buff));
-//			buff[bytes] = 0;
-//			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-//			WriteToLog(logx.str());
-//			//logx.str(string());
-//			logx.clear();
-//			if (!Contain(buff, "354")) throw HenchmanServiceException("Did not recieve status code 354");
-//			counter++;
-//
-//			string Encoding = "iso-8859-2"; // charset: utf-8, utf-16, iso-8859-2, iso-8859-1
-//			Encoding = "utf-8";
-//
-//			string subject = "Testin Mailer";
-//			string msg = "This is a test Message";
-//
-//			// add html page layout
-//			stringstream msghtml;
-//
-//			msghtml << "<!DOCTYPE html>\n";
-//			msghtml << "<HTML lang = 'en'>\n";
-//			msghtml << "<body>\n";
-//			msghtml << "	<p>Please find attched report(/ s).</p>\n";
-//
-//			// 
-//			// add atachments
-//			//
-//			stringstream attachmentSection;
-//			vector<string>files = attachments;
-//			if (files.size() > 0) {
-//				for (unsigned int i = 0;i < files.size();i++) {
-//					string path = files.at(i);
-//					string filename = fileBasename(path.data());
-//					string fc = QByteArray(get_file_contents(path.c_str())).toBase64().toStdString();
-//					string extension = GetFileExtension(filename.data());
-//					const char* mimetype = GetMimeTypeFromFileName(extension.data());
-//					if (!(extension == "csv"))
-//						continue;
-//					attachmentSection << "--ToJestSeparator0000\r\n";
-//					attachmentSection << "Content-Type: " << mimetype << "; name=\"" << filename << "\"\r\n";
-//					attachmentSection << "Content-Disposition: attachment; filename=\"" << filename << "\"\r\n";
-//					attachmentSection << "Content-Transfer-Encoding: base64" << "\r\n";
-//					attachmentSection << "Content-ID: <" << QByteArray(get_file_contents(filename.c_str())).toBase64().toStdString() << ">\r\n";
-//					attachmentSection << "X-Attachment-Id: " << QByteArray(get_file_contents(filename.c_str())).toBase64().toStdString() << "\r\n";
-//					attachmentSection << "\r\n";
-//					attachmentSection << fc << "\r\n";
-//					attachmentSection << "\r\n";
-//				}
-//			}
-//
-//			msghtml << "</body>\n";
-//
-//			stringstream m;
-//			m << "X-Priority: " << "1" << "\r\n";
-//			m << "From: " << mail_username << "\r\n";
-//			m << "To: " << "wjaco.swanepoel@gmail.com" << "\r\n";
-//			m << "Subject: =?" << Encoding << "?Q?" << subject << "?=\r\n";
-//			m << "Reply-To: " << mail_username << "\r\n";
-//			m << "Return-Path: " << "willem.swanepoel@henchmantools.com" << "\r\n";
-//			m << "MIME-Version: 1.0\r\n";
-//			m << "Content-Type: multipart/mixed; boundary=\"ToJestSeparator0000\"\r\n\r\n";
-//			m << "--ToJestSeparator0000\r\n";
-//			m << "Content-Type: multipart/alternative; boundary=\"ToJestSeparatorZagniezdzony1111\"\r\n\r\n";
-//
-//			m << "--ToJestSeparatorZagniezdzony1111\r\n";
-//			m << "Content-Type: text/plain; charset=\"" << Encoding << "\"\r\n";
-//			m << "Content-Transfer-Encoding: quoted-printable\r\n\r\n";
-//			m << msg << "\r\n\r\n";
-//			m << "--ToJestSeparatorZagniezdzony1111\r\n";
-//			m << "Content-Type: text/html; charset=\"" << Encoding << "\"\r\n";
-//			m << "Content-Transfer-Encoding: quoted-printable\r\n\r\n";
-//			m << msghtml.str() << "\r\n\r\n";
-//			m << "--ToJestSeparatorZagniezdzony1111--\r\n\r\n";
-//			m << attachmentSection.str();
-//			m << "--ToJestSeparator0000--\r\n\r\n";
-//			m << "\r\n.\r\n";
-//
-//			// create mime message string
-//			string mimemsg = m.str();
-//			logx << "Email body being sent: " << mimemsg.data() << endl;
-//			char* mdata = mimemsg.data();
-//			SSL_write(ssl, mdata, strlen(mdata));
-//			bytes = SSL_read(ssl, buff, sizeof(buff));
-//			buff[bytes] = 0;
-//			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-//			counter++;
-//
-//			// send log
-//			WriteToLog(logx.str());
-//			if (!Contain(buff, "250")) throw HenchmanServiceException("Did not receive status code 250 from server");
-//			//logx.str(string());
-//			logx.clear();
-//			char* qdata = (char*)"quit\r\n";
-//			SSL_write(ssl, qdata, strlen(qdata));
-//			bytes = SSL_read(ssl, buff, sizeof(buff));
-//			buff[bytes] = 0;
-//			logx << counter << " [RECEIVED_TLS] " << buff << endl;
-//			if (!Contain(buff, "221")) throw HenchmanServiceException("Did not receive status code 221 from server");
-//
-//			SSL_free(ssl);
-//		}
-//
-//	}
-//	catch (exception& e) {
-//		WriteToError("HenchmanService::SendEmail threw exception: " + (string)e.what());
-//		WriteToError(logx.str());
-//	}
-//	//logx.str(string());
-//	logx.clear();
-//}
-
-//bool HenchmanService::checkForInternetConnection()
-//{
-//	bool returnState = false;
-//	if (SUCCEEDED(CoInitializeEx(NULL, COINIT_APARTMENTTHREADED))) {
-//		INetworkListManager* pNetworkListManager = NULL;
-//		VARIANT_BOOL isConnected;
-//		if (SUCCEEDED(CoCreateInstance(CLSID_NetworkListManager, NULL, CLSCTX_ALL, IID_INetworkListManager, (LPVOID*)&pNetworkListManager))) {
-//			logx << "Successfully created instance of network list manager." << endl;
-//
-//			if (SUCCEEDED(pNetworkListManager->get_IsConnectedToInternet(&isConnected))) {
-//				logx << "Confirming existence of internet connection" << endl;
-//				if (!isConnected) goto Exit;
-//				logx << "Internet Connection was Confirmed." << endl;
-//				returnState = isConnected;
-//				goto Exit;
-//			}
-//			logx << "Could not confirm existence of internet connection" << endl;
-//			//printf("internet not connected");
-//			goto Exit;
-//		}
-//		logx << "Failed to create instance of network list manager." << endl;
-//		goto Exit;
-//	}
-//Exit:
-//	CoUninitialize();
-//	WriteToLog(logx.str());
-//	//logx.str(string());
-//	logx.clear();
-//
-//	return returnState;
-//}
-//
-//bool HenchmanService::isInternetConnected()
-//{
-//	WSADATA wsaData;
-//	int iResult;
-//	SOCKET ConnectionCheck = INVALID_SOCKET;
-//	struct sockaddr_in clientService;
-//	ZeroMemory(&clientService, sizeof(clientService));
-//	struct addrinfo* httpAddrInfo = NULL;
-//	struct addrinfo hints;
-//	std::stringstream log;
-//
-//	try {
-//		iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-//		if (iResult != NO_ERROR) {
-//			//printf("WSAStartup failed: %d\n", iResult);
-//			//WriteToError("WSAStartup failed: " + iResult);
-//			//return false;
-//			throw HenchmanServiceException("WSAStartup failed: " + iResult);
-//		}
-//
-//		ZeroMemory(&hints, sizeof(hints));
-//		hints.ai_protocol = IPPROTO_TCP;
-//
-//		log << "Getting Address Info" << endl;
-//		iResult = getaddrinfo("www.google.com", "https", &hints, &httpAddrInfo);
-//		if (iResult != NO_ERROR) {
-//			//printf("getaddrinfo failed with error: %d\n", iResult);
-//			freeaddrinfo(httpAddrInfo);
-//			WSACleanup();
-//			//WriteToError("getaddrinfo failed with error: " + iResult);
-//			//return false;
-//			throw HenchmanServiceException("getaddrinfo failed with error: " + iResult);
-//		}
-//
-//		log << "Setting up Network Check Socket" << endl;
-//		ConnectionCheck = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-//		if (ConnectionCheck == INVALID_SOCKET) {
-//			//printf("Failed to connect to Socket: %ld\n", WSAGetLastError());
-//			closesocket(ConnectionCheck);
-//			freeaddrinfo(httpAddrInfo);
-//			WSACleanup();
-//			//WriteToError("Failed to connect to Socket: " + WSAGetLastError());
-//			//return false;
-//			throw HenchmanServiceException("Failed to connect to Socket: " + WSAGetLastError());
-//		}
-//
-//		clientService.sin_family = AF_INET;
-//		clientService.sin_port = htons(IPPORT_HTTPS);
-//		inet_pton(AF_INET, inet_ntoa(((struct sockaddr_in*)httpAddrInfo->ai_addr)->sin_addr), (SOCKADDR*)&clientService.sin_addr.s_addr);
-//		log << "Connecting to Google.com via Socket" << endl;
-//		iResult = connect(ConnectionCheck, (SOCKADDR*)&clientService, sizeof(clientService));
-//		if (iResult == SOCKET_ERROR) {
-//			//printf("Unable to connect to server: %ld\n", WSAGetLastError());
-//			closesocket(ConnectionCheck);
-//			freeaddrinfo(httpAddrInfo);
-//			WSACleanup();
-//			//WriteToError("Unable to connect to server: " + WSAGetLastError());
-//			//return false;
-//			throw HenchmanServiceException("Unable to connect to server: " + WSAGetLastError());
-//		}
-//		else {
-//			//logx << "Connected to: " << inet_ntoa(clientService.sin_addr) << " on port: " << clientService.sin_port << endl;
-//		}
-//		WriteToLog(log.str());
-//		log.clear();
-//		closesocket(ConnectionCheck);
-//		freeaddrinfo(httpAddrInfo);
-//		WSACleanup();
-//	}
-//	catch (exception& e) {
-//		WriteToError("HenchmanService::isInternetConnected threw an exception: " + (string)e.what());
-//		WriteToError(log.str());
-//		log.clear();
-//		return false;
-//	}
-//	log.clear();
-//	return true;
-//}
-
-int HenchmanService::SetRequiredParameters()
+HenchmanService::HenchmanService()
 {
 	CSimpleIniA ini;
 
 	ini.SetUnicode();
 
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 
-	char buff[MAX_PATH];
-	int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-	string currDir = buff;
-	currDir.resize(byteLength);
-	string installDir = GetStrVal(hKey, "Install_DIR", REG_SZ);
-	string databaseName = GetStrVal(hKey, "DatabaseName", REG_SZ);
-	string dbName = "henchmanService.db3";
-	if (databaseName == "" || databaseName != dbName)
-	{
-		databaseName = dbName;
-		SetStrVal(hKey, "DatabaseName", databaseName, REG_SZ);
-	}
+	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+
 	cout << "Install dir: " << installDir << endl;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
 	if (rc < 0) {
@@ -1906,10 +1113,10 @@ int HenchmanService::SetRequiredParameters()
 	{
 		string key = val.pItem;
 		string value = ini.GetValue("WAMP", val.pItem, "");
-		ServiceHelper::removeQuotes(value);
+		ServiceHelper().removeQuotes(value);
 
-		GetStrVal(hKey, key.data(), REG_SZ);
-		SetStrVal(hKey, key.data(), value, REG_SZ);
+		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
+		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
 
 		key.clear();
 		value.clear();
@@ -1920,32 +1127,30 @@ int HenchmanService::SetRequiredParameters()
 	{
 		string key = val.pItem;
 		string value = ini.GetValue("TRAK", val.pItem, "");
-		ServiceHelper::removeQuotes(value);
+		ServiceHelper().removeQuotes(value);
 
-		GetStrVal(hKey, key.data(), REG_SZ);
-		SetStrVal(hKey, key.data(), value, REG_SZ);
+		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
+		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
 
 		key.clear();
 		value.clear();
 
 	}
-	
+
 	RegCloseKey(hKey);
+
+	sqliteManager = make_unique<SQLiteManager2>(a);
 	
-	SQLite_Manager SQLiteM(installDir + "\\", databaseName);
-	if(testing)
-		SQLiteM.ToggleConsoleLogging();
-
-
-
-	SQLiteM.InitDB();
-
 	string tableName = "TestTable";
-	vector<string> cols;
-	cols.push_back("username TEXT NOT NULL");
-	cols.push_back("password TEXT NOT NULL");
-	SQLiteM.CreateTable(tableName, cols);
-	cols.clear();
+	vector<string> columns;
+	columns.push_back("username TEXT NOT NULL");
+	columns.push_back("password TEXT NOT NULL");
+	sqliteManager->CreateTable(
+		tableName,
+		columns
+	);
+
+	columns.clear();
 
 	string username = ini.GetValue("EMAIL", "Username", "");
 	string password = ini.GetValue("EMAIL", "Password", "");
@@ -1954,13 +1159,21 @@ int HenchmanService::SetRequiredParameters()
 	//string encodedPass = base64(password);
 	if (setMailLogin(username, password))
 	{
-		cols.push_back(username);
-		cols.push_back(password);
-		SQLiteM.AddRow(tableName, cols);
-		cols.clear();
+		map<string, string> data;
+		data["username"] = username;
+		data["password"] = password;
+		
+		sqliteManager->AddEntry(
+			tableName,
+			data
+		);
+
+		data.clear();
 	}
 
-	currDir.clear();
+	dbManager = make_unique<DatabaseManager>(a);
+
+	/*currDir.clear();
 	installDir.clear();
 	keys.clear();
 	databaseName.clear();
@@ -1968,10 +1181,84 @@ int HenchmanService::SetRequiredParameters()
 	username.clear();
 	password.clear();
 	tableName.clear();
-	cols.clear();
+	columns.clear();*/
 
-	dbManager = make_unique<DatabaseManager>(a);
+}
 
+HenchmanService::~HenchmanService()
+{
+	std::cout << "Deconstructing HenchmanService" << endl;
+	//delete SQLiteM;
+	//delete TrakM;
+	//delete dbManager;
+	//dbManager->deleteLater();
+
+	//logx.clear();
+}
+
+vector<string> HenchmanService::Explode(const string& Seperator, string& s, int limit)
+{
+	vector<string> results;
+	try {
+		if (s == "")
+			throw HenchmanServiceException("No String was provided");
+		if (Seperator == "")
+			throw HenchmanServiceException("Invalid Seperator provided");
+		if (limit > s.size())
+			throw HenchmanServiceException("Invalid Integer provided");
+
+		size_t pos = 0;
+		string token;
+		while ((pos = s.find(Seperator)) != string::npos and (limit <= 0 ? true : results.size() <= limit)) {
+			std::cout << results.size() << endl;
+			token = s.substr(0, pos);
+			results.push_back(token);
+			s.erase(0, pos + Seperator.length());
+		}
+		//results.push_back(s);
+		token.clear();
+	}
+	catch (exception& e)
+	{
+		ServiceHelper().WriteToError(e.what());
+	}
+	return results;
+}
+
+bool HenchmanService::setMailLogin(string& username, string& password) 
+{
+	try {
+		if (username.length() <= 1 || password.length() <= 1) {
+			throw HenchmanServiceException("No SMTP email or password provided.");
+		}
+		mail_username = username;
+		mail_password = password;
+	}
+	catch (exception& e)
+	{
+		ServiceHelper().WriteToError(e.what());
+		return false;
+	}
+	return true;
+}
+
+int HenchmanService::SetRequiredParameters()
+{
+
+#if false
+	string tableName = "Test";
+	sqliteManager->CreateTable(
+		tableName,
+		{"string TEXT"}
+	);
+
+	sqliteManager->AddEntry(
+		tableName,
+		{
+			{"string", "Hello World!"}
+		}
+	);
+#endif
 	return 0;
 }
 
@@ -1979,118 +1266,13 @@ int HenchmanService::MainFunction()
 {
 	update = TRUE;
 
-	//HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME).data());
-	
-	//SQLiteM.ToggleConsoleLogging();
-
-	HKEY hKey = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	ServiceHelper::WriteToLog("Checking for Local MYSQL service...");
-	int wampMySQLSvcStatus = GetSvcStatus("wampmysqld64");
-	string mysql_dir = GetStrVal(hKey, "MySQL_DIR", REG_SZ);
-	try {
-		//std::cout << mysql_dir << endl;
-		switch (wampMySQLSvcStatus) {
-		case -1: {
-			ServiceHelper::WriteToError("MySQL Service errored with unknown error");
-			//throw HenchmanServiceException("MySQL Service errored with unknown error");
-			/*if(ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
-				WriteToLog("Removed Local MYSQL service...");*/
-			if (!ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install-manual wampmysqld64"))
-				throw HenchmanServiceException("Failed to install Local MYSQL service");
-			ServiceHelper::WriteToLog("Local MYSQL service installed...");
-			if (!StartTargetSvc("wampmysqld64"))
-				throw HenchmanServiceException("Failed to start Local MYSQL service");
-			ServiceHelper::WriteToLog("Local MYSQL Service Started");
-			break;
-
-		}
-		case 1: {
-			ServiceHelper::WriteToLog("Local MYSQL Service has stopped...");
-			if (StartTargetSvc("wampmysqld64"))
-				ServiceHelper::WriteToLog("Successfully Restarted Local MYSQL Service");
-			else {
-				throw HenchmanServiceException("Failed to start Local MYSQL service");
-				//WriteToLog("Failed to start Local MYSQL Service...");
-				/*if (ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
-					WriteToLog("Removed Local MYSQL service...");*/
-			}
-			break;
-		}
-		default: {
-			ServiceHelper::WriteToLog("Local MYSQL Service has not stopped or errored \nIt returned with status code: " + wampMySQLSvcStatus);
-			break;
-		}
-		}
-	}
-	catch (exception& e) 
-	{
-		ServiceHelper::WriteToError("HenchmanService::MainFunction threw exception in wampMySQLSvcThread: " + (string)e.what());
-		if (ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
-			ServiceHelper::WriteToLog("Removed Local MYSQL service...");
-	}
-
-	ServiceHelper::WriteToLog("Checking for Local Apache service...");
-	int wampApacheSvcStatus = GetSvcStatus("wampapache64");
-	string apache_dir = GetStrVal(hKey, "Apache_DIR", REG_SZ);
-	try {
-
-		std::cout << apache_dir << endl;
-
-		switch (wampApacheSvcStatus) {
-		case -1: {
-			ServiceHelper::WriteToError("Apache Service errored with unknown error");
-			/*if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
-				WriteToLog("Apache Service stopped...");
-			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
-				WriteToLog("Apache Service uninstalled...");*/
-			if (!ShellExecuteApp(apache_dir + "\\httpd.exe", " -k install -n wampapache64"))
-				throw HenchmanServiceException("Failed to install Apache service");
-			ServiceHelper::WriteToLog("Apache Service installed...");
-			if (StartTargetSvc("wampapache64"))
-				ServiceHelper::WriteToLog("Apache Services started...");
-			else {
-				throw HenchmanServiceException("Failed to start Apache service");
-			}
-			break;
-
-		}
-		case 1: {
-			ServiceHelper::WriteToLog("Apache Service has stopped...");
-			if (StartTargetSvc("wampapache64"))
-				ServiceHelper::WriteToLog("Successfully Restarted Apache Service");
-			else {
-				throw HenchmanServiceException("Failed to start Apache Service");
-				/*WriteToLog("Failed to start Apache Service...");
-				if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
-					WriteToLog("Apache Service stopped...");
-				if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
-					WriteToLog("Apache Service uninstalled...");*/
-			}
-			break;
-		}
-		default: {
-			ServiceHelper::WriteToLog("Apache Service has not stopped or errored \nIt returned with status code: " + wampApacheSvcStatus);
-			/*if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
-				WriteToLog("Apache Service stopped...");
-			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
-				WriteToLog("Apache Service uninstalled...");*/
-			break;
-		}
-		}
-	}
-	catch (exception& e) {
-		ServiceHelper::WriteToError("HenchmanService::MainFunction threw exception in wampApacheSvcThread: " + (string)e.what());
-		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
-			ServiceHelper::WriteToLog("Apache Service stopped...");
-		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
-			ServiceHelper::WriteToLog("Apache Service uninstalled...");
-	}
-
-	RegCloseKey(hKey);
+	checkStateOfMySQL();
+	checkStateOfApache();
 	
 	if (!dbManager->isInternetConnected())
 	{
-		ServiceHelper::WriteToLog("Failed to confirm network connection");
+		ServiceHelper().WriteToLog("Failed to confirm network connection");
+		QTimer::singleShot(100, a, &QCoreApplication::quit);
 		return 0;
 	}
 
@@ -2098,47 +1280,141 @@ int HenchmanService::MainFunction()
 
 	//dbManager = new DatabaseManager(a);
 
-	TRAKManager TrakM;
+	TRAKManager TrakM(dbManager.get());
 
 	TrakM.CreateDataModule();
 
-	ServiceHelper::WriteToLog("Checking if TRAK is Running");
+	ServiceHelper().WriteToLog("Checking if TRAK is Running");
 	if (!ProcessExists(TrakM.appName)) {
-		ServiceHelper::WriteToError("TRAK process is not running");
+		ServiceHelper().WriteToError("TRAK process is not running");
 		string targetExe = TrakM.appDir + TrakM.appName;
-		ServiceHelper::WriteToLog("TRAK process not running, starting with path: " + targetExe);
+		ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
 		if (!ShellExecuteApp(targetExe, ""))
 		{
-			ServiceHelper::WriteToError("Failed to start " + targetExe);
+			ServiceHelper().WriteToError("Failed to start " + targetExe);
 		}
 	}
+	dbManager->targetApp = TrakM.appType;
 
-	dbManager->connectToLocalDB(TrakM.appType);
+	dbManager->connectToLocalDB();
 
-	//string sqlFile = TrakM.appDir + "database\\kabtraktest1_20170111.sql";
-	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
-	//sqlFile = "C:\\Users\\Willem\\Documents\\henchmanTRAK Remote Support\\Files\\cloudupdate.sql";
-	//dbManager->ExecuteTargetSqlScript(TrakM.appType, sqlFile);
+	if (!TrakM.UploadCurrentStateToRemote())
+	{
+		dbManager->connectToRemoteDB();
+	}
+	else {
+		QTimer::singleShot(1000, a, &QCoreApplication::quit);
+	}
 
-	dbManager->connectToRemoteDB(TrakM.appType);
-
-	//WriteToLog("Performing Cleanup");
-	//dbManager->deleteLater();
-	//dbManager = nullptr;
+	/*if (!(dbManager->AddKabsIfNotExists() ||
+		dbManager->AddDrawersIfNotExists() ||
+		dbManager->AddToolsIfNotExists() ||
+		dbManager->AddToolsInDrawersIfNotExists())
+		) {
+		dbManager->connectToRemoteDB();
+	}*/
 	
 	std::cout << "Exiting Main Function" << endl;
-	/*auto future = async(launch::async, &thread::join, runTrak);
-	if (future.wait_for(chrono::seconds(5)) == std::future_status::timeout)
-	{
-		
-	}
-	delete runTrak;*/
 	
-	return a->exec();
+	return 0;
 }
 
+void HenchmanService::checkStateOfMySQL()
+{
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
+	RegCloseKey(hKey);
+	ServiceHelper().WriteToLog("Checking for Local MYSQL service...");
+	int wampMySQLSvcStatus = GetSvcStatus("wampmysqld64");
+	try {
+		switch (wampMySQLSvcStatus) {
+		case -1: {
+			ServiceHelper().WriteToError("MySQL Service errored with unknown error");
+			if (!ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install-manual wampmysqld64"))
+				throw HenchmanServiceException("Failed to install Local MYSQL service");
+			ServiceHelper().WriteToLog("Local MYSQL service installed...");
+			if (!StartTargetSvc("wampmysqld64"))
+				throw HenchmanServiceException("Failed to start Local MYSQL service");
+			ServiceHelper().WriteToLog("Local MYSQL Service Started");
+			break;
+
+		}
+		case 1: {
+			ServiceHelper().WriteToLog("Local MYSQL Service has stopped...");
+			if (StartTargetSvc("wampmysqld64"))
+				ServiceHelper().WriteToLog("Successfully Restarted Local MYSQL Service");
+			else {
+				throw HenchmanServiceException("Failed to start Local MYSQL service");
+			}
+			break;
+		}
+		default: {
+			ServiceHelper().WriteToLog("Local MYSQL Service has not stopped or errored \nIt returned with status code: " + to_string(wampMySQLSvcStatus));
+			break;
+		}
+		}
+	}
+	catch (exception& e)
+	{
+		ServiceHelper().WriteToError(e.what());
+		if (ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
+			ServiceHelper().WriteToLog("Removed Local MYSQL service...");
+	}
+
+}
+
+void HenchmanService::checkStateOfApache()
+{
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string apache_dir = RegistryManager::GetStrVal(hKey, "Apache_DIR", REG_SZ);
+	RegCloseKey(hKey);
+	ServiceHelper().WriteToLog("Checking for Local Apache service...");
+	int wampApacheSvcStatus = GetSvcStatus("wampapache64");
+	try {
+		switch (wampApacheSvcStatus) {
+		case -1: {
+			ServiceHelper().WriteToError("Apache Service errored with unknown error");
+			if (!ShellExecuteApp(apache_dir + "\\httpd.exe", " -k install -n wampapache64"))
+				throw HenchmanServiceException("Failed to install Apache service");
+			ServiceHelper().WriteToLog("Apache Service installed...");
+			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k start -n wampapache64"))
+				ServiceHelper().WriteToLog("Apache Services started...");
+			else {
+				throw HenchmanServiceException("Failed to start Apache service");
+			}
+			break;
+
+		}
+		case 1: {
+			ServiceHelper().WriteToLog("Apache Service has stopped...");
+			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k start -n wampapache64"))
+				ServiceHelper().WriteToLog("Successfully Restarted Apache Service");
+			else {
+				throw HenchmanServiceException("Failed to start Apache Service");
+			}
+			break;
+		}
+		default: {
+			ServiceHelper().WriteToLog("Apache Service has not stopped or errored \nIt returned with status code: " + to_string(wampApacheSvcStatus));
+			break;
+		}
+		}
+	}
+	catch (exception& e) {
+		ServiceHelper().WriteToError(e.what());
+		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
+			ServiceHelper().WriteToLog("Apache Service stopped...");
+		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache"))
+			ServiceHelper().WriteToLog("Apache Service stopped...");
+		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
+			ServiceHelper().WriteToLog("Apache Service uninstalled...");
+		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache"))
+			ServiceHelper().WriteToLog("Apache Service uninstalled...");
+	}
+}
 int main(int argc, char* argv[])
 {
+
 	CSimpleIniA ini;
 
 	SI_Error rc = ini.LoadFile(".\\service.ini");
@@ -2148,10 +1424,91 @@ int main(int argc, char* argv[])
 	else {
 		testing = ini.GetBoolValue("DEVELOPMENT", "testingMain", 0);
 	}
-	
-	if(testing)
-		return RunAsServiceTest(argc, argv);
-	else
-		return RunAsService(argc, argv);
 
+	if (testing && argc <= 1)
+		argv[1] = (char *)"--install";
+	
+	if (lstrcmpiA(argv[1], "--install") == 0)
+	{
+		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+		char buff[MAX_PATH];
+		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
+		string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+
+		if (installDir == "" || installDir != buff)
+		{
+			installDir = buff;
+			std::cout << installDir << endl;
+			RegistryManager::SetVal(hKey, "INSTALLDIR", installDir, REG_SZ);
+		}
+		RegCloseKey(hKey);
+		setContextMenu(installDir);
+		
+		if (!testing) {
+			DoInstallSvc();
+			Sleep(1000);
+			ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", "--start");
+			return 0;
+		}
+		cout << "installing..." << endl;
+		Sleep(1000);
+		argv[1] = (char*)"--start";
+		
+	}
+
+	if (lstrcmpiA(argv[1], "--remove") == 0)
+	{
+		if (!testing) {
+			DoStopSvc();
+			DoDeleteSvc();
+		}
+		else {
+			std::cout << "stopping..." << endl;
+			std::cout << "removing..." << endl;
+		}
+		removeContextMenu();
+		int c = getchar();
+		return 0;
+	}
+
+	if (lstrcmpiA(argv[1], "--start") == 0)
+	{
+		if (!testing){
+			DoStartSvc();
+			return 0;
+		}
+		std::cout << "starting..." << endl;
+	}
+
+	if (lstrcmpiA(argv[1], "--stop") == 0)
+	{
+		if(!testing)
+			DoStopSvc();
+		else
+			std::cout << "stopping..." << endl;
+		int c = getchar();
+		return 0;
+	}
+
+	if (testing) {
+		SvcMain(argc, argv);
+		return 0;
+	}
+
+	SERVICE_TABLE_ENTRY ServiceTable[] =
+	{
+		{QString(SERVICE_NAME).toStdWString().data(), (LPSERVICE_MAIN_FUNCTION)SvcMain},
+		{NULL, NULL}
+	};
+
+	if (!StartServiceCtrlDispatcher(ServiceTable))
+	{
+		std::cout << "Failed to find Registered Service Controller." << std::endl;
+		std::cout << "Press enter to install service or hit CTRL+C to exit..." << std::endl;
+		int c = getchar();
+		if (c == '\n' || c == EOF)
+			ShellExecuteApp(string(SERVICE_NAME) + ".exe", "--install");
+		std::cout << "Press any key to exit..." << endl;
+	}
+	return 0;
 }

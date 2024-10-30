@@ -33,7 +33,8 @@ target_link_libraries(
 	ServiceHelper
 	EventManager
 	TRAKManager
-	SQLiteManager 
+	SQLiteManager2
+	SQLiteManager
 	DatabaseManager
 )
 

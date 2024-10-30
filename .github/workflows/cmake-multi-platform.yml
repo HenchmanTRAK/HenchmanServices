@@ -4,8 +4,10 @@ name: CMake on multiple platforms
 
 on:
   push:
-    branches: 
-      - main
+    tags:
+      - '*'
+    # branches: 
+    #   - main
 
 env:
   VERSION: 1.1.5
@@ -85,13 +87,19 @@ jobs:
       id: solid-version-numbers
       shell: bash
       run: |
-        echo "CURR_VERSION_NUMBER=$(echo ${{ steps.set-curr-version.outputs.curr_version }} | tr -dc '0-9')" >> $GITHUB_OUTPUT
-        echo "VERSION_NUMBER=$(echo ${{ steps.set-version.outputs.version }} | tr -dc '0-9')" >> $GITHUB_OUTPUT
+        currVer=${{steps.set-curr-version.outputs.curr_version}}
+        newVer=${{steps.set-version.outputs.version}}
+        splitCurrVer=(${currVer//./ })
+        splitNewVer=(${newVer//./ })
+        oldVer=$((splitCurrVer[0]*100 + splitCurrVer[1]*10 + splitCurrVer[2]))
+        ver=$((splitNewVer[0]*100 + splitNewVer[1]*10 + splitNewVer[2]))
+        echo "CURR_VERSION_NUMBER=$( echo $oldVer | tr -dc '0-9')" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=$(echo $ver | tr -dc '0-9')" >> $GITHUB_OUTPUT
 
   
   install_openssl:
     needs: [setup]
-    if: ${{ needs.setup.outputs.VERSION_NUMBER != needs.setup.outputs.CURR_VERSION_NUMBER }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
     runs-on: ${{ matrix.os }}
     strategy:
       # Set fail-fast to false to ensure that feedback is delivered for all matrix combinations. Consider changing this to true when your workflow is stable.
@@ -154,7 +162,7 @@ jobs:
     
   install_doxy:  
     needs: [setup]
-    if: ${{ needs.setup.outputs.VERSION_NUMBER != needs.setup.outputs.CURR_VERSION_NUMBER }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
 
     runs-on: ${{ matrix.os }}
     strategy:
@@ -206,7 +214,7 @@ jobs:
 
   build:
     needs: [setup, install_openssl, install_doxy]  
-    if: ${{ needs.setup.outputs.VERSION_NUMBER != needs.setup.outputs.CURR_VERSION_NUMBER }}
+    if: ${{ needs.setup.outputs.VERSION_NUMBER > needs.setup.outputs.CURR_VERSION_NUMBER }}
 
     runs-on: ${{ matrix.os }}
     permissions:
