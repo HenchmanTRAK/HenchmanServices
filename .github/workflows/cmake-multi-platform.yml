@@ -4,10 +4,10 @@ name: CMake on multiple platforms
 
 on:
   push:
-    tags:
-      - '*'
-    # branches: 
-    #   - main
+    # tags:
+    #   - '*'
+    branches: 
+      - main
 
 env:
   VERSION: 1.1.5
