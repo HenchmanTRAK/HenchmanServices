@@ -21,7 +21,8 @@
 
 //#include <future>
 //#include <thread>
-//
+
+#include <QObject>
 //#include <QByteArray>
 //#include <QCoreApplication>
 //#include <QString>
@@ -55,13 +56,12 @@
 #define SERVICE_PASSWORD        NULL
 #define CRLF "\r\n"
 
-SERVICE_STATUS		  g_ServiceStatus = { 0 };
-SERVICE_STATUS_HANDLE g_StatusHandle = NULL;
-HANDLE				  g_ServiceStopEvent = INVALID_HANDLE_VALUE;
+SERVICE_STATUS			 g_ServiceStatus = { 0 };
+SERVICE_STATUS_HANDLE	 g_StatusHandle = NULL;
+HANDLE					 g_ServiceStopEvent = INVALID_HANDLE_VALUE;
 
 SC_HANDLE schSCManager;
 SC_HANDLE schService;
-
 
 /**
  * @brief The main class for the HenchmanService application.
@@ -89,12 +89,14 @@ SC_HANDLE schService;
  * - `bool SetRequiredParameters()`: Sets up the application's configuration.
  * - `void checkStateOfMySQL()`: Checks the state of the MySQL service.
  * - `void checkStateOfApache()`: Checks the state of the Apache service.
- * - `void ConnectWithSMTP()`: Connects with the SMTP server.
  * - `int MainFunction()`: The main function for the HenchmanService application.
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HenchmanService {
+class HenchmanService: public QObject 
+{
+
+	Q_OBJECT
 
 private:
 	/**
@@ -200,8 +202,11 @@ public:
 	 * @brief The default constructor for the HenchmanService class.
 	 *
 	 * Initializes the application's configuration and sets up the database connection.
+	 * 
+	 * @param parent An pointer to a Qt core application that allows the application to communicate with other Qt components.
+	 * 
 	 */
-	HenchmanService();
+	HenchmanService(QObject* parent = nullptr);
 
 	/**
 	 * @brief The destructor for the HenchmanService class.

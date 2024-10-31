@@ -6,19 +6,10 @@ using namespace std;
 
 ServiceHelper::ServiceHelper(const std::source_location& caller)
 {
-	//cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
-	//caller = location;
+	
 	int substringStart = string(caller.function_name()).find_first_of(" ") + 1;
 	int substringEnd = string(caller.function_name()).find_first_of("(") - substringStart;
-	/*if (substringStart >= substringEnd)
-		functionName = __FUNCTION__;
-	else
-		functionName =
-		string(caller.function_name())
-		.substr(
-			substringStart,
-			substringEnd
-		);*/
+	
 	vector exploded = ExplodeString((
 		substringStart >= substringEnd 
 		? __FUNCTION__
@@ -50,7 +41,6 @@ vector<string> ExplodeString(const string& targetString, const char *seperator, 
 
 		size_t pos = 0;
 		while ((pos = s.find(seperator)) != string::npos) {
-			//std::cout << results.size() << endl;
 			string token = s.substr(0, pos);
 			s.erase(0, pos + string(seperator).length());
 			if(token != "")
@@ -63,8 +53,6 @@ vector<string> ExplodeString(const string& targetString, const char *seperator, 
 			results.resize(maxLen);
 		}
 			
-			//? true : results.size() < maxLen)
-		//token.clear();
 	}
 	catch (exception& e)
 	{
@@ -83,7 +71,7 @@ long int ServiceHelper::microseconds()
 
 bool ServiceHelper::Contain(QString str, QString search)
 {
-	//cout << "searching: " << str.data() << " for: " << search.data() << endl;
+	
 	size_t found = str.toStdString().find(search.toStdString());
 	if (found != string::npos) {
 		return 1;
@@ -108,8 +96,7 @@ const char * ServiceHelper::get_file_contents(const char* filename)
 		QString str(size, '\0'); // construct string to stream size
 		is.seekg(0);
 		is.read(&str.toStdString()[0], size);
-		/*if (is)
-			cout << str << '\n';*/
+		
 		return str.toStdString().data();
 	}
 	throw(errno);
@@ -147,8 +134,8 @@ string ServiceHelper::GetExportsPath(string app_path)
 	string exportsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -175,8 +162,8 @@ string ServiceHelper::GetLogsPath(string app_path)
 	string logsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);

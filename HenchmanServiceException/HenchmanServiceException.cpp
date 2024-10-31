@@ -11,13 +11,14 @@ const char * HenchmanServiceException::what() const {
 }
 
 //HenchmanServiceException::HenchmanServiceException(string msg, string function)
+//cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
+
 HenchmanServiceException::HenchmanServiceException(
 	string msg, 
 	const source_location& location
 )
 {
 	caller = location;
-	//cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
 
 	int substringStart = string(caller.function_name()).find_first_of(" ")+1;
 	int substringEnd = string(caller.function_name()).find_first_of("(")-substringStart;

@@ -32,8 +32,8 @@ static int checkValidConnections(QString &targetConnection)
 DatabaseManager::DatabaseManager(QObject* parent) 
 : QObject(parent)
 {
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 
 	/*CSimpleIniA ini;
 	SI_Error rc = ini.LoadFile(installDir.append("\\service.ini").c_str());
@@ -70,13 +70,13 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	
 	targetApp = "";
 	requestRunning = false;
-	databaseTablesChecked["tools"] = RegistryManager::GetVal(hKey, "numToolsChecked", REG_DWORD);
-	databaseTablesChecked["kabs"] = RegistryManager::GetVal(hKey, "numKabsChecked", REG_DWORD);
-	databaseTablesChecked["kabDrawers"] = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
-	databaseTablesChecked["kabDrawerBins"] = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
-	databaseTablesChecked["users"] = RegistryManager::GetVal(hKey, "numUsersChecked", REG_DWORD);
-	databaseTablesChecked["employees"] = RegistryManager::GetVal(hKey, "numEmployeesChecked", REG_DWORD);
-	databaseTablesChecked["jobs"] = RegistryManager::GetVal(hKey, "numJobsChecked", REG_DWORD);
+	databaseTablesChecked["tools"] = RegistryManager().GetVal(hKey, "numToolsChecked", REG_DWORD);
+	databaseTablesChecked["kabs"] = RegistryManager().GetVal(hKey, "numKabsChecked", REG_DWORD);
+	databaseTablesChecked["kabDrawers"] = RegistryManager().GetVal(hKey, "numDrawersChecked", REG_DWORD);
+	databaseTablesChecked["kabDrawerBins"] = RegistryManager().GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
+	databaseTablesChecked["users"] = RegistryManager().GetVal(hKey, "numUsersChecked", REG_DWORD);
+	databaseTablesChecked["employees"] = RegistryManager().GetVal(hKey, "numEmployeesChecked", REG_DWORD);
+	databaseTablesChecked["jobs"] = RegistryManager().GetVal(hKey, "numJobsChecked", REG_DWORD);
 	RegCloseKey(hKey);
 
 }
@@ -226,8 +226,6 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
 				return;
 			}
-			if (results)
-				json.value().swap(*results);
 
 			string parsedVal;
 			if (json->isArray())
@@ -238,6 +236,9 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 			ServiceHelper().WriteToCustomLog("Webportal response: \n" + parsedVal, timeStamp[0] + "-queries");
 			ServiceHelper().WriteToLog("Server responded with: \n" + parsedVal);
 
+			if (results)
+				json.value().swap(*results);
+			
 			result = reply.isSuccess();
 
 			if (reply.isSuccess())
@@ -331,8 +332,8 @@ int DatabaseManager::AddToolsIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numToolsChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager().SetVal(hKey, "numToolsChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//performCleanup();
@@ -414,8 +415,8 @@ int DatabaseManager::AddUsersIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager().SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -489,8 +490,8 @@ int DatabaseManager::AddEmployeesIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numEmployeesChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager().SetVal(hKey, "numEmployeesChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -507,7 +508,7 @@ int DatabaseManager::AddJobsIfNotExists()
 	}
 	ServiceHelper().WriteToLog("Exporting Jobs");
 	string query =
-		"SELECT * from jobs ORDER BY id ASC LIMIT " +
+		"SELECT * from jobs ORDER BY trailId ASC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
@@ -564,8 +565,8 @@ int DatabaseManager::AddJobsIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numJobsChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager().SetVal(hKey, "numJobsChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -637,8 +638,8 @@ int DatabaseManager::AddKabsIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numKabsChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager().SetVal(hKey, "numKabsChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//performCleanup();
@@ -711,8 +712,8 @@ int DatabaseManager::AddDrawersIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager().SetVal(hKey, "numDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -786,8 +787,8 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numToolsInDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager().SetVal(hKey, "numToolsInDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
@@ -822,8 +823,8 @@ int DatabaseManager::connectToRemoteDB()
 	QSqlDatabase db;
 	bool result = false;
 	try {
-		HKEY hKeyLocal = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
-		targetSchema = QString::fromStdString(RegistryManager::GetStrVal(hKeyLocal, "Schema", REG_SZ));
+		HKEY hKeyLocal = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
+		targetSchema = QString::fromStdString(RegistryManager().GetStrVal(hKeyLocal, "Schema", REG_SZ));
 		RegCloseKey(hKeyLocal);
 
 		if (!checkValidConnections(targetSchema))
@@ -898,13 +899,13 @@ int DatabaseManager::connectToRemoteDB()
 					).replace("()", "").simplified();
 				qDebug() << res;
 
-				HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-				string trakType = RegistryManager::GetStrVal(hKey, "APP_NAME", REG_SZ);
+				HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+				string trakType = RegistryManager().GetStrVal(hKey, "APP_NAME", REG_SZ);
 				RegCloseKey(hKey);
-				hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer"));
-				string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
-				string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
-				string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+				hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer"));
+				string trakId = RegistryManager().GetStrVal(hKey, "trakID", REG_SZ);
+				string custId = RegistryManager().GetStrVal(hKey, "ID", REG_SZ);
+				string idNum = RegistryManager().GetStrVal(hKey, trakId.data(), REG_SZ);
 				RegCloseKey(hKey);
 
 				if (res["query"].contains("custId =", Qt::CaseInsensitive) && !skipQuery)
@@ -934,7 +935,7 @@ int DatabaseManager::connectToRemoteDB()
 					int startpoint = substr.indexOf("=")+1;
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
 					QString substr2 = substr.mid(startpoint, endpoint - startpoint).trimmed();
-					qDebug() << substr2 << " | " << idNum;
+					qDebug() << substr2 << " | " << "'" + idNum + "'";
 					if (substr2.toStdString() != "'" + idNum + "'") {
 						qDebug() << "skipping query";
 						skipQuery = true;
@@ -1115,7 +1116,33 @@ int DatabaseManager::connectToRemoteDB()
 						);
 						break;
 					}
+				}
 
+				if (res["query"].contains("update") && !skipQuery) {
+					ServiceHelper().WriteToLog("Parsing update to prevent duplication creation");
+					vector splitQuery = ExplodeString(res["query"].toStdString(), " ");
+
+
+					for (int i = 0; i < splitQuery.size(); i++) {
+						if (splitQuery[i] != "=")
+							continue;
+
+						string targetCol = splitQuery[i - 1];
+						string valueToUse = splitQuery[i + 1];
+						if (valueToUse[0] != '\'')
+						{
+							valueToUse = "'" + valueToUse + "'";
+						}
+
+						if (
+							(targetCol == "id") 
+							|| (targetCol == "custId" && valueToUse != "'" + custId + "'")
+							|| (targetCol == trakId && valueToUse != "'" + idNum + "'")
+							) {
+							skipQuery = true;
+							goto parsedQuery;
+						}
+					}
 				}
 			}
 			else {
@@ -1125,9 +1152,9 @@ int DatabaseManager::connectToRemoteDB()
 			qDebug() << res;
 
 		parsedQuery:
+			ServiceHelper().WriteToLog("Query parsed. " + string(skipQuery ? "Query is getting skipped" : "Query is being run"));
 			if (skipQuery ? true : makeNetworkRequest(apiUrl, res))
 			{
-				std::cout << (skipQuery ? "request skipped" : "request successful") << endl;
 				string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + res["id"].toStdString();
 
 				if (!testingDBManager) {
@@ -1170,9 +1197,9 @@ int DatabaseManager::connectToLocalDB()
 {
 	timeStamp = ServiceHelper().timestamp();
 	try {
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
+		HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 
-		QString dbtype = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Database", REG_SZ));
+		QString dbtype = QString::fromStdString(RegistryManager().GetStrVal(hKey, "Database", REG_SZ));
 
 		if (!QSqlDatabase::isDriverAvailable(dbtype))
 		{
@@ -1183,16 +1210,16 @@ int DatabaseManager::connectToLocalDB()
 			return 0;
 		}
 
-		QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
+		QString schema = QString::fromStdString(RegistryManager().GetStrVal(hKey, "Schema", REG_SZ));
 
 		QSqlDatabase db;
 		if (!checkValidConnections(schema))
 		{
 
-			QString server = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Server", REG_SZ));
-			int port = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Port", REG_SZ)).toInt();
-			QString user = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Username", REG_SZ));
-			string pass = RegistryManager::GetStrVal(hKey, "Password", REG_SZ);
+			QString server = QString::fromStdString(RegistryManager().GetStrVal(hKey, "Server", REG_SZ));
+			int port = QString::fromStdString(RegistryManager().GetStrVal(hKey, "Port", REG_SZ)).toInt();
+			QString user = QString::fromStdString(RegistryManager().GetStrVal(hKey, "Username", REG_SZ));
+			string pass = RegistryManager().GetStrVal(hKey, "Password", REG_SZ);
 
 			ServiceHelper().WriteToLog((string)"Creating session to db");
 					
@@ -1287,8 +1314,8 @@ int DatabaseManager::connectToLocalDB()
 int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 {
 	int successCount = 0;
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
-	QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
+	QString schema = QString::fromStdString(RegistryManager().GetStrVal(hKey, "Schema", REG_SZ));
 	RegCloseKey(hKey);
 	QSqlDatabase db = QSqlDatabase::database(schema);
 	QFile file(filepath.data());
@@ -1354,8 +1381,8 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 	vector<QStringMap> resultVector;
 	QStringMap queryResult;
 	queryResult["success"] = "0";
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
-	QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
+	QString schema = QString::fromStdString(RegistryManager().GetStrVal(hKey, "Schema", REG_SZ));
 	RegCloseKey(hKey);
 	QSqlDatabase db = QSqlDatabase::database(schema);
 

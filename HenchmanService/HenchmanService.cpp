@@ -7,8 +7,6 @@
 
 using namespace std;
 
-QCoreApplication* a;
-
 bool testing = false;
 
 // ShowCerts - Prints out the given certificate.
@@ -995,26 +993,26 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	char* argv[1];
 
 	// add registering registering application in event log and removing on exit.
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
-	string evtMsgFile = RegistryManager::GetStrVal(hKey, "EventMessageFile", REG_SZ);
-	DWORD typesSupported = RegistryManager::GetVal(hKey, "TypesSupported", REG_DWORD);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
+	string evtMsgFile = RegistryManager().GetStrVal(hKey, "EventMessageFile", REG_SZ);
+	DWORD typesSupported = RegistryManager().GetVal(hKey, "TypesSupported", REG_DWORD);
 
-	HKEY serviceKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	string installDir = RegistryManager::GetStrVal(serviceKey, "INSTALLDIR", REG_SZ);
+	HKEY serviceKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string installDir = RegistryManager().GetStrVal(serviceKey, "INSTALL_DIR", REG_SZ);
 	RegCloseKey(serviceKey);
 
 	installDir.append("\\event_log.dll");
 	if (evtMsgFile != installDir) {
-		RegistryManager::SetVal(hKey, "EventMessageFile", installDir, REG_SZ);
+		RegistryManager().SetVal(hKey, "EventMessageFile", installDir, REG_SZ);
 	}
-	RegistryManager::SetVal(hKey, "TypesSupported", 7, REG_DWORD);
+	RegistryManager().SetVal(hKey, "TypesSupported", 7, REG_DWORD);
 
 	RegCloseKey(hKey);
 
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
 		
-	a = new QCoreApplication(argc, argv);
-	HenchmanService service;
+	QCoreApplication *a = new QCoreApplication(argc, argv);
+	HenchmanService service(a);
 	
 	while (WaitForSingleObject(g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
@@ -1061,21 +1059,21 @@ static void setContextMenuCommands(string verb, string command)
 {
 	string verbName = verb;
 	std::erase(verbName, ' ');
-	HKEY hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+verbName));
-	RegistryManager::SetVal(hKey, "MUIVerb", verb, REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+verbName));
+	RegistryManager().SetVal(hKey, "MUIVerb", verb, REG_SZ);
 	RegCloseKey(hKey);
-	hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+ verbName +"\\command"));
-	RegistryManager::SetVal(hKey, "", command, REG_SZ);
+	hKey = RegistryManager().OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+ verbName +"\\command"));
+	RegistryManager().SetVal(hKey, "", command, REG_SZ);
 	RegCloseKey(hKey);
 }
 
 static void setContextMenu(string installDir)
 {
-	HKEY hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
-	RegistryManager::SetVal(hKey, "MUIVerb", "HenchmanService", REG_SZ);
-	RegistryManager::SetVal(hKey, "ExtendedSubCommandsKey", string(SERVICE_NAME), REG_SZ);
-	RegistryManager::SetVal(hKey, "Extended", "", REG_SZ);
-	RegistryManager::SetVal(hKey, "AppliesTo", string("System.ItemName:\"").append(SERVICE_NAME).append(".exe\""), REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
+	RegistryManager().SetVal(hKey, "MUIVerb", "HenchmanService", REG_SZ);
+	RegistryManager().SetVal(hKey, "ExtendedSubCommandsKey", string(SERVICE_NAME), REG_SZ);
+	RegistryManager().SetVal(hKey, "Extended", "", REG_SZ);
+	RegistryManager().SetVal(hKey, "AppliesTo", string("System.ItemName:\"").append(SERVICE_NAME).append(".exe\""), REG_SZ);
 
 	RegCloseKey(hKey);
 
@@ -1088,18 +1086,19 @@ static void setContextMenu(string installDir)
 
 static void removeContextMenu()
 {
-	RegistryManager::RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
+	RegistryManager().RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
 }
 
-HenchmanService::HenchmanService()
+HenchmanService::HenchmanService(QObject* parent): QObject(parent)
 {
+	qDebug() << this->parent();
 	CSimpleIniA ini;
 
 	ini.SetUnicode();
 
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 
-	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+	string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 
 	cout << "Install dir: " << installDir << endl;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
@@ -1115,8 +1114,8 @@ HenchmanService::HenchmanService()
 		string value = ini.GetValue("WAMP", val.pItem, "");
 		ServiceHelper().removeQuotes(value);
 
-		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
+		RegistryManager().GetStrVal(hKey, key.data(), REG_SZ);
+		RegistryManager().SetVal(hKey, key.data(), value, REG_SZ);
 
 		key.clear();
 		value.clear();
@@ -1129,8 +1128,8 @@ HenchmanService::HenchmanService()
 		string value = ini.GetValue("TRAK", val.pItem, "");
 		ServiceHelper().removeQuotes(value);
 
-		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
+		RegistryManager().GetStrVal(hKey, key.data(), REG_SZ);
+		RegistryManager().SetVal(hKey, key.data(), value, REG_SZ);
 
 		key.clear();
 		value.clear();
@@ -1139,7 +1138,7 @@ HenchmanService::HenchmanService()
 
 	RegCloseKey(hKey);
 
-	sqliteManager = make_unique<SQLiteManager2>(a);
+	sqliteManager = make_unique<SQLiteManager2>(parent);
 	
 	string tableName = "TestTable";
 	vector<string> columns;
@@ -1171,7 +1170,7 @@ HenchmanService::HenchmanService()
 		data.clear();
 	}
 
-	dbManager = make_unique<DatabaseManager>(a);
+	dbManager = make_unique<DatabaseManager>(parent);
 
 	/*currDir.clear();
 	installDir.clear();
@@ -1272,7 +1271,7 @@ int HenchmanService::MainFunction()
 	if (!dbManager->isInternetConnected())
 	{
 		ServiceHelper().WriteToLog("Failed to confirm network connection");
-		QTimer::singleShot(100, a, &QCoreApplication::quit);
+		QTimer::singleShot(100, this->parent(), &QCoreApplication::quit);
 		return 0;
 	}
 
@@ -1303,7 +1302,7 @@ int HenchmanService::MainFunction()
 		dbManager->connectToRemoteDB();
 	}
 	else {
-		QTimer::singleShot(1000, a, &QCoreApplication::quit);
+		QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	}
 
 	/*if (!(dbManager->AddKabsIfNotExists() ||
@@ -1321,8 +1320,8 @@ int HenchmanService::MainFunction()
 
 void HenchmanService::checkStateOfMySQL()
 {
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string mysql_dir = RegistryManager().GetStrVal(hKey, "MySQL_DIR", REG_SZ);
 	RegCloseKey(hKey);
 	ServiceHelper().WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = GetSvcStatus("wampmysqld64");
@@ -1365,8 +1364,8 @@ void HenchmanService::checkStateOfMySQL()
 
 void HenchmanService::checkStateOfApache()
 {
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	string apache_dir = RegistryManager::GetStrVal(hKey, "Apache_DIR", REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	string apache_dir = RegistryManager().GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	RegCloseKey(hKey);
 	ServiceHelper().WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = GetSvcStatus("wampapache64");
@@ -1412,6 +1411,7 @@ void HenchmanService::checkStateOfApache()
 			ServiceHelper().WriteToLog("Apache Service uninstalled...");
 	}
 }
+
 int main(int argc, char* argv[])
 {
 
@@ -1430,16 +1430,15 @@ int main(int argc, char* argv[])
 	
 	if (lstrcmpiA(argv[1], "--install") == 0)
 	{
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+		HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 		char buff[MAX_PATH];
 		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
-		string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
-
+		string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 		if (installDir == "" || installDir != buff)
 		{
 			installDir = buff;
 			std::cout << installDir << endl;
-			RegistryManager::SetVal(hKey, "INSTALLDIR", installDir, REG_SZ);
+			RegistryManager().SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
 		}
 		RegCloseKey(hKey);
 		setContextMenu(installDir);

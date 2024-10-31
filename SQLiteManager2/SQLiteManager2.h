@@ -17,7 +17,7 @@
 #include <QSqlDriver>
 #include <QSqlQuery>
 
-#include <Windows.h>
+//#include <Windows.h>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -169,14 +169,14 @@ private:
 	 *
 	 * This is the name of the Qt SQLite driver.
 	 */
-	std::string databaseDriver = "QSQLITE";
+	QString databaseDriver = "QSQLITE";
 
 	/**
 	 * @brief The location of the SQLite database.
 	 *
 	 * This is the location of the SQLite database file.
 	 */
-	std::string databaseLocation;
+	QString databaseLocation;
 
 	/**
 	 * @brief Executes a SQL query on the SQLite database.

@@ -26,16 +26,31 @@
 /**
  * @class ServiceHelper
  *
- * @brief The ServiceHelper class provides various utility functions for logging, error handling,
- * file operations, and string manipulation.
+ * @brief The ServiceHelper class provides utility functions for various tasks.
+ *
+ * This class provides methods for tasks such as exploding strings, getting file contents, and writing to logs.
  *
  * @author Willem Swanepoel
  * @version 1.0
+ *
+ * @details
+ * - The ServiceHelper class provides a convenient way to perform various tasks within your application.
+ *
+ * @see ServiceHelper::ExplodeString
+ * @see ServiceHelper::get_file_contents
+ * @see ServiceHelper::WriteLog
  */
 class ServiceHelper
 {
 public:
-	ServiceHelper(const std::source_location&caller = std::source_location::current());
+	/**
+	 * @brief Constructs a ServiceHelper object.
+	 *
+	 * This constructor initializes the ServiceHelper object with the specified source location.
+	 *
+	 * @param caller The source location of the caller.
+	 */
+	ServiceHelper(const std::source_location& caller = std::source_location::current());
 
 	/**
 	 * @brief Returns a timestamp as a std::array<std::string, 2>.
@@ -195,6 +210,19 @@ private:
 
 };
 
+/**
+ * @brief Explodes a string into a vector of substrings based on a specified separator.
+ *
+ * This function takes a string and a separator as input, and returns a vector of substrings.
+ *
+ * @param targetString The string to explode.
+ * @param seperator The separator to use.
+ * @param maxLen The maximum number of substrings to return.
+ *
+ * @return A vector of substrings.
+ *
+ * @throws Throws an exception if the input string or separator is invalid.
+ */
 std::vector<std::string> ExplodeString(const std::string& targetString, const char* seperator, int maxLen = -1);
 
 #endif
