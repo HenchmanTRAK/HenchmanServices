@@ -109,26 +109,6 @@ const char * ServiceHelper::GetFileExtension(const QString& FileName)
 	return "";
 }
 
-//char* base64(string string)
-//{
-//	// Credit to mtrw from Stackoverflow
-//	auto pl = 4 * ((string.size() + 2) / 3);
-//	calloc(pl + 1, 1); //+1 for the terminating null that EVP_EncodeBlock adds on
-//	unsigned char* output;
-//	auto ol = EVP_EncodeBlock(output, reinterpret_cast<unsigned char*>(string.data()), string.size());
-//	if (pl != ol) { cerr << "Whoops, encode predicted " << pl << " but we got " << ol << "\n"; }
-//	return output;
-//}
-//
-//char* decodeBase64(string string)
-//{
-//	auto pl = (3 * (string.size() / 4));
-//	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
-//	auto ol = EVP_DecodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
-//	if (pl != ol) { cerr << "Whoops, decode predicted " << pl << " but we got " << ol << "\n"; }
-//	return output;
-//}
-
 string ServiceHelper::GetExportsPath(string app_path)
 {
 	string exportsPath;
@@ -203,10 +183,10 @@ void ServiceHelper::WriteLog(char *targetFile, string log)
 	fstream fs(targetFile, ios::out | ios_base::app);
 	if (fs) {
 		array dateTime = timestamp();
-		stringstream logEntry;		
-		logEntry << "---| " << dateTime[0] << " " << dateTime[1] << " |--- "<< functionName << ": " << log;
-		cout << logEntry.str() << endl;
-		fs << logEntry.str() << endl;
+		//stringstream logEntry;		
+		//logEntry << "---| " << dateTime[0] << " " << dateTime[1] << " |--- "<< functionName << ": " << log;
+		//cout << logEntry.str() << endl;
+		fs << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << functionName << ": " << log << endl;
 		fs.close();
 	}
 
@@ -217,6 +197,7 @@ void ServiceHelper::WriteToLog(string log)
 	array dateTime = timestamp();
 	string logDir = GetLogsPath();
 	logDir.append(dateTime[0] + "-log.txt");
+	std::cout << dateTime[0] << "-" << dateTime[1] << " --| " << functionName << ": " << log << std::endl;
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
@@ -226,9 +207,9 @@ void ServiceHelper::WriteToError(string log)
 {
 	array dateTime = timestamp();
 	string logDir = GetLogsPath().data();
-	//logDir.append(dateTime[0] + "-error.txt");
-	logDir.append(dateTime[0] + "-log.txt");
+	logDir.append(dateTime[0] + "-error.txt");
 	WriteLog(logDir.data(), log);
+	WriteToLog(log);
 	logDir.clear();
 	log.clear();
 }
@@ -237,8 +218,8 @@ void ServiceHelper::WriteToCustomLog(string log, string logName)
 {
 	string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
-	//cout << logDir << endl;
 	WriteLog(logDir.data(), log);
+	WriteToLog(log);
 	logDir.clear();
 	log.clear();
 }

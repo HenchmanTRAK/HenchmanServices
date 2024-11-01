@@ -1,13 +1,14 @@
 
 qt_add_library(HenchmanServiceException STATIC "HenchmanServiceException.cpp")
 
-target_include_directories(HenchmanServiceException INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(HenchmanServiceException PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
-	HenchmanServiceException PUBLIC
-	RegistryManager
-	ServiceHelper
+	HenchmanServiceException PRIVATE
+	Qt6::Core
 	EventManager
+	ServiceHelper
+	RegistryManager
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

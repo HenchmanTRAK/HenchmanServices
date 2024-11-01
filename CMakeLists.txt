@@ -26,11 +26,11 @@ project (HenchmanServices VERSION ${PROJECT_VER} LANGUAGES CXX C)
 #set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 #set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "")
 
-if(EXISTS $ENV{VCPKG_ROOT})
-	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+#if(EXISTS $ENV{VCPKG_ROOT})
+#	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 #elseif(EXISTS $ENV{VCPKG_INSTALLATION_ROOT})
 #	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake)
-endif()
+#endif()
 
 message(STATUS "generator toolset: " ${CMAKE_CURRENT_SOURCE_DIR})
 #set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT HenchmanService)
@@ -77,7 +77,7 @@ foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 	set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY} )
 	set (CMAKE_CXX_FLAGS_${OUTPUTCONFIG}                "/ZI /Od")
 	set (CMAKE_EXE_LINKER_FLAGS_${OUTPUTCONFIG}         "/${CONFIGTYPE}")
-endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
+endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
 set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
@@ -110,10 +110,10 @@ find_package(Doxygen REQUIRED dot)
 #message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
-option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" ON)
+option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" OFF)
 option(SQLITECPP_BUILD_TESTS "Build and run tests." OFF)
-option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." ON)
-option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
+option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." OFF)
+option(SQLITECPP_RUN_CPPLINT "Run c++ lint" OFF)
 
 qt_policy(SET QTP0003 NEW)
 
@@ -154,7 +154,7 @@ FetchContent_Declare(
 
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 
-FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
+FetchContent_MakeAvailable(SimpleIni OpenSSL QMYSQL)
 
 #set(mysql-concpp_DIR "C:/Program Files/MySQL/MySQL Connector C++ 9.0")
 
@@ -171,16 +171,17 @@ FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
 # Include sub-projects.
 #add_subdirectory ("simpleini-4.22")
 #add_subdirectory (thirdparty/SQLiteCpp-3.3.2)
-add_subdirectory (RegistryManager)
-add_subdirectory (EventManager)
-add_subdirectory (HenchmanServiceException)
+add_subdirectory (HenchmanService)
 add_subdirectory (ServiceHelper)
-add_subdirectory (SQLiteManager)
+#add_subdirectory (SQLiteManager)
 add_subdirectory (SQLiteManager2)
 add_subdirectory (DatabaseManager)
 add_subdirectory (TRAKManager)
+add_subdirectory (HenchmanServiceException)
+add_subdirectory (EventManager)
+add_subdirectory (RegistryManager)
+add_subdirectory (ServiceController)
 #add_subdirectory (HenchmanServiceMailer)
-add_subdirectory (HenchmanService)
 
 if(DOXYGEN_FOUND)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
@@ -192,14 +193,14 @@ add_custom_target(
 	COMMENT "Generating API documentation with Doxygen" VERBATIM
 )
 
-add_dependencies(HenchmanService DOC)
+#add_dependencies(HenchmanService DOC)
 
 add_custom_command(
 	TARGET DOC POST_BUILD
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/latex
 	COMMAND make.bat
 	COMMENT "Running latex pdf creator" VERBATIM
-	)
+)
 
 endif(DOXYGEN_FOUND)
 
@@ -211,7 +212,7 @@ if(APPLE)
 #elseif(MSVC)
 #    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>")
 else()
-    set(executable_path "\${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
+    set(executable_path "${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
 endif()
 
 message(STATUS ${executable_path})
@@ -278,7 +279,6 @@ endif()
 
 install(
 	TARGETS HenchmanService
-	#COMPONENT HenchmanService
 	BUNDLE DESTINATION .
 	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}							COMPONENT Runtime
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}							COMPONENT Runtime
@@ -293,15 +293,18 @@ install(SCRIPT ${deploy_script} COMPONENT Runtime)
 message(STATUS "Found Doxy: " ${DOXYGEN_FOUND})
 
 if(DOXYGEN_FOUND)
+if(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/docs/html )
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/html 
 		DESTINATION share/docs COMPONENT Documentation
 	)
-
+endif(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/docs/html)
+if(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/docs/latex/refman.pdf)
 	install(
 		FILES ${CMAKE_CURRENT_BINARY_DIR}/docs/latex/refman.pdf
 		DESTINATION share/docs COMPONENT Documentation RENAME HenchmanService.pdf
 	)
+endif(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/docs/latex/refman.pdf)
 endif(DOXYGEN_FOUND)
 #IF (WIN32)
 	# for windows, use nsis
@@ -311,23 +314,17 @@ endif(DOXYGEN_FOUND)
 #set(CPACK_PACKAGE_INSTALL_DIRECTORY "release")
 include(CPackConfig)
 
-MESSAGE(STATUS "CPack: " ${CPACK_GENERATOR})
-
-MESSAGE(STATUS "CPack output: ${CPACK_PACKAGE_FILE_NAME}")
-add_custom_command(
-	OUTPUT ${CPACK_PACKAGE_FILE_NAME}.exe
+add_custom_target(
+	Generate_Project_Installer
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND_EXPAND_LISTS
 	COMMAND cmake --build . --config Release --target PACKAGE
 	COMMENT "Generate installer for project using custom target" VERBATIM
 )
+if(DOXYGEN_FOUND)
+add_dependencies(Generate_Project_Installer DOC)
+endif(DOXYGEN_FOUND)
+#add_dependencies(Generate_Project_Installer HenchmanService)
 
-add_custom_target(
-	Generate_Project_Installer
-	DEPENDS ${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_SYSTEM_NAME}.exe
-	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-)
-add_dependencies(Generate_Project_Installer HenchmanService)
 
 #"generator": "Ninja",
 #"generator": "Visual Studio 17 2022",

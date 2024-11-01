@@ -2,8 +2,8 @@
 #define HENCHMAN_SERVICE_EXCEPTION_H
 #pragma once
 
-#include <iostream>
 #include <exception>
+#include <iostream>
 #include <source_location>
 
 #include "EventManager.h"

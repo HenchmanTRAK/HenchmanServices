@@ -14,8 +14,8 @@
 
 #include <QString>
 
-#include "RegistryManager.h"
 #include "HenchmanServiceException.h"
+#include "RegistryManager.h"
 
 
 

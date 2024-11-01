@@ -4,41 +4,42 @@
 
 
 #include <iostream>
+#include <map>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <map>
-#include <sstream>
 
+#include <QCoreApplication>
+#include <QEventLoop>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QMap>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QObject>
-#include <QString>
+#include <QRegularExpression>
+#include <QRestAccessManager>
+#include <QRestReply>
 #include <QSettings>
 #include <QSqlDatabase>
 #include <QSqlDriver>
-#include <QSqlRecord>
 #include <QSqlError>
 #include <QSqlQuery>
-#include <QFile>
+#include <QSqlRecord>
+#include <QString>
 #include <QTextStream>
+#include <QTimer>
 #include <QUrl>
 #include <QUrlQuery>
-#include <QNetworkAccessManager>
-#include <QRestAccessManager>
-#include <QNetworkReply>
-#include <QRestReply>
-#include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QEventLoop>
-#include <QRegularExpression>
-#include <QTimer>
-#include <QCoreApplication>
-#include <QMap>
+#include <QList>
 
 #include "HenchmanServiceException.h"
-#include "ServiceHelper.h"
 #include "RegistryManager.h"
-#include "SQLiteManager2.h"
+#include "ServiceHelper.h"
+
 
 typedef QMap<QString, QString> QStringMap;
 

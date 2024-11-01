@@ -1,27 +1,26 @@
 #ifndef SQLITE_MANAGER_2_H
 #define SQLITE_MANAGER_2_H
-
 #pragma once
 
 #include <iostream>
-#include <string>
-#include <sstream>
-#include <vector>
 #include <map>
+#include <sstream>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include <QObject>
-#include <QString>
 #include <QSettings>
 #include <QSqlDatabase>
 #include <QSqlDriver>
 #include <QSqlQuery>
+#include <QString>
 
 //#include <Windows.h>
 
+#include "DatabaseManager.h"
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
-#include "DatabaseManager.h"
 #include "ServiceHelper.h"
 
 typedef std::map<std::string, std::string> stringmap;
