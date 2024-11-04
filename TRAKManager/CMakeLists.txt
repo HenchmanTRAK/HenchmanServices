@@ -6,13 +6,13 @@ target_include_directories(TRAKManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(
 	TRAKManager PRIVATE
 	Qt6::Core
-	Qt6::Sql
 	Qt6::Network
+	Qt6::Sql
 	SimpleIni
-	EventManager
 	HenchmanServiceException
-	RegistryManager
+	EventManager
 	ServiceHelper
+	RegistryManager
 	DatabaseManager
 )
 

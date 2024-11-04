@@ -11,17 +11,18 @@ const char * HenchmanServiceException::what() const {
 }
 
 //HenchmanServiceException::HenchmanServiceException(string msg, string function)
+//cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
+
 HenchmanServiceException::HenchmanServiceException(
 	string msg, 
 	const source_location& location
 )
 {
 	caller = location;
-	//cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
 
 	int substringStart = string(caller.function_name()).find_first_of(" ")+1;
 	int substringEnd = string(caller.function_name()).find_first_of("(")-substringStart;
-	vector exploded = ExplodeString((
+	vector exploded = ServiceHelper::ExplodeString((
 		substringStart >= substringEnd
 		? __FUNCTION__
 		: string(caller.function_name())
@@ -30,7 +31,7 @@ HenchmanServiceException::HenchmanServiceException(
 			substringEnd
 		)), " ");
 
-	exploded = ExplodeString(exploded[exploded.size() - 1], "::", 2);
+	exploded = ServiceHelper::ExplodeString(exploded[exploded.size() - 1], "::", 2);
 	functionName = "";
 	for (int i = 0; i < exploded.size(); i++)
 	{

@@ -7,8 +7,7 @@ using namespace std;
 HKEY RegistryManager::OpenKey(HKEY hRootKey, string strKey)
 {
 	HKEY hKey;
-	//string strKey = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\" + SERVICE_NAME;
-	//cout << strKey << endl;
+	
 	LONG nError = RegOpenKeyExA(hRootKey, strKey.data(), NULL, KEY_ALL_ACCESS, &hKey);
 	if (nError == ERROR_FILE_NOT_FOUND)
 	{
@@ -24,8 +23,7 @@ HKEY RegistryManager::OpenKey(HKEY hRootKey, string strKey)
 
 int RegistryManager::RemoveKey(HKEY hRootKey, string strKey)
 {
-	//string strKey = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\" + SERVICE_NAME;
-	//cout << strKey << endl;
+
 	LONG nError = RegDeleteKeyA(hRootKey, strKey.data());
 
 	return nError;
@@ -56,7 +54,7 @@ string RegistryManager::GetStrVal(HKEY &hKey, const char* lpValue, DWORD type)
 	DWORD buffSize = 1024;
 	char data[1024] = "\0";
 	string reply = ""; // The value will be created and set to data next time SetVal() is called.
-	//cout << lpValue << endl;
+	
 	//LONG nError = RegQueryValueEx(hKey, lpValue, NULL, &type, (LPBYTE)data, &buffSize);
 	LONG nError = RegGetValueA(hKey, NULL, lpValue, RRF_RT_ANY, NULL, data, &buffSize);
 
@@ -66,10 +64,10 @@ string RegistryManager::GetStrVal(HKEY &hKey, const char* lpValue, DWORD type)
 		cout << "Error: " << nError << " Could not get registry value " << (char*)lpValue << endl;
 	else 
 	{
-		//cout << "data: " << data << bool(nError == ERROR_FILE_NOT_FOUND) << endl;
+
 		for (int i = 0; i < buffSize-1; i++) 
 		{
-			reply = reply + data[i];
+			reply += data[i];
 		}
 		/*reply.resize(buffSize-1);*/
 		//cout << "reply: " << reply << endl;

@@ -8,45 +8,45 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	std::cout << "Constructing SQLiteManager2" << std::endl;
 
 	std::cout << "Fetching values from registry" << std::endl;
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	QString installDir = QString::fromStdString(RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ));
-	std::string dbName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	QString installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
+	std::string dbName = RegistryManager().GetStrVal(hKey, "DatabaseName", REG_SZ);
 
 	std::cout << "Fetching values from ini file" << std::endl;
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
-	ini.sync();
 	ini.beginGroup("SYSTEM");
-	databaseName = ini.value("database", "").toString().toStdString() + ".db3";
+	databaseName = ini.value("database", "").toString().toStdString();
 	databaseLocation = (
 		ini.value("databaseLocation", "").toString() == ""
 		? installDir
 		: ini.value("databaseLocation", "").toString()
-		).toStdString();
+		);
 	ini.endGroup();
 	
 	QSqlDatabase db;
 
 	try{
 		std::cout << "Initializing requirements" << std::endl;
-
-		if(QString::fromStdString(databaseName).isEmpty() && QString::fromStdString(dbName).isEmpty())
+		std::cout << "Database name in ini: " << databaseName << std::endl;
+		std::cout << "Database name in registry: " << dbName << std::endl;
+		if(databaseName.empty() && dbName.empty())
 			throw HenchmanServiceException("No database name specified in service.ini");
 
-		if(QString::fromStdString(databaseName).isEmpty() && !QString::fromStdString(dbName).isEmpty())
+		if(databaseName.empty() && !dbName.empty())
 			databaseName = dbName;
-		else
-			RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
+		if(databaseName != dbName)
+			RegistryManager().SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
 
 		std::cout << "Checking for driver availability" << std::endl;
-		if (!QSqlDatabase::isDriverAvailable(databaseDriver.data()))
+		if (!QSqlDatabase::isDriverAvailable(databaseDriver))
 			throw HenchmanServiceException("QSQLITE database driver was not found");
 
 		std::cout << "Checking if database has been previously defined" << std::endl;
 		if (QSqlDatabase::contains(databaseName.data()))
 			db = QSqlDatabase::database(databaseName.data());
 		else {
-			db = QSqlDatabase::addDatabase(databaseDriver.data(), databaseName.data());
-			db.setDatabaseName(QString::fromStdString(databaseLocation + "\\" + databaseName));
+			db = QSqlDatabase::addDatabase(databaseDriver, databaseName.data());
+			db.setDatabaseName(databaseLocation + "\\" + databaseName.data());
 		}
 
 		std::cout << "Initializing Database" << std::endl;

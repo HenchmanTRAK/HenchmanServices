@@ -12,66 +12,90 @@
 /**
  * @class EventManager
  *
- * @brief The EventManager class provides functions for managing events and logging messages.
+ * @brief The EventManager class represents a manager for events in the HenchmanService application.
  *
- * This class allows you to report custom events and log messages to the event log.
- * It provides methods for initializing the event manager, reporting custom events,
- * and logging messages.
+ * This class contains the necessary data members and member functions to manage events, including registering event sources, reporting custom events, and getting event messages.
  *
  * @author Willem Swanepoel
  * @version 1.0
  *
  * @details
- * - The EventManager class uses the Windows API for event logging.
- * - The class handles exceptions for common errors that may occur during event logging.
- * - The class provides a convenient way to manage events and log messages within your application.
+ * The class has the following data members:
+ * - `std::string eventSource`: The source of the event.
+ * - `HANDLE hEventSource`: The handle to the event source.
+ * - `LPVOID lpMsgBuf`: The message buffer for the event.
+ * - `LPVOID lpDisplayBuf`: The display buffer for the event.
  *
- * @see Windows Event Log
- * @see ReportEvent
- * @see RegisterEventSource
+ * The class has the following member functions:
+ * - `EventManager(std::string source)`: The constructor for the EventManager class.
+ * - `~EventManager()`: The destructor for the EventManager class.
+ * - `const char* EventMessage(const char* lpszFunction, std::string msg)`: Gets the event message for a specific function and message.
+ * - `void ReportCustomEvent(const char* function, std::string msg, int type)`: Reports a custom event.
  */
 class EventManager
 {
 public:
 
 	/**
-	 * @brief Initializes the event manager with the specified source.
+	 * @brief Constructs an EventManager object.
 	 *
-	 * This function initializes the event manager with the specified source and registers
-	 * the event source with the event log.
+	 * This constructor initializes the EventManager object with the specified event source.
 	 *
 	 * @param source The source of the event.
 	 */
 	EventManager(std::string source);
 
 	/**
-	 * @brief Deregisters the event source and frees resources.
+	 * @brief Destroys the EventManager object.
 	 *
-	 * This function deregisters the event source and frees resources when the event manager is destroyed.
+	 * This destructor performs cleanup operations for the EventManager object.
 	 */
 	~EventManager();
 
 	/**
 	 * @brief Reports a custom event.
 	 *
-	 * This function reports a custom event with the specified function, message, and type.
+	 * This member function reports a custom event with the specified function, message, and type.
 	 *
 	 * @param function The function that triggered the event.
 	 * @param msg The message associated with the event.
-	 * @param type The type of the event (1 = INFORMATION, 2 = WARNING, 3 = ERROR).
+	 * @param type The type of the event.
 	 */
 	void ReportCustomEvent(const char *function, std::string msg = "", int type = 3);
 
 private:
+	/**
+	 * @var eventSource
+	 *
+	 * @brief The source of the event.
+	 */
 	std::string eventSource;
-	HANDLE hEventSource;
-	LPVOID lpMsgBuf;
-	LPVOID lpDisplayBuf;
 
 	/**
-	 * @brief Gets the event message for the specified function and message.
+	 * @var eventSource
 	 *
-	 * This function gets the event message for the specified function and message.
+	 * @brief The source of the event.
+	 */
+	HANDLE hEventSource = NULL;
+
+	/**
+	 * @var lpMsgBuf
+	 *
+	 * @brief The message buffer for the event.
+	 */
+	LPVOID lpMsgBuf = nullptr;
+
+	/**
+	 * @var lpDisplayBuf
+	 *
+	 * @brief The display buffer for the event.
+	 */
+	LPVOID lpDisplayBuf = nullptr;
+
+	/**
+	 * @brief Gets the event message for a specific function and message.
+	 *
+	 * This member function gets the event message for a specific function and message.
 	 *
 	 * @param lpszFunction The function that triggered the event.
 	 * @param msg The message associated with the event.

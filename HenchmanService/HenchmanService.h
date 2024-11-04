@@ -10,34 +10,39 @@
 //#include "openssl/err.h"
 //#include "openssl/ssl.h"
 
+#include <iostream>
+#include <sstream>
 
 //#include <netlistmgr.h>
-//#include <strsafe.h>
+
 //#include <tchar.h>
-#include <Windows.h>
-#include <TlHelp32.h>
+
 //#include <WinSock2.h>
 //#include <Ws2tcpip.h>
 
 //#include <future>
 //#include <thread>
-//
+
+#include <QCoreApplication>
+#include <QObject>
+#include <QString>
 //#include <QByteArray>
-//#include <QCoreApplication>
 //#include <QString>
 //#include <QTimer>
 //#include <QTcpSocket>
 
 #include "SimpleIni.h"
 
-#include "HenchmanServiceException.h"
-#include "EventManager.h"
-#include "RegistryManager.h"
 #include "DatabaseManager.h"
-#include "ServiceHelper.h"
 #include "SQLiteManager2.h"
-#include "SQLiteManager.h"
+#include "ServiceHelper.h"
+#include "RegistryManager.h"
+#include "EventManager.h"
 #include "TRAKManager.h"
+#include "ServiceController.h"
+
+#include <Windows.h>
+#include <TlHelp32.h>
 
 
 #pragma comment(lib, "advapi32.lib")
@@ -54,14 +59,6 @@
 //#define SERVICE_ACCOUNT			L"NT AUTHORITY\\LocalService"
 #define SERVICE_PASSWORD        NULL
 #define CRLF "\r\n"
-
-SERVICE_STATUS		  g_ServiceStatus = { 0 };
-SERVICE_STATUS_HANDLE g_StatusHandle = NULL;
-HANDLE				  g_ServiceStopEvent = INVALID_HANDLE_VALUE;
-
-SC_HANDLE schSCManager;
-SC_HANDLE schService;
-
 
 /**
  * @brief The main class for the HenchmanService application.
@@ -89,12 +86,12 @@ SC_HANDLE schService;
  * - `bool SetRequiredParameters()`: Sets up the application's configuration.
  * - `void checkStateOfMySQL()`: Checks the state of the MySQL service.
  * - `void checkStateOfApache()`: Checks the state of the Apache service.
- * - `void ConnectWithSMTP()`: Connects with the SMTP server.
  * - `int MainFunction()`: The main function for the HenchmanService application.
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HenchmanService {
+class HenchmanService
+{
 
 private:
 	/**
@@ -200,6 +197,7 @@ public:
 	 * @brief The default constructor for the HenchmanService class.
 	 *
 	 * Initializes the application's configuration and sets up the database connection.
+	 * 
 	 */
 	HenchmanService();
 
@@ -238,19 +236,7 @@ public:
 	int MainFunction();
 };
 
-void DoInstallSvc();
-void __stdcall DoStartSvc(const char* sService = SERVICE_NAME);
-int __stdcall StartTargetSvc(const char* sService);
-void __stdcall DoStopSvc(const char* sService = SERVICE_NAME);
-bool __stdcall StopDependentServices();
-void __stdcall DoDeleteSvc(const char* sService = SERVICE_NAME);
-void ReportSvcStatus(
-	DWORD dwCurrentState,
-	DWORD dwWin32ExitCode,
-	DWORD dwWaitHint
-);
-DWORD GetSvcStatus(const char* sService = SERVICE_NAME);
-void WINAPI SvcCtrlHandler(DWORD CtrlCode);
+
 void WINAPI SvcMain(int dwArgc, char* lpszArgv[]);
 void SvcInit();
 DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
