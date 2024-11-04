@@ -95,7 +95,7 @@ jobs:
         oldVer=$((splitCurrVer[0]*100 + splitCurrVer[1]*10 + splitCurrVer[2]))
         newVer=$((splitNewVer[0]*100 + splitNewVer[1]*10 + splitNewVer[2]))
         echo "CURR_VERSION_NUMBER=$(echo $oldVer)" >> $GITHUB_OUTPUT
-        echo "VERSION_NUMBER=$(echo newVer)" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=$(echo $newVer)" >> $GITHUB_OUTPUT
 
   build:
     needs: [setup]  
@@ -131,6 +131,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
   
+    - name: "Checking needs output"	
+      shell: bash	
+      run: |	
+        echo ${{needs.setup.outputs.VERSION}}	
+        echo ${{needs.setup.outputs.CURR_VERSION}}	
+        echo ${{needs.setup.outputs.VERSION_NUMBER}}	
+        echo ${{needs.setup.outputs.CURR_VERSION_NUMBER}}
+  
     - name: Generate empty ini file.
       id: ini_file
       shell: cmd
@@ -154,9 +162,9 @@ jobs:
         vcpkg install openssl
 
     - name: Install Qt
-      uses: jurplel/install-qt-action@v4
+      uses: jurplel/install-qt-action@v3
       with:
-        version: '6.8'
+        version: '6.7.2'
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2019_64'
