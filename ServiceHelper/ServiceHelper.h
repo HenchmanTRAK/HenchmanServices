@@ -13,6 +13,7 @@
 #include <fstream>
 
 #include <QString>
+#include <QList>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -203,26 +204,28 @@ public:
 	 */
 	void removeQuotes(std::string& stringValue);
 
+	/**
+	 * @brief Explodes a string into a vector of substrings based on a specified separator.
+	 *
+	 * This function takes a string and a separator as input, and returns a vector of substrings.
+	 *
+	 * @param targetString The string to explode.
+	 * @param seperator The separator to use.
+	 * @param maxLen The maximum number of substrings to return.
+	 *
+	 * @return A vector of substrings.
+	 *
+	 * @throws Throws an exception if the input string or separator is invalid.
+	 */
+	static std::vector<std::string> ExplodeString(std::string targetString, const char seperator[], int maxLen = -1);
+
+	static QList<QString> ExplodeString(QString targetString, const char seperator[], int maxLen = -1);
+
 private:
 	std::string functionName;
 
 	void WriteLog(char* targetFile, std::string log);
 
 };
-
-/**
- * @brief Explodes a string into a vector of substrings based on a specified separator.
- *
- * This function takes a string and a separator as input, and returns a vector of substrings.
- *
- * @param targetString The string to explode.
- * @param seperator The separator to use.
- * @param maxLen The maximum number of substrings to return.
- *
- * @return A vector of substrings.
- *
- * @throws Throws an exception if the input string or separator is invalid.
- */
-std::vector<std::string> ExplodeString(const std::string& targetString, const char* seperator, int maxLen = -1);
 
 #endif

@@ -67,7 +67,7 @@ enum table_enums{
 	lokkaemployeeitemtransactions
 };
 
-static std::map<std::string, table_enums> table_map = {
+static QMap<QString, table_enums> table_map = {
 	{"tools", tools},
 	{"users", users},
 	{"employees", employees},

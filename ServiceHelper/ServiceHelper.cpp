@@ -29,30 +29,60 @@ ServiceHelper::ServiceHelper(const std::source_location& caller)
 	}
 }
 
-vector<string> ExplodeString(const string& targetString, const char *seperator, int maxLen)
+vector<string> ServiceHelper::ExplodeString(string targetString, const char seperator[], int maxLen)
 {
 	vector<string> results;
-	string s = targetString;
 	try {
-		if (s == "")
+		if (targetString == "")
 			throw HenchmanServiceException("No String was provided");
 		if (seperator == "")
 			throw HenchmanServiceException("Invalid Seperator provided");
 
 		size_t pos = 0;
-		while ((pos = s.find(seperator)) != string::npos) {
-			string token = s.substr(0, pos);
-			s.erase(0, pos + string(seperator).length());
+		while ((pos = targetString.find(seperator)) != string::npos) {
+			string token = targetString.substr(0, pos);
+			targetString.erase(0, pos + string(seperator).length());
 			if(token != "")
 				results.push_back(token);
 		}
-		if (s != "")
-			results.push_back(s);
+		if (targetString != "")
+			results.push_back(targetString);
 		if (maxLen > 0 && results.size() > maxLen)
 		{
 			results.resize(maxLen);
 		}
 			
+	}
+	catch (exception& e)
+	{
+		ServiceHelper().WriteToError(e.what());
+	}
+	return results;
+}
+
+QList<QString> ServiceHelper::ExplodeString(QString targetString, const char seperator[], int maxLen)
+{
+	QList<QString> results;
+	try {
+		if (targetString == "")
+			throw HenchmanServiceException("No String was provided");
+		if (seperator == "")
+			throw HenchmanServiceException("Invalid Seperator provided");
+
+		size_t pos = 0;
+		while ((pos = targetString.indexOf(seperator)) != string::npos) {
+			QString token = targetString.mid(0, pos);
+			targetString.remove(0, pos + QString(seperator).length());
+			if (token != "")
+				results.push_back(token);
+		}
+		if (targetString != "")
+			results.push_back(targetString);
+		if (maxLen > 0 && results.size() > maxLen)
+		{
+			results.resize(maxLen);
+		}
+
 	}
 	catch (exception& e)
 	{

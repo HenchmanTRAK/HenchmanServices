@@ -896,6 +896,8 @@ int DatabaseManager::connectToRemoteDB()
 					).replace("()", "").simplified();
 				//qDebug() << res;
 
+				ServiceHelper().WriteToCustomLog("Query fetched from database: " + res["query"].toStdString(), timeStamp[0] + "-queries");
+
 				HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 				string trakType = RegistryManager().GetStrVal(hKey, "APP_NAME", REG_SZ);
 				RegCloseKey(hKey);
@@ -913,8 +915,8 @@ int DatabaseManager::connectToRemoteDB()
 					int startpoint = substr.indexOf("=")+1;
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
 					QString substr2 = substr.mid(startpoint, endpoint-startpoint).trimmed();
-					//qDebug() << substr2 << " | " << custId;
 					if (substr2.toStdString() != custId) {
+						qDebug() << substr2 << " | " << custId;
 						//qDebug() << "skipping query";
 						skipQuery = true;
 						goto parsedQuery;
@@ -932,30 +934,32 @@ int DatabaseManager::connectToRemoteDB()
 					int startpoint = substr.indexOf("=")+1;
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
 					QString substr2 = substr.mid(startpoint, endpoint - startpoint).trimmed();
-					//qDebug() << substr2 << " | " << "'" + idNum + "'";
 					if (substr2.toStdString() != "'" + idNum + "'") {
+						qDebug() << substr2 << " | " << "'" + idNum + "'";
 						//qDebug() << "skipping query";
 						skipQuery = true;
 						goto parsedQuery;
 					}
 					//res["query"].replace(substr2, QString(trakId.data()) + " = '" + QString(idNum.data()) + "'");
 				}
-
-				if (res["query"].contains("insert", Qt::CaseInsensitive) && !skipQuery) {
+				vector<std::string> splitQuery = ServiceHelper::ExplodeString(res["query"].toStdString(), " ");
+				qDebug() << splitQuery;
+				
+				if (QString::fromStdString(splitQuery[0]).contains("insert", Qt::CaseInsensitive) && !skipQuery) {
 					ServiceHelper().WriteToLog("Parsing insert to prevent duplication creation");
 					int startpoint = res["query"].indexOf("(") + 1;
 					int endpoint = res["query"].indexOf(")", startpoint) - startpoint;
-					string queryStart = res["query"].first(startpoint - 1).toStdString();
-					vector splitQueryStart = ExplodeString(queryStart, " ");
+					QString queryStart = res["query"].first(startpoint - 1);
+					QStringList splitQueryStart = ServiceHelper::ExplodeString(queryStart, " ");
 
-					string columns = res["query"].mid(startpoint, endpoint).toStdString();
-					vector splitColumns = ExplodeString(columns, ",");
+					QString columns = res["query"].mid(startpoint, endpoint);
+					QStringList splitColumns = ServiceHelper::ExplodeString(columns, ",");
 					//qDebug() << columns << "|" << splitColumns;
 
 					startpoint = res["query"].indexOf("(", startpoint) + 1;
 					endpoint = res["query"].indexOf(")", startpoint) - startpoint;
-					string values = res["query"].mid(startpoint, endpoint).toStdString();
-					vector splitValues = ExplodeString(values, ",");
+					QString values = res["query"].mid(startpoint, endpoint);
+					QStringList splitValues = ServiceHelper::ExplodeString(values, ",");
 					//qDebug() << values << "|" << splitValues;
 
 					QStringMap map;
@@ -963,13 +967,15 @@ int DatabaseManager::connectToRemoteDB()
 					values.clear();
 					//qDebug() << splitColumns << "\n | \n" << splitValues;
 					for (int i = 0; i < splitColumns.size(); i++) {
-						QString col = QString::fromStdString(splitColumns.at(i)).simplified();
-						QString val = QString::fromStdString(splitValues.at(i)).simplified();
+						QString col = splitColumns.at(i).simplified();
+						QString val = splitValues.at(i).simplified();
 
 						if (val.isEmpty() || val == "''" || col == "id")
 							continue;
 						if (val[0] != '\'')
-							val = "'" + val + "'";
+							val = "'" + val;
+						if (val[val.size()-1] != '\'')
+							val.append("'");
 
 						string valueCheck;
 						if (col.contains(trakId.data(), Qt::CaseInsensitive)) {
@@ -1001,9 +1007,9 @@ int DatabaseManager::connectToRemoteDB()
 					if (skipQuery)
 						goto parsedQuery;
 
-					if (columns.ends_with(", "))
+					if (columns.endsWith(", "))
 						columns.resize(columns.size() - 2);
-					if (values.ends_with(", "))
+					if (values.endsWith(", "))
 						values.resize(values.size() - 2);
 
 					switch (table_map[splitQueryStart.at(splitQueryStart.size() - 1)])
@@ -1123,44 +1129,36 @@ int DatabaseManager::connectToRemoteDB()
 					case portaemployeeitemtransactions:
 					case lokkaemployeeitemtransactions:
 					default: 
-						res["query"] = QString::fromStdString(
+						res["query"] =
 							queryStart + "(" +
 							columns +
-							") VALUES ("+
-							values+
-							")"
-						);
+							") VALUES (" +
+							values +
+							")";
 						break;
 					}
 				}
 
-				if (res["query"].contains("update", Qt::CaseInsensitive) && !skipQuery) {
+				if (QString::fromStdString(splitQuery[0]).contains("update", Qt::CaseInsensitive) && !skipQuery) {
 					ServiceHelper().WriteToLog("Parsing update to prevent altering entries not for current device");
-					vector splitQuery = ExplodeString(res["query"].toStdString(), " ");
-					QList<QString> returnVal;
+					QStringList splitQueryForParsing = ServiceHelper::ExplodeString(res["query"], " ");
+					QStringList returnVal;
 
-					for (int i = 0; i < splitQuery.size(); i++) {
-						returnVal.push_back(QString::fromStdString(splitQuery[i]));
+					for (int i = 0; i < splitQueryForParsing.size(); i++) {
+						returnVal.push_back(splitQueryForParsing[i]);
 
-						if (splitQuery[i] != "=")
+						if (splitQueryForParsing[i] != "=")
 							continue;
 
-						string &targetCol = splitQuery[i - 1];
-						string &valueToUse = splitQuery[i + 1];
-						if (valueToUse[0] != '\'')
-						{
-							valueToUse = "'" + valueToUse + "'";
-						}
-						if (valueToUse[valueToUse.size() - 2] == ',') {
-							valueToUse.resize(valueToUse.size() - 2);
-							valueToUse.append("',");
-						}
+						QString targetCol = splitQueryForParsing[i - 1];
+						QString valueToUse = splitQueryForParsing[i + 1];
 
 						if (
 							(targetCol == "id") 
-							|| (targetCol == "custId" && valueToUse != "'" + custId + "'")
-							|| (targetCol == trakId && valueToUse != "'" + idNum + "'")
+							|| (targetCol.contains("custId", Qt::CaseInsensitive) && !valueToUse.contains(custId.data()))
+							|| (targetCol.contains(trakId.data(), Qt::CaseInsensitive) && !valueToUse.contains(idNum.data()))
 							) {
+							qDebug() << targetCol << ": " << valueToUse << " <> " << custId << " | " << idNum;
 							skipQuery = true;
 							goto parsedQuery;
 						}
@@ -1175,8 +1173,8 @@ int DatabaseManager::connectToRemoteDB()
 			}
 
 		parsedQuery:
-			qDebug() << res;
 			ServiceHelper().WriteToLog("Query parsed. " + string(skipQuery ? "Query is getting skipped" : "Query is being run"));
+			ServiceHelper().WriteToCustomLog("Query after being parsed: \n" + res["query"].toStdString(), timeStamp[0] + "-queries");
 			if (skipQuery ? true : makeNetworkRequest(apiUrl, res))
 			{
 				string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + res["id"].toStdString();

@@ -212,7 +212,7 @@ if(APPLE)
 #elseif(MSVC)
 #    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>")
 else()
-    set(executable_path "${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
+    set(executable_path "\${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
 endif()
 
 message(STATUS ${executable_path})
