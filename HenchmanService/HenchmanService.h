@@ -12,6 +12,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <filesystem>
 
 //#include <netlistmgr.h>
 
@@ -90,8 +91,10 @@
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HenchmanService
+class HenchmanService: public QObject
 {
+
+	Q_OBJECT
 
 private:
 	/**
@@ -199,7 +202,7 @@ public:
 	 * Initializes the application's configuration and sets up the database connection.
 	 * 
 	 */
-	HenchmanService();
+	HenchmanService(QObject *parent);
 
 	/**
 	 * @brief The destructor for the HenchmanService class.

@@ -9,7 +9,7 @@ using namespace std;
 
 bool testing = false;
 
-QCoreApplication* a = nullptr;
+//QCoreApplication* a = nullptr;
 unique_ptr<ServiceController> svcController = nullptr;
 
 // ShowCerts - Prints out the given certificate.
@@ -299,9 +299,9 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	RegCloseKey(hKey);
 
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
-		
-	a = new QCoreApplication(argc, argv);
-	HenchmanService service;
+	
+	QCoreApplication* a = new QCoreApplication(argc, argv);
+	HenchmanService service(a);
 	
 	while (WaitForSingleObject(svcController->g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
@@ -378,7 +378,8 @@ static void removeContextMenu()
 	RegistryManager().RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
 }
 
-HenchmanService::HenchmanService()
+HenchmanService::HenchmanService(QObject *parent)
+	: QObject(parent), sqliteManager(make_unique<SQLiteManager2>(parent)), dbManager(make_unique<DatabaseManager>(parent))
 {
 	CSimpleIniA ini;
 
@@ -425,7 +426,7 @@ HenchmanService::HenchmanService()
 	}
 
 	RegCloseKey(hKey);
-	sqliteManager = make_unique<SQLiteManager2>(a);
+	//sqliteManager = make_unique<SQLiteManager2>(a);
 
 
 	string tableName = "TestTable";
@@ -457,7 +458,7 @@ HenchmanService::HenchmanService()
 
 		data.clear();
 	}
-	dbManager = make_unique<DatabaseManager>(a);
+	//dbManager = make_unique<DatabaseManager>(a);
 
 	/*currDir.clear();
 	installDir.clear();
@@ -558,7 +559,8 @@ int HenchmanService::MainFunction()
 	if (!dbManager->isInternetConnected())
 	{
 		ServiceHelper().WriteToLog("Failed to confirm network connection");
-		QTimer::singleShot(100, a, &QCoreApplication::quit);
+		//QTimer::singleShot(100, a, &QCoreApplication::quit);
+		QTimer::singleShot(100, this->parent(), &QCoreApplication::quit);
 		return 0;
 	}
 
@@ -589,7 +591,8 @@ int HenchmanService::MainFunction()
 		dbManager->connectToRemoteDB();
 	}
 	else {
-		QTimer::singleShot(1000, a, &QCoreApplication::quit);
+		//QTimer::singleShot(1000, a, &QCoreApplication::quit);
+		QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	}
 
 	/*if (!(dbManager->AddKabsIfNotExists() ||
@@ -720,13 +723,10 @@ int main(int argc, char* argv[])
 	if (lstrcmpiA(argv[1], "--install") == 0)
 	{
 		HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-		char buff[MAX_PATH];
-		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
 		string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-		if (installDir == "" || installDir != buff)
+		if (installDir == "" || installDir != filesystem::current_path())
 		{
-			installDir = buff;
-			std::cout << installDir << endl;
+			installDir = filesystem::current_path().string();
 			RegistryManager().SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
 		}
 		RegCloseKey(hKey);
