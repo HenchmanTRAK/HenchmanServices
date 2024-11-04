@@ -95,7 +95,7 @@ jobs:
         oldVer=$((splitCurrVer[0]*100 + splitCurrVer[1]*10 + splitCurrVer[2]))
         newVer=$((splitNewVer[0]*100 + splitNewVer[1]*10 + splitNewVer[2]))
         echo "CURR_VERSION_NUMBER=$(echo $oldVer)" >> $GITHUB_OUTPUT
-        echo "VERSION_NUMBER=$(echo newVer)" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=$(echo $newVer)" >> $GITHUB_OUTPUT
 
   build:
     needs: [setup]  
