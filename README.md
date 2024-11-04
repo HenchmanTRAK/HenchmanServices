@@ -84,6 +84,10 @@ Password = password_to_backend_api
 url = url_to_backend_api
 numberOfQueries = number_of_cloudupdate_queries
 
+[SYSTEM]
+database = name_of_sqlite_database
+databaseLocation = location_to_place_database
+
 [DEVELOPMENT]
 testingMain = 0|1
 testingDBManager = 0|1
@@ -110,6 +114,10 @@ testingDBManager = 0|1
 	- `Password` : Specifies the password for the backend API. `default: ""`
 	- `url` : Specifies the URL of the backend API, exclusive of the protocol. `default: https://webportal.henchmantrak.com/webapi/public/api/portals/exec_query`
 	- `numberOfQueries` : Specified the maximum number of queries the application will attempt to run in a cycle. `default: 10`
+
+ - `[SYSTEM]` section:
+	- `database` = Specifies the name of the sqlite database. `default: ""`
+	- `databaseLocation` = Specifies the path the database will be placed. `default: ""`
 
  - `[DEVELOPMENT]` section:
 	- `testingMain` : 0 or 1; Specifies if app should build in testing mode. `default: 0`

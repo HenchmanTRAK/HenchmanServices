@@ -1,6 +1,7 @@
 .vs
 out
 *.ini
+!example_*.ini
 backup
 **/*.bak
 build
