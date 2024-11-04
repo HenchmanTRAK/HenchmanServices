@@ -10,7 +10,6 @@ if (POLICY CMP0141)
 endif()
 
 if(MSVC)
-	message(status "target: " <target>)
 	target_compile_options(<target> PUBLIC "/ZI")
 	target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
@@ -23,12 +22,18 @@ endif()
 file(READ version PROJECT_VER)
 
 
-project (HenchmanService VERSION ${PROJECT_VER} LANGUAGES CXX C)
-if(EXISTS $ENV{VCPKG_ROOT})
-	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
+project (HenchmanServices VERSION ${PROJECT_VER} LANGUAGES CXX C)
+#set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+#set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "")
+
+#if(EXISTS $ENV{VCPKG_ROOT})
+#	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake)
 #elseif(EXISTS $ENV{VCPKG_INSTALLATION_ROOT})
 #	set(CMAKE_TOOLCHAIN_FILE $ENV{VCPKG_INSTALLATION_ROOT}/scripts/buildsystems/vcpkg.cmake)
-endif()
+#endif()
+
+message(STATUS "generator toolset: " ${CMAKE_CURRENT_SOURCE_DIR})
+#set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT HenchmanService)
 
 set(TRACEDESIGNTIME TRUE)
 #set(CMAKE_VS_INCLUDE_INSTALL_TO_DEFAULT_BUILD 1)
@@ -44,10 +49,10 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-message(STATUS "Using c++ standard c++${CMAKE_CXX_STANDARD}")
+message(STATUS "Using c++ standard c++ ${CMAKE_CXX_STANDARD}")
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -72,7 +77,7 @@ foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 	set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY} )
 	set (CMAKE_CXX_FLAGS_${OUTPUTCONFIG}                "/ZI /Od")
 	set (CMAKE_EXE_LINKER_FLAGS_${OUTPUTCONFIG}         "/${CONFIGTYPE}")
-endforeach( OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES )
+endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
 set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
@@ -85,23 +90,7 @@ qt_standard_project_setup()
 #COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
 
 find_package(Doxygen REQUIRED dot)
-if(DOXYGEN_FOUND)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
 
-add_custom_target(
-	DOC ALL
-	Doxygen::doxygen ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
-	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-	COMMENT "Generating API documentation with Doxygen" VERBATIM
-)
-
-add_custom_command(
-	TARGET DOC POST_BUILD
-    COMMAND make.bat
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/latex
-    COMMENT "Running latex pdf creator"
-)
-endif(DOXYGEN_FOUND)
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
 
@@ -121,10 +110,10 @@ endif(DOXYGEN_FOUND)
 #message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
-option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" ON)
+option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" OFF)
 option(SQLITECPP_BUILD_TESTS "Build and run tests." OFF)
-option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." ON)
-option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
+option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." OFF)
+option(SQLITECPP_RUN_CPPLINT "Run c++ lint" OFF)
 
 qt_policy(SET QTP0003 NEW)
 
@@ -165,7 +154,7 @@ FetchContent_Declare(
 
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 
-FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
+FetchContent_MakeAvailable(SimpleIni OpenSSL QMYSQL)
 
 #set(mysql-concpp_DIR "C:/Program Files/MySQL/MySQL Connector C++ 9.0")
 
@@ -177,19 +166,43 @@ FetchContent_MakeAvailable(SimpleIni SQLiteCpp OpenSSL QMYSQL)
 #set(WITH_JDBC true)
 #find_package(mysql-concpp REQUIRED debug)
 
+#add_compile_definitions($<$<CONFIG:Debug>:_ITERATOR_DEBUG_LEVEL=0>)
+
 # Include sub-projects.
 #add_subdirectory ("simpleini-4.22")
 #add_subdirectory (thirdparty/SQLiteCpp-3.3.2)
-add_subdirectory (HenchmanServiceException)
-add_subdirectory (RegistryManager)
+add_subdirectory (HenchmanService)
 add_subdirectory (ServiceHelper)
-add_subdirectory (EventManager)
-add_subdirectory (SQLiteManager)
+#add_subdirectory (SQLiteManager)
 add_subdirectory (SQLiteManager2)
 add_subdirectory (DatabaseManager)
 add_subdirectory (TRAKManager)
+add_subdirectory (HenchmanServiceException)
+add_subdirectory (EventManager)
+add_subdirectory (RegistryManager)
+add_subdirectory (ServiceController)
 #add_subdirectory (HenchmanServiceMailer)
-add_subdirectory (HenchmanServices)
+
+if(DOXYGEN_FOUND)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
+
+add_custom_target(
+	DOC
+	Doxygen::doxygen ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	COMMENT "Generating API documentation with Doxygen" VERBATIM
+)
+
+#add_dependencies(HenchmanService DOC)
+
+add_custom_command(
+	TARGET DOC POST_BUILD
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/latex
+	COMMAND make.bat
+	COMMENT "Running latex pdf creator" VERBATIM
+)
+
+endif(DOXYGEN_FOUND)
 
 file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
@@ -205,18 +218,18 @@ endif()
 message(STATUS ${executable_path})
 # Generate a deployment script to be executed at install time
 qt_generate_deploy_script(
-    TARGET HenchmanService
-    OUTPUT_SCRIPT deploy_script
+	TARGET HenchmanService
+	OUTPUT_SCRIPT deploy_script
 	#NO_UNSUPPORTED_PLATFORM_ERROR
-    CONTENT "
+	CONTENT "
 qt_deploy_runtime_dependencies(
-    EXECUTABLE \"${executable_path}\"
+	EXECUTABLE \"${executable_path}\"
 	PRE_EXCLUDE_REGEXES \"api-ms-\" \"ext-ms-\" 
 	POST_EXCLUDE_REGEXES \".*system32/.*\\.dll\" 
 	NO_UNSUPPORTED_PLATFORM_ERROR
 	NO_TRANSLATIONS
-    GENERATE_QT_CONF
-    VERBOSE
+	GENERATE_QT_CONF
+	VERBOSE
 )"
 )
 
@@ -266,7 +279,6 @@ endif()
 
 install(
 	TARGETS HenchmanService
-	#COMPONENT HenchmanService
 	BUNDLE DESTINATION .
 	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}							COMPONENT Runtime
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}							COMPONENT Runtime
@@ -274,31 +286,47 @@ install(
 )
 #set_property(TARGET HenchmanService PROPERTY WIN32_EXECUTABLE TRUE)
 install (PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
-        DESTINATION ${CMAKE_INSTALL_BINDIR}	COMPONENT Runtime)
+		DESTINATION ${CMAKE_INSTALL_BINDIR}	COMPONENT Runtime)
+
 install(SCRIPT ${deploy_script} COMPONENT Runtime)
 
 message(STATUS "Found Doxy: " ${DOXYGEN_FOUND})
 
 if(DOXYGEN_FOUND)
+if(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/docs/html )
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/docs/html 
 		DESTINATION share/docs COMPONENT Documentation
 	)
+endif(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/docs/html)
+if(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/docs/latex/refman.pdf)
+	install(
+		FILES ${CMAKE_CURRENT_BINARY_DIR}/docs/latex/refman.pdf
+		DESTINATION share/docs COMPONENT Documentation RENAME HenchmanService.pdf
+	)
+endif(EXISTS ${CMAKE_CURRENT_BINARY_DIR}/docs/latex/refman.pdf)
 endif(DOXYGEN_FOUND)
-IF (WIN32)
+#IF (WIN32)
 	# for windows, use nsis
-    SET(CPACK_GENERATOR NSIS)
-ENDIF(WIN32)
+#	SET(CPACK_GENERATOR NSIS)
+#ENDIF(WIN32)
 
+#set(CPACK_PACKAGE_INSTALL_DIRECTORY "release")
 include(CPackConfig)
-MESSAGE(STATUS "CPack: " ${CPACK_GENERATOR})
 
 add_custom_target(
 	Generate_Project_Installer
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cmake --build . --config $<CONFIG> --target PACKAGE
+	COMMAND cmake --build . --config Release --target PACKAGE
 	COMMENT "Generate installer for project using custom target" VERBATIM
 )
+if(DOXYGEN_FOUND)
+add_dependencies(Generate_Project_Installer DOC)
+endif(DOXYGEN_FOUND)
+#add_dependencies(Generate_Project_Installer HenchmanService)
+
 
 #"generator": "Ninja",
 #"generator": "Visual Studio 17 2022",
+# "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+# .suo;.sln;.ncb;.sdf;.vcxproj;.csproj;.user;.vbproj;.scc;.vsscc;.vspscc;.old;.filters;.vcxitems

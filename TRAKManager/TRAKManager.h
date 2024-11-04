@@ -26,39 +26,63 @@ enum Trak_Type {
  *
  * @brief The TRAKManager class is responsible for managing the TRAK application and its associated functionality.
  *
- * This class provides methods for checking if the TRAK application exists, saving INI file contents to the Windows registry,
- * and connecting to a local MySQL database.
+ * This class provides methods for checking if the TRAK application exists, saving INI file contents to the Windows registry, and connecting to a local MySQL database.
  *
  * @author Willem Swanepoel
  * @version 1.0
  */
 class TRAKManager {
 private:
+
+	/**
+	 * @brief A pointer to a DatabaseManager object.
+	 *
+	 * This variable is used to manage the database connection.
+	 */
 	DatabaseManager *databaseManager = nullptr;
 
+	/**
+	 * @brief The type of the TRAK application.
+	 *
+	 * This variable stores the type of the TRAK application.
+	 */
 	Trak_Type traktype = unknown;
 
 	/**
-	* @brief Checks if the TRAK application exists by reading the TRAK_DIR, INI_FILE,
-	* EXE_FILE, and APP_NAME values from the given CSimpleIniA object. If the
-	* TRAK_DIR exists, it sets the appDir, iniFile, appName, and appType
-	* variables. It then writes a log message indicating the appDir and iniFile
-	* being used. Returns true if the TRAK_DIR exists, false otherwise.
-	*
-	* @param ini - The CSimpleIniA object to read values from.
-	*
-	* @return True if the TRAK_DIR exists, false otherwise.
-	*
-	* @throws None.
-	*/
+	 * @brief Checks if the TRAK application exists by reading the TRAK_DIR, INI_FILE, EXE_FILE, and APP_NAME values from the given CSimpleIniA object.
+	 *
+	 * If the TRAK_DIR exists, it sets the appDir, iniFile, appName, and appType variables. It then writes a log message indicating the appDir and iniFile being used. Returns true if the TRAK_DIR exists, false otherwise.
+	 *
+	 * @param ini The CSimpleIniA object to read values from.
+	 *
+	 * @return True if the TRAK_DIR exists, false otherwise.
+	 *
+	 * @throws None.
+	 */
 	bool TRAKExists(CSimpleIniA& ini);
 	
 	/*bool kabTRAKExists();
 	bool portaTRAKExists();
 	bool cribTRAKExists();*/
 
+	/**
+	 * @brief Saves the INI file contents to the Windows registry.
+	 *
+	 * This function saves the INI file contents to the Windows registry.
+	 *
+	 * @throws None.
+	 */
 	void saveINIToRegistry() const;
 	
+	/**
+	 * @brief Saves the INI file contents to the Windows registry for a specific section.
+	 *
+	 * This function saves the INI file contents to the Windows registry for a specific section.
+	 *
+	 * @param section The section to save the INI file contents for.
+	 *
+	 * @throws None.
+	 */
 	void saveINIToRegistry(std::string section) const;
 
 	void conHenchmanAfterConnect();
@@ -70,6 +94,15 @@ private:
 	void conRemoteConnectionLost();
 	void conRemoteError(std::exception& e);
 
+	/**
+	 * @brief Exports the general tables from the database.
+	 *
+	 * This function exports the general tables from the database.
+	 *
+	 * @return The number of tables exported.
+	 *
+	 * @throws None.
+	 */
 	int exportGeneralTables();
 
 public:
@@ -92,8 +125,25 @@ public:
 	* @brief The name of the TRAK application.
 	*/
 	std::string appName;
-
+	
+	/**
+	 * @brief Constructs a new TRAKManager object.
+	 *
+	 * This constructor initializes the TRAKManager object with the given parameters.
+	 *
+	 * @param dbManager A pointer to a DatabaseManager object. This variable is used to manage the database connection.
+	 *
+	 * @throws None.
+	 */
 	TRAKManager(DatabaseManager *dbManager = nullptr);
+
+	/**
+	 * @brief Destructor for the TRAKManager class.
+	 *
+	 * This destructor releases any resources held by the TRAKManager object.
+	 *
+	 * @throws None.
+	 */
 	~TRAKManager();
 
 	/**
@@ -107,6 +157,15 @@ public:
 	 */
 	void CreateDataModule();
 
+	/**
+	 * @brief Uploads the current local db state to the remote server.
+	 *
+	 * This function uploads the current state of the local database to the remote server.
+	 *
+	 * @return The result of the upload operation.
+	 *
+	 * @throws None.
+	 */
 	int UploadCurrentStateToRemote();
 };
 

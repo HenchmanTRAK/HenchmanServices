@@ -1,21 +1,20 @@
 
 qt_add_library(DatabaseManager STATIC "DatabaseManager.cpp")
 message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
+
 target_include_directories(
-	DatabaseManager INTERFACE 
+	DatabaseManager PUBLIC 
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 target_link_libraries(
-	DatabaseManager PUBLIC
+	DatabaseManager PRIVATE
 	Qt6::Core
 	Qt6::Sql
 	Qt6::Network
-	EventManager
 	HenchmanServiceException
-	RegistryManager
+	EventManager
 	ServiceHelper
-	SQLiteManager2
-	#mysql::concpp
+	RegistryManager
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

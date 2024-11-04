@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <Windows.h>
+#include <string>
 
 const char MimeTypes[][2][128] = {
 	{"***", "application/octet-stream"},

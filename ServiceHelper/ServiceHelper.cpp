@@ -6,19 +6,10 @@ using namespace std;
 
 ServiceHelper::ServiceHelper(const std::source_location& caller)
 {
-	//cout << caller.file_name() << " : " << caller.line() << " : " << caller.function_name() << endl;
-	//caller = location;
+	
 	int substringStart = string(caller.function_name()).find_first_of(" ") + 1;
 	int substringEnd = string(caller.function_name()).find_first_of("(") - substringStart;
-	/*if (substringStart >= substringEnd)
-		functionName = __FUNCTION__;
-	else
-		functionName =
-		string(caller.function_name())
-		.substr(
-			substringStart,
-			substringEnd
-		);*/
+	
 	vector exploded = ExplodeString((
 		substringStart >= substringEnd 
 		? __FUNCTION__
@@ -38,33 +29,60 @@ ServiceHelper::ServiceHelper(const std::source_location& caller)
 	}
 }
 
-vector<string> ExplodeString(const string& targetString, const char *seperator, int maxLen)
+vector<string> ServiceHelper::ExplodeString(string targetString, const char seperator[], int maxLen)
 {
 	vector<string> results;
-	string s = targetString;
 	try {
-		if (s == "")
+		if (targetString == "")
 			throw HenchmanServiceException("No String was provided");
 		if (seperator == "")
 			throw HenchmanServiceException("Invalid Seperator provided");
 
 		size_t pos = 0;
-		while ((pos = s.find(seperator)) != string::npos) {
-			//std::cout << results.size() << endl;
-			string token = s.substr(0, pos);
-			s.erase(0, pos + string(seperator).length());
+		while ((pos = targetString.find(seperator)) != string::npos) {
+			string token = targetString.substr(0, pos);
+			targetString.erase(0, pos + string(seperator).length());
 			if(token != "")
 				results.push_back(token);
 		}
-		if (s != "")
-			results.push_back(s);
+		if (targetString != "")
+			results.push_back(targetString);
 		if (maxLen > 0 && results.size() > maxLen)
 		{
 			results.resize(maxLen);
 		}
 			
-			//? true : results.size() < maxLen)
-		//token.clear();
+	}
+	catch (exception& e)
+	{
+		ServiceHelper().WriteToError(e.what());
+	}
+	return results;
+}
+
+QList<QString> ServiceHelper::ExplodeString(QString targetString, const char seperator[], int maxLen)
+{
+	QList<QString> results;
+	try {
+		if (targetString == "")
+			throw HenchmanServiceException("No String was provided");
+		if (seperator == "")
+			throw HenchmanServiceException("Invalid Seperator provided");
+
+		size_t pos = 0;
+		while ((pos = targetString.indexOf(seperator)) != string::npos) {
+			QString token = targetString.mid(0, pos);
+			targetString.remove(0, pos + QString(seperator).length());
+			if (token != "")
+				results.push_back(token);
+		}
+		if (targetString != "")
+			results.push_back(targetString);
+		if (maxLen > 0 && results.size() > maxLen)
+		{
+			results.resize(maxLen);
+		}
+
 	}
 	catch (exception& e)
 	{
@@ -83,7 +101,7 @@ long int ServiceHelper::microseconds()
 
 bool ServiceHelper::Contain(QString str, QString search)
 {
-	//cout << "searching: " << str.data() << " for: " << search.data() << endl;
+	
 	size_t found = str.toStdString().find(search.toStdString());
 	if (found != string::npos) {
 		return 1;
@@ -108,8 +126,7 @@ const char * ServiceHelper::get_file_contents(const char* filename)
 		QString str(size, '\0'); // construct string to stream size
 		is.seekg(0);
 		is.read(&str.toStdString()[0], size);
-		/*if (is)
-			cout << str << '\n';*/
+		
 		return str.toStdString().data();
 	}
 	throw(errno);
@@ -122,33 +139,13 @@ const char * ServiceHelper::GetFileExtension(const QString& FileName)
 	return "";
 }
 
-//char* base64(string string)
-//{
-//	// Credit to mtrw from Stackoverflow
-//	auto pl = 4 * ((string.size() + 2) / 3);
-//	calloc(pl + 1, 1); //+1 for the terminating null that EVP_EncodeBlock adds on
-//	unsigned char* output;
-//	auto ol = EVP_EncodeBlock(output, reinterpret_cast<unsigned char*>(string.data()), string.size());
-//	if (pl != ol) { cerr << "Whoops, encode predicted " << pl << " but we got " << ol << "\n"; }
-//	return output;
-//}
-//
-//char* decodeBase64(string string)
-//{
-//	auto pl = (3 * (string.size() / 4));
-//	auto output = reinterpret_cast<char*>(calloc(pl + 1, 1)); //+1 for the terminating null that EVP_EncodeBlock adds on
-//	auto ol = EVP_DecodeBlock(reinterpret_cast<unsigned char*>(output), reinterpret_cast<unsigned char*>(string.data()), string.size());
-//	if (pl != ol) { cerr << "Whoops, decode predicted " << pl << " but we got " << ol << "\n"; }
-//	return output;
-//}
-
 string ServiceHelper::GetExportsPath(string app_path)
 {
 	string exportsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -175,8 +172,8 @@ string ServiceHelper::GetLogsPath(string app_path)
 	string logsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = RegistryManager::GetStrVal(hKey, "INSTALLDIR", REG_SZ);
+	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -216,10 +213,10 @@ void ServiceHelper::WriteLog(char *targetFile, string log)
 	fstream fs(targetFile, ios::out | ios_base::app);
 	if (fs) {
 		array dateTime = timestamp();
-		stringstream logEntry;		
-		logEntry << "---| " << dateTime[0] << " " << dateTime[1] << " |--- "<< functionName << ": " << log;
-		cout << logEntry.str() << endl;
-		fs << logEntry.str() << endl;
+		//stringstream logEntry;		
+		//logEntry << "---| " << dateTime[0] << " " << dateTime[1] << " |--- "<< functionName << ": " << log;
+		//cout << logEntry.str() << endl;
+		fs << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << functionName << ": " << log << endl;
 		fs.close();
 	}
 
@@ -230,6 +227,7 @@ void ServiceHelper::WriteToLog(string log)
 	array dateTime = timestamp();
 	string logDir = GetLogsPath();
 	logDir.append(dateTime[0] + "-log.txt");
+	std::cout << dateTime[0] << "-" << dateTime[1] << " --| " << functionName << ": " << log << std::endl;
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
@@ -239,9 +237,9 @@ void ServiceHelper::WriteToError(string log)
 {
 	array dateTime = timestamp();
 	string logDir = GetLogsPath().data();
-	//logDir.append(dateTime[0] + "-error.txt");
-	logDir.append(dateTime[0] + "-log.txt");
+	logDir.append(dateTime[0] + "-error.txt");
 	WriteLog(logDir.data(), log);
+	WriteToLog(log);
 	logDir.clear();
 	log.clear();
 }
@@ -250,8 +248,8 @@ void ServiceHelper::WriteToCustomLog(string log, string logName)
 {
 	string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
-	//cout << logDir << endl;
 	WriteLog(logDir.data(), log);
+	WriteToLog(log);
 	logDir.clear();
 	log.clear();
 }
