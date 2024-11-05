@@ -43,11 +43,14 @@
 #include "ServiceController.h"
 
 #include <Windows.h>
+#include <wtsapi32.h>
+#include <userenv.h>
 #include <TlHelp32.h>
 
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Wtsapi32.lib")
 
 // TODO: Reference additional headers your program requires here.
 #define SERVICE_NAME			"HenchmanService"

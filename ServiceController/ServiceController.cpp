@@ -77,7 +77,7 @@ void ServiceController::DoInstallSvc()
 		serviceDetail[0],				 // name of service 
 		serviceDetail[1],		 // service name to display 
 		SERVICE_ALL_ACCESS,			 // desired access 
-		SERVICE_WIN32_OWN_PROCESS,	 // service type 
+		SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,	 // service type 
 		SERVICE_AUTO_START,			 // start type 
 		SERVICE_ERROR_NORMAL,		 // error control type 
 		sSZPath.data(),				 // path to service's binary 
@@ -85,7 +85,7 @@ void ServiceController::DoInstallSvc()
 		NULL,						 // no tag identifier 
 		NULL,						 // no dependencies 
 		NULL,						 // LocalSystem account 
-		NULL						 // no password 
+		""						 // no password 
 	);
 
 	if (schService == NULL) {

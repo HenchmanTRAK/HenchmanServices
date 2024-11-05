@@ -61,6 +61,11 @@ public:
 		const std::source_location& location = std::source_location::current()
 	);
 
+	/*HenchmanServiceException(
+		std::wstring msg,
+		const std::source_location& location = std::source_location::current()
+	);*/
+
 	/**
 	 * @brief Returns a string representation of the exception.
 	 *
