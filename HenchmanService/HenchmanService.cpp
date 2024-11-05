@@ -831,19 +831,26 @@ int main(int argc, char* argv[])
 {
 
 	CSimpleIniA ini;
+	
+	Service service;
+	service.serviceName = SERVICE_NAME;
+	service.displayName = SERVICE_DISPLAY_NAME;
 
 	SI_Error rc = ini.LoadFile(".\\service.ini");
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
+		return 0;
 	}
 	else {
 		testing = ini.GetBoolValue("DEVELOPMENT", "testingMain", 0);
+		service.localUser = ini.GetValue("SYSTEM", "LocalSystemAccountName", NULL);
+		service.localPass = ini.GetValue("SYSTEM", "LocalSystemAccountPassword", NULL);
 	}
 
 	if (testing && argc <= 1)
 		argv[1] = (char *)"--install";
-	
-	svcController = make_unique<ServiceController>(SERVICE_NAME, SERVICE_DISPLAY_NAME);
+
+	svcController = make_unique<ServiceController>(service);
 
 	if (lstrcmpiA(argv[1], "--install") == 0)
 	{
@@ -856,9 +863,8 @@ int main(int argc, char* argv[])
 		}
 		RegCloseKey(hKey);
 		setContextMenu(installDir);
-		
+		svcController->DoInstallSvc();
 		if (!testing) {
-			svcController->DoInstallSvc();
 			Sleep(1000);
 			ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", " --start");
 			return 0;

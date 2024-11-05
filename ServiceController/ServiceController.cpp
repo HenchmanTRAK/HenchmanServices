@@ -24,29 +24,29 @@
 //}
 
 
-ServiceController::ServiceController(const char* serviceName, const char* serviceDisplayName)
+ServiceController::ServiceController(const Service& serviceDetails)
+	: service(serviceDetails)
 {
 	schSCManager = nullptr;
 	schService = nullptr;
-	serviceDetail[0] = serviceName;
-	serviceDetail[1] = serviceDisplayName;
 
-	std::cout << serviceDetail[0] << ":" << serviceDetail[1];
+	std::cout << service.serviceName << ":" << service.displayName;
 	std::cout << std::endl;
 }
 
 ServiceController::~ServiceController()
 {
-	for(auto& s : serviceDetail)
-	{
-		s = nullptr;
-	}
 	schSCManager = nullptr;
 	schService = nullptr;
 }
 
 void ServiceController::DoInstallSvc()
 {
+	std::cout << " - " << (service.serviceName ? service.serviceName : "") << std::endl;
+	std::cout << " - " << (service.displayName ? service.displayName : "") << std::endl;
+	std::cout << " - " << (service.localUser ? service.localUser : "") << std::endl;
+	std::cout << " - " << (service.localPass ? service.localPass : "") << std::endl;
+
 	TCHAR szUnquotedPath[MAX_PATH];
 
 	if (!GetModuleFileName(NULL, szUnquotedPath, MAX_PATH))
@@ -73,28 +73,29 @@ void ServiceController::DoInstallSvc()
 	// SERVICE_NAME
 	// SERVICE_DISPLAY_NAME
 	schService = CreateServiceA(
-		schSCManager,				 // SCM database 
-		serviceDetail[0],				 // name of service 
-		serviceDetail[1],		 // service name to display 
-		SERVICE_ALL_ACCESS,			 // desired access 
-		SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS,	 // service type 
-		SERVICE_AUTO_START,			 // start type 
-		SERVICE_ERROR_NORMAL,		 // error control type 
-		sSZPath.data(),				 // path to service's binary 
-		NULL,						 // no load ordering group 
-		NULL,						 // no tag identifier 
-		NULL,						 // no dependencies 
-		NULL,						 // LocalSystem account 
-		""						 // no password 
+		schSCManager,					// SCM database 
+		service.serviceName,			// name of service 
+		service.displayName,			// service name to display 
+		SERVICE_ALL_ACCESS,				// desired access 
+		SERVICE_WIN32_OWN_PROCESS 
+		| SERVICE_INTERACTIVE_PROCESS,	// service type 
+		SERVICE_AUTO_START,				// start type 
+		SERVICE_ERROR_NORMAL, 			// error control type 
+		sSZPath.data(), 				// path to service's binary 
+		NULL, 							// no load ordering group 
+		NULL,							// no tag identifier 
+		NULL,							// no dependencies 
+		service.localUser,				// LocalSystem account 
+		service.localPass				// no password 
 	);
 
 	if (schService == NULL) {
 		printf("CreateService failed (%d)\n", GetLastError());
-		CloseServiceHandle(schSCManager);
-		return;
 	}
-	printf("Service installed successfully\n");
-	CloseServiceHandle(schService);
+	else {
+		printf("Service installed successfully\n");
+		CloseServiceHandle(schService);
+	}
 	CloseServiceHandle(schSCManager);
 }
 
@@ -102,7 +103,7 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 {
 
 	if (!sService)
-		sService = serviceDetail[0];
+		sService = service.serviceName;
 
 	SERVICE_STATUS_PROCESS ssStatus;
 	ZeroMemory(&ssStatus, sizeof(ssStatus));
@@ -301,7 +302,7 @@ Exit:
 int __stdcall ServiceController::StartTargetSvc(const char* sService)
 {
 	if (!sService)
-		sService = serviceDetail[0];
+		sService = service.serviceName;
 
 	// Get ServiceManager Handle
 	schSCManager = OpenSCManagerA(
@@ -371,7 +372,7 @@ int __stdcall ServiceController::StartTargetSvc(const char* sService)
 void __stdcall ServiceController::DoStopSvc(const char* sService)
 {
 	if (!sService)
-		sService = serviceDetail[0];
+		sService = service.serviceName;
 
 	SERVICE_STATUS_PROCESS ssp;
 	ZeroMemory(&ssp, sizeof(ssp));
@@ -631,7 +632,7 @@ bool __stdcall ServiceController::StopDependentServices()
 void __stdcall ServiceController::DoDeleteSvc(const char* sService)
 {
 	if (!sService)
-		sService = serviceDetail[0];
+		sService = service.serviceName;
 
 	SERVICE_STATUS ssStatus;
 	ZeroMemory(&ssStatus, sizeof(ssStatus));
@@ -702,6 +703,9 @@ void ServiceController::ReportSvcStatus(
 
 DWORD ServiceController::GetSvcStatus(const char* sService)
 {
+	if (!sService)
+		sService = service.serviceName;
+
 	SERVICE_STATUS_PROCESS ssStatus;
 	ZeroMemory(&ssStatus, sizeof(ssStatus));
 	DWORD dwBytesNeeded;
