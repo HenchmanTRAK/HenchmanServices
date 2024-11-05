@@ -15,17 +15,15 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	std::cout << "Fetching values from ini file" << std::endl;
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
 	ini.beginGroup("SYSTEM");
-	databaseName = ini.value("database", "").toString().toStdString();
-	databaseLocation = (
-		ini.value("databaseLocation", "").toString() == ""
-		? installDir
-		: ini.value("databaseLocation", "").toString()
-		);
+	databaseName = ini.value("Database", "").toString().toStdString();
+	databaseLocation = ini.value("DatabaseLocation", "").toString();
 	ini.endGroup();
 	
 	QSqlDatabase db;
 
 	try{
+		if (databaseLocation == "")
+			databaseLocation = installDir;
 		std::cout << "Initializing requirements" << std::endl;
 		std::cout << "Database name in ini: " << databaseName << std::endl;
 		std::cout << "Database name in registry: " << dbName << std::endl;

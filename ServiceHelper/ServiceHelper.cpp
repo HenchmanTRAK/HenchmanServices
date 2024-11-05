@@ -109,9 +109,9 @@ bool ServiceHelper::Contain(QString str, QString search)
 	return 0;
 }
 
-const char * ServiceHelper::fileBasename(QString path)
+string ServiceHelper::fileBasename(const string& path)
 {
-	return path.toStdString().substr(path.toStdString().find_last_of("/\\") + 1).data();
+	return path.substr(path.find_last_of("/\\") + 1);
 	// without extension
 	// string::size_type const p(base_filename.find_last_of('.'));
 	// string file_without_extension = base_filename.substr(0, p);

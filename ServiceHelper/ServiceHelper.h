@@ -157,7 +157,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	const char* fileBasename(QString path);
+	static std::string fileBasename(const std::string& path);
 
 	/**
 	 * @brief Reads the contents of a file and returns them as a C-style string.
