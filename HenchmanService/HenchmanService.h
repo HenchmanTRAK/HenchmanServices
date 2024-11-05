@@ -12,6 +12,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <filesystem>
 
 //#include <netlistmgr.h>
 
@@ -42,11 +43,14 @@
 #include "ServiceController.h"
 
 #include <Windows.h>
+#include <wtsapi32.h>
+#include <userenv.h>
 #include <TlHelp32.h>
 
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")
+#pragma comment(lib, "Wtsapi32.lib")
 
 // TODO: Reference additional headers your program requires here.
 #define SERVICE_NAME			"HenchmanService"
@@ -90,8 +94,10 @@
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HenchmanService
+class HenchmanService: public QObject
 {
+
+	Q_OBJECT
 
 private:
 	/**
@@ -199,7 +205,7 @@ public:
 	 * Initializes the application's configuration and sets up the database connection.
 	 * 
 	 */
-	HenchmanService();
+	HenchmanService(QObject *parent);
 
 	/**
 	 * @brief The destructor for the HenchmanService class.

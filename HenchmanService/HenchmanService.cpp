@@ -9,7 +9,7 @@ using namespace std;
 
 bool testing = false;
 
-QCoreApplication* a = nullptr;
+//QCoreApplication* a = nullptr;
 unique_ptr<ServiceController> svcController = nullptr;
 
 // ShowCerts - Prints out the given certificate.
@@ -96,17 +96,17 @@ static bool ProcessExists(string& exeFileName)
 {
 	HANDLE SnapshotHandle;
 	SnapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	PROCESSENTRY32W ProcessEntry32;
+	PROCESSENTRY32 ProcessEntry32;
 	ZeroMemory(&ProcessEntry32, sizeof(ProcessEntry32));
 	ProcessEntry32.dwSize = sizeof(ProcessEntry32);
-	bool ContinueLoop = Process32FirstW(SnapshotHandle, &ProcessEntry32);
+	bool ContinueLoop = Process32First(SnapshotHandle, &ProcessEntry32);
 	bool result = false;
 	while (ContinueLoop) {
 		string targetEXE = exeFileName;
 		transform(targetEXE.begin(), targetEXE.end(), targetEXE.begin(), ::toupper);
 		string processEXE = QString::fromWCharArray(ProcessEntry32.szExeFile).toStdString();
 		transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
-		string processEXEFileName = ServiceHelper().fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile));
+		string processEXEFileName = ServiceHelper().fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile).toStdString());
 		transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
 		//WriteToLog("Checking if target exe: " + targetEXE + " is process: " + processEXEFileName);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
@@ -176,6 +176,130 @@ static int ShellExecuteApp(string appName, string params)
 	}
 
 	return 0;
+}
+
+DWORD GetCurrentSessionId()
+{
+	WTS_SESSION_INFOA* pSessionInfo;
+	DWORD n_sessions = 0;
+	BOOL ok = WTSEnumerateSessionsA(WTS_CURRENT_SERVER, 0, 1, &pSessionInfo, &n_sessions);
+	if (!ok) {
+		ServiceHelper().WriteToError("Failed to enumerate through sessions");
+		return 0;
+	}
+
+	DWORD SessionId = 0;
+
+	for (DWORD i = 0; i < n_sessions; ++i)
+	{
+		if (pSessionInfo[i].State == WTSActive)
+		{
+			SessionId = pSessionInfo[i].SessionId;
+			break;
+		}
+	}
+
+	WTSFreeMemory(pSessionInfo);
+	return SessionId;
+}
+
+static int CreateTargetProcess(string lpAppName)
+{
+	STARTUPINFOA startupInfo;
+	PROCESS_INFORMATION processInformation;
+
+	ZeroMemory(&startupInfo, sizeof(startupInfo));
+	startupInfo.cb = sizeof(startupInfo);
+	ZeroMemory(&processInformation, sizeof(processInformation));
+
+	try {
+		if (!CreateProcessA(
+			lpAppName.data(),
+			GetCommandLineA(),
+			NULL,
+			NULL,
+			false,
+			0,
+			NULL,
+			NULL,
+			&startupInfo,
+			&processInformation
+		))
+		{
+			throw HenchmanServiceException("Failed to create process for: " + lpAppName);
+		}
+		ServiceHelper().WriteToLog("Successfully created process for: " + lpAppName);
+		CloseHandle(processInformation.hProcess);
+		CloseHandle(processInformation.hThread);
+	}
+	catch (exception &e)
+	{
+		ServiceHelper().WriteToError(e.what());
+		return 0;
+	}
+	return 1;
+}
+
+bool LaunchProcess(const char* process_path)
+{
+	DWORD SessionId = GetCurrentSessionId();
+	if (SessionId == 0) {   // no-one logged in
+		ServiceHelper().WriteToError("No session id could be found");
+		return false;
+	}
+
+	HANDLE hToken;
+	BOOL ok = WTSQueryUserToken(SessionId, &hToken);
+	//BOOL ok = ImpersonateLoggedOnUser(&hToken);
+	if (!ok) {
+		ServiceHelper().WriteToError("Could not get user token");
+		return false;
+	}
+
+	void* environment = NULL;
+	ok = CreateEnvironmentBlock(&environment, hToken, TRUE);
+
+	if (!ok)
+	{
+		ServiceHelper().WriteToError("Could not create environment block");
+		CloseHandle(hToken);
+		return false;
+	}
+
+	STARTUPINFOA si = { sizeof(si) };
+	PROCESS_INFORMATION pi;
+	ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+	//si.lpDesktop = (char *)"winsta0\\default";
+
+	// Do NOT want to inherit handles here
+	DWORD dwCreationFlags = NORMAL_PRIORITY_CLASS | DETACHED_PROCESS | CREATE_UNICODE_ENVIRONMENT;
+
+	string path = string(process_path).substr(0, string(process_path).find_last_of('\\')+1);
+
+	ok = CreateProcessAsUserA(
+		hToken, 
+		process_path, 
+		NULL, 
+		NULL, 
+		NULL, 
+		FALSE,
+		dwCreationFlags, 
+		environment, 
+		path.data(),
+		&si, 
+		&pi
+	);
+
+	DestroyEnvironmentBlock(environment);
+	CloseHandle(hToken);
+
+	if (!ok) {
+		ServiceHelper().WriteToError("Failed to create process as user");
+		return false;
+	}
+	CloseHandle(pi.hThread);
+	CloseHandle(pi.hProcess);
+	return true;
 }
 
 void WINAPI SvcCtrlHandler(DWORD CtrlCode)
@@ -299,9 +423,9 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	RegCloseKey(hKey);
 
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
-		
-	a = new QCoreApplication(argc, argv);
-	HenchmanService service;
+	
+	QCoreApplication* a = new QCoreApplication(argc, argv);
+	HenchmanService service(a);
 	
 	while (WaitForSingleObject(svcController->g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
@@ -378,7 +502,8 @@ static void removeContextMenu()
 	RegistryManager().RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
 }
 
-HenchmanService::HenchmanService()
+HenchmanService::HenchmanService(QObject *parent)
+	: QObject(parent), sqliteManager(make_unique<SQLiteManager2>(parent)), dbManager(make_unique<DatabaseManager>(parent))
 {
 	CSimpleIniA ini;
 
@@ -425,7 +550,7 @@ HenchmanService::HenchmanService()
 	}
 
 	RegCloseKey(hKey);
-	sqliteManager = make_unique<SQLiteManager2>(a);
+	//sqliteManager = make_unique<SQLiteManager2>(a);
 
 
 	string tableName = "TestTable";
@@ -457,7 +582,7 @@ HenchmanService::HenchmanService()
 
 		data.clear();
 	}
-	dbManager = make_unique<DatabaseManager>(a);
+	//dbManager = make_unique<DatabaseManager>(a);
 
 	/*currDir.clear();
 	installDir.clear();
@@ -558,7 +683,8 @@ int HenchmanService::MainFunction()
 	if (!dbManager->isInternetConnected())
 	{
 		ServiceHelper().WriteToLog("Failed to confirm network connection");
-		QTimer::singleShot(100, a, &QCoreApplication::quit);
+		//QTimer::singleShot(100, a, &QCoreApplication::quit);
+		QTimer::singleShot(100, this->parent(), &QCoreApplication::quit);
 		return 0;
 	}
 
@@ -575,7 +701,8 @@ int HenchmanService::MainFunction()
 		ServiceHelper().WriteToError("TRAK process is not running");
 		string targetExe = TrakM.appDir + TrakM.appName;
 		ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
-		if (!ShellExecuteApp(targetExe, ""))
+		//if (!CreateTargetProcess(targetExe))
+		if (!LaunchProcess(targetExe.data()))
 		{
 			ServiceHelper().WriteToError("Failed to start " + targetExe);
 		}
@@ -589,7 +716,8 @@ int HenchmanService::MainFunction()
 		dbManager->connectToRemoteDB();
 	}
 	else {
-		QTimer::singleShot(1000, a, &QCoreApplication::quit);
+		//QTimer::singleShot(1000, a, &QCoreApplication::quit);
+		QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	}
 
 	/*if (!(dbManager->AddKabsIfNotExists() ||
@@ -703,39 +831,42 @@ int main(int argc, char* argv[])
 {
 
 	CSimpleIniA ini;
+	
+	Service service;
+	service.serviceName = SERVICE_NAME;
+	service.displayName = SERVICE_DISPLAY_NAME;
 
 	SI_Error rc = ini.LoadFile(".\\service.ini");
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
+		return 0;
 	}
 	else {
 		testing = ini.GetBoolValue("DEVELOPMENT", "testingMain", 0);
+		service.localUser = ini.GetValue("SYSTEM", "LocalSystemAccountName", NULL);
+		service.localPass = ini.GetValue("SYSTEM", "LocalSystemAccountPassword", NULL);
 	}
 
 	if (testing && argc <= 1)
 		argv[1] = (char *)"--install";
-	
-	svcController = make_unique<ServiceController>(SERVICE_NAME, SERVICE_DISPLAY_NAME);
+
+	svcController = make_unique<ServiceController>(service);
 
 	if (lstrcmpiA(argv[1], "--install") == 0)
 	{
 		HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-		char buff[MAX_PATH];
-		int byteLength = GetCurrentDirectoryA(sizeof(buff), buff);
 		string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-		if (installDir == "" || installDir != buff)
+		if (installDir == "" || installDir != filesystem::current_path())
 		{
-			installDir = buff;
-			std::cout << installDir << endl;
+			installDir = filesystem::current_path().string();
 			RegistryManager().SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
 		}
 		RegCloseKey(hKey);
 		setContextMenu(installDir);
-		
+		svcController->DoInstallSvc();
 		if (!testing) {
-			svcController->DoInstallSvc();
 			Sleep(1000);
-			ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", "--start");
+			ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", " --start");
 			return 0;
 		}
 		cout << "installing..." << endl;
@@ -798,7 +929,7 @@ int main(int argc, char* argv[])
 		std::cout << "Press enter to install service or hit CTRL+C to exit..." << std::endl;
 		int c = getchar();
 		if (c == '\n' || c == EOF)
-			ShellExecuteApp(string(SERVICE_NAME) + ".exe", "--install");
+			ShellExecuteApp(string(SERVICE_NAME) + ".exe", " --install");
 		std::cout << "Press any key to exit..." << endl;
 	}
 	//delete svcController;

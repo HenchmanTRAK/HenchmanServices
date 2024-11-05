@@ -58,10 +58,10 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	ini.sync();
 	testingDBManager = ini.value("DEVELOPMENT/testingDBManager", 0).toBool();
 	ini.beginGroup("API");
-	queryLimit = ini.value("numberOfQueries", 10).toInt();
+	queryLimit = ini.value("NumberOfQueries", 10).toInt();
 	apiUsername = ini.value("Username", "").toString();
 	apiPassword = ini.value("Password", "").toString();
-	apiUrl.append(ini.value("url", "https://webportal.henchmantrak.com/webapi/public/api/portals/exec_query").toString());
+	apiUrl.append(ini.value("Url", "https://webportal.henchmantrak.com/webapi/public/api/portals/exec_query").toString());
 	ini.endGroup();
 
 	std::cout << "init db manager" << endl;
