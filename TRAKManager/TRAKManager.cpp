@@ -133,7 +133,7 @@ const {
 	}
 
 	ServiceHelper().WriteToLog("Adding " + section + " entries to registry");
-	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section).data());
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section).data());
 	try
 	{
 		map<string, string> map;
@@ -147,11 +147,11 @@ const {
 			if (key == "Password" && value != "")
 				value = QByteArray(value.data()).toBase64();
 			map[key] = value;
-			RegistryManager().GetStrVal(hKey, key.data(), REG_SZ);
-			RegistryManager().SetVal(hKey, key.data(), map[key].data(), REG_SZ);
+			RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
+			RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
 			if (key == "kabID" || key == "portaID" || key == "cribID")
 			{
-				RegistryManager().SetVal(hKey, "trakID", key.data(), REG_SZ);
+				RegistryManager::SetVal(hKey, "trakID", key.data(), REG_SZ);
 			}
 			key.clear();
 			value.clear();
@@ -172,9 +172,9 @@ void TRAKManager::CreateDataModule()
 	CSimpleIniA ini;
 	ini.SetUnicode();
 
-	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
-	string serviceInstallDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ) + "\\service.ini";
+	string serviceInstallDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ) + "\\service.ini";
 	RegCloseKey(hKey);
 	try 
 	{

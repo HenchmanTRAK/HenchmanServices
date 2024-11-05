@@ -120,6 +120,37 @@ private:
 	 */
 	bool update = FALSE;
 
+public:
+
+	/**
+	 * @brief A string stream for logging purposes.
+	 *
+	 * This variable is used to store log messages.
+	 */
+	std::stringstream logx;
+
+	/**
+	 * @brief The path to the application.
+	 *
+	 * This variable stores the path to the application.
+	 */
+	std::string app_path = "";
+
+	/**
+	 * @brief A unique pointer to a DatabaseManager object.
+	 *
+	 * This variable is used to manage the database connection.
+	 */
+	std::unique_ptr<DatabaseManager> dbManager;
+
+	/**
+	 * @brief A unique pointer to a SQLiteManager2 object.
+	 *
+	 * This variable is used to manage the SQLite database connection.
+	 */
+	std::unique_ptr<SQLiteManager2> sqliteManager;
+
+private:
 	/**
 	 * @brief Sets the email login credentials for the HenchmanService application.
 	 *
@@ -167,38 +198,7 @@ private:
 	 */
 	int SetRequiredParameters();
 
-
-
 public:
-
-	/**
-	 * @brief A string stream for logging purposes.
-	 *
-	 * This variable is used to store log messages.
-	 */
-	std::stringstream logx;
-
-	/**
-	 * @brief The path to the application.
-	 *
-	 * This variable stores the path to the application.
-	 */
-	std::string app_path = "";
-	
-	/**
-	 * @brief A unique pointer to a DatabaseManager object.
-	 *
-	 * This variable is used to manage the database connection.
-	 */
-	std::unique_ptr<DatabaseManager> dbManager;
-
-	/**
-	 * @brief A unique pointer to a SQLiteManager2 object.
-	 *
-	 * This variable is used to manage the SQLite database connection.
-	 */
-	std::unique_ptr<SQLiteManager2> sqliteManager;
-
 	/**
 	 * @brief The default constructor for the HenchmanService class.
 	 *
@@ -213,22 +213,6 @@ public:
 	 * Releases any system resources allocated by the application.
 	 */
 	~HenchmanService();
-
-	/**
-	 * @brief Splits a string into a vector of substrings based on a specified separator.
-	 *
-	 * This function splits the input string `s` into a vector of substrings using the specified separator `Seperator`.
-	 * The resulting substrings are stored in a vector and returned.
-	 *
-	 * @param Seperator The separator used to split the input string.
-	 * @param s The input string to be split.
-	 * @param limit The maximum number of substrings to be returned. If set to -1, all substrings are returned.
-	 *
-	 * @return A vector containing the substrings obtained by splitting the input string.
-	 *
-	 * @throws Throws an exception if the input string or separator is empty.
-	 */
-	std::vector<std::string> Explode(const std::string& Seperator, std::string& s, int limit = -1);
 
 	/**
 	 * @brief The main function for the HenchmanService application.

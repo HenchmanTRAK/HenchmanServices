@@ -31,7 +31,7 @@ static string getCallerFunctionName(const source_location& location)
 const char * HenchmanServiceException::what() const {
 
 	EventManager("HenchmanService").ReportCustomEvent(functionName.data(), errorMessage);
-	return errorMessage.c_str();
+	return errorMessage.data();
 }
 
 //HenchmanServiceException::HenchmanServiceException(string msg, string function)

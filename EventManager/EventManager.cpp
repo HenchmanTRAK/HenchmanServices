@@ -7,18 +7,20 @@ EventManager::EventManager(string source)
 {
 	cout << "Registering Event Source: " << source << endl;
 	eventSource = source;
-	hEventSource = NULL;
-	lpMsgBuf = nullptr;
-	lpDisplayBuf = nullptr;
 }
 
 EventManager::~EventManager()
 {
 	cout << "Deregistering Event Source: " << eventSource << endl;
-	
+	/*if(hEventSource)
+		CloseHandle(hEventSource);*/
+	if (hEventSource)
+		hEventSource = nullptr;
 	eventSource.clear();
-	GlobalFree(lpMsgBuf);
-	GlobalFree(lpDisplayBuf);
+	if(lpMsgBuf)
+		GlobalFree(lpMsgBuf);
+	if(lpDisplayBuf)
+		GlobalFree(lpDisplayBuf);
 }
 
 const char * EventManager::EventMessage(const char *lpszFunction, string msg)

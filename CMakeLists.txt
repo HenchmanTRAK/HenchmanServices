@@ -80,6 +80,7 @@ foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
 set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
+#set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
@@ -208,11 +209,11 @@ file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # App bundles on macOS have an .app suffix
 if(APPLE)
-    set(executable_path "$<TARGET_FILE_NAME:HenchmanService>.app")
+	set(executable_path "$<TARGET_FILE_NAME:HenchmanService>.app")
 #elseif(MSVC)
 #    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>")
 else()
-    set(executable_path "\${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
+	set(executable_path "\${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
 endif()
 
 message(STATUS ${executable_path})
@@ -330,3 +331,6 @@ endif(DOXYGEN_FOUND)
 #"generator": "Visual Studio 17 2022",
 # "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
 # .suo;.sln;.ncb;.sdf;.vcxproj;.csproj;.user;.vbproj;.scc;.vsscc;.vspscc;.old;.filters;.vcxitems
+# "environment": {
+#        "QTDIR": "C:/Qt/OnlineInstall/6.7.2/msvc2019_64"
+#      },

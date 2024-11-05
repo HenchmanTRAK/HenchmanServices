@@ -8,9 +8,9 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	std::cout << "Constructing SQLiteManager2" << std::endl;
 
 	std::cout << "Fetching values from registry" << std::endl;
-	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	QString installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
-	std::string dbName = RegistryManager().GetStrVal(hKey, "DatabaseName", REG_SZ);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	QString installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
+	std::string dbName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
 
 	std::cout << "Fetching values from ini file" << std::endl;
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
@@ -33,7 +33,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 		if(databaseName.empty() && !dbName.empty())
 			databaseName = dbName;
 		if(databaseName != dbName)
-			RegistryManager().SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
+			RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
 
 		std::cout << "Checking for driver availability" << std::endl;
 		if (!QSqlDatabase::isDriverAvailable(databaseDriver))

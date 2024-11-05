@@ -4,7 +4,7 @@
 
 using namespace std;
 
-ServiceHelper::ServiceHelper(const std::source_location& caller)
+ServiceHelper::ServiceHelper(const source_location& caller)
 {
 	
 	int substringStart = string(caller.function_name()).find_first_of(" ") + 1;
@@ -29,7 +29,7 @@ ServiceHelper::ServiceHelper(const std::source_location& caller)
 	}
 }
 
-vector<string> ServiceHelper::ExplodeString(string targetString, const char seperator[], int maxLen)
+vector<string> ServiceHelper::ExplodeString(string targetString, const char *seperator, int maxLen)
 {
 	vector<string> results;
 	try {
@@ -60,7 +60,7 @@ vector<string> ServiceHelper::ExplodeString(string targetString, const char sepe
 	return results;
 }
 
-QList<QString> ServiceHelper::ExplodeString(QString targetString, const char seperator[], int maxLen)
+QList<QString> ServiceHelper::ExplodeString(QString targetString, const char *seperator, int maxLen)
 {
 	QList<QString> results;
 	try {
@@ -117,26 +117,26 @@ string ServiceHelper::fileBasename(const string& path)
 	// string file_without_extension = base_filename.substr(0, p);
 }
 
-const char * ServiceHelper::get_file_contents(const char* filename)
+char * ServiceHelper::get_file_contents(const char* filename)
 {
 	bool result = false;
 	if (ifstream is{ filename, ios::binary | ios::ate })
 	{
 		auto size = is.tellg();
-		QString str(size, '\0'); // construct string to stream size
+		string str(size, '\0'); // construct string to stream size
 		is.seekg(0);
-		is.read(&str.toStdString()[0], size);
+		is.read(&str[0], size);
 		
-		return str.toStdString().data();
+		return str.data();
 	}
 	throw(errno);
 }
 
-const char * ServiceHelper::GetFileExtension(const QString& FileName)
+char * ServiceHelper::GetFileExtension(string& FileName)
 {
-	if (FileName.toStdString().find_last_of(".") != string::npos)
-		return FileName.toStdString().substr(FileName.toStdString().find_last_of(".") + 1).data();
-	return "";
+	if (FileName.find_last_of(".") != string::npos)
+		return FileName.substr(FileName.find_last_of(".") + 1).data();
+	return (char *)"";
 }
 
 string ServiceHelper::GetExportsPath(string app_path)
@@ -144,8 +144,8 @@ string ServiceHelper::GetExportsPath(string app_path)
 	string exportsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -172,8 +172,8 @@ string ServiceHelper::GetLogsPath(string app_path)
 	string logsPath;
 	int _results = 0;
 	char buff[1024];
-	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	string installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 	if (app_path == "" && installDir == "") {
 		do {
 			_results = GetCurrentDirectoryA(sizeof(buff), buff);
@@ -208,7 +208,7 @@ array<string, 2> ServiceHelper::timestamp()
 	return { date, time };
 }
 
-void ServiceHelper::WriteLog(char *targetFile, string log)
+void ServiceHelper::WriteLog(char *targetFile, const string& log)
 {
 	fstream fs(targetFile, ios::out | ios_base::app);
 	if (fs) {
@@ -224,10 +224,10 @@ void ServiceHelper::WriteLog(char *targetFile, string log)
 
 void ServiceHelper::WriteToLog(string log)
 {
-	array dateTime = timestamp();
 	string logDir = GetLogsPath();
-	logDir.append(dateTime[0] + "-log.txt");
-	std::cout << dateTime[0] << "-" << dateTime[1] << " --| " << functionName << ": " << log << std::endl;
+	logDir.append(timestamp()[0] + "-log.txt");
+	//std::cout << dateTime[0] << "-" << dateTime[1] << " --| " << functionName << ": " << log << std::endl;
+	ConsoleLog(log);
 	WriteLog(logDir.data(), log);
 	logDir.clear();
 	log.clear();
@@ -235,9 +235,8 @@ void ServiceHelper::WriteToLog(string log)
 
 void ServiceHelper::WriteToError(string log)
 {
-	array dateTime = timestamp();
-	string logDir = GetLogsPath().data();
-	logDir.append(dateTime[0] + "-error.txt");
+	string logDir = GetLogsPath();
+	logDir.append(timestamp()[0] + "-error.txt");
 	WriteLog(logDir.data(), log);
 	WriteToLog(log);
 	logDir.clear();
@@ -252,6 +251,12 @@ void ServiceHelper::WriteToCustomLog(string log, string logName)
 	WriteToLog(log);
 	logDir.clear();
 	log.clear();
+}
+
+void ServiceHelper::ConsoleLog(const string& log)
+{
+	array dateTime = timestamp();
+	std::cout << "|-- " << dateTime[0] << " " << dateTime[1] << " --| <" << functionName << "> : " << log << std::endl;
 }
 
 void ServiceHelper::sanitize(string& stringValue)
@@ -291,3 +296,4 @@ void ServiceHelper::removeQuotes(string& stringValue)
 		stringValue.end()
 	);
 }
+

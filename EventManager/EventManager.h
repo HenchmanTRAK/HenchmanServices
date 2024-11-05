@@ -34,34 +34,6 @@
  */
 class EventManager
 {
-public:
-
-	/**
-	 * @brief Constructs an EventManager object.
-	 *
-	 * This constructor initializes the EventManager object with the specified event source.
-	 *
-	 * @param source The source of the event.
-	 */
-	EventManager(std::string source);
-
-	/**
-	 * @brief Destroys the EventManager object.
-	 *
-	 * This destructor performs cleanup operations for the EventManager object.
-	 */
-	~EventManager();
-
-	/**
-	 * @brief Reports a custom event.
-	 *
-	 * This member function reports a custom event with the specified function, message, and type.
-	 *
-	 * @param function The function that triggered the event.
-	 * @param msg The message associated with the event.
-	 * @param type The type of the event.
-	 */
-	void ReportCustomEvent(const char *function, std::string msg = "", int type = 3);
 
 private:
 	/**
@@ -92,6 +64,36 @@ private:
 	 */
 	LPVOID lpDisplayBuf = nullptr;
 
+public:
+
+	/**
+	 * @brief Constructs an EventManager object.
+	 *
+	 * This constructor initializes the EventManager object with the specified event source.
+	 *
+	 * @param source The source of the event.
+	 */
+	EventManager(std::string source);
+
+	/**
+	 * @brief Destroys the EventManager object.
+	 *
+	 * This destructor performs cleanup operations for the EventManager object.
+	 */
+	~EventManager();
+
+	/**
+	 * @brief Reports a custom event.
+	 *
+	 * This member function reports a custom event with the specified function, message, and type.
+	 *
+	 * @param function The function that triggered the event.
+	 * @param msg The message associated with the event.
+	 * @param type The type of the event.
+	 */
+	void ReportCustomEvent(const char *function, std::string msg = "", int type = 3);
+
+private:
 	/**
 	 * @brief Gets the event message for a specific function and message.
 	 *
