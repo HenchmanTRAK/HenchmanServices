@@ -53,9 +53,14 @@ message(STATUS "Using c++ standard c++ ${CMAKE_CXX_STANDARD}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
+#set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
+#if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+#add_compile_definitions("DEBUG=$<CONFIG:Debug>")
+#	add_compile_definitions("")
+#endif()
 
 message (STATUS "CMake version: ${CMAKE_VERSION}")
 message (STATUS "Project version: ${PROJECT_VERSION}")
@@ -79,7 +84,9 @@ foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 	set (CMAKE_EXE_LINKER_FLAGS_${OUTPUTCONFIG}         "/${CONFIGTYPE}")
 endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
-set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
+MESSAGE(${CMAKE_BUILD_TYPE})
+
+#set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
 #set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
@@ -89,8 +96,9 @@ qt_standard_project_setup()
 
 #INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
 #COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
-
-find_package(Doxygen REQUIRED dot)
+if(WIN32)
+	find_package(Doxygen REQUIRED dot)
+endif(WIN32)
 
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
@@ -119,14 +127,15 @@ option(SQLITECPP_RUN_CPPLINT "Run c++ lint" OFF)
 qt_policy(SET QTP0003 NEW)
 
 #set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL")
-
+if(WIN32)
 find_package(OpenSSL REQUIRED)
+endif(WIN32)
 
 message(STATUS "Fetching content for GoogleTest")
 FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY	https://github.com/google/googletest.git
-  GIT_TAG			main
+	googletest
+	GIT_REPOSITORY	https://github.com/google/googletest.git
+	GIT_TAG			main
 )
 message(STATUS "Fetching content for SimpleIni")
 FetchContent_Declare(
@@ -148,9 +157,14 @@ FetchContent_Declare(
 	FIND_PACKAGE_ARGS HINTS x64
 )
 message(STATUS "Fetching content for QMYSQL")
+if(${Qt6_VERSION} EQUAL "6.7.2")
+	set(QMySQL_URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip)
+elseif(${Qt6_VERSION} EQUAL "6.8.0")
+	set(QMySQL_URL https://github.com/user-attachments/files/17289450/qsqlmysql.dll_Qt_SQL_driver_6.8.0_MSVC2022_64-bit.zip)
+endif()
 FetchContent_Declare(
 	QMYSQL
-	URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip
+	URL ${QMySQL_URL}
 )
 
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
@@ -316,10 +330,24 @@ endif(DOXYGEN_FOUND)
 include(CPackConfig)
 
 add_custom_target(
+	Generate_Release_Project_Build
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cmake --build . --config Release --target ALL_BUILD
+	COMMENT "Generate release build for project using all_build target" VERBATIM
+)
+
+add_custom_target(
+	Generate_Installed_Project
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cmake --build . --config Release --target INSTALL
+	COMMENT "Generate installed build for project using install target" VERBATIM
+)
+
+add_custom_target(
 	Generate_Project_Installer
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 	COMMAND cmake --build . --config Release --target PACKAGE
-	COMMENT "Generate installer for project using custom target" VERBATIM
+	COMMENT "Generate installer for project using package target" VERBATIM
 )
 if(DOXYGEN_FOUND)
 add_dependencies(Generate_Project_Installer DOC)
@@ -334,3 +362,8 @@ endif(DOXYGEN_FOUND)
 # "environment": {
 #        "QTDIR": "C:/Qt/OnlineInstall/6.7.2/msvc2019_64"
 #      },
+#      "vendor": {
+#        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+#          "hostOS": "Windows"
+#        }
+#      }

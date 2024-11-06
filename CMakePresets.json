@@ -2,33 +2,32 @@
   "version": 3,
   "configurePresets": [
     {
-      "name": "windows-base",
+      "name": "mscv-windows-base",
       "hidden": true,
       "generator": "Visual Studio 17 2022",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "installDir": "${sourceDir}/out/install/${presetName}",
       "environment": {
-        "QTDIR": "C:/Qt/OnlineInstall/6.7.2/msvc2019_64"
+        "QTDIR": "C:/Qt/Qt-6.8/6.8.0/msvc2022_64"
       },
       "cacheVariables": {
         "CMAKE_C_COMPILER": "cl.exe",
-        "CMAKE_CXX_COMPILER": "cl.exe"
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_TOOLCHAIN_FILE": {
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        }
       },
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
-      },
-      "vendor": {
-        "microsoft.com/VisualStudioSettings/CMake/1.0": {
-          "hostOS": "Windows"
-        }
       }
     },
     {
       "name": "x64-debug",
       "displayName": "x64 Debug",
-      "inherits": "windows-base",
+      "inherits": "mscv-windows-base",
       "architecture": {
         "value": "x64",
         "strategy": "external"
@@ -48,7 +47,7 @@
     {
       "name": "x86-debug",
       "displayName": "x86 Debug",
-      "inherits": "windows-base",
+      "inherits": "mscv-windows-base",
       "architecture": {
         "value": "x86",
         "strategy": "external"
@@ -120,7 +119,7 @@
   ],
   "vendor": {
     "qt-project.org/Presets": {
-      "checksum": "tlqyi0WdFjyo3l8fEBQc2B5DPqA="
+      "checksum": "JqDpv2bVZA15VArNGAj5PRzP1Vk="
     }
   }
 }

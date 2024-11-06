@@ -451,6 +451,8 @@ private:
 	 * @param results The array to store the processed queryKeys and queryValues strings.
 	 */
 	void processKeysAndValues(QStringMap& map, QString(&results)[]);
+
+	int AddCribToolsIfNotExists();
 };
 
 std::string getValidDrivers();

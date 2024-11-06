@@ -43,7 +43,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	apiUrl.append(ini.value("Url", "https://webportal.henchmantrak.com/webapi/public/api/portals/exec_query").toString());
 	ini.endGroup();
 
-	std::cout << "init db manager" << endl;
+	LOG << "init db manager";
 	
 	targetApp = "";
 	requestRunning = false;
@@ -60,7 +60,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 
 DatabaseManager::~DatabaseManager() 
 {
-	std::cout << "Deleting DatabaseManager" << endl;
+	LOG << "Deleting DatabaseManager";
 
 	performCleanup();
 }
@@ -166,10 +166,9 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 		timeStamp[0]+ "-queries");
 
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
-		std::cout << "networkrequested" << endl;
+		LOG << "networkrequested";
 		try {
 			if (reply.error() != QNetworkReply::NoError) {
-				qWarning() << "A Network error has occured: " << reply.error() << reply.errorString();
 				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
 				//ServiceHelper().WriteToError("A Network error has occured: " + reply.errorString().toStdString());
 				//return;
@@ -179,12 +178,10 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 
 			if (!reply.isHttpStatusSuccess()) {
-				qWarning() << "A HTTP error has occured: " << status << reason;
 				ServiceHelper().WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
 			}
 
 			if (reply.isHttpStatusSuccess()) {
-				qDebug() << "Request was successful: " << status << reason;
 				ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
 			}
 			ServiceHelper().WriteToLog((string)"Parsing Response");
@@ -193,11 +190,8 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 
 			int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
 			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-			std::cout << "starting index: " << startingIndex << " ending index: " << endingIndex << endl;
-			/*if(startingIndex < endingIndex)
-				jsonRes = jsonRes.sliced(startingIndex, endingIndex);*/
+			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;
 
-				//std::cout << jsonRes.toStdString() << endl;
 			optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
 			if (!json) {
 				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
@@ -219,10 +213,10 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 
 			if (reply.isSuccess())
 			{
-				std::cout << "network request success" << endl;
+				LOG << "network request success";
 			}
 			else {
-				std::cout << "network request failed" << endl;
+				LOG << "network request failed";
 			}
 		}
 		catch (exception& e) {
@@ -288,18 +282,18 @@ int DatabaseManager::AddToolsIfNotExists()
 			" AND stockcode="+result.value("stockcode")+
 			" ORDER BY id DESC LIMIT 1)";
 
-		qDebug() << res["query"];
+		LOG << res["query"];
  		QJsonDocument reply;
 		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
 			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-				std::cout << result["result"].toString().toStdString() << endl;
+				LOG << result["result"].toString().toStdString();
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
-			std::cout << "No rows were altered on db" << endl;
+			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			//databaseTablesChecked[targetKey] += queryLimit;
 			//Sleep(100);
@@ -370,19 +364,19 @@ int DatabaseManager::AddUsersIfNotExists()
 				? ""
 				: " AND cribId=" + result.value("cribId")) +
 			" ORDER BY id DESC LIMIT 1)";
-		qDebug() << res["query"];
+		LOG << res["query"];
 
 		QJsonDocument reply;
 		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			std::cout << result["result"].toString().toStdString() << endl;
+			LOG << result["result"].toString().toStdString();
 			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
-			std::cout << "No rows were altered on db" << endl;
+			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			//databaseTablesChecked[targetKey] += queryLimit;
 			//Sleep(100);
@@ -445,19 +439,19 @@ int DatabaseManager::AddEmployeesIfNotExists()
 			" AND custId=" + result.value("custId") +
 			" ORDER BY id DESC LIMIT 1)";
 
-		qDebug() << res["query"];
+		LOG << res["query"];
 
 		QJsonDocument reply;
 		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			std::cout << result["result"].toString().toStdString() << endl;
+			LOG << result["result"].toString().toStdString();
 			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
-			std::cout << "No rows were altered on db" << endl;
+			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			//databaseTablesChecked[targetKey] += queryLimit;
 			//Sleep(100);
@@ -521,19 +515,19 @@ int DatabaseManager::AddJobsIfNotExists()
 			" AND custId=" + result.value("custId") +
 			" ORDER BY id DESC LIMIT 1)";
 
-		qDebug() << res["query"];
+		LOG << res["query"];
 
 		QJsonDocument reply;
 		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
-			std::cout << result["result"].toString().toStdString() << endl;
+			LOG << result["result"].toString().toStdString();
 			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
-			std::cout << "No rows were altered on db" << endl;
+			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			//databaseTablesChecked[targetKey] += queryLimit;
 			//Sleep(100);
@@ -594,19 +588,19 @@ int DatabaseManager::AddKabsIfNotExists()
 			"custId="+result.value("custId")+
 			" AND kabId="+result.value("kabId")+
 			" ORDER BY id DESC LIMIT 1)";
-		qDebug() << res["query"];
+		LOG << res["query"];
 
 		QJsonDocument reply;
 		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
+			LOG << result["result"].toString().toStdString();
 			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
-			std::cout << "No rows were altered on db" << endl;
+			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			//databaseTablesChecked[targetKey] += queryLimit;
 			//Sleep(100);
@@ -668,19 +662,19 @@ int DatabaseManager::AddDrawersIfNotExists()
 			" AND kabId="+result.value("kabId") +
 			" AND drawerCode="+result.value("drawerCode")+
 			" ORDER BY id DESC LIMIT 1)";
-		qDebug() << res["query"];
+		LOG << res["query"];
 
 		QJsonDocument reply;
 		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
+			LOG << result["result"].toString().toStdString();
 			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
-			std::cout << "No rows were altered on db" << endl;
+			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			//databaseTablesChecked[targetKey] += queryLimit;
 			//Sleep(100);
@@ -743,19 +737,19 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 			"AND drawerNum=" + result.value("drawerNum") +
 			"AND itemId=" + result.value("itemId") +
 			" ORDER BY id DESC LIMIT 1)";
-		qDebug() << res["query"];
+		LOG << res["query"];
 
 		QJsonDocument reply;
 		if (makeNetworkRequest(apiUrl, res, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
+			LOG << result["result"].toString().toStdString();
 			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-				std::cout << result["result"].toString().toStdString() << endl;
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
-			std::cout << "No rows were altered on db" << endl;
+			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			//databaseTablesChecked[targetKey] += queryLimit;
 			//Sleep(100);
@@ -772,13 +766,87 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 }
 
 // CribTRAK Syncs
+// - upload cribtools
+int DatabaseManager::AddCribToolsIfNotExists()
+{
+	QString targetKey = "cribtools";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM cribtools");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+	ServiceHelper().WriteToLog("Exporting Tools from crib");
+	string query =
+		"SELECT * from cribtools ORDER BY id DESC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	for (auto & result : sqlQueryResults) {
+		if (result.firstKey() == "success" || !result.contains("custId"))
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+
+		QString results[2];
+
+		processKeysAndValues(result, results);
+
+		res["query"] = "INSERT INTO cribtools (" +
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribtools WHERE " +
+			"custId="+ result.value("custId") +
+			"AND kabId="+ result.value("kabId") +
+			"AND toolNumber=" + result.value("toolNumber")+
+			"AND drawerNum=" + result.value("drawerNum") +
+			"AND itemId=" + result.value("itemId") +
+			" ORDER BY id DESC LIMIT 1)";
+		LOG << res["query"];
+
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			LOG << result["result"].toString().toStdString();
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			LOG << "No rows were altered on db";
+			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			continue;
+			//break;
+		}
+
+	}
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numCribTools", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
 
 /* TODO
  - upload cribconsumables
  - upload cribs
  - upload cribtoollocation
  - upload cribtoollockers
- - upload cribtools
  - upload kittools
  - upload tooltransfer
 */
@@ -804,14 +872,10 @@ int DatabaseManager::connectToRemoteDB()
 		targetSchema = QString::fromStdString(RegistryManager::GetStrVal(hKeyLocal, "Schema", REG_SZ));
 		RegCloseKey(hKeyLocal);
 
-		std::cout << "Checking if database has been previously defined" << std::endl;
+		LOG << "Checking if database has been previously defined";
 		if (!QSqlDatabase::contains(targetSchema))
 			throw HenchmanServiceException("Provided schema not valid");
 	
-		/*HKEY hKeyCloud = OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Cloud"));
-
-		RegCloseKey(hKeyCloud);*/
-
 		if (apiUrl.trimmed().isEmpty())
 			throw HenchmanServiceException("No target Database Url provided");
 		
@@ -874,7 +938,6 @@ int DatabaseManager::connectToRemoteDB()
 						.toString()
 						.replace("T", " ") + "\'"
 					).replace("()", "").simplified();
-				//qDebug() << res;
 
 				ServiceHelper().WriteToCustomLog("Query fetched from database: " + res["query"].toStdString(), timeStamp[0] + "-queries");
 
@@ -896,8 +959,7 @@ int DatabaseManager::connectToRemoteDB()
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
 					QString substr2 = substr.mid(startpoint, endpoint-startpoint).trimmed();
 					if (substr2.toStdString() != custId) {
-						qDebug() << substr2 << " | " << custId;
-						//qDebug() << "skipping query";
+						LOG << substr2 << " | " << custId;
 						skipQuery = true;
 						goto parsedQuery;
 					}
@@ -915,15 +977,14 @@ int DatabaseManager::connectToRemoteDB()
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
 					QString substr2 = substr.mid(startpoint, endpoint - startpoint).trimmed();
 					if (substr2.toStdString() != "'" + idNum + "'") {
-						qDebug() << substr2 << " | " << "'" + idNum + "'";
-						//qDebug() << "skipping query";
+						LOG << substr2 << " | " << "'" + idNum + "'";
 						skipQuery = true;
 						goto parsedQuery;
 					}
 					//res["query"].replace(substr2, QString(trakId.data()) + " = '" + QString(idNum.data()) + "'");
 				}
 				vector<std::string> splitQuery = ServiceHelper::ExplodeString(res["query"].toStdString(), " ");
-				qDebug() << splitQuery;
+				LOG << splitQuery;
 				
 				if (QString::fromStdString(splitQuery[0]).contains("insert", Qt::CaseInsensitive) && !skipQuery) {
 					ServiceHelper().WriteToLog("Parsing insert to prevent duplication creation");
@@ -934,18 +995,16 @@ int DatabaseManager::connectToRemoteDB()
 
 					QString columns = res["query"].mid(startpoint, endpoint);
 					QStringList splitColumns = ServiceHelper::ExplodeString(columns, ",");
-					//qDebug() << columns << "|" << splitColumns;
 
 					startpoint = res["query"].indexOf("(", startpoint) + 1;
 					endpoint = res["query"].indexOf(")", startpoint) - startpoint;
 					QString values = res["query"].mid(startpoint, endpoint);
 					QStringList splitValues = ServiceHelper::ExplodeString(values, ",");
-					//qDebug() << values << "|" << splitValues;
 
 					QStringMap map;
 					columns.clear();
 					values.clear();
-					//qDebug() << splitColumns << "\n | \n" << splitValues;
+
 					for (int i = 0; i < splitColumns.size(); i++) {
 						QString col = splitColumns.at(i).simplified();
 						QString val = splitValues.at(i).simplified();
@@ -1138,7 +1197,7 @@ int DatabaseManager::connectToRemoteDB()
 							|| (targetCol.contains("custId", Qt::CaseInsensitive) && !valueToUse.contains(custId.data()))
 							|| (targetCol.contains(trakId.data(), Qt::CaseInsensitive) && !valueToUse.contains(idNum.data()))
 							) {
-							qDebug() << targetCol << ": " << valueToUse << " <> " << custId << " | " << idNum;
+							LOG << targetCol << ": " << valueToUse << " <> " << custId << " | " << idNum;
 							skipQuery = true;
 							goto parsedQuery;
 						}
@@ -1164,12 +1223,12 @@ int DatabaseManager::connectToRemoteDB()
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for(auto result: queryResult)
-							std::cout << result["success"].toStdString() << endl;
+							LOG << result["success"];
 					}
 				}
 			}
 			else {
-				std::cout << "request failed" << endl;
+				LOG << "request failed";
 				break;
 			}
 		}
@@ -1199,6 +1258,8 @@ int DatabaseManager::connectToLocalDB()
 {
 	timeStamp = ServiceHelper().timestamp();
 	QSqlDatabase db;
+
+	LOG << "Test Log";
 	try {
 		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 
@@ -1256,7 +1317,7 @@ int DatabaseManager::connectToLocalDB()
 		while (query.next())
 		{
 			QString res = query.value(0).toString();
-			std::cout << res.toUtf8().data() << endl;
+			LOG << res;
 			if (res.toUtf8().data() == schema) {
 				dbFound = true;
 				break;
@@ -1394,7 +1455,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 		{
 			if (statement.trimmed() == "")
 				continue;
-			std::cout << "Executing: " << statement.toStdString() << endl;
+			LOG << "Executing: " << statement.toStdString();
 			if (query.exec(statement))
 			{
 				successCount++;
@@ -1406,15 +1467,12 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 				while (query.next())
 				{
 					queryResult.clear();
-					//std::cout << "{" << std::endl;
 					for (int i = 0; i <= record.count() - 1; i++)
 					{
 						queryResult[record.fieldName(i)] = query.value(i).toString();
-						//std::cout << record.fieldName(i).toStdString() << ": " << query.value(i).toString().toStdString() << endl;
 					}
 
 					resultVector.push_back(queryResult);
-					//std::cout << "}" << std::endl;
 				}
 			}
 			else {
@@ -1465,7 +1523,6 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 	if (restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-		qDebug() << "Request was successful: " << status << reason;
 		ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
 	ServiceHelper().WriteToLog((string)"Parsing Response");
@@ -1518,18 +1575,15 @@ void DatabaseManager::processKeysAndValues(QStringMap &map, QString (&results)[]
 		count--;
 		if (!(key == "id" || map.value(key).isEmpty() || map.value(key) == "0"))
 		{
-			//std::cout << "Process Loop: " << key.toStdString() << ": " << map.value(key).toStdString() << std::endl;
 			map[key] = "'" + map.value(key) + "'";
 			queryKeys.append((queryKeys.size() > 0 ? ", " : "") + ("`" + key + "`"));
 			queryValues.append((queryValues.size() > 0 ? ", " : "") + map.value(key));
-			//conditionals.append((conditionals.size() > 0 ? " AND " : "") +key + "=" + map.value(key));
 		}
 		continue;
 	}
 	
 	results[0] = queryKeys;
 	results[1] = queryValues;
-	//results[2] = conditionals;
 }
 
 void DatabaseManager::performCleanup()

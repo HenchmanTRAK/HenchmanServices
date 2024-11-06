@@ -2,21 +2,34 @@
 #define SERVICE_HELPER_H
 #pragma once
 
-
 #include <iostream>
 #include <array>
 #include <source_location>
 #include <string>
 #include <vector>
-
 #include <filesystem>
 #include <fstream>
 
 #include <QString>
 #include <QList>
+#include <QDebug>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
+
+//#ifdef DEBUG
+//#define _DEBUG 1
+//#endif
+
+#ifdef _DEBUG
+	#define DEBUG 1
+#endif // _DEBUG
+
+//#ifdef QT_DEBUG
+//	#define DEBUG 1
+//#endif
+
+#define LOG ServiceHelper()
 
 
 /**
@@ -219,7 +232,13 @@ public:
 
 	static QList<QString> ExplodeString(QString targetString, const char *seperator, int maxLen = -1);
 
-	void ConsoleLog(const std::string& log);
+	void ConsoleLog(const char* log);
+
+	ServiceHelper& operator<<(const char* s);
+	ServiceHelper& operator<<(const std::string& s);
+	ServiceHelper& operator<<(const QString& s);
+	ServiceHelper& operator<<(const int& s);
+	ServiceHelper& operator<<(const std::vector<std::string>& s);
 
 private:
 	void WriteLog(char* targetFile, const std::string& log);

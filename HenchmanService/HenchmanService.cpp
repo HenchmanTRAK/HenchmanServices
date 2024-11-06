@@ -125,16 +125,16 @@ static bool ProcessExists(string& exeFileName)
 static bool FileInUse(string fileName) {
 	HANDLE fileRes;
 	//struct stat buffer;
-	std::cout << "Checking if: " << fileName << " is being used" << endl;
+	LOG << "Checking if: " << fileName << " is being used";
 	bool result = false;
 	if (filesystem::exists(fileName)) {
-		std::cout << "Target File Exists" << endl;
+		LOG << "Target File Exists";
 		fileRes = CreateFileA(fileName.data(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 		result = fileRes == INVALID_HANDLE_VALUE;
 		CloseHandle(fileRes);
 		return result;
 	}
-	std::cout << "Target File Does Not Exists Or Could Not Be Found" << endl;
+	LOG << "Target File Does Not Exists Or Could Not Be Found";
 	return result;
 }
 
@@ -514,7 +514,7 @@ HenchmanService::HenchmanService(QObject *parent)
 
 	string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 
-	cout << "Install dir: " << installDir << endl;
+	LOG << "Install dir: " << installDir;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
@@ -599,7 +599,7 @@ HenchmanService::HenchmanService(QObject *parent)
 
 HenchmanService::~HenchmanService()
 {
-	std::cout << "Deconstructing HenchmanService" << endl;
+	LOG << "Deconstructing HenchmanService";
 	//delete SQLiteM;
 	//delete TrakM;
 	//delete dbManager;
@@ -704,7 +704,7 @@ int HenchmanService::MainFunction()
 		dbManager->connectToRemoteDB();
 	}*/
 	
-	std::cout << "Exiting Main Function" << endl;
+	LOG << "Exiting Main Function";
 	
 	return 0;
 }
@@ -805,6 +805,9 @@ void HenchmanService::checkStateOfApache()
 
 int main(int argc, char* argv[])
 {
+#ifdef DEBUG
+	std::cout << "Debug Enabled" << std::endl;
+#endif // DEBUG
 
 	CSimpleIniA ini;
 	
@@ -845,7 +848,7 @@ int main(int argc, char* argv[])
 			ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", " --start");
 			return 0;
 		}
-		cout << "installing..." << endl;
+		LOG << "installing...";
 		Sleep(1000);
 		argv[1] = (char*)"--start";
 		
@@ -859,8 +862,8 @@ int main(int argc, char* argv[])
 			svcController->DoDeleteSvc();
 		}
 		else {
-			std::cout << "stopping..." << endl;
-			std::cout << "removing..." << endl;
+			LOG << "stopping...";
+			LOG << "removing...";
 		}
 		removeContextMenu();
 		int c = getchar();
@@ -873,7 +876,7 @@ int main(int argc, char* argv[])
 			svcController->DoStartSvc();
 			return 0;
 		}
-		std::cout << "starting..." << endl;
+		LOG << "starting...";
 	}
 
 	if (lstrcmpiA(argv[1], "--stop") == 0)
@@ -883,7 +886,7 @@ int main(int argc, char* argv[])
 			ServiceHelper().WriteToLog("Service has stopped");
 		}
 		else
-			std::cout << "stopping..." << endl;
+			LOG << "stopping...";
 		int c = getchar();
 		return 0;
 	}

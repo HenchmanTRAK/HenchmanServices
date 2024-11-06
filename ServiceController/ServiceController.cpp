@@ -27,8 +27,7 @@
 ServiceController::ServiceController(const Service& serviceDetails)
 	: service(serviceDetails)
 {
-	std::cout << service.serviceName << ":" << service.displayName;
-	std::cout << std::endl;
+	std::cout << service.serviceName << ":" << service.displayName << std::endl;
 }
 
 ServiceController::~ServiceController()

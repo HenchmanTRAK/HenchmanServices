@@ -27,6 +27,7 @@
 #include <QCoreApplication>
 #include <QObject>
 #include <QString>
+#include <QLibraryInfo>
 //#include <QByteArray>
 //#include <QString>
 //#include <QTimer>

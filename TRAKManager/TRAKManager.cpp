@@ -189,7 +189,7 @@ void TRAKManager::CreateDataModule()
 
 		ServiceHelper().WriteToLog(appName +" exists with " +iniFile +" ini file at " +appDir);
 	
-		cout << "app dir: " << appDir << iniFile << endl;
+		LOG << "app dir: " << appDir << iniFile;
 		
 		saveINIToRegistry();
 		
