@@ -149,7 +149,7 @@ const {
 			map[key] = value;
 			RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
 			RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
-			if (key == "kabID" || key == "portaID" || key == "cribID")
+			if (key == "kabID" || key == "portaID" || key == "cribID" || key == "scaleID")
 			{
 				RegistryManager::SetVal(hKey, "trakID", key.data(), REG_SZ);
 			}
@@ -233,7 +233,9 @@ int TRAKManager::UploadCurrentStateToRemote()
 		return 1;
 	}
 	case portatrak: {
-		return 1;
+		return (databaseManager->AddItemKitsIfNotExists() | 
+			databaseManager->AddKitCategoryIfNotExists() | 
+			databaseManager->AddKitLocationIfNotExists());
 	}
 	default: {
 	

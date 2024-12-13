@@ -463,9 +463,9 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	
 	}
 	
-	a->deleteLater();
 	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service has exited", 0);
 
+	a->deleteLater();
 	return ERROR_SUCCESS;
 }
 

@@ -173,11 +173,21 @@ private:
 	 * This map is used to keep track of the status of each database table.
 	 */
 	QMap<QString, int> databaseTablesChecked = {
+		// General
 		{"tools", 0},
+		{"users", 0},
+		{"employees", 0},
+		{"jobs", 0},
+		// Kabtraks
 		{"kabs", 0},
 		{"kabDrawers", 0},
 		{"kabDrawerBins", 0},
-		{"users", 0}
+		// Cribtraks
+		{"cribtools", 0},
+		// Portatracks
+		{"itemkits", 0},
+		{"kitCategory", 0},
+		{"kitLocation", 0},
 	};
 
 public:
@@ -377,6 +387,12 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
 	int AddJobsIfNotExists();
+
+	int AddItemKitsIfNotExists();
+
+	int AddKitCategoryIfNotExists();
+
+	int AddKitLocationIfNotExists();
 
 	/**
 	 * @brief Parses a QJsonArray into a string representation.

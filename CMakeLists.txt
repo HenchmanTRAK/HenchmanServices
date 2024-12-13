@@ -53,7 +53,7 @@ message(STATUS "Using c++ standard c++ ${CMAKE_CXX_STANDARD}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
-#set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
@@ -70,7 +70,7 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 include(FetchContent)
 include(ExternalProject)
 include(GNUInstallDirs)
-set (CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+set (CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP FALSE)
 include (InstallRequiredSystemLibraries)
 
 # Second, for multi-config builds (e.g. msvc)
@@ -119,10 +119,10 @@ endif(WIN32)
 #message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
-option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" OFF)
+option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" ON)
 option(SQLITECPP_BUILD_TESTS "Build and run tests." OFF)
 option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." OFF)
-option(SQLITECPP_RUN_CPPLINT "Run c++ lint" OFF)
+option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
 
 qt_policy(SET QTP0003 NEW)
 
@@ -332,21 +332,21 @@ include(CPackConfig)
 add_custom_target(
 	Generate_Release_Project_Build
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cmake --build . --config Release --target ALL_BUILD
+	COMMAND cmake --build . --config ${CMAKE_BUILD_TYPE} --target ALL_BUILD
 	COMMENT "Generate release build for project using all_build target" VERBATIM
 )
 
 add_custom_target(
 	Generate_Installed_Project
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cmake --build . --config Release --target INSTALL
+	COMMAND cmake --build . --config ${CMAKE_BUILD_TYPE} --target INSTALL
 	COMMENT "Generate installed build for project using install target" VERBATIM
 )
 
 add_custom_target(
 	Generate_Project_Installer
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cmake --build . --config Release --target PACKAGE
+	COMMAND cmake --build . --config ${CMAKE_BUILD_TYPE} --target PACKAGE
 	COMMENT "Generate installer for project using package target" VERBATIM
 )
 if(DOXYGEN_FOUND)
