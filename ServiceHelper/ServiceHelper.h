@@ -2,27 +2,35 @@
 #define SERVICE_HELPER_H
 #pragma once
 
-
-#include <array>
 #include <iostream>
+#include <array>
 #include <source_location>
 #include <string>
 #include <vector>
-
 #include <filesystem>
 #include <fstream>
 
 #include <QString>
 #include <QList>
+#include <QDebug>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 
+//#ifdef DEBUG
+//#define _DEBUG 1
+//#endif
 
+#ifdef _DEBUG
+	#define DEBUG 1
+#endif // _DEBUG
 
-//char* base64(std::string string);
-//
-//char* decodeBase64(std::string string);
+//#ifdef QT_DEBUG
+//	#define DEBUG 1
+//#endif
+
+#define LOG ServiceHelper()
+
 
 /**
  * @class ServiceHelper
@@ -43,6 +51,9 @@
  */
 class ServiceHelper
 {
+private:
+	std::string functionName;
+
 public:
 	/**
 	 * @brief Constructs a ServiceHelper object.
@@ -63,7 +74,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	std::array<std::string, 2> timestamp();
+	static std::array<std::string, 2> timestamp();
 
 	/**
 	 * @brief Returns the exports path for the given application path.
@@ -157,7 +168,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	const char* fileBasename(QString path);
+	static std::string fileBasename(const std::string& path);
 
 	/**
 	 * @brief Reads the contents of a file and returns them as a C-style string.
@@ -168,7 +179,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	const char* get_file_contents(const char* filename);
+	static char* get_file_contents(const char* filename);
 
 	/**
 	 * @brief Returns the file extension of the given file name.
@@ -179,7 +190,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	const char* GetFileExtension(const QString& FileName);
+	static char* GetFileExtension(std::string& FileName);
 
 	// String Sanatizer provided by Simple on Stackoverflow
 	// https://stackoverflow.com/a/34221488
@@ -193,7 +204,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	void sanitize(std::string& stringValue);
+	static void sanitize(std::string& stringValue);
 
 	/**
 	 * @brief Removes quotes from a string.
@@ -202,7 +213,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	void removeQuotes(std::string& stringValue);
+	static void removeQuotes(std::string& stringValue);
 
 	/**
 	 * @brief Explodes a string into a vector of substrings based on a specified separator.
@@ -217,14 +228,22 @@ public:
 	 *
 	 * @throws Throws an exception if the input string or separator is invalid.
 	 */
-	static std::vector<std::string> ExplodeString(std::string targetString, const char seperator[], int maxLen = -1);
+	static std::vector<std::string> ExplodeString(std::string targetString, const char *seperator, int maxLen = -1);
 
-	static QList<QString> ExplodeString(QString targetString, const char seperator[], int maxLen = -1);
+	static QList<QString> ExplodeString(QString targetString, const char *seperator, int maxLen = -1);
+
+	void ConsoleLog(const char* log);
+
+	ServiceHelper& operator<<(const char* s);
+	ServiceHelper& operator<<(const std::string& s);
+	ServiceHelper& operator<<(const QString& s);
+	ServiceHelper& operator<<(const int& s);
+	ServiceHelper& operator<<(const std::vector<std::string>& s);
 
 private:
-	std::string functionName;
+	void WriteLog(char* targetFile, const std::string& log);
 
-	void WriteLog(char* targetFile, std::string log);
+	//operator std::ostream();
 
 };
 

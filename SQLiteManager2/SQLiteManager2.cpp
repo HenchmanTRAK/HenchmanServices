@@ -5,43 +5,41 @@
 SQLiteManager2::SQLiteManager2(QObject *parent)
 : QObject(parent)
 {
-	std::cout << "Constructing SQLiteManager2" << std::endl;
+	LOG << "Constructing SQLiteManager2";
 
-	std::cout << "Fetching values from registry" << std::endl;
-	HKEY hKey = RegistryManager().OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	QString installDir = RegistryManager().GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
-	std::string dbName = RegistryManager().GetStrVal(hKey, "DatabaseName", REG_SZ);
+	LOG << "Fetching values from registry";
+	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	QString installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
+	std::string dbName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
 
-	std::cout << "Fetching values from ini file" << std::endl;
+	LOG << "Fetching values from ini file";
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
 	ini.beginGroup("SYSTEM");
-	databaseName = ini.value("database", "").toString().toStdString();
-	databaseLocation = (
-		ini.value("databaseLocation", "").toString() == ""
-		? installDir
-		: ini.value("databaseLocation", "").toString()
-		);
+	databaseName = ini.value("Database", "").toString().toStdString();
+	databaseLocation = ini.value("DatabaseLocation", "").toString();
 	ini.endGroup();
 	
 	QSqlDatabase db;
 
 	try{
-		std::cout << "Initializing requirements" << std::endl;
-		std::cout << "Database name in ini: " << databaseName << std::endl;
-		std::cout << "Database name in registry: " << dbName << std::endl;
+		if (databaseLocation == "")
+			databaseLocation = installDir;
+		LOG << "Initializing requirements";
+		LOG << "Database name in ini: " << databaseName;
+		LOG << "Database name in registry: " << dbName;
 		if(databaseName.empty() && dbName.empty())
 			throw HenchmanServiceException("No database name specified in service.ini");
 
 		if(databaseName.empty() && !dbName.empty())
 			databaseName = dbName;
 		if(databaseName != dbName)
-			RegistryManager().SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
+			RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
 
-		std::cout << "Checking for driver availability" << std::endl;
+		LOG << "Checking for driver availability";
 		if (!QSqlDatabase::isDriverAvailable(databaseDriver))
 			throw HenchmanServiceException("QSQLITE database driver was not found");
 
-		std::cout << "Checking if database has been previously defined" << std::endl;
+		LOG << "Checking if database has been previously defined";
 		if (QSqlDatabase::contains(databaseName.data()))
 			db = QSqlDatabase::database(databaseName.data());
 		else {
@@ -49,15 +47,15 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 			db.setDatabaseName(databaseLocation + "\\" + databaseName.data());
 		}
 
-		std::cout << "Initializing Database" << std::endl;
+		LOG << "Initializing Database";
 		if (!db.open())
 			throw HenchmanServiceException("Failed to open database");
 
-		std::cout << "Checking if database file is hidden" << std::endl;
+		LOG << "Checking if database file is hidden";
 		int attr = GetFileAttributesA(db.databaseName().toUtf8());
 		if (!(attr & FILE_ATTRIBUTE_HIDDEN))
 		{
-			std::cout << "Setting hidden attribute" << std::endl;
+			LOG << "Setting hidden attribute";
 			SetFileAttributesA(db.databaseName().toUtf8(), attr | FILE_ATTRIBUTE_HIDDEN);
 		}
 	
@@ -244,7 +242,7 @@ int SQLiteManager2::AddEntry(
 		
 	queryText << "ORDER BY id DESC LIMIT 1);";
 
-	std::cout << queryText.str() << std::endl;
+	LOG << queryText.str();
 
 	try {
 	
@@ -301,7 +299,7 @@ int SQLiteManager2::UpdateEntry(
 	queryText << dataToUpdate << "WHERE ";
 	queryText << conditionsForUpdate << ";";
 
-	std::cout << queryText.str() << std::endl;
+	LOG << queryText.str();
 
 	try {
 
@@ -336,7 +334,7 @@ int SQLiteManager2::RemoveEntry(
 
 	queryText << conditionsForDelete << ";";
 
-	std::cout << queryText.str() << std::endl;
+	LOG << queryText.str();
 
 	try {
 
@@ -392,7 +390,7 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 	conditionsThread.join();
 	queryText << "FROM " << tableName << " WHERE " << conditionsForGetting;
 
-	std::cout << queryText.str() << std::endl;
+	LOG << queryText.str();
 
 	try {
 
@@ -404,7 +402,7 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 				{
 					continue;
 				}
-				std::cout << key << " = " << value << std::endl;
+				LOG << key << " = " << value;
 			}
 		}
 

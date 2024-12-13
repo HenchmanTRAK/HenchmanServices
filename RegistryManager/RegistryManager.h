@@ -41,7 +41,7 @@ public:
 	 *
 	 * @return A handle to the registry key.
 	 */
-	HKEY OpenKey(HKEY hRootKey, std::string strKey);
+	static HKEY OpenKey(HKEY hRootKey, std::string strKey);
 
 	/**
 	 * @brief The function to remove a registry key.
@@ -53,7 +53,7 @@ public:
 	 *
 	 * @return The result of the operation.
 	 */
-	int RemoveKey(HKEY hRootKey, std::string strKey);
+	static int RemoveKey(HKEY hRootKey, std::string strKey);
 
 	/**
 	 * @brief The function to set a string value of a registry key.
@@ -67,7 +67,7 @@ public:
 	 *
 	 * @return The result of the operation.
 	 */
-	int SetVal(HKEY &hKey, const char* lpValue, std::string data, DWORD type);
+	static int SetVal(HKEY &hKey, const char* lpValue, std::string data, DWORD type);
 
 	/**
 	 * @brief Sets a value of a registry key.
@@ -81,7 +81,7 @@ public:
 	 *
 	 * @return The result of the operation.
 	 */
-	int SetVal(HKEY &hKey, const char* lpValue, DWORD data, DWORD type);
+	static int SetVal(HKEY &hKey, const char* lpValue, DWORD data, DWORD type);
 
 	/**
 	 * @brief Gets a string value of a registry key.
@@ -94,7 +94,7 @@ public:
 	 *
 	 * @return The data of the registry value.
 	 */
-	std::string GetStrVal(HKEY &hKey, const char* lpValue, DWORD type);
+	static std::string GetStrVal(HKEY &hKey, const char* lpValue, DWORD type);
 
 	/**
 	 * @brief Gets a value of a registry key.
@@ -107,7 +107,7 @@ public:
 	 *
 	 * @return The data of the registry value.
 	 */
-	DWORD GetVal(HKEY &hKey, const char* lpValue, DWORD type);
+	static DWORD GetVal(HKEY &hKey, const char* lpValue, DWORD type);
 };
 
 

@@ -1,31 +1,31 @@
 
 #include "EventManager.h"
 
-using namespace std;
-
-EventManager::EventManager(string source)
+EventManager::EventManager(std::string source)
 {
-	cout << "Registering Event Source: " << source << endl;
+	//std::cout << "Registering Event Source: " << source << std::endl;
 	eventSource = source;
-	hEventSource = NULL;
-	lpMsgBuf = nullptr;
-	lpDisplayBuf = nullptr;
 }
 
 EventManager::~EventManager()
 {
-	cout << "Deregistering Event Source: " << eventSource << endl;
-	
+	//std::cout << "Deregistering Event Source: " << eventSource << std::endl;
+	/*if(hEventSource)
+		CloseHandle(hEventSource);*/
+	if (hEventSource)
+		hEventSource = nullptr;
 	eventSource.clear();
-	GlobalFree(lpMsgBuf);
-	GlobalFree(lpDisplayBuf);
+	if(lpMsgBuf)
+		GlobalFree(lpMsgBuf);
+	if(lpDisplayBuf)
+		GlobalFree(lpDisplayBuf);
 }
 
-const char * EventManager::EventMessage(const char *lpszFunction, string msg)
+const char * EventManager::EventMessage(const char *lpszFunction, std::string msg)
 {
 	// Retrieve the system error message for the last-error code
 	DWORD dw = GetLastError();
-	cout << lpszFunction << " logged with message: " << msg << endl;
+	//std::cout << lpszFunction << " logged with message: " << msg << std::endl;
 
 	FormatMessageA(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | 

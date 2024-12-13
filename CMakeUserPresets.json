@@ -20,20 +20,10 @@
     },
     {
       "hidden": true,
-      "name": "Qt-Default",
-      "inherits": "6.7.2_msvc2019_64",
-      "vendor": {
-        "qt-project.org/Default": {
-          "checksum": "gw/ERk1cQwC3YNpVspzQ2Sww4Qk="
-        }
-      }
-    },
-    {
-      "hidden": true,
-      "name": "6.7.2_msvc2019_64",
+      "name": "6.8.0_msvc2022_64",
       "inherits": "Qt",
       "environment": {
-        "QTDIR": "C:/Qt/OnlineInstall/6.7.2/msvc2019_64"
+        "QTDIR": "C:/Qt/Qt-6.8/6.8.0/msvc2022_64"
       },
       "architecture": {
         "strategy": "external",
@@ -42,16 +32,16 @@
       "generator": "Ninja",
       "vendor": {
         "qt-project.org/Version": {
-          "checksum": "bxrXUFmCk0zNigGnVUDSykYYGcQ="
+          "checksum": "aEqgjOSpA4zZbLi9mZD8B1EIeyo="
         }
       }
     },
     {
       "hidden": true,
-      "name": "6.7.2_msvc2019_arm64",
+      "name": "6.8.0_msvc2022_arm64",
       "inherits": "Qt",
       "environment": {
-        "QTDIR": "C:/Qt/OnlineInstall/6.7.2/msvc2019_arm64"
+        "QTDIR": "C:/Qt/Qt-6.8/6.8.0/msvc2022_arm64"
       },
       "architecture": {
         "strategy": "external",
@@ -60,16 +50,26 @@
       "generator": "Ninja",
       "vendor": {
         "qt-project.org/Version": {
-          "checksum": "L4cvNcCW6AJq+IL+vo+6+CcQtnA="
+          "checksum": "zxGpdPTSWKZRH9HUQg021+SbRlQ="
         }
       }
     },
     {
       "hidden": true,
-      "name": "QtDesignStudio_qt6_design_studio_reduced_version",
+      "name": "Qt-Default",
+      "inherits": "6.8.0_msvc2022_64",
+      "vendor": {
+        "qt-project.org/Default": {
+          "checksum": "DBTqMydOw2UMLXPo9VKLNZVd1O4="
+        }
+      }
+    },
+    {
+      "hidden": true,
+      "name": "6.7.3_msvc2019_64",
       "inherits": "Qt",
       "environment": {
-        "QTDIR": "C:/Qt/OnlineInstall/Tools/QtDesignStudio/qt6_design_studio_reduced_version"
+        "QTDIR": "C:/Qt/Qt-6.8/6.7.3/msvc2019_64"
       },
       "architecture": {
         "strategy": "external",
@@ -78,14 +78,68 @@
       "generator": "Ninja",
       "vendor": {
         "qt-project.org/Version": {
-          "checksum": "B71czbrj+KbK75Kh9NoaWeMlrt8="
+          "checksum": "NfPkz8/0YasA1se2BRlHcXTzC1k="
+        }
+      }
+    },
+    {
+      "hidden": true,
+      "name": "6.7.3_msvc2019_arm64",
+      "inherits": "Qt",
+      "environment": {
+        "QTDIR": "C:/Qt/Qt-6.8/6.7.3/msvc2019_arm64"
+      },
+      "architecture": {
+        "strategy": "external",
+        "value": "arm64"
+      },
+      "generator": "Ninja",
+      "vendor": {
+        "qt-project.org/Version": {
+          "checksum": "MQrcK0967t3Z1xKD89MhAtMtPqs="
+        }
+      }
+    },
+    {
+      "hidden": true,
+      "name": "6.7.3_msvc2022_64",
+      "inherits": "Qt",
+      "environment": {
+        "QTDIR": "C:/Qt/Qt-6.8/6.7.3/msvc2022_64"
+      },
+      "architecture": {
+        "strategy": "external",
+        "value": "x64"
+      },
+      "generator": "Ninja",
+      "vendor": {
+        "qt-project.org/Version": {
+          "checksum": "eCbkcD22kYC1BH9CIgUuIPs0giE="
+        }
+      }
+    },
+    {
+      "hidden": true,
+      "name": "QtDesignStudio_qt6_design_studio_reduced_version",
+      "inherits": "Qt",
+      "environment": {
+        "QTDIR": "C:/Qt/Qt-6.8/Tools/QtDesignStudio/qt6_design_studio_reduced_version"
+      },
+      "architecture": {
+        "strategy": "external",
+        "value": "x64"
+      },
+      "generator": "Ninja",
+      "vendor": {
+        "qt-project.org/Version": {
+          "checksum": "bOZwZtipmg5L3makElFMosG6jHo="
         }
       }
     }
   ],
   "vendor": {
     "qt-project.org/Presets": {
-      "checksum": "vUbObWRpVvH1GrD0Q/60UQksh3c="
+      "checksum": "oKd56XwWbjFOanXk65ps6e4lEGY="
     }
   }
 }

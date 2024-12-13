@@ -81,8 +81,14 @@ APP_NAME = name_of_trak_application
 [API]
 Username = username_to_backend_api
 Password = password_to_backend_api
-url = url_to_backend_api
-numberOfQueries = number_of_cloudupdate_queries
+Url = url_to_backend_api
+NumberOfQueries = number_of_cloudupdate_queries
+
+[SYSTEM]
+Database = name_of_sqlite_database
+DatabaseLocation = location_to_place_database
+LocalSystemAccountName = name_of_local_system_account
+LocalSystemAccountPassword = password_for_local_system_account
 
 [DEVELOPMENT]
 testingMain = 0|1
@@ -108,8 +114,14 @@ testingDBManager = 0|1
  - `[API]` section:
 	- `Username` : Specifies the username for the backend API. `default: ""`
 	- `Password` : Specifies the password for the backend API. `default: ""`
-	- `url` : Specifies the URL of the backend API, exclusive of the protocol. `default: https://webportal.henchmantrak.com/webapi/public/api/portals/exec_query`
-	- `numberOfQueries` : Specified the maximum number of queries the application will attempt to run in a cycle. `default: 10`
+	- `Url` : Specifies the URL of the backend API, exclusive of the protocol. `default: https://webportal.henchmantrak.com/webapi/public/api/portals/exec_query`
+	- `NumberOfQueries` : Specified the maximum number of queries the application will attempt to run in a cycle. `default: 10`
+
+ - `[SYSTEM]` section:
+	- `Database` = Specifies the name of the sqlite database. `default: ""`
+	- `DatabaseLocation` = Specifies the path the database will be placed. `default: ""`
+	- `LocalSystemAccountName` = Specifies the name of a local system account the service will run as. `default: ""`
+	- `LocalSystemAccountPassword` = Specifies the password for the local system account the service will run as. `default: ""`
 
  - `[DEVELOPMENT]` section:
 	- `testingMain` : 0 or 1; Specifies if app should build in testing mode. `default: 0`

@@ -5,20 +5,29 @@
 #include <strsafe.h>
 #include <Windows.h>
 
+struct Service
+{
+	const char* serviceName = nullptr;
+	const char* displayName = nullptr;
+	const char* localUser = nullptr;
+	const char* localPass = nullptr;
+};
+
 class ServiceController
 {
+private:
+	SC_HANDLE schSCManager = nullptr;
+	SC_HANDLE schService = nullptr;
 
-	SC_HANDLE schSCManager;
-	SC_HANDLE schService;
-
-	const char * serviceDetail[2];
+	Service service;
 
 public:
 	SERVICE_STATUS			 g_ServiceStatus = { 0 };
 	SERVICE_STATUS_HANDLE	 g_StatusHandle = NULL;
 	HANDLE					 g_ServiceStopEvent = INVALID_HANDLE_VALUE;
 
-	ServiceController(const char* serviceName, const char* serviceDisplayName);
+public:
+	ServiceController(const Service& serviceDetails);
 	
 	~ServiceController();
 	
