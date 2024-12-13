@@ -57,6 +57,11 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
+#if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+#add_compile_definitions("DEBUG=$<CONFIG:Debug>")
+#	add_compile_definitions("")
+#endif()
+
 message (STATUS "CMake version: ${CMAKE_VERSION}")
 message (STATUS "Project version: ${PROJECT_VERSION}")
 
@@ -65,7 +70,7 @@ set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 include(FetchContent)
 include(ExternalProject)
 include(GNUInstallDirs)
-set (CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+set (CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP FALSE)
 include (InstallRequiredSystemLibraries)
 
 # Second, for multi-config builds (e.g. msvc)
@@ -79,7 +84,10 @@ foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 	set (CMAKE_EXE_LINKER_FLAGS_${OUTPUTCONFIG}         "/${CONFIGTYPE}")
 endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
-set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
+MESSAGE(${CMAKE_BUILD_TYPE})
+
+#set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
+#set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
@@ -88,8 +96,9 @@ qt_standard_project_setup()
 
 #INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
 #COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
-
-find_package(Doxygen REQUIRED dot)
+if(WIN32)
+	find_package(Doxygen REQUIRED dot)
+endif(WIN32)
 
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
@@ -110,22 +119,23 @@ find_package(Doxygen REQUIRED dot)
 #message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
-option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" OFF)
+option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" ON)
 option(SQLITECPP_BUILD_TESTS "Build and run tests." OFF)
 option(SQLITECPP_INTERNAL_SQLITE "Add the internal SQLite3 source to the project." OFF)
-option(SQLITECPP_RUN_CPPLINT "Run c++ lint" OFF)
+option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
 
 qt_policy(SET QTP0003 NEW)
 
 #set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL")
-
+if(WIN32)
 find_package(OpenSSL REQUIRED)
+endif(WIN32)
 
 message(STATUS "Fetching content for GoogleTest")
 FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY	https://github.com/google/googletest.git
-  GIT_TAG			main
+	googletest
+	GIT_REPOSITORY	https://github.com/google/googletest.git
+	GIT_TAG			main
 )
 message(STATUS "Fetching content for SimpleIni")
 FetchContent_Declare(
@@ -147,9 +157,14 @@ FetchContent_Declare(
 	FIND_PACKAGE_ARGS HINTS x64
 )
 message(STATUS "Fetching content for QMYSQL")
+if(${Qt6_VERSION} EQUAL "6.7.2")
+	set(QMySQL_URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip)
+elseif(${Qt6_VERSION} EQUAL "6.8.0")
+	set(QMySQL_URL https://github.com/user-attachments/files/17289450/qsqlmysql.dll_Qt_SQL_driver_6.8.0_MSVC2022_64-bit.zip)
+endif()
 FetchContent_Declare(
 	QMYSQL
-	URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip
+	URL ${QMySQL_URL}
 )
 
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
@@ -208,11 +223,11 @@ file(COPY ${QMYSQL_SOURCE_DIR}/ DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 # App bundles on macOS have an .app suffix
 if(APPLE)
-    set(executable_path "$<TARGET_FILE_NAME:HenchmanService>.app")
+	set(executable_path "$<TARGET_FILE_NAME:HenchmanService>.app")
 #elseif(MSVC)
 #    set(executable_path "$<TARGET_FILE_NAME:HenchmanServices>")
 else()
-    set(executable_path "\${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
+	set(executable_path "\${CMAKE_INSTALL_BINDIR}/$<TARGET_FILE_NAME:HenchmanService>")
 endif()
 
 message(STATUS ${executable_path})
@@ -315,10 +330,24 @@ endif(DOXYGEN_FOUND)
 include(CPackConfig)
 
 add_custom_target(
+	Generate_Release_Project_Build
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cmake --build . --config ${CMAKE_BUILD_TYPE} --target ALL_BUILD
+	COMMENT "Generate release build for project using all_build target" VERBATIM
+)
+
+add_custom_target(
+	Generate_Installed_Project
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	COMMAND cmake --build . --config ${CMAKE_BUILD_TYPE} --target INSTALL
+	COMMENT "Generate installed build for project using install target" VERBATIM
+)
+
+add_custom_target(
 	Generate_Project_Installer
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-	COMMAND cmake --build . --config Release --target PACKAGE
-	COMMENT "Generate installer for project using custom target" VERBATIM
+	COMMAND cmake --build . --config ${CMAKE_BUILD_TYPE} --target PACKAGE
+	COMMENT "Generate installer for project using package target" VERBATIM
 )
 if(DOXYGEN_FOUND)
 add_dependencies(Generate_Project_Installer DOC)
@@ -330,3 +359,11 @@ endif(DOXYGEN_FOUND)
 #"generator": "Visual Studio 17 2022",
 # "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
 # .suo;.sln;.ncb;.sdf;.vcxproj;.csproj;.user;.vbproj;.scc;.vsscc;.vspscc;.old;.filters;.vcxitems
+# "environment": {
+#        "QTDIR": "C:/Qt/OnlineInstall/6.7.2/msvc2019_64"
+#      },
+#      "vendor": {
+#        "microsoft.com/VisualStudioSettings/CMake/1.0": {
+#          "hostOS": "Windows"
+#        }
+#      }

@@ -7,18 +7,17 @@
 
 struct Service
 {
-	const char* serviceName;
-	const char* displayName;
-	const char* localUser;
-	const char* localPass;
-
+	const char* serviceName = nullptr;
+	const char* displayName = nullptr;
+	const char* localUser = nullptr;
+	const char* localPass = nullptr;
 };
 
 class ServiceController
 {
-
-	SC_HANDLE schSCManager;
-	SC_HANDLE schService;
+private:
+	SC_HANDLE schSCManager = nullptr;
+	SC_HANDLE schService = nullptr;
 
 	Service service;
 
@@ -27,6 +26,7 @@ public:
 	SERVICE_STATUS_HANDLE	 g_StatusHandle = NULL;
 	HANDLE					 g_ServiceStopEvent = INVALID_HANDLE_VALUE;
 
+public:
 	ServiceController(const Service& serviceDetails);
 	
 	~ServiceController();

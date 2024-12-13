@@ -27,11 +27,7 @@
 ServiceController::ServiceController(const Service& serviceDetails)
 	: service(serviceDetails)
 {
-	schSCManager = nullptr;
-	schService = nullptr;
-
-	std::cout << service.serviceName << ":" << service.displayName;
-	std::cout << std::endl;
+	std::cout << service.serviceName << ":" << service.displayName << std::endl;
 }
 
 ServiceController::~ServiceController()

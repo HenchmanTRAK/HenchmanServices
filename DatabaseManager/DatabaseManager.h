@@ -2,7 +2,6 @@
 #define DATABASE_MANAGER_H
 #pragma once
 
-
 #include <iostream>
 #include <map>
 #include <optional>
@@ -40,6 +39,8 @@
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
 
+
+#define QT_NO_DEBUG_OUTPUT
 
 typedef QMap<QString, QString> QStringMap;
 
@@ -116,6 +117,79 @@ class DatabaseManager : public QObject
 {
 	Q_OBJECT
 
+private:
+
+	/**
+	 * @var netManager
+	 *
+	 * @brief The network manager for database connections.
+	 *
+	 * This object is used to make network requests to the database server.
+	 */
+	QNetworkAccessManager* netManager = nullptr;
+
+	/**
+	 * @var restManager
+	 *
+	 * @brief The REST manager for database operations.
+	 *
+	 * This object is used to make RESTful network requests to the database server.
+	 */
+	QRestAccessManager* restManager = nullptr;
+
+	/**
+	 * @var testingDBManager
+	 *
+	 * @brief A flag indicating whether the database manager is in testing mode.
+	 *
+	 * This flag is used to determine whether the database manager should use test data or not.
+	 */
+	bool testingDBManager = false;
+
+	/**
+	 * @brief The API username.
+	 *
+	 * This is the username used to authenticate with the database server.
+	 */
+	QString apiUsername = "";
+
+	/**
+	 * @brief The API password.
+	 *
+	 * This is the password used to authenticate with the database server.
+	 */
+	QString apiPassword = "";
+
+	/**
+	 * @brief The API URL.
+	 *
+	 * This is the URL of the database server.
+	 */
+	QString apiUrl = "";
+
+	/**
+	 * @brief A map of database tables and their corresponding check status.
+	 *
+	 * This map is used to keep track of the status of each database table.
+	 */
+	QMap<QString, int> databaseTablesChecked = {
+		// General
+		{"tools", 0},
+		{"users", 0},
+		{"employees", 0},
+		{"jobs", 0},
+		// Kabtraks
+		{"kabs", 0},
+		{"kabDrawers", 0},
+		{"kabDrawerBins", 0},
+		// Cribtraks
+		{"cribtools", 0},
+		// Portatracks
+		{"itemkits", 0},
+		{"kitCategory", 0},
+		{"kitLocation", 0},
+	};
+
 public:
 	/**
 	 * @var bool requestRunning
@@ -144,6 +218,7 @@ public:
 	 */
 	std::string targetApp;
 
+public:
 	/**
 	 * @brief Constructs a DatabaseManager object.
 	 *
@@ -313,6 +388,12 @@ public:
 	 */
 	int AddJobsIfNotExists();
 
+	int AddItemKitsIfNotExists();
+
+	int AddKitCategoryIfNotExists();
+
+	int AddKitLocationIfNotExists();
+
 	/**
 	 * @brief Parses a QJsonArray into a string representation.
 	 *
@@ -359,67 +440,6 @@ public slots:
 private:
 
 	/**
-	 * @var netManager
-	 *
-	 * @brief The network manager for database connections.
-	 *
-	 * This object is used to make network requests to the database server.
-	 */
-	QNetworkAccessManager* netManager = nullptr;
-
-	/**
-	 * @var restManager
-	 *
-	 * @brief The REST manager for database operations.
-	 *
-	 * This object is used to make RESTful network requests to the database server.
-	 */
-	QRestAccessManager* restManager = nullptr;
-
-	/**
-	 * @var testingDBManager
-	 * 
-	 * @brief A flag indicating whether the database manager is in testing mode.
-	 *
-	 * This flag is used to determine whether the database manager should use test data or not.
-	 */
-	bool testingDBManager = false;
-	
-	/**
-	 * @brief The API username.
-	 *
-	 * This is the username used to authenticate with the database server.
-	 */
-	QString apiUsername = "";
-
-	/**
-	 * @brief The API password.
-	 *
-	 * This is the password used to authenticate with the database server.
-	 */
-	QString apiPassword = "";
-
-	/**
-	 * @brief The API URL.
-	 *
-	 * This is the URL of the database server.
-	 */
-	QString apiUrl = "";
-
-	/**
-	 * @brief A map of database tables and their corresponding check status.
-	 *
-	 * This map is used to keep track of the status of each database table.
-	 */
-	QMap<QString, int> databaseTablesChecked = {
-		{"tools", 0},
-		{"kabs", 0},
-		{"kabDrawers", 0},
-		{"kabDrawerBins", 0},
-		{"users", 0}
-	};
-
-	/**
 	 * @brief Sends a network request to the specified URL with the provided query data.
 	 *
 	 * Ensures the request has appropriate headers and parses the data returned before logging it, then returns the pure json through the results pointer.
@@ -447,8 +467,10 @@ private:
 	 * @param results The array to store the processed queryKeys and queryValues strings.
 	 */
 	void processKeysAndValues(QStringMap& map, QString(&results)[]);
+
+	int AddCribToolsIfNotExists();
 };
 
-std::string checkValidDrivers();
+std::string getValidDrivers();
 
 #endif
