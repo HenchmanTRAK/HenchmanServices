@@ -27,11 +27,38 @@ string getValidDrivers()
 //	return FALSE;
 //}
 
+static std::array<QString, 2> GetTrakDirAndIni(RegistryManager::CRegistryManager & rtManager)
+{
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	QString trakDir;
+	QString iniFile;
+	try {
+		rtManager.GetVal("TRAK_DIR", REG_SZ, (TCHAR*)buffer, 1024);
+		trakDir = buffer;
+		rtManager.GetVal("INI_FILE", REG_SZ, (TCHAR*)buffer, 1024);
+		iniFile = buffer;
+	}
+	catch (std::exception& e)
+	{
+		ServiceHelper().WriteToError(e.what());
+	}
+
+	return { trakDir, iniFile };
+}
+
 DatabaseManager::DatabaseManager(QObject* parent) 
 : QObject(parent)
 {
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
+	std::string installDir(buffer);
+	
+	//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 
 	QSettings ini(installDir.append("\\service.ini").data(), QSettings::IniFormat, this);
 	ini.sync();
@@ -42,29 +69,65 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	apiPassword = ini.value("Password", "").toString();
 	ini.endGroup();
 	if(testingDBManager)
-	apiUrl = ini.value("DEVELOPMENT/Url", "http://localhost/webapi/public/api/portals/exec_query").toString();
+		apiUrl = ini.value("DEVELOPMENT/URL", "http://localhost/webapi/public/api/portals/exec_query").toString();
 	else
-		apiUrl = ini.value("API/Url", "http://localhost/webapi/public/api/portals/exec_query").toString();
+		apiUrl = ini.value("API/URL", "http://localhost/webapi/public/api/portals/exec_query").toString();
+
+	LOG << apiUrl;
 
 	LOG << "init db manager";
 	
 	targetApp = "";
 	requestRunning = false;
-	// General
-	databaseTablesChecked["tools"] = RegistryManager::GetVal(hKey, "numToolsChecked", REG_DWORD);
-	databaseTablesChecked["users"] = RegistryManager::GetVal(hKey, "numUsersChecked", REG_DWORD);
-	databaseTablesChecked["employees"] = RegistryManager::GetVal(hKey, "numEmployeesChecked", REG_DWORD);
-	databaseTablesChecked["jobs"] = RegistryManager::GetVal(hKey, "numJobsChecked", REG_DWORD);
-	// KabTRAK
-	databaseTablesChecked["kabs"] = RegistryManager::GetVal(hKey, "numKabsChecked", REG_DWORD);
-	databaseTablesChecked["kabDrawers"] = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
-	databaseTablesChecked["kabDrawerBins"] = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
-	// PortaTRAK
-	databaseTablesChecked["itemkits"] = RegistryManager::GetVal(hKey, "numItemKits", REG_DWORD);
-	databaseTablesChecked["kitCategory"] = RegistryManager::GetVal(hKey, "numKitCategory", REG_DWORD);
-	databaseTablesChecked["kitLocation"] = RegistryManager::GetVal(hKey, "numKitLocation", REG_DWORD);
+	for (auto i = databaseTablesChecked.cbegin(), end= databaseTablesChecked.cend(); i!=end; ++i)
+	{
+		try {
+			rtManager.GetVal(i.key().toStdString().append("Checked").data(), REG_DWORD, (int*)&databaseTablesChecked[i.key()], sizeof(databaseTablesChecked[i.key()]));
+		}
+		catch (std::exception& e)
+		{
+			ServiceHelper().WriteToError(e.what());
+			rtManager.SetVal(i.key().toStdString().append("Checked").data(), REG_DWORD, (int*)&databaseTablesChecked[i.key()], sizeof(databaseTablesChecked[i.key()]));
 
-	RegCloseKey(hKey);
+		}
+	}
+	//try {
+	//	// General
+	//	//databaseTablesChecked["tools"] = RegistryManager::GetVal(hKey, "numToolsChecked", REG_DWORD);
+	//	rtManager.GetVal("numToolsChecked", REG_DWORD, (int *)&databaseTablesChecked["tools"], sizeof(databaseTablesChecked["tools"]));
+	//	//databaseTablesChecked["users"] = RegistryManager::GetVal(hKey, "numUsersChecked", REG_DWORD);
+	//	rtManager.GetVal("numUsersChecked", REG_DWORD, (int*)&databaseTablesChecked["users"], sizeof(databaseTablesChecked["users"]));
+	//	//databaseTablesChecked["employees"] = RegistryManager::GetVal(hKey, "numEmployeesChecked", REG_DWORD);
+	//	rtManager.GetVal("numEmployeesChecked", REG_DWORD, (int*)&databaseTablesChecked["employees"], sizeof(databaseTablesChecked["employees"]));
+	//	//databaseTablesChecked["jobs"] = RegistryManager::GetVal(hKey, "numJobsChecked", REG_DWORD);
+	//	rtManager.GetVal("numJobsChecked", REG_DWORD, (int*)&databaseTablesChecked["jobs"], sizeof(databaseTablesChecked["jobs"]));
+
+	//	// KabTRAK
+	//	//databaseTablesChecked["kabs"] = RegistryManager::GetVal(hKey, "numKabsChecked", REG_DWORD);
+	//	rtManager.GetVal("numKabsChecked", REG_DWORD, (int*)&databaseTablesChecked["kabs"], sizeof(databaseTablesChecked["kabs"]));
+
+	//	//databaseTablesChecked["kabDrawers"] = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
+	//	rtManager.GetVal("numDrawersChecked", REG_DWORD, (int*)&databaseTablesChecked["kabDrawers"], sizeof(databaseTablesChecked["kabDrawers"]));
+
+	//	//databaseTablesChecked["kabDrawerBins"] = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
+	//	rtManager.GetVal("numToolsInDrawersChecked", REG_DWORD, (int*)&databaseTablesChecked["kabDrawerBins"], sizeof(databaseTablesChecked["kabDrawerBins"]));
+
+	//	// PortaTRAK
+	//	//databaseTablesChecked["itemkits"] = RegistryManager::GetVal(hKey, "numItemKits", REG_DWORD);
+	//	rtManager.GetVal("numItemKits", REG_DWORD, (int*)&databaseTablesChecked["itemkits"], sizeof(databaseTablesChecked["itemkits"]));
+
+	//	//databaseTablesChecked["kitCategory"] = RegistryManager::GetVal(hKey, "numKitCategory", REG_DWORD);
+	//	rtManager.GetVal("numKitCategory", REG_DWORD, (int*)&databaseTablesChecked["kitCategory"], sizeof(databaseTablesChecked["kitCategory"]));
+
+	//	//databaseTablesChecked["kitLocation"] = RegistryManager::GetVal(hKey, "numKitLocation", REG_DWORD);
+	//	rtManager.GetVal("numKitLocation", REG_DWORD, (int*)&databaseTablesChecked["kitLocation"], sizeof(databaseTablesChecked["kitLocation"]));
+	//}
+	//catch (std::exception& e)
+	//{
+	//	ServiceHelper().WriteToError(e.what());
+	//}
+
+	//RegCloseKey(hKey);
 
 }
 
@@ -272,6 +335,10 @@ int DatabaseManager::AddToolsIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 	
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -293,12 +360,20 @@ int DatabaseManager::AddToolsIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
+		//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		//QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
+		//rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
+		//QString trakDir(buffer);
+
+		//QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
+		//rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
+		//QString iniFile(buffer);
+		//RegCloseKey(hKey);
+
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") {
@@ -325,9 +400,10 @@ int DatabaseManager::AddToolsIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numToolsChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	//RegistryManager::SetVal(hKey, "numToolsChecked", databaseTablesChecked[targetKey], REG_DWORD);
+	//RegCloseKey(hKey);
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//performCleanup();
 	return 1;
@@ -358,6 +434,10 @@ int DatabaseManager::AddUsersIfNotExists()
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
 	restManager = new QRestAccessManager(netManager, this);
+
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -393,12 +473,20 @@ int DatabaseManager::AddUsersIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
+		RegCloseKey(hKey);*/
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+
+		//QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
+
+		//QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
+		//RegCloseKey(hKey);
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") {
@@ -425,9 +513,10 @@ int DatabaseManager::AddUsersIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -458,6 +547,10 @@ int DatabaseManager::AddEmployeesIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -482,12 +575,14 @@ int DatabaseManager::AddEmployeesIfNotExists()
 
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
+		RegCloseKey(hKey);*/
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") 
@@ -516,9 +611,10 @@ int DatabaseManager::AddEmployeesIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numEmployeesChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -549,6 +645,10 @@ int DatabaseManager::AddJobsIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -573,12 +673,13 @@ int DatabaseManager::AddJobsIfNotExists()
 
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
+		RegCloseKey(hKey);*/
+		std::array trakNini(GetTrakDirAndIni(rtManager));
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") {
@@ -605,9 +706,10 @@ int DatabaseManager::AddJobsIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numJobsChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -639,6 +741,10 @@ int DatabaseManager::AddKabsIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -659,12 +765,14 @@ int DatabaseManager::AddKabsIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
+		RegCloseKey(hKey);*/
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") {
@@ -691,9 +799,10 @@ int DatabaseManager::AddKabsIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numKabsChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//performCleanup();
 	return 1;
@@ -725,6 +834,10 @@ int DatabaseManager::AddDrawersIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -746,12 +859,14 @@ int DatabaseManager::AddDrawersIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
+		RegCloseKey(hKey);*/
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if(result.value("custId") != "'" + custId + "'") {
@@ -778,9 +893,10 @@ int DatabaseManager::AddDrawersIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -811,6 +927,10 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -834,12 +954,14 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
+		RegCloseKey(hKey);*/
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") {
@@ -866,9 +988,10 @@ int DatabaseManager::AddToolsInDrawersIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numToolsInDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -901,6 +1024,10 @@ int DatabaseManager::AddCribToolsIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
 			continue;
@@ -924,12 +1051,16 @@ int DatabaseManager::AddCribToolsIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
+		RegCloseKey(hKey);*/
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		//QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'")
@@ -954,9 +1085,10 @@ int DatabaseManager::AddCribToolsIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numCribTools", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -999,6 +1131,10 @@ int DatabaseManager::AddItemKitsIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
 			continue;
@@ -1022,12 +1158,15 @@ int DatabaseManager::AddItemKitsIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		RegCloseKey(hKey);
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") {
@@ -1053,9 +1192,10 @@ int DatabaseManager::AddItemKitsIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numItemKits", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -1087,6 +1227,10 @@ int DatabaseManager::AddKitCategoryIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1112,12 +1256,15 @@ int DatabaseManager::AddKitCategoryIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		RegCloseKey(hKey);
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") {
@@ -1143,9 +1290,10 @@ int DatabaseManager::AddKitCategoryIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numKitCategory", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -1177,6 +1325,10 @@ int DatabaseManager::AddKitLocationIfNotExists()
 
 	restManager = new QRestAccessManager(netManager, this);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1205,12 +1357,15 @@ int DatabaseManager::AddKitLocationIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		RegCloseKey(hKey);
 
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
+		std::array trakNini(GetTrakDirAndIni(rtManager));
+
+		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
 
 		if (result.value("custId") != "'" + custId + "'") {
@@ -1236,9 +1391,10 @@ int DatabaseManager::AddKitLocationIfNotExists()
 		}
 
 	}
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::SetVal(hKey, "numKitLocation", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
@@ -1252,9 +1408,16 @@ int DatabaseManager::connectToRemoteDB()
 	QSqlDatabase db;
 	bool result = false;
 	try {
-		HKEY hKeyLocal = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
-		targetSchema = QString::fromStdString(RegistryManager::GetStrVal(hKeyLocal, "Schema", REG_SZ));
-		RegCloseKey(hKeyLocal);
+		//HKEY hKeyLocal = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
+		RegistryManager::CRegistryManager rtManagerAddDB(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\"+ targetApp + "\\Database").c_str());
+
+		/*targetSchema = QString::fromStdString(RegistryManager::GetStrVal(hKeyLocal, "Schema", REG_SZ));
+		RegCloseKey(hKeyLocal);*/
+
+		TCHAR buffer[1024] = "\0";
+		DWORD size = sizeof(buffer);
+		rtManagerAddDB.GetVal("Schema", REG_SZ, (char*)buffer, size);
+		targetSchema = buffer;
 
 		LOG << "Checking if database has been previously defined";
 		if (!QSqlDatabase::contains(targetSchema))
@@ -1299,6 +1462,29 @@ int DatabaseManager::connectToRemoteDB()
 
 		int count = 0;
 
+		RegistryManager::CRegistryManager rtManagerMainSrv(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").data());
+		//buffer[0] = '\0';
+		//size = sizeof(buffer);
+		size = 1024;
+		rtManagerMainSrv.GetVal("APP_NAME", REG_SZ, (TCHAR *)buffer, size);
+		std::string trakType(buffer);
+
+		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+		size = 1024;
+		rtManager.GetVal("trakID", REG_SZ, (TCHAR *)buffer, size);
+		//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+		std::string trakId(buffer);
+		size = 1024;
+		rtManager.GetVal("ID", REG_SZ, (TCHAR *)buffer, size);
+		//string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+		std::string custId(buffer);
+
+		size = 1024;
+		rtManager.GetVal(trakId.data(), REG_SZ, (TCHAR *)buffer, size);
+		//string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+		std::string idNum(buffer);
+
+
 		while (testingDBManager ? count < 5 : query.next())
 		{
 			count++;
@@ -1325,14 +1511,14 @@ int DatabaseManager::connectToRemoteDB()
 
 				ServiceHelper().WriteToCustomLog("Query fetched from database: " + res["query"].toStdString(), timeStamp[0] + "-queries");
 
-				HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-				string trakType = RegistryManager::GetStrVal(hKey, "APP_NAME", REG_SZ);
-				RegCloseKey(hKey);
-				hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer"));
+				//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+				//string trakType = RegistryManager::GetStrVal(hKey, "APP_NAME", REG_SZ);
+				//RegCloseKey(hKey);
+				/*hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer"));
 				string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
 				string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
-				string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
-				RegCloseKey(hKey);
+				string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);*/
+				//RegCloseKey(hKey);
 
 				if (res["query"].contains("custId =", Qt::CaseInsensitive) && !skipQuery)
 				{
@@ -1696,29 +1882,54 @@ int DatabaseManager::connectToLocalDB()
 
 	LOG << "Test Log";
 	try {
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
+		//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
+		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").c_str());
+		TCHAR buffer[1024];
+		DWORD size = 1024;
 
-		QString dbtype = RegistryManager::GetStrVal(hKey, "Database", REG_SZ).data();
-
+		//QString dbtype = RegistryManager::GetStrVal(hKey, "Database", REG_SZ).data();
+		rtManager.GetVal("Database", REG_SZ, (TCHAR *)buffer, size);
+		QString dbtype(buffer);
+		LOG << dbtype << " | " << size;
 		if (!QSqlDatabase::isDriverAvailable(dbtype))
 		{
 			//ServiceHelper().WriteToError((string)("Provided Database Driver is not available"));
-			RegCloseKey(hKey);
+			//RegCloseKey(hKey);
 			/*ServiceHelper().WriteToError((string)("The following Databases are supported"));
 			ServiceHelper().WriteToError(checkValidDrivers());
 			return 0;*/
 			throw HenchmanServiceException("Provided database driver is not available");
 		}
 
-		QString schema = RegistryManager::GetStrVal(hKey, "Schema", REG_SZ).data();
+		//QString schema = RegistryManager::GetStrVal(hKey, "Schema", REG_SZ).data();
+		size = 1024;
+		rtManager.GetVal("Schema", REG_SZ, (TCHAR*)buffer, size);
+		QString schema(buffer);
+		LOG << schema;
 
 		if (!QSqlDatabase::contains(schema))
 		{
 
-			QString server = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Server", REG_SZ));
-			int port = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Port", REG_SZ)).toInt();
-			QString user = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Username", REG_SZ));
-			string pass = RegistryManager::GetStrVal(hKey, "Password", REG_SZ);
+			//QString server = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Server", REG_SZ));
+			size = 1024;
+			rtManager.GetVal("Server", REG_SZ, (TCHAR *)buffer, size);
+			QString server(buffer);
+
+			//int port = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Port", REG_SZ)).toInt();
+			size = 1024;
+			rtManager.GetVal("Port", REG_SZ, (TCHAR *)buffer, size);
+			int port = QString(buffer).toInt();
+			//int installDir(buffer);
+
+			//QString user = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Username", REG_SZ));
+			size = 1024;
+			rtManager.GetVal("Username", REG_SZ, (char*)buffer, size);
+			QString user(buffer);
+
+			//string pass = RegistryManager::GetStrVal(hKey, "Password", REG_SZ);
+			size = 1024;
+			rtManager.GetVal("Password", REG_SZ, (char*)buffer, size);
+			QString pass(buffer);
 
 			ServiceHelper().WriteToLog((string)"Creating session to db");
 					
@@ -1726,14 +1937,14 @@ int DatabaseManager::connectToLocalDB()
 			db.setHostName(server);
 			db.setPort(port);
 			db.setUserName(user);
-			if (pass != "")
-				db.setPassword(pass.data());
+			if (!pass.isEmpty())
+				db.setPassword(pass);
 			db.setConnectOptions("CLIENT_COMPRESS;");
 		}
 		else {
 			db = QSqlDatabase::database(schema);
 		}
-		RegCloseKey(hKey);
+		//RegCloseKey(hKey);
 
 		if (!db.open())
 			throw HenchmanServiceException("DB Connection failed to open");
@@ -1753,7 +1964,7 @@ int DatabaseManager::connectToLocalDB()
 		{
 			QString res = query.value(0).toString();
 			LOG << res;
-			if (res.toUtf8().data() == schema) {
+			if (res == schema) {
 				dbFound = true;
 				break;
 			}
@@ -1763,6 +1974,7 @@ int DatabaseManager::connectToLocalDB()
 		if (!dbFound) {
 			ServiceHelper().WriteToLog((string)"Generating Database");
 			QString targetQuery = "CREATE DATABASE " + schema + " CHARACTER SET utf8 COLLATE utf8_general_ci";
+			LOG << targetQuery;
 			if (!query.exec(targetQuery)) {
 				ServiceHelper().WriteToError((string)"Failed to create database");
 			}
@@ -1797,9 +2009,14 @@ int DatabaseManager::connectToLocalDB()
 int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 {
 	int successCount = 0;
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
-	QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
-	RegCloseKey(hKey);
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").c_str());
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	//QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
+	rtManager.GetVal("Schema", REG_SZ, (char*)buffer, size);
+	QString schema(buffer);
+	//RegCloseKey(hKey);
 	QSqlDatabase db = QSqlDatabase::database(schema);
 	QFile file(filepath.data());
 	try {
@@ -1864,9 +2081,14 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 	vector<QStringMap> resultVector;
 	QStringMap queryResult;
 	queryResult["success"] = "0";
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
-	QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
-	RegCloseKey(hKey);
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").c_str());
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	//QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
+	rtManager.GetVal("Schema", REG_SZ, (char*)buffer, size);
+	QString schema(buffer);
+	//RegCloseKey(hKey);
 	QSqlDatabase db = QSqlDatabase::database(schema);
 
 	try {

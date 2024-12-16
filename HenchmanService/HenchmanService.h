@@ -24,6 +24,8 @@
 //#include <future>
 //#include <thread>
 
+#include "ServiceController.h"
+
 #include <QCoreApplication>
 #include <QObject>
 #include <QString>
@@ -35,13 +37,14 @@
 
 #include "SimpleIni.h"
 
+
 #include "DatabaseManager.h"
 #include "SQLiteManager2.h"
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
 #include "EventManager.h"
 #include "TRAKManager.h"
-#include "ServiceController.h"
+//#include "ServiceException.h"
 
 #include <Windows.h>
 #include <wtsapi32.h>
@@ -53,6 +56,7 @@
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Wtsapi32.lib")
 
+
 // TODO: Reference additional headers your program requires here.
 #define SERVICE_NAME			"HenchmanService"
 #define SERVICE_DISPLAY_NAME	"HenchmanTRAK Product Service"
@@ -63,7 +67,15 @@
 #define SERVICE_DEPENDENCIES	""
 //#define SERVICE_ACCOUNT			L"NT AUTHORITY\\LocalService"
 #define SERVICE_PASSWORD        NULL
-#define CRLF "\r\n"
+#define CRLF L"\r\n"
+
+#ifdef UNICODE
+#define tstring std::wstring
+//std::wstring installDir(buffer);
+#else
+#define tstring std::string
+//std::string installDir(buffer);
+#endif
 
 /**
  * @brief The main class for the HenchmanService application.
@@ -106,13 +118,13 @@ private:
 	 *
 	 * This variable stores the username used for sending emails using SMTP.
 	 */
-	std::string mail_username = "";
+	tstring mail_username;
 	/**
 	 * @brief The username for sending emails.
 	 *
 	 * This variable stores the username used for sending emails using SMTP.
 	 */
-	std::string mail_password = "";
+	tstring mail_password;
 
 	/**
 	 * @brief A flag indicating whether to update the service.
@@ -135,7 +147,7 @@ public:
 	 *
 	 * This variable stores the path to the application.
 	 */
-	std::string app_path = "";
+	tstring app_path;
 
 	/**
 	 * @brief A unique pointer to a DatabaseManager object.
@@ -164,7 +176,7 @@ private:
 	 *
 	 * @throws Throws an exception if the username or password is invalid.
 	 */
-	bool setMailLogin(std::string& username, std::string& password);
+	bool setMailLogin(const tstring& username, const tstring& password);
 
 	/**
 	 * @brief Checks the state of the MySQL service.
@@ -228,7 +240,7 @@ public:
 };
 
 
-void WINAPI SvcMain(int dwArgc, char* lpszArgv[]);
+void WINAPI SvcMain();
 void SvcInit();
 DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
 

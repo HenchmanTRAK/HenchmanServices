@@ -6,12 +6,14 @@
 #include "HenchmanService.h"
 
 using namespace std;
+using namespace ServiceController;
 
 bool testing = false;
 
 //QCoreApplication* a = nullptr;
 
-unique_ptr<ServiceController> svcController = nullptr;
+std::unique_ptr<CServiceController> svcController = nullptr;
+std::unique_ptr<SService> service = nullptr;
 
 // ShowCerts - Prints out the given certificate.
 /*
@@ -93,7 +95,7 @@ void sslError(SSL* ssl, int received, stringstream& logi)
 }
 */
 
-static bool ProcessExists(string& exeFileName)
+static bool ProcessExists(const tstring& exeFileName)
 {
 	HANDLE SnapshotHandle;
 	SnapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -103,11 +105,11 @@ static bool ProcessExists(string& exeFileName)
 	bool ContinueLoop = Process32First(SnapshotHandle, &ProcessEntry32);
 	bool result = false;
 	while (ContinueLoop) {
-		string targetEXE = exeFileName;
+		tstring targetEXE = exeFileName;
 		transform(targetEXE.begin(), targetEXE.end(), targetEXE.begin(), ::toupper);
-		string processEXE = QString::fromWCharArray(ProcessEntry32.szExeFile).toStdString();
+		tstring processEXE = ProcessEntry32.szExeFile;
 		transform(processEXE.begin(), processEXE.end(), processEXE.begin(), ::toupper);
-		string processEXEFileName = ServiceHelper().fileBasename(QString::fromWCharArray(ProcessEntry32.szExeFile).toStdString());
+		tstring processEXEFileName = ServiceHelper().fileBasename(ProcessEntry32.szExeFile);
 		transform(processEXEFileName.begin(), processEXEFileName.end(), processEXEFileName.begin(), ::toupper);
 		//WriteToLog("Checking if target exe: " + targetEXE + " is process: " + processEXEFileName);
 		if ((processEXEFileName == targetEXE) || (processEXE == targetEXE)) {
@@ -115,7 +117,7 @@ static bool ProcessExists(string& exeFileName)
 			ContinueLoop = false;
 		}
 		else {
-			ContinueLoop = Process32NextW(SnapshotHandle, &ProcessEntry32);
+			ContinueLoop = Process32Next(SnapshotHandle, &ProcessEntry32);
 		}
 	}
 	CloseHandle(SnapshotHandle);
@@ -140,7 +142,7 @@ static bool FileInUse(string fileName) {
 
 static int ShellExecuteApp(string appName, string params)
 {
-	SHELLEXECUTEINFOA SEInfo;
+	SHELLEXECUTEINFO SEInfo;
 	DWORD ExitCode;
 	string exeFile = appName;
 	string paramStr = params;
@@ -165,7 +167,7 @@ static int ShellExecuteApp(string appName, string params)
 	//: SW_HIDE
 	SEInfo.nShow = paramStr == "" && SW_NORMAL;
 	ServiceHelper().WriteToLog("Executing target: " + appName + params);
-	if (ShellExecuteExA(&SEInfo)) {
+	if (ShellExecuteEx(&SEInfo)) {
 		stringstream exitCodeMessage;
 		//do {
 			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
@@ -181,9 +183,9 @@ static int ShellExecuteApp(string appName, string params)
 
 DWORD GetCurrentSessionId()
 {
-	WTS_SESSION_INFOA* pSessionInfo;
+	WTS_SESSION_INFO* pSessionInfo;
 	DWORD n_sessions = 0;
-	BOOL ok = WTSEnumerateSessionsA(WTS_CURRENT_SERVER, 0, 1, &pSessionInfo, &n_sessions);
+	BOOL ok = WTSEnumerateSessions(WTS_CURRENT_SERVER, 0, 1, &pSessionInfo, &n_sessions);
 	if (!ok) {
 		ServiceHelper().WriteToError("Failed to enumerate through sessions");
 		return 0;
@@ -206,7 +208,7 @@ DWORD GetCurrentSessionId()
 
 static int CreateTargetProcess(string lpAppName)
 {
-	STARTUPINFOA startupInfo;
+	STARTUPINFO startupInfo;
 	PROCESS_INFORMATION processInformation;
 
 	ZeroMemory(&startupInfo, sizeof(startupInfo));
@@ -214,9 +216,9 @@ static int CreateTargetProcess(string lpAppName)
 	ZeroMemory(&processInformation, sizeof(processInformation));
 
 	try {
-		if (!CreateProcessA(
+		if (!CreateProcess(
 			lpAppName.data(),
-			GetCommandLineA(),
+			GetCommandLine(),
 			NULL,
 			NULL,
 			false,
@@ -241,7 +243,7 @@ static int CreateTargetProcess(string lpAppName)
 	return 1;
 }
 
-bool LaunchProcess(const char* process_path)
+bool LaunchProcess(const TCHAR* process_path)
 {
 	DWORD SessionId = GetCurrentSessionId();
 	if (SessionId == 0) {   // no-one logged in
@@ -267,7 +269,7 @@ bool LaunchProcess(const char* process_path)
 		return false;
 	}
 
-	STARTUPINFOA si = { sizeof(si) };
+	STARTUPINFO si = { sizeof(si) };
 	PROCESS_INFORMATION pi;
 	ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
 	//si.lpDesktop = (char *)"winsta0\\default";
@@ -277,7 +279,7 @@ bool LaunchProcess(const char* process_path)
 
 	string path = string(process_path).substr(0, string(process_path).find_last_of('\\')+1);
 
-	ok = CreateProcessAsUserA(
+	ok = CreateProcessAsUser(
 		hToken, 
 		process_path, 
 		NULL, 
@@ -286,7 +288,7 @@ bool LaunchProcess(const char* process_path)
 		FALSE,
 		dwCreationFlags, 
 		environment, 
-		path.data(),
+		path.c_str(),
 		&si, 
 		&pi
 	);
@@ -310,8 +312,8 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode)
 	case SERVICE_CONTROL_STOP:
 		svcController->ReportSvcStatus(CtrlCode, NO_ERROR, 0);
 
-		SetEvent(svcController->g_ServiceStopEvent);
-		svcController->ReportSvcStatus(svcController->g_ServiceStatus.dwCurrentState, NO_ERROR, 0);
+		SetEvent(svcController->mServiceStopEvent);
+		svcController->ReportSvcStatus(svcController->mServiceStatus.dwCurrentState, NO_ERROR, 0);
 		return;
 	case SERVICE_CONTROL_INTERROGATE:
 		break;
@@ -320,83 +322,70 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode)
 	}
 }
 
-void WINAPI SvcMain(int dwArgc, char* lpszArgv[])
+void WINAPI SvcMain()
 {
 	//a = new QCoreApplication(argc, argv);
 	//a = new QCoreApplication(dwArgc, lpszArgv);
 
-	if (testing)
+	if (!testing)
 	{
-		SvcInit();
-		return;
+		svcController->mServiceStatusHandle = RegisterServiceCtrlHandler(
+			(TCHAR*)service->serviceName,
+			SvcCtrlHandler
+		);
+
+		if (!svcController->mServiceStatusHandle)
+			return;
+
+		ZeroMemory(&svcController->mServiceStatus, sizeof(svcController->mServiceStatus));
+		svcController->mServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+		svcController->mServiceStatus.dwServiceSpecificExitCode = 0;
+
+		svcController->ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
 	}
-
-	svcController->g_StatusHandle = RegisterServiceCtrlHandlerA(
-		SERVICE_NAME,
-		SvcCtrlHandler
-	);
-
-	if (!svcController->g_StatusHandle)
-	{
-		return;
-	}
-
-	ZeroMemory(&svcController->g_ServiceStatus, sizeof(svcController->g_ServiceStatus));
-	svcController->g_ServiceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-	svcController->g_ServiceStatus.dwServiceSpecificExitCode = 0;
-
-	svcController->ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
-
+	
 	SvcInit();
 
+	if (svcController->mServiceStatusHandle)
+		CloseHandle(svcController->mServiceStatusHandle);
 
 	//delete a;
 }
 
 void SvcInit()
 {
-
-	if (testing)
+	if (!testing)
 	{
-		SvcWorkerThread(&svcController->g_ServiceStopEvent);
-		return;
-	}
-	
-	svcController->g_ServiceStopEvent = CreateEventA(
-		NULL,
-		TRUE,
-		FALSE,
-		NULL
-	);
-
-	if (svcController->g_ServiceStopEvent == NULL)
-	{
-		svcController->ReportSvcStatus(SERVICE_STOPPED, GetLastError(), 0);
-		return;
-	}
-
-	svcController->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
-
-	// Do Work Here
-	HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &svcController->g_ServiceStopEvent, 0, NULL);
-	//SvcWorkerThread(&g_ServiceStopEvent);
-
-	/*while (1)
-	{
-		WaitForSingleObject(
-			g_ServiceStopEvent,
-			INFINITE
-		);
-	}*/
-	if (hThread)
-		WaitForSingleObject(
-			svcController->g_ServiceStopEvent,
-			INFINITE
+		svcController->mServiceStopEvent = CreateEvent(
+			NULL,
+			TRUE,
+			FALSE,
+			NULL
 		);
 
-	svcController->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
-	CloseHandle(svcController->g_ServiceStopEvent);
+		if (svcController->mServiceStopEvent == NULL)
+		{
+			svcController->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+			return;
+		}
 
+		svcController->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+
+		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &svcController->mServiceStopEvent, 0, NULL);
+
+		if (hThread)
+			WaitForSingleObject(
+				svcController->mServiceStopEvent,
+				INFINITE
+			);
+
+		svcController->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+		CloseHandle(svcController->mServiceStopEvent);
+	}
+	else {
+		std::cout << "Testing service\n";
+		SvcWorkerThread(&svcController->mServiceStopEvent);
+	}
 	return;
 
 }
@@ -406,32 +395,47 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	int argc = 0;
 	char* argv[1];
 
+	EventManager::CEventManager evntManager(service->serviceName);
+
+
 	// add registering registering application in event log and removing on exit.
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
-	string evtMsgFile = RegistryManager::GetStrVal(hKey, "EventMessageFile", REG_SZ);
-	DWORD typesSupported = RegistryManager::GetVal(hKey, "TypesSupported", REG_DWORD);
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
 
-	HKEY serviceKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	string installDir = RegistryManager::GetStrVal(serviceKey, "INSTALL_DIR", REG_SZ);
-	RegCloseKey(serviceKey);
+	/*RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, std::wstring(L"SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME).data());
+	RegistryManager::CRegistryManager rmSource(HKEY_LOCAL_MACHINE, std::wstring(L"SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME).data());
 
-	installDir.append("\\event_log.dll");
-	if (evtMsgFile != installDir) {
-		RegistryManager::SetVal(hKey, "EventMessageFile", installDir, REG_SZ);
+	TCHAR eventBuff[MAX_PATH] = L"\0";
+	DWORD eventBuffSize = MAX_PATH;
+	rmEvent.GetVal(L"EventMessageFile", REG_SZ, (TCHAR *)eventBuff, eventBuffSize);
+	string eventMessageFile(eventBuff);
+
+	TCHAR sourceBuff[MAX_PATH] = L"\0";
+	DWORD sourceBuffSize = MAX_PATH;
+	rmSource.GetVal(L"INSTALL_DIR", REG_SZ, (TCHAR *)sourceBuff, sourceBuffSize);
+	string installDir(sourceBuff);
+
+	if (!installDir.empty() && (eventMessageFile.empty()  || eventMessageFile != installDir))
+	{
+		installDir.append((TCHAR *)"\\event_messages.dll");
+		rmEvent.SetVal(L"EventMessageFile", REG_SZ, (TCHAR *)installDir.data(), installDir.length());
+		DWORD typesSupported = 7;
+		rmEvent.SetVal(L"TypesSupported", REG_DWORD, (DWORD*)&typesSupported, sizeof(DWORD));
 	}
-	RegistryManager::SetVal(hKey, "TypesSupported", 7, REG_DWORD);
+	eventMessageFile.clear();
+	installDir.clear();*/
 
-	RegCloseKey(hKey);
+	//EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
 
-	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
+	evntManager.ReportCustomEvent(service->serviceName, "Service is running", 0);
+
 	
 	QCoreApplication* a = new QCoreApplication(argc, argv);
-	HenchmanService service(a);
+	HenchmanService hsService(a);
 	
-	while (testing || WaitForSingleObject(svcController->g_ServiceStopEvent, 0) != WAIT_OBJECT_0)
+	while (testing || WaitForSingleObject(svcController->mServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		
-		service.MainFunction();
+		hsService.MainFunction();
 #if false
 		service.sqliteManager->UpdateEntry(
 			"Test",
@@ -463,44 +467,46 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	
 	}
 	
-	EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service has exited", 0);
+	evntManager.ReportCustomEvent(service->serviceName, "Service has exited", 0);
 
 	a->deleteLater();
 	return ERROR_SUCCESS;
 }
 
-static void setContextMenuCommands(string verb, string command)
+static void setContextMenuCommands(const tstring& verb, const tstring& command)
 {
-	string verbName = verb;
+	std::string verbName = verb;
 	std::erase(verbName, ' ');
-	HKEY hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+verbName));
-	RegistryManager::SetVal(hKey, "MUIVerb", verb, REG_SZ);
-	RegCloseKey(hKey);
-	hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string(SERVICE_NAME).append("\\Shell\\"+ verbName +"\\command"));
-	RegistryManager::SetVal(hKey, "", command, REG_SZ);
-	RegCloseKey(hKey);
+
+	RegistryManager::CRegistryManager rtManagerShell(HKEY_CLASSES_ROOT, std::string(service->serviceName).append("\\Shell\\").append(verbName).c_str());
+	RegistryManager::CRegistryManager rtManagerCommand(HKEY_CLASSES_ROOT, std::string(service->serviceName).append("\\Shell\\").append(verbName).append("\\command").c_str());
+
+	rtManagerShell.SetVal("MUIVerb", REG_SZ, (TCHAR*)verb.data(), verb.length());
+	rtManagerCommand.SetVal("", REG_SZ, (TCHAR*)command.data(), command.length());
 }
 
-static void setContextMenu(string installDir)
+static void setContextMenu(const std::string& installDir)
 {
-	HKEY hKey = RegistryManager::OpenKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
-	RegistryManager::SetVal(hKey, "MUIVerb", "HenchmanService", REG_SZ);
-	RegistryManager::SetVal(hKey, "ExtendedSubCommandsKey", string(SERVICE_NAME), REG_SZ);
-	RegistryManager::SetVal(hKey, "Extended", "", REG_SZ);
-	RegistryManager::SetVal(hKey, "AppliesTo", string("System.ItemName:\"").append(SERVICE_NAME).append(".exe\""), REG_SZ);
+	RegistryManager::CRegistryManager rtManager(HKEY_CLASSES_ROOT, std::string("*\\shell\\").append(service->serviceName).c_str());
+	rtManager.SetVal("MUIVerb", REG_SZ, (TCHAR*)"HenchmanService", sizeof("HenchmanService"));
+	std::string serviceName(service->serviceName);
+	rtManager.SetVal("ExtendedSubCommandsKey", REG_SZ, (TCHAR*)serviceName.data(), serviceName.length());
+	rtManager.SetVal("Extended", REG_SZ, (TCHAR*)"", sizeof(""));
+	std::string appliedTo("System.ItemName:\"");
+	appliedTo.append(service->serviceName).append(".exe\"");
+	rtManager.SetVal("AppliesTo", REG_SZ, (TCHAR*)appliedTo.data(), appliedTo.length());
 
-	RegCloseKey(hKey);
-
-	setContextMenuCommands("Start Service", "\"" + installDir + "\\HenchmanService.exe\" \"--start\" \"%1\"");
-	setContextMenuCommands("Stop Service", "\"" + installDir + "\\HenchmanService.exe\" \"--stop\" \"%1\"");
-	setContextMenuCommands("Install Service", "\"" + installDir + "\\HenchmanService.exe\" \"--install\" \"%1\"");
-	setContextMenuCommands("Remove Service", "\"" + installDir + "\\HenchmanService.exe\" \"--remove\" \"%1\"");
+	setContextMenuCommands("Start Service", "\"" + installDir + "\\" + service->serviceName + ".exe\" \"--start\" \"%1\"");
+	setContextMenuCommands("Stop Service", "\"" + installDir + "\\" + service->serviceName + ".exe\" \"--stop\" \"%1\"");
+	setContextMenuCommands("Install Service", "\"" + installDir + "\\" + service->serviceName + ".exe\" \"--install\" \"%1\"");
+	setContextMenuCommands("Remove Service", "\"" + installDir + "\\" + service->serviceName + ".exe\" \"--remove\" \"%1\"");
 
 }
 
 static void removeContextMenu()
 {
-	RegistryManager::RemoveKey(HKEY_CLASSES_ROOT, string("*\\shell\\").append(SERVICE_NAME));
+	RegistryManager::CRegistryManager::RemoveTargetKey(HKEY_CLASSES_ROOT, std::string("*\\shell\\").append(service->serviceName).c_str());
+	RegistryManager::CRegistryManager::RemoveTargetKey(HKEY_CLASSES_ROOT, std::string(service->serviceName).c_str());
 }
 
 HenchmanService::HenchmanService(QObject *parent)
@@ -510,9 +516,13 @@ HenchmanService::HenchmanService(QObject *parent)
 
 	ini.SetUnicode();
 
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-
-	string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));*/
+	LOG << std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).data();
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).data());
+	TCHAR buffer[1024];
+	DWORD size = sizeof(buffer);
+	rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
+	tstring installDir(buffer);
 
 	LOG << "Install dir: " << installDir;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
@@ -528,8 +538,10 @@ HenchmanService::HenchmanService(QObject *parent)
 		string value = ini.GetValue("WAMP", val.pItem, "");
 		ServiceHelper().removeQuotes(value);
 
-		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
+		/*RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);*/
+		//RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
+		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR *)value.data(), (value.length() + 1)))
+			throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
 
 		key.clear();
 		value.clear();
@@ -542,15 +554,15 @@ HenchmanService::HenchmanService(QObject *parent)
 		string value = ini.GetValue("TRAK", val.pItem, "");
 		ServiceHelper().removeQuotes(value);
 
-		RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-		RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
+		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR*)value.data(), (value.length() + 1)))
+			throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
 
 		key.clear();
 		value.clear();
 
 	}
 
-	RegCloseKey(hKey);
+	//RegCloseKey(hKey);
 	//sqliteManager = make_unique<SQLiteManager2>(a);
 
 
@@ -608,7 +620,7 @@ HenchmanService::~HenchmanService()
 	//logx.clear();
 }
 
-bool HenchmanService::setMailLogin(string& username, string& password) 
+bool HenchmanService::setMailLogin(const string& username, const string& password) 
 {
 	try {
 		if (username.length() <= 1 || password.length() <= 1) {
@@ -711,9 +723,14 @@ int HenchmanService::MainFunction()
 
 void HenchmanService::checkStateOfMySQL()
 {
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
-	RegCloseKey(hKey);
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	rtManager.GetVal("MySQL_DIR", REG_SZ, (TCHAR *)buffer, size);
+	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
+	string mysql_dir(buffer);
+	//RegCloseKey(hKey);
 	ServiceHelper().WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = svcController->GetSvcStatus("wampmysqld64");
 	try {
@@ -755,9 +772,17 @@ void HenchmanService::checkStateOfMySQL()
 
 void HenchmanService::checkStateOfApache()
 {
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 	string apache_dir = RegistryManager::GetStrVal(hKey, "Apache_DIR", REG_SZ);
-	RegCloseKey(hKey);
+	RegCloseKey(hKey);*/
+
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	rtManager.GetVal("Apache_DIR", REG_SZ, (TCHAR*)buffer, size);
+	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
+	string apache_dir(buffer);
+
 	ServiceHelper().WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = svcController->GetSvcStatus("wampapache64");
 	try {
@@ -809,47 +834,73 @@ int main(int argc, char* argv[])
 	std::cout << "Debug Enabled" << std::endl;
 #endif // DEBUG
 
-	CSimpleIniA ini;
+	CSimpleIni ini;
+	ini.IsUnicode();
 	
-	Service service;
-	service.serviceName = SERVICE_NAME;
-	service.displayName = SERVICE_DISPLAY_NAME;
+	service = std::make_unique<SService>();
+	service->serviceName = SERVICE_NAME;
+	service->displayName = SERVICE_DISPLAY_NAME;
 
 	SI_Error rc = ini.LoadFile(".\\service.ini");
 	if (rc < 0) {
 		cerr << "Failed to Load INI File" << endl;
-		return 0;
+		service->localUser = NULL;
+		service->localPass = NULL;
 	}
 	else {
 		testing = ini.GetBoolValue("DEVELOPMENT", "testingMain", 0);
-		service.localUser = ini.GetValue("SYSTEM", "LocalSystemAccountName", NULL);
-		service.localPass = ini.GetValue("SYSTEM", "LocalSystemAccountPassword", NULL);
+		//std::string localUser(ini.GetValue("SYSTEM", "LocalSystemAccountName", NULL));
+		//std::string localUserPass(ini.GetValue("SYSTEM", "LocalSystemAccountPassword", NULL));
+		service->localUser = ini.GetValue("SYSTEM", "LocalSystemAccountName", NULL);
+		service->localPass = ini.GetValue("SYSTEM", "LocalSystemAccountPassword", NULL);
 	}
 
 	if (testing && argc <= 1)
 		argv[1] = (char *)"--install";
 	
-	svcController = make_unique<ServiceController>(service);
+	svcController = make_unique<CServiceController>(*service);
 
 	if (lstrcmpiA(argv[1], "--install") == 0)
 	{
-		HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-		string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-		if (installDir == "" || installDir != filesystem::current_path())
-		{
-			installDir = filesystem::current_path().string();
-			RegistryManager::SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
+		try {
+			RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring((TCHAR*)"SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
+			//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
+			TCHAR buffer[MAX_PATH] = "\0";
+			DWORD size = MAX_PATH;
+			rtManager.GetVal((TCHAR*)"INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
+			tstring installDir(buffer);
+
+			//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
+			if (installDir.empty() || installDir != std::filesystem::current_path())
+			{
+				installDir = filesystem::current_path().generic_string();
+				//RegistryManager::SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
+				if (rtManager.SetVal((TCHAR*)"INSTALL_DIR", REG_SZ, (TCHAR *)installDir.c_str(), (installDir.length() + 1)))
+					throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
+			}
+
+			setContextMenu(installDir);
 		}
-		RegCloseKey(hKey);
-		setContextMenu(installDir);
+		catch (std::exception& e)
+		{
+			ServiceHelper().WriteToError(e.what());
+			int c = getchar();
+			if (c == '\n' || c == EOF)
+				std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;
+			return 0;
+		}
+
 		if (!testing) {
 			svcController->DoInstallSvc();
 			Sleep(1000);
-			ShellExecuteApp(installDir + "\\" + SERVICE_NAME + ".exe", " --start");
+			ShellExecuteApp(argv[0], " --start");
 			return 0;
 		}
 		LOG << "installing...";
 		Sleep(1000);
+		int c = getchar();
+		if (c == '\n' || c == EOF)
+			std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;
 		argv[1] = (char*)"--start";
 		
 	}
@@ -874,6 +925,9 @@ int main(int argc, char* argv[])
 	{
 		if (!testing){
 			svcController->DoStartSvc();
+			/*int c = getchar();
+			if (c == '\n' || c == EOF)
+				std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;*/
 			return 0;
 		}
 		LOG << "starting...";
@@ -892,13 +946,13 @@ int main(int argc, char* argv[])
 	}
 
 	if (testing) {
-		SvcMain(argc, argv);
+		SvcMain();
 		return 0;
 	}
 
 	SERVICE_TABLE_ENTRY ServiceTable[] =
 	{
-		{QString(SERVICE_NAME).toStdWString().data(), (LPSERVICE_MAIN_FUNCTION)SvcMain},
+		{(char *)service->serviceName, (LPSERVICE_MAIN_FUNCTION)SvcMain},
 		{NULL, NULL}
 	};
 
@@ -908,7 +962,7 @@ int main(int argc, char* argv[])
 		std::cout << "Press enter to install service or hit CTRL+C to exit..." << std::endl;
 		int c = getchar();
 		if (c == '\n' || c == EOF)
-			ShellExecuteApp(string(SERVICE_NAME) + ".exe", " --install");
+			ShellExecuteApp(argv[0], (TCHAR *)" --install");
 		std::cout << "Press any key to exit..." << endl;
 	}
 	//delete svcController;

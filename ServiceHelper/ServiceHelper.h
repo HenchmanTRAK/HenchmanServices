@@ -104,6 +104,9 @@ public:
 	 */
 	std::string GetLogsPath(std::string app_path = "");
 
+
+	std::string GetServicePath(std::string app_path = "");
+
 	/**
 	 * @brief Writes the given log message to the log file.
 	 *

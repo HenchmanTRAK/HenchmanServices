@@ -9,10 +9,12 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-if(MSVC)
+if(MSVC AND ${CMAKE_BUILD_TYPE} EQUAL "Debug")
 	target_compile_options(<target> PUBLIC "/ZI")
 	target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
+
+set(MSVC_ROOT_DIR C:/Users/Willem/source/repos)
 
 # set the project version. 
 #set(PROJECT_VER_PATCH 6)
@@ -75,12 +77,19 @@ include (InstallRequiredSystemLibraries)
 
 # Second, for multi-config builds (e.g. msvc)
 foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
+	message(${OUTPUTCONFIG})
 	string( TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG )
 	string( TOLOWER ${OUTPUTCONFIG} CONFIGTYPE )
+	message(${OUTPUTCONFIG})
+	message(${CONFIGTYPE})
 	set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} )
 	set( CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} )
 	set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY} )
-	set (CMAKE_CXX_FLAGS_${OUTPUTCONFIG}                "/ZI /Od")
+if(${CONFIGTYPE} EQUAL "debug")
+	set (CMAKE_CXX_FLAGS_${OUTPUTCONFIG}	"/ZI /Od")
+else()
+	set (CMAKE_CXX_FLAGS_${OUTPUTCONFIG}	"/fastfail /MT /O2")
+endif(${CONFIGTYPE} EQUAL "debug")
 	set (CMAKE_EXE_LINKER_FLAGS_${OUTPUTCONFIG}         "/${CONFIGTYPE}")
 endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
@@ -92,7 +101,6 @@ set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
 qt_standard_project_setup()
-
 
 #INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
 #COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
@@ -156,7 +164,7 @@ FetchContent_Declare(
 	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
 	FIND_PACKAGE_ARGS HINTS x64
 )
-message(STATUS "Fetching content for QMYSQL")
+message(STATUS "Fetching content for QMYSQL version: ${Qt6_VERSION}")
 if(${Qt6_VERSION} EQUAL "6.7.2")
 	set(QMySQL_URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip)
 elseif(${Qt6_VERSION} EQUAL "6.8.0")
@@ -183,6 +191,111 @@ FetchContent_MakeAvailable(SimpleIni OpenSSL QMYSQL)
 
 #add_compile_definitions($<$<CONFIG:Debug>:_ITERATOR_DEBUG_LEVEL=0>)
 
+add_library(ServiceController SHARED IMPORTED)
+
+file(
+	REMOVE  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+	FILES_MATCHING
+	PATTERN "ServiceController.dll"
+)
+
+file(
+	COPY ${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/
+	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+	FILES_MATCHING
+	PATTERN "ServiceController.dll"
+	PATTERN bin EXCLUDE
+)
+
+set_target_properties(
+	ServiceController PROPERTIES
+	IMPORTED_LOCATION "${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/ServiceController.dll"
+	IMPORTED_IMPLIB "${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/ServiceController.lib"
+	INTERFACE_INCLUDE_DIRECTORIES "${MSVC_ROOT_DIR}/CNC_Current_Tracker/ServiceController"
+)
+
+if (CMAKE_VERSION VERSION_GREATER 3.12)
+  set_property(TARGET ServiceController PROPERTY CXX_STANDARD 20)
+endif()
+
+add_library(RegistryManager SHARED IMPORTED)
+
+file(
+	REMOVE  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+	FILES_MATCHING
+	PATTERN "RegistryManager.dll"
+)
+
+file(
+	COPY ${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/
+	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+	FILES_MATCHING
+	PATTERN "RegistryManager.dll"
+	PATTERN bin EXCLUDE
+)
+
+set_target_properties(
+	RegistryManager PROPERTIES
+	IMPORTED_LOCATION "${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/RegistryManager.dll"
+	IMPORTED_IMPLIB "${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/RegistryManager.lib"
+	INTERFACE_INCLUDE_DIRECTORIES "${MSVC_ROOT_DIR}/CNC_Current_Tracker/RegistryManager"
+)
+
+if (CMAKE_VERSION VERSION_GREATER 3.12)
+  set_property(TARGET RegistryManager PROPERTY CXX_STANDARD 20)
+endif()
+
+add_library(EventManager SHARED IMPORTED)
+
+file(
+	REMOVE  ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+	FILES_MATCHING
+	PATTERN "EventManager.dll"
+	PATTERN "event_messages.dll"
+)
+
+file(
+	COPY ${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/
+	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+	FILES_MATCHING
+	PATTERN "EventManager.dll"
+	PATTERN "event_messages.dll"
+	PATTERN bin EXCLUDE
+)
+
+set_target_properties(
+	EventManager PROPERTIES
+	IMPORTED_LOCATION "${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/EventManager.dll"
+	IMPORTED_IMPLIB "${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/EventManager.lib"
+	INTERFACE_INCLUDE_DIRECTORIES "${MSVC_ROOT_DIR}/CNC_Current_Tracker/EventManager;${MSVC_ROOT_DIR}/CNC_Current_Tracker/event_messages"
+)
+
+if (CMAKE_VERSION VERSION_GREATER 3.12)
+  set_property(TARGET EventManager PROPERTY CXX_STANDARD 20)
+endif()
+
+add_library(ServiceException STATIC IMPORTED)
+
+#file(
+#	COPY ${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/
+#	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+#	FILES_MATCHING
+#	PATTERN "EventManager.dll"
+#	PATTERN bin EXCLUDE
+#)
+
+set_target_properties(
+	ServiceException PROPERTIES
+	IMPORTED_LOCATION "${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/ServiceException.lib"
+#	IMPORTED_IMPLIB "${MSVC_ROOT_DIR}/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release/ServiceException.lib"
+	INTERFACE_INCLUDE_DIRECTORIES "${MSVC_ROOT_DIR}/CNC_Current_Tracker/ServiceException;"
+)
+
+if (CMAKE_VERSION VERSION_GREATER 3.12)
+  set_property(TARGET ServiceException PROPERTY CXX_STANDARD 20)
+endif()
+
+
 # Include sub-projects.
 #add_subdirectory ("simpleini-4.22")
 #add_subdirectory (thirdparty/SQLiteCpp-3.3.2)
@@ -193,9 +306,9 @@ add_subdirectory (SQLiteManager2)
 add_subdirectory (DatabaseManager)
 add_subdirectory (TRAKManager)
 add_subdirectory (HenchmanServiceException)
-add_subdirectory (EventManager)
-add_subdirectory (RegistryManager)
-add_subdirectory (ServiceController)
+#add_subdirectory (EventManager)
+#add_subdirectory (RegistryManager)
+#add_subdirectory (ServiceController)
 #add_subdirectory (HenchmanServiceMailer)
 
 if(DOXYGEN_FOUND)
@@ -258,12 +371,12 @@ message(STATUS "Current Source: " ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
 
-file(
-	COPY ${CMAKE_SOURCE_DIR}/resources/ 
-	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-	FILES_MATCHING
-	PATTERN "*.dll"
-)
+#file(
+#	COPY ${CMAKE_SOURCE_DIR}/resources/ 
+#	DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+#	FILES_MATCHING
+#	PATTERN "*.dll"
+#)
 
 install (
 	DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
@@ -349,9 +462,9 @@ add_custom_target(
 	COMMAND cmake --build . --config ${CMAKE_BUILD_TYPE} --target PACKAGE
 	COMMENT "Generate installer for project using package target" VERBATIM
 )
-if(DOXYGEN_FOUND)
-add_dependencies(Generate_Project_Installer DOC)
-endif(DOXYGEN_FOUND)
+#if(DOXYGEN_FOUND)
+#add_dependencies(Generate_Project_Installer DOC)
+#endif(DOXYGEN_FOUND)
 #add_dependencies(Generate_Project_Installer HenchmanService)
 
 

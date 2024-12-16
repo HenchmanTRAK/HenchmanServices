@@ -40,8 +40,8 @@ void ServiceController::DoInstallSvc()
 {
 	std::cout << " - " << (service.serviceName ? service.serviceName : "") << std::endl;
 	std::cout << " - " << (service.displayName ? service.displayName : "") << std::endl;
-	std::cout << " - " << (service.localUser ? service.localUser : "") << std::endl;
-	std::cout << " - " << (service.localPass ? service.localPass : "") << std::endl;
+	std::cout << " - " << (service.localUser ? service.localUser : "NULL") << std::endl;
+	std::cout << " - " << (service.localPass ? service.localPass : "NULL") << std::endl;
 
 	TCHAR szUnquotedPath[MAX_PATH];
 
@@ -54,7 +54,7 @@ void ServiceController::DoInstallSvc()
 	TCHAR szPath[MAX_PATH];
 	StringCbPrintf(szPath, MAX_PATH, TEXT("\"%s\""), szUnquotedPath);
 	std::string wPath(&szPath[0]);
-	std::string sSZPath(wPath.begin(), wPath.end());
+	//std::string sSZPath(wPath.begin(), wPath.end());
 
 	schSCManager = OpenSCManagerA(
 		NULL,					// local computer
@@ -73,16 +73,15 @@ void ServiceController::DoInstallSvc()
 		service.serviceName,			// name of service 
 		service.displayName,			// service name to display 
 		SERVICE_ALL_ACCESS,				// desired access 
-		SERVICE_WIN32_OWN_PROCESS 
-		| SERVICE_INTERACTIVE_PROCESS,	// service type 
+		SERVICE_WIN32_OWN_PROCESS,		// service type 
 		SERVICE_AUTO_START,				// start type 
 		SERVICE_ERROR_NORMAL, 			// error control type 
-		sSZPath.data(), 				// path to service's binary 
+		wPath.c_str(), 					// path to service's binary 
 		NULL, 							// no load ordering group 
 		NULL,							// no tag identifier 
 		NULL,							// no dependencies 
-		service.localUser,				// LocalSystem account 
-		service.localPass				// no password 
+		NULL,							// LocalSystem account 
+		NULL							// no password 
 	);
 
 	if (schService == NULL) {
@@ -100,6 +99,7 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 
 	if (!sService)
 		sService = service.serviceName;
+	std::cout << sService << "\n";
 
 	SERVICE_STATUS_PROCESS ssStatus;
 	ZeroMemory(&ssStatus, sizeof(ssStatus));
@@ -124,7 +124,7 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 	// Get ServiceHandle
 	schService = OpenServiceA(
 		schSCManager,		// SCM database
-		sService,		// Name of Service
+		sService,			// Name of Service
 		SERVICE_ALL_ACCESS	// Level of access
 	);
 
@@ -176,6 +176,8 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 			dwWaitTime = 1000;
 		else if (dwWaitTime > 10000)
 			dwWaitTime = 10000;
+		
+		printf("Sleeping for %d milliseconds\n", dwWaitTime);
 		Sleep(dwWaitTime);
 
 		// Check if service has stopped pending.
@@ -248,6 +250,8 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 			dwWaitTime = 1000;
 		else if (dwWaitTime > 10000)
 			dwWaitTime = 10000;
+		printf("Sleeping for %d milliseconds\n", dwWaitTime);
+
 		Sleep(dwWaitTime);
 
 		if (!QueryServiceStatusEx(

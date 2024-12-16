@@ -1,5 +1,6 @@
 
 qt_add_library(HenchmanServiceException STATIC "HenchmanServiceException.cpp")
+qt_disable_unicode_defines(HenchmanServiceException)
 
 target_include_directories(HenchmanServiceException PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

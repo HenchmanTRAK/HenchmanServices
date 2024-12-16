@@ -1,5 +1,6 @@
 
 qt_add_library(ServiceHelper STATIC "ServiceHelper.cpp")
+qt_disable_unicode_defines(ServiceHelper)
 
 message(STATUS "Checking for OpenSSL: " ${OPENSSL_VERSION})
 
