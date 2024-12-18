@@ -39,7 +39,8 @@ static std::array<QString, 2> GetTrakDirAndIni(RegistryManager::CRegistryManager
 		rtManager.GetVal("INI_FILE", REG_SZ, (TCHAR*)buffer, 1024);
 		iniFile = buffer;
 	}
-	catch (std::exception& e)
+	//catch (std::exception& e)
+	catch(const HenchmanServiceException& e)
 	{
 		ServiceHelper().WriteToError(e.what());
 	}
@@ -79,15 +80,16 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	
 	targetApp = "";
 	requestRunning = false;
-	for (auto i = databaseTablesChecked.cbegin(), end= databaseTablesChecked.cend(); i!=end; ++i)
+	for (auto i = databaseTablesChecked.begin(), end= databaseTablesChecked.end(); i!=end; ++i)
 	{
 		try {
-			rtManager.GetVal(i.key().toStdString().append("Checked").data(), REG_DWORD, (int*)&databaseTablesChecked[i.key()], sizeof(databaseTablesChecked[i.key()]));
+			if(rtManager.GetVal(i.key().toStdString().append("Checked").c_str(), REG_DWORD, (DWORD *)&databaseTablesChecked[i.key()], sizeof(DWORD)))
+				rtManager.SetVal(i.key().toStdString().append("Checked").c_str(), REG_DWORD, (DWORD *)&databaseTablesChecked[i.key()], sizeof(DWORD));
 		}
-		catch (std::exception& e)
+		//catch (std::exception& e)
+		catch(const HenchmanServiceException& e)
 		{
 			ServiceHelper().WriteToError(e.what());
-			rtManager.SetVal(i.key().toStdString().append("Checked").data(), REG_DWORD, (int*)&databaseTablesChecked[i.key()], sizeof(databaseTablesChecked[i.key()]));
 
 		}
 	}
@@ -242,6 +244,7 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 		LOG << "networkrequested";
 		try {
 			if (reply.error() != QNetworkReply::NoError) {
+				// HenchmanServiceException
 				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
 				//ServiceHelper().WriteToError("A Network error has occured: " + reply.errorString().toStdString());
 				//return;
@@ -1420,6 +1423,7 @@ int DatabaseManager::connectToRemoteDB()
 		targetSchema = buffer;
 
 		LOG << "Checking if database has been previously defined";
+		// HenchmanServiceException
 		if (!QSqlDatabase::contains(targetSchema))
 			throw HenchmanServiceException("Provided schema not valid");
 	
@@ -1429,7 +1433,7 @@ int DatabaseManager::connectToRemoteDB()
 		ServiceHelper().WriteToLog("Creating session to db " + targetSchema.toStdString());
 		
 		db = QSqlDatabase::database(targetSchema);
-		
+		// HenchmanServiceException
 		if (!db.open())
 			throw HenchmanServiceException("Failed to open DB Connection");
 
@@ -1506,7 +1510,8 @@ int DatabaseManager::connectToRemoteDB()
 						"\'" + query
 						.value(3)
 						.toString()
-						.replace("T", " ") + "\'"
+						.replace("T", " ")
+						.replace(".000Z","") + "\'"
 					).replace("()", "").simplified();
 
 				ServiceHelper().WriteToCustomLog("Query fetched from database: " + res["query"].toStdString(), timeStamp[0] + "-queries");
@@ -1898,6 +1903,7 @@ int DatabaseManager::connectToLocalDB()
 			/*ServiceHelper().WriteToError((string)("The following Databases are supported"));
 			ServiceHelper().WriteToError(checkValidDrivers());
 			return 0;*/
+			// HenchmanServiceException
 			throw HenchmanServiceException("Provided database driver is not available");
 		}
 
@@ -2020,7 +2026,7 @@ int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 	QSqlDatabase db = QSqlDatabase::database(schema);
 	QFile file(filepath.data());
 	try {
-
+		// HenchmanServiceException
 		if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) 
 			throw HenchmanServiceException("Failed to open target file");
 
@@ -2095,6 +2101,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 
 		if (!db.open())
 		{
+			// HenchmanServiceException
 			throw HenchmanServiceException("Failed to open DB Connection");
 		}
 		db.transaction();

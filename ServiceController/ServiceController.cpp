@@ -1,47 +1,36 @@
+// ServiceController.cpp : Defines the exported functions for the DLL.
+//
 
 #include "ServiceController.h"
 
 
-//int InstallMySQL()
+// This is an example of an exported variable
+//SERVICECONTROLLER_API int nServiceController=0;
+
+// This is an example of an exported function.
+//SERVICECONTROLLER_API int fnServiceController(void)
 //{
-//	if (ShellExecuteApp("C:\\wamp\\bin\\mysql\\mysql5.6.17\\bin\\mysqld.exe", "--install-manual wampmysql64"))
-//		return 1;
-//	return 0;
-//}
-//
-//int InstallApache()
-//{
-//	if (ShellExecuteApp("C:\\wamp\\bin\\apache\\apache2.4.9\\bin\\httpd.exe", "-k install -n wampapache64"))
-//		return 1;
-//	return 0;
-//}
-//
-//int InstallOnlineOfflineScript()
-//{
-//	if (ShellExecuteApp("C:\\wamp\\bin\\php\\php5.5.12\\php-win.exe", "-c C:\\wamp\\scripts\\onlineOffline.php"))
-//		return 1;
-//	return 0;
+//    return 0;
 //}
 
-
-ServiceController::ServiceController(const Service& serviceDetails)
-	: service(serviceDetails)
+using namespace ServiceController;
+// This is the constructor of a class that has been exported.
+CServiceController::CServiceController(const SService& serviceDetails)
+	: mService(serviceDetails)
 {
-	std::cout << service.serviceName << ":" << service.displayName << std::endl;
+	std::cout << mService.serviceName << ":" << mService.displayName << std::endl;
+	return;
 }
 
-ServiceController::~ServiceController()
+CServiceController::~CServiceController()
 {
 	schSCManager = nullptr;
 	schService = nullptr;
 }
 
-void ServiceController::DoInstallSvc()
+void CServiceController::DoInstallSvc()
 {
-	std::cout << " - " << (service.serviceName ? service.serviceName : "") << std::endl;
-	std::cout << " - " << (service.displayName ? service.displayName : "") << std::endl;
-	std::cout << " - " << (service.localUser ? service.localUser : "NULL") << std::endl;
-	std::cout << " - " << (service.localPass ? service.localPass : "NULL") << std::endl;
+	std::cout << "Installing: " << mService.serviceName << ":" << mService.displayName << std::endl;
 
 	TCHAR szUnquotedPath[MAX_PATH];
 
@@ -53,10 +42,14 @@ void ServiceController::DoInstallSvc()
 
 	TCHAR szPath[MAX_PATH];
 	StringCbPrintf(szPath, MAX_PATH, TEXT("\"%s\""), szUnquotedPath);
+#ifdef UNICODE
+	std::wstring wPath(&szPath[0]);
+#else
 	std::string wPath(&szPath[0]);
+#endif
 	//std::string sSZPath(wPath.begin(), wPath.end());
 
-	schSCManager = OpenSCManagerA(
+	schSCManager = OpenSCManager(
 		NULL,					// local computer
 		NULL,					// ServiceActive database
 		SC_MANAGER_ALL_ACCESS	// full access rights
@@ -66,22 +59,33 @@ void ServiceController::DoInstallSvc()
 		printf("OpenSCManager failed (%d)\n", GetLastError());
 		return;
 	}
+
+	if (OpenService(
+		schSCManager,		// SCM database
+		"ServiceHenchman",	// Name of Service
+		SERVICE_ALL_ACCESS	// Level of access
+	))
+	{
+		DoDeleteSvc("ServiceHenchman");
+	}
+
 	// SERVICE_NAME
 	// SERVICE_DISPLAY_NAME
-	schService = CreateServiceA(
+	schService = CreateService(
 		schSCManager,					// SCM database 
-		service.serviceName,			// name of service 
-		service.displayName,			// service name to display 
+		mService.serviceName,			// name of service 
+		mService.displayName,			// service name to display 
 		SERVICE_ALL_ACCESS,				// desired access 
-		SERVICE_WIN32_OWN_PROCESS,		// service type 
+		SERVICE_WIN32_OWN_PROCESS
+		| SERVICE_INTERACTIVE_PROCESS,	// service type 
 		SERVICE_AUTO_START,				// start type 
 		SERVICE_ERROR_NORMAL, 			// error control type 
 		wPath.c_str(), 					// path to service's binary 
 		NULL, 							// no load ordering group 
 		NULL,							// no tag identifier 
 		NULL,							// no dependencies 
-		NULL,							// LocalSystem account 
-		NULL							// no password 
+		mService.localUser,				// LocalSystem account 
+		mService.localPass				// no password 
 	);
 
 	if (schService == NULL) {
@@ -94,12 +98,10 @@ void ServiceController::DoInstallSvc()
 	CloseServiceHandle(schSCManager);
 }
 
-void __stdcall ServiceController::DoStartSvc(const char* sService)
+void CServiceController::DoStartSvc(const TCHAR* sService)
 {
-
 	if (!sService)
-		sService = service.serviceName;
-	std::cout << sService << "\n";
+		sService = mService.serviceName;
 
 	SERVICE_STATUS_PROCESS ssStatus;
 	ZeroMemory(&ssStatus, sizeof(ssStatus));
@@ -108,13 +110,11 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 	DWORD dwWaitTime;
 	DWORD dwBytesNeeded;
 
-	// Get ServiceManager Handle
-	schSCManager = OpenSCManagerA(
+	schSCManager = OpenSCManager(
 		NULL,					// local computer
 		NULL,					// servicesActive database
 		SC_MANAGER_ALL_ACCESS	// full access rights
 	);
-
 	if (schSCManager == NULL)
 	{
 		printf("OpenSCManager failed (%d)\n", GetLastError());
@@ -122,12 +122,11 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 	}
 
 	// Get ServiceHandle
-	schService = OpenServiceA(
+	schService = OpenService(
 		schSCManager,		// SCM database
 		sService,			// Name of Service
 		SERVICE_ALL_ACCESS	// Level of access
 	);
-
 	if (schService == NULL)
 	{
 		printf("OpenService failed (%d)\n", GetLastError());
@@ -145,26 +144,24 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 	))
 	{
 		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
-		goto Exit;
-		/*CloseServiceHandle(schService);
+		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
-		return;*/
+		return;
 	}
 
 	// Check service is not already running
 	if (ssStatus.dwCurrentState != SERVICE_STOPPED && ssStatus.dwCurrentState != SERVICE_STOP_PENDING)
 	{
 		printf("Cannot start the service because it is already running\n");
-		goto Exit;
-		/*CloseServiceHandle(schService);
+		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
-		return;*/
+		return;
 	}
 
 	// Save tickCount and initial checkPoint
 	dwStartTickCount = GetTickCount64();
 	dwOldCheckPoint = ssStatus.dwCheckPoint;
-
+	std::cout << ssStatus.dwCurrentState << "\n";
 	// Wait for service to stop
 	while (ssStatus.dwCurrentState == SERVICE_STOP_PENDING)
 	{
@@ -176,8 +173,6 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 			dwWaitTime = 1000;
 		else if (dwWaitTime > 10000)
 			dwWaitTime = 10000;
-		
-		printf("Sleeping for %d milliseconds\n", dwWaitTime);
 		Sleep(dwWaitTime);
 
 		// Check if service has stopped pending.
@@ -190,10 +185,9 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 		))
 		{
 			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
-			goto Exit;
-			/*CloseServiceHandle(schService);
+			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
-			return;*/
+			return;
 		}
 		// update tickCount and checkPoint
 		if (ssStatus.dwCheckPoint > dwOldCheckPoint)
@@ -204,39 +198,37 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 		if (GetTickCount64() - dwStartTickCount > ssStatus.dwWaitHint)
 		{
 			printf("Timeout: Waiting for service to stop\n");
-			goto Exit;
-			/*CloseServiceHandle(schService);
+			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
-			return;*/
+			return;
 		}
 	}
 
-	if (!StartServiceA(
+	if (!StartService(
 		schService,
 		0,
 		NULL
 	))
 	{
 		printf("StartService failed (%d)\n", GetLastError());
-		goto Exit;
-		/*DoStopSvc();
-		DoDeleteSvc();*/
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return;
 	}
 	printf("Service start pending...\n");
 
 	// Check the status until the service is no longer start pending. 
 	if (!QueryServiceStatusEx(
-		schService,                     // handle to service 
-		SC_STATUS_PROCESS_INFO,         // info level
-		(LPBYTE)&ssStatus,             // address of structure
+		schService,						// handle to service 
+		SC_STATUS_PROCESS_INFO,			// info level
+		(LPBYTE)&ssStatus,				// address of structure
 		sizeof(SERVICE_STATUS_PROCESS), // size of structure
-		&dwBytesNeeded))              // if buffer too small
+		&dwBytesNeeded))				// if buffer too small
 	{
 		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
-		/*CloseServiceHandle(schService);
+		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
-		return;*/
-		goto Exit;
+		return;
 	}
 
 	// update tickCount and checkPoint
@@ -250,8 +242,6 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 			dwWaitTime = 1000;
 		else if (dwWaitTime > 10000)
 			dwWaitTime = 10000;
-		printf("Sleeping for %d milliseconds\n", dwWaitTime);
-
 		Sleep(dwWaitTime);
 
 		if (!QueryServiceStatusEx(
@@ -286,26 +276,24 @@ void __stdcall ServiceController::DoStartSvc(const char* sService)
 		printf("  Exit Code: %d\n", ssStatus.dwWin32ExitCode);
 		printf("  Check Point: %d\n", ssStatus.dwCheckPoint);
 		printf("  Wait Hint: %d\n", ssStatus.dwWaitHint);
-		//DoDeleteSvc();
 	}
 	else
 	{
 		printf("Service started successfully.\n");
 	}
 
-Exit:
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
 	return;
 }
 
-int __stdcall ServiceController::StartTargetSvc(const char* sService)
+int CServiceController::StartTargetSvc(const TCHAR* sService)
 {
 	if (!sService)
-		sService = service.serviceName;
+		sService = mService.serviceName;
 
 	// Get ServiceManager Handle
-	schSCManager = OpenSCManagerA(
+	schSCManager = OpenSCManager(
 		NULL,					// local computer
 		NULL,					// servicesActive database
 		SC_MANAGER_ALL_ACCESS	// full access rights
@@ -318,7 +306,7 @@ int __stdcall ServiceController::StartTargetSvc(const char* sService)
 	}
 
 
-	schService = OpenServiceA(
+	schService = OpenService(
 		schSCManager,		// SCM database
 		sService,			// Name of Service
 		SERVICE_ALL_ACCESS	// Level of access
@@ -331,7 +319,7 @@ int __stdcall ServiceController::StartTargetSvc(const char* sService)
 		return 0;
 	}
 
-	if (!ChangeServiceConfigA(
+	if (!ChangeServiceConfig(
 		schService,				// Service Handle
 		SERVICE_NO_CHANGE,		// Service Type
 		SERVICE_AUTO_START,		// Service Start Condition
@@ -350,7 +338,7 @@ int __stdcall ServiceController::StartTargetSvc(const char* sService)
 		return 0;
 	}
 
-	if (!StartServiceA(
+	if (!StartService(
 		schService,
 		0,
 		NULL
@@ -369,10 +357,10 @@ int __stdcall ServiceController::StartTargetSvc(const char* sService)
 	return 1;
 }
 
-void __stdcall ServiceController::DoStopSvc(const char* sService)
+void CServiceController::DoStopSvc(const TCHAR* sService)
 {
 	if (!sService)
-		sService = service.serviceName;
+		sService = mService.serviceName;
 
 	SERVICE_STATUS_PROCESS ssp;
 	ZeroMemory(&ssp, sizeof(ssp));
@@ -395,9 +383,9 @@ void __stdcall ServiceController::DoStopSvc(const char* sService)
 	}
 
 	// Get a handle to the service.
-	schService = OpenServiceA(
+	schService = OpenService(
 		schSCManager,					// SCM database 
-		sService,					// name of service 
+		sService,						// name of service 
 		SERVICE_STOP |
 		SERVICE_QUERY_STATUS |
 		SERVICE_ENUMERATE_DEPENDENTS
@@ -420,13 +408,17 @@ void __stdcall ServiceController::DoStopSvc(const char* sService)
 	))
 	{
 		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
-		goto stop_cleanup;
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return;
 	}
 
 	if (ssp.dwCurrentState == SERVICE_STOPPED)
 	{
 		printf("Service is already stopped.\n");
-		goto stop_cleanup;
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return;
 	}
 
 	// If a stop is pending, wait for it.
@@ -450,19 +442,25 @@ void __stdcall ServiceController::DoStopSvc(const char* sService)
 		))
 		{
 			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
-			goto stop_cleanup;
+			CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			return;
 		}
 
 		if (ssp.dwCurrentState == SERVICE_STOPPED)
 		{
 			printf("Service stopped successfully.\n");
-			goto stop_cleanup;
+			CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			return;
 		}
 
 		if (GetTickCount64() - dwStartTime > dwTimeout)
 		{
 			printf("Service stop timed out.\n");
-			goto stop_cleanup;
+			CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			return;
 		}
 	}
 
@@ -477,7 +475,9 @@ void __stdcall ServiceController::DoStopSvc(const char* sService)
 	))
 	{
 		printf("ControlService failed (%d)\n", GetLastError());
-		goto stop_cleanup;
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return;
 	}
 
 	// Wait for the service to stop.
@@ -493,7 +493,9 @@ void __stdcall ServiceController::DoStopSvc(const char* sService)
 		))
 		{
 			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
-			goto stop_cleanup;
+			CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			return;
 		}
 
 		if (ssp.dwCurrentState == SERVICE_STOPPED)
@@ -502,17 +504,20 @@ void __stdcall ServiceController::DoStopSvc(const char* sService)
 		if (GetTickCount64() - dwStartTime > dwTimeout)
 		{
 			printf("Wait timed out\n");
-			goto stop_cleanup;
+			CloseServiceHandle(schService);
+			CloseServiceHandle(schSCManager);
+			return;
 		}
 	}
+
 	printf("Service stopped successfully\n");
-stop_cleanup:
+
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
 	return;
 }
 
-bool __stdcall ServiceController::StopDependentServices()
+bool CServiceController::StopDependentServices()
 {
 	DWORD dwBytesNeeded;
 	DWORD dwStartTime = GetTickCount64();
@@ -629,19 +634,20 @@ bool __stdcall ServiceController::StopDependentServices()
 	return result;
 }
 
-void __stdcall ServiceController::DoDeleteSvc(const char* sService)
+void CServiceController::DoDeleteSvc(const TCHAR* sService)
 {
 	if (!sService)
-		sService = service.serviceName;
+		sService = mService.serviceName;
 
 	SERVICE_STATUS ssStatus;
 	ZeroMemory(&ssStatus, sizeof(ssStatus));
 
 	// Get a handle to the SCM database. 
 	schSCManager = OpenSCManager(
-		NULL,                    // local computer
-		NULL,                    // ServicesActive database 
-		SC_MANAGER_ALL_ACCESS);  // full access rights 
+		NULL,					// local computer
+		NULL,					// ServicesActive database 
+		SC_MANAGER_ALL_ACCESS	// full access rights 
+	);
 
 	if (NULL == schSCManager)
 	{
@@ -650,7 +656,7 @@ void __stdcall ServiceController::DoDeleteSvc(const char* sService)
 	}
 
 	// Get a handle to the service.
-	schService = OpenServiceA(
+	schService = OpenService(
 		schSCManager,	// SCM database 
 		sService,		// name of service 
 		DELETE			// need delete access 
@@ -674,7 +680,7 @@ void __stdcall ServiceController::DoDeleteSvc(const char* sService)
 	CloseServiceHandle(schSCManager);
 }
 
-void ServiceController::ReportSvcStatus(
+void CServiceController::ReportSvcStatus(
 	DWORD dwCurrentState,
 	DWORD dwWin32ExitCode,
 	DWORD dwWaitHint
@@ -684,33 +690,33 @@ void ServiceController::ReportSvcStatus(
 
 	// Fill in the SERVICE_STATUS structure.
 
-	g_ServiceStatus.dwCurrentState = dwCurrentState;
-	g_ServiceStatus.dwWin32ExitCode = dwWin32ExitCode;
-	g_ServiceStatus.dwWaitHint = dwWaitHint;
+	mServiceStatus.dwCurrentState = dwCurrentState;
+	mServiceStatus.dwWin32ExitCode = dwWin32ExitCode;
+	mServiceStatus.dwWaitHint = dwWaitHint;
 
 	if (dwCurrentState == SERVICE_START_PENDING)
-		g_ServiceStatus.dwControlsAccepted = 0;
-	else g_ServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+		mServiceStatus.dwControlsAccepted = 0;
+	else mServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
 
 	if ((dwCurrentState == SERVICE_RUNNING) ||
 		(dwCurrentState == SERVICE_STOPPED))
-		g_ServiceStatus.dwCheckPoint = 0;
-	else g_ServiceStatus.dwCheckPoint = dwCheckPoint++;
+		mServiceStatus.dwCheckPoint = 0;
+	else mServiceStatus.dwCheckPoint = dwCheckPoint++;
 
 	// Report the status of the service to the SCM.
-	SetServiceStatus(g_StatusHandle, &g_ServiceStatus);
+	SetServiceStatus(mServiceStatusHandle, &mServiceStatus);
 }
 
-DWORD ServiceController::GetSvcStatus(const char* sService)
+DWORD CServiceController::GetSvcStatus(const TCHAR* sService)
 {
 	if (!sService)
-		sService = service.serviceName;
+		sService = mService.serviceName;
 
 	SERVICE_STATUS_PROCESS ssStatus;
 	ZeroMemory(&ssStatus, sizeof(ssStatus));
 	DWORD dwBytesNeeded;
 	// Get ServiceManager Handle
-	schSCManager = OpenSCManagerA(
+	schSCManager = OpenSCManager(
 		NULL,				// local computer
 		NULL,				// servicesActive database
 		SC_MANAGER_CONNECT	// full access rights
@@ -721,7 +727,7 @@ DWORD ServiceController::GetSvcStatus(const char* sService)
 	}
 
 	// Get ServiceHandle
-	schService = OpenServiceA(
+	schService = OpenService(
 		schSCManager,			// SCM database
 		sService,				// Name of Service
 		SERVICE_ALL_ACCESS		// Level of access
@@ -744,9 +750,26 @@ DWORD ServiceController::GetSvcStatus(const char* sService)
 		CloseServiceHandle(schSCManager);
 		return -1;
 	}
+
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
 	return ssStatus.dwCurrentState;
 }
 
 
+void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
+{
+	switch (CtrlCode)
+	{
+	case SERVICE_CONTROL_STOP:
+		ReportSvcStatus(CtrlCode, NO_ERROR, 0);
+
+		SetEvent(mServiceStopEvent);
+		ReportSvcStatus(mServiceStatus.dwCurrentState, NO_ERROR, 0);
+		return;
+	case SERVICE_CONTROL_INTERROGATE:
+		break;
+	default:
+		break;
+	}
+}

@@ -32,9 +32,9 @@ std::vector<std::string> ServiceHelper::ExplodeString(std::string targetString, 
 	std::vector<std::string> results;
 	try {
 		if (targetString == "")
-			throw HenchmanServiceException("No String was provided");
+			throw ("No String was provided");
 		if (seperator == "")
-			throw HenchmanServiceException("Invalid Seperator provided");
+			throw ("Invalid Seperator provided");
 
 		size_t pos = 0;
 		while ((pos = targetString.find(seperator)) != std::string::npos) {
@@ -63,9 +63,9 @@ QList<QString> ServiceHelper::ExplodeString(QString targetString, const char *se
 	QList<QString> results;
 	try {
 		if (targetString == "")
-			throw HenchmanServiceException("No String was provided");
+			throw "No String was provided";
 		if (seperator == "")
-			throw HenchmanServiceException("Invalid Seperator provided");
+			throw "Invalid Seperator provided";
 
 		size_t pos = 0;
 		while ((pos = targetString.indexOf(seperator)) != std::string::npos) {
@@ -290,6 +290,47 @@ void ServiceHelper::removeQuotes(std::string& stringValue)
 		),
 		stringValue.end()
 	);
+}
+
+int ServiceHelper::ShellExecuteApp(std::string appName, std::string params)
+{
+	SHELLEXECUTEINFO SEInfo;
+	DWORD ExitCode;
+	std::string exeFile = appName;
+	std::string paramStr = params;
+	std::string StartInString;
+
+	if (!std::filesystem::exists(appName)) {
+		ServiceHelper().WriteToError("Could not find Target EXE: " + appName);
+		return 0;
+	}
+
+
+	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
+
+	ZeroMemory(&SEInfo, sizeof(SEInfo));
+	SEInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+	SEInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+	//SEInfo.hwnd = NULL;
+	//SEInfo.lpVerb = NULL;
+	//SEInfo.lpDirectory = NULL;
+	SEInfo.lpFile = exeFile.data();
+	SEInfo.lpParameters = paramStr.data();
+	//: SW_HIDE
+	SEInfo.nShow = paramStr == "" && SW_NORMAL;
+	ServiceHelper().WriteToLog("Executing target: " + appName + params);
+	if (ShellExecuteEx(&SEInfo)) {
+		std::stringstream exitCodeMessage;
+		//do {
+		GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
+		exitCodeMessage << "Target: " << exeFile << " return exit code : " << std::to_string(ExitCode);
+		ServiceHelper().WriteToLog(exitCodeMessage.str());
+		exitCodeMessage.clear();
+		//} while (ExitCode != STILL_ACTIVE);
+		return 1;
+	}
+
+	return 0;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const char* s) 

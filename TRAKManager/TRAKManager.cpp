@@ -103,6 +103,7 @@ const {
 
 	SI_Error rc = ini.LoadFile((appDir + iniFile).data());
 	if (rc < 0) {
+		// HenchmanServiceException
 		throw HenchmanServiceException("Failed to Load INI File: " + appDir + iniFile);
 	}
 	

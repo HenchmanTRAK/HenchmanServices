@@ -35,6 +35,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 		LOG << "Initializing requirements";
 		LOG << "Database name in ini: " << databaseName;
 		LOG << "Database name in registry: " << dbName;
+		// HenchmanServiceException
 		if(databaseName.empty() && dbName.empty())
 			throw HenchmanServiceException("No database name specified in service.ini");
 
@@ -70,7 +71,10 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 		}
 	
 		db.close();
-	}catch (std::exception& e){
+	}
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 	}
 
@@ -92,6 +96,7 @@ void SQLiteManager2::ExecQuery(
 	QSqlDatabase db = QSqlDatabase::database(databaseName.data());
 
 	try {
+		// HenchmanServiceException
 		if (!db.open())
 		{
 			throw HenchmanServiceException("Failed to open database");
@@ -140,7 +145,9 @@ void SQLiteManager2::ExecQuery(
 		db.close();
 
 	}
-	catch (std::exception& e) {
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		db.rollback();
 		db.close();
 		throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
@@ -186,7 +193,10 @@ int SQLiteManager2::CreateTable(
 		ExecQuery(queryText.str());		
 		
 
-	}catch(std::exception& e){
+	}
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		
 		ServiceHelper().WriteToError(e.what());
 		return 0;
@@ -258,7 +268,10 @@ int SQLiteManager2::AddEntry(
 	
 		ExecQuery(queryText.str());
 
-	}catch(std::exception& e){
+	}
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
@@ -316,7 +329,9 @@ int SQLiteManager2::UpdateEntry(
 		ExecQuery(queryText.str());
 
 	}
-	catch (std::exception& e) {
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
@@ -351,7 +366,9 @@ int SQLiteManager2::RemoveEntry(
 		ExecQuery(queryText.str());
 
 	}
-	catch (std::exception& e) {
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
@@ -417,7 +434,9 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 		}
 
 	}
-	catch (std::exception& e) {
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 		return results;
 	}

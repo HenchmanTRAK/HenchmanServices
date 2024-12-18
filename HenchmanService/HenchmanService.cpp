@@ -8,8 +8,13 @@
 using namespace std;
 using namespace ServiceController;
 
-bool testing = false;
+#ifdef DEBUG
+	bool testing = true;
+#else
+	bool testing = false;
+#endif // DEBUG
 
+bool logEvent = false;
 //QCoreApplication* a = nullptr;
 
 std::unique_ptr<CServiceController> svcController = nullptr;
@@ -140,46 +145,7 @@ static bool FileInUse(string fileName) {
 	return result;
 }
 
-static int ShellExecuteApp(string appName, string params)
-{
-	SHELLEXECUTEINFO SEInfo;
-	DWORD ExitCode;
-	string exeFile = appName;
-	string paramStr = params;
-	string StartInString;
 
-	if (!filesystem::exists(appName)) {
-		ServiceHelper().WriteToError("Could not find Target EXE: " + appName);
-		return 0;
-	}
-
-
-	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
-
-	ZeroMemory(&SEInfo, sizeof(SEInfo));
-	SEInfo.cbSize = sizeof(SHELLEXECUTEINFO);
-	SEInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
-	//SEInfo.hwnd = NULL;
-	//SEInfo.lpVerb = NULL;
-	//SEInfo.lpDirectory = NULL;
-	SEInfo.lpFile = exeFile.data();
-	SEInfo.lpParameters = paramStr.data();
-	//: SW_HIDE
-	SEInfo.nShow = paramStr == "" && SW_NORMAL;
-	ServiceHelper().WriteToLog("Executing target: " + appName + params);
-	if (ShellExecuteEx(&SEInfo)) {
-		stringstream exitCodeMessage;
-		//do {
-			GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
-			exitCodeMessage << "Target: " << exeFile << " return exit code : " << to_string(ExitCode);
-			ServiceHelper().WriteToLog(exitCodeMessage.str());
-			exitCodeMessage.clear();
-		//} while (ExitCode != STILL_ACTIVE);
-		return 1;
-	}
-
-	return 0;
-}
 
 DWORD GetCurrentSessionId()
 {
@@ -229,6 +195,7 @@ static int CreateTargetProcess(string lpAppName)
 			&processInformation
 		))
 		{
+			// HenchmanServiceException
 			throw HenchmanServiceException("Failed to create process for: " + lpAppName);
 		}
 		ServiceHelper().WriteToLog("Successfully created process for: " + lpAppName);
@@ -384,7 +351,7 @@ void SvcInit()
 	}
 	else {
 		std::cout << "Testing service\n";
-		SvcWorkerThread(&svcController->mServiceStopEvent);
+		SvcWorkerThread(NULL);
 	}
 	return;
 
@@ -395,8 +362,9 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	int argc = 0;
 	char* argv[1];
 
-	EventManager::CEventManager evntManager(service->serviceName);
+	//EventManager::CEventManager::Init(service->serviceName);
 
+	EventManager::CEventManager evntManager(service->serviceName);
 
 	// add registering registering application in event log and removing on exit.
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
@@ -496,10 +464,10 @@ static void setContextMenu(const std::string& installDir)
 	appliedTo.append(service->serviceName).append(".exe\"");
 	rtManager.SetVal("AppliesTo", REG_SZ, (TCHAR*)appliedTo.data(), appliedTo.length());
 
-	setContextMenuCommands("Start Service", "\"" + installDir + "\\" + service->serviceName + ".exe\" \"--start\" \"%1\"");
-	setContextMenuCommands("Stop Service", "\"" + installDir + "\\" + service->serviceName + ".exe\" \"--stop\" \"%1\"");
-	setContextMenuCommands("Install Service", "\"" + installDir + "\\" + service->serviceName + ".exe\" \"--install\" \"%1\"");
-	setContextMenuCommands("Remove Service", "\"" + installDir + "\\" + service->serviceName + ".exe\" \"--remove\" \"%1\"");
+	setContextMenuCommands("Start Service", "\"" + installDir + "/" + service->serviceName + ".exe\" \"--start\" \"%1\"");
+	setContextMenuCommands("Stop Service", "\"" + installDir + "/" + service->serviceName + ".exe\" \"--stop\" \"%1\"");
+	setContextMenuCommands("Install Service", "\"" + installDir + "/" + service->serviceName + ".exe\" \"--install\" \"%1\"");
+	setContextMenuCommands("Remove Service", "\"" + installDir + "/" + service->serviceName + ".exe\" \"--remove\" \"%1\"");
 
 }
 
@@ -512,9 +480,9 @@ static void removeContextMenu()
 HenchmanService::HenchmanService(QObject *parent)
 	: QObject(parent), sqliteManager(make_unique<SQLiteManager2>(parent)), dbManager(make_unique<DatabaseManager>(parent))
 {
-	CSimpleIniA ini;
+	CSimpleIni ini;
 
-	ini.SetUnicode();
+	//ini.SetUnicode();
 
 	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));*/
 	LOG << std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).data();
@@ -523,7 +491,7 @@ HenchmanService::HenchmanService(QObject *parent)
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
 	tstring installDir(buffer);
-
+	// HenchmanServiceException
 	LOG << "Install dir: " << installDir;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
 	if (rc < 0) {
@@ -733,11 +701,12 @@ void HenchmanService::checkStateOfMySQL()
 	//RegCloseKey(hKey);
 	ServiceHelper().WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = svcController->GetSvcStatus("wampmysqld64");
+	// HenchmanServiceException
 	try {
 		switch (wampMySQLSvcStatus) {
 		case -1: {
 			ServiceHelper().WriteToError("MySQL Service errored with unknown error");
-			if (!ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install-manual wampmysqld64"))
+			if (!ServiceHelper::ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install-manual wampmysqld64"))
 				throw HenchmanServiceException("Failed to install Local MYSQL service");
 			ServiceHelper().WriteToLog("Local MYSQL service installed...");
 			if (!svcController->StartTargetSvc("wampmysqld64"))
@@ -764,7 +733,7 @@ void HenchmanService::checkStateOfMySQL()
 	catch (exception& e)
 	{
 		ServiceHelper().WriteToError(e.what());
-		if (ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
+		if (ServiceHelper::ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
 			ServiceHelper().WriteToLog("Removed Local MYSQL service...");
 	}
 
@@ -785,14 +754,15 @@ void HenchmanService::checkStateOfApache()
 
 	ServiceHelper().WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = svcController->GetSvcStatus("wampapache64");
+	// HenchmanServiceException
 	try {
 		switch (wampApacheSvcStatus) {
 		case -1: {
 			ServiceHelper().WriteToError("Apache Service errored with unknown error");
-			if (!ShellExecuteApp(apache_dir + "\\httpd.exe", " -k install -n wampapache64"))
+			if (!ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k install -n wampapache64"))
 				throw HenchmanServiceException("Failed to install Apache service");
 			ServiceHelper().WriteToLog("Apache Service installed...");
-			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k start -n wampapache64"))
+			if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k start -n wampapache64"))
 				ServiceHelper().WriteToLog("Apache Services started...");
 			else {
 				throw HenchmanServiceException("Failed to start Apache service");
@@ -802,7 +772,7 @@ void HenchmanService::checkStateOfApache()
 		}
 		case 1: {
 			ServiceHelper().WriteToLog("Apache Service has stopped...");
-			if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k start -n wampapache64"))
+			if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k start -n wampapache64"))
 				ServiceHelper().WriteToLog("Successfully Restarted Apache Service");
 			else {
 				throw HenchmanServiceException("Failed to start Apache Service");
@@ -817,13 +787,13 @@ void HenchmanService::checkStateOfApache()
 	}
 	catch (exception& e) {
 		ServiceHelper().WriteToError(e.what());
-		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
+		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
 			ServiceHelper().WriteToLog("Apache Service stopped...");
-		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache"))
+		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache"))
 			ServiceHelper().WriteToLog("Apache Service stopped...");
-		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
+		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
 			ServiceHelper().WriteToLog("Apache Service uninstalled...");
-		if (ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache"))
+		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache"))
 			ServiceHelper().WriteToLog("Apache Service uninstalled...");
 	}
 }
@@ -835,17 +805,17 @@ int main(int argc, char* argv[])
 #endif // DEBUG
 
 	CSimpleIni ini;
-	ini.IsUnicode();
-	
-	service = std::make_unique<SService>();
+	//ini.IsUnicode();
+	service = make_unique<SService>();
 	service->serviceName = SERVICE_NAME;
 	service->displayName = SERVICE_DISPLAY_NAME;
+	service->localUser = NULL;
+	service->localPass = NULL;
+	bool contextMenu = false;
 
 	SI_Error rc = ini.LoadFile(".\\service.ini");
 	if (rc < 0) {
-		cerr << "Failed to Load INI File" << endl;
-		service->localUser = NULL;
-		service->localPass = NULL;
+		std::cout << "Failed to Load INI File" << endl;
 	}
 	else {
 		testing = ini.GetBoolValue("DEVELOPMENT", "testingMain", 0);
@@ -853,6 +823,8 @@ int main(int argc, char* argv[])
 		//std::string localUserPass(ini.GetValue("SYSTEM", "LocalSystemAccountPassword", NULL));
 		service->localUser = ini.GetValue("SYSTEM", "LocalSystemAccountName", NULL);
 		service->localPass = ini.GetValue("SYSTEM", "LocalSystemAccountPassword", NULL);
+		contextMenu = ini.GetBoolValue("SYSTEM", "enableContextMenu", 0);
+		logEvent = ini.GetBoolValue("SYSTEM", "enableEventLogging", 0);
 	}
 
 	if (testing && argc <= 1)
@@ -863,44 +835,63 @@ int main(int argc, char* argv[])
 	if (lstrcmpiA(argv[1], "--install") == 0)
 	{
 		try {
-			RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring((TCHAR*)"SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
+			RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
 			//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-			TCHAR buffer[MAX_PATH] = "\0";
+			TCHAR buffer[MAX_PATH];
 			DWORD size = MAX_PATH;
-			rtManager.GetVal((TCHAR*)"INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
+			rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR *)buffer, size);
 			tstring installDir(buffer);
 
 			//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-			if (installDir.empty() || installDir != std::filesystem::current_path())
+			if (installDir.empty() || installDir != std::filesystem::current_path().string())
 			{
-				installDir = filesystem::current_path().generic_string();
+				installDir = filesystem::current_path().string();
 				//RegistryManager::SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
-				if (rtManager.SetVal((TCHAR*)"INSTALL_DIR", REG_SZ, (TCHAR *)installDir.c_str(), (installDir.length() + 1)))
+				if (rtManager.SetVal("INSTALL_DIR", REG_SZ, (TCHAR *)installDir.c_str(), (installDir.length() + 1)))
 					throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
 			}
+			if (logEvent)
+			{
 
-			setContextMenu(installDir);
+				RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, tstring("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(service->serviceName).data());
+
+				TCHAR eventBuff[1024];
+				DWORD eventBuffSize = 1024;
+				rmEvent.GetVal("EventMessageFile", REG_SZ, (TCHAR*)eventBuff, eventBuffSize);
+				tstring eventMessageFile(eventBuff);
+
+				if (!installDir.empty() && (eventMessageFile.empty() || eventMessageFile != installDir))
+				{
+					installDir.append("\\event_log.dll");
+					rmEvent.SetVal("EventMessageFile", REG_SZ, (TCHAR*)installDir.data(), installDir.length() + 1);
+					DWORD typesSupported = 7;
+					rmEvent.SetVal("TypesSupported", REG_DWORD, (DWORD*)&typesSupported, sizeof(DWORD));
+				}
+			}
+
+			if(contextMenu)
+				setContextMenu(installDir);
 		}
-		catch (std::exception& e)
+		catch (const std::exception& e)
 		{
 			ServiceHelper().WriteToError(e.what());
+			std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;
 			int c = getchar();
 			if (c == '\n' || c == EOF)
-				std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;
 			return 0;
 		}
 
 		if (!testing) {
 			svcController->DoInstallSvc();
 			Sleep(1000);
-			ShellExecuteApp(argv[0], " --start");
+			ServiceHelper::ShellExecuteApp(argv[0], " --start");
 			return 0;
 		}
 		LOG << "installing...";
 		Sleep(1000);
+		std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;
 		int c = getchar();
 		if (c == '\n' || c == EOF)
-			std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;
 		argv[1] = (char*)"--start";
 		
 	}
@@ -915,9 +906,11 @@ int main(int argc, char* argv[])
 		else {
 			LOG << "stopping...";
 			LOG << "removing...";
+			int c = getchar();
 		}
-		removeContextMenu();
-		int c = getchar();
+
+		if(contextMenu)
+			removeContextMenu();
 		return 0;
 	}
 
@@ -939,9 +932,10 @@ int main(int argc, char* argv[])
 			svcController->DoStopSvc();
 			ServiceHelper().WriteToLog("Service has stopped");
 		}
-		else
+		else {
 			LOG << "stopping...";
-		int c = getchar();
+			int c = getchar();
+		}
 		return 0;
 	}
 
@@ -952,7 +946,7 @@ int main(int argc, char* argv[])
 
 	SERVICE_TABLE_ENTRY ServiceTable[] =
 	{
-		{(char *)service->serviceName, (LPSERVICE_MAIN_FUNCTION)SvcMain},
+		{(TCHAR *)service->serviceName, (LPSERVICE_MAIN_FUNCTION)SvcMain},
 		{NULL, NULL}
 	};
 
@@ -962,8 +956,8 @@ int main(int argc, char* argv[])
 		std::cout << "Press enter to install service or hit CTRL+C to exit..." << std::endl;
 		int c = getchar();
 		if (c == '\n' || c == EOF)
-			ShellExecuteApp(argv[0], (TCHAR *)" --install");
-		std::cout << "Press any key to exit..." << endl;
+			ServiceHelper::ShellExecuteApp(argv[0], " --install");
+		//std::cout << "Press any key to exit..." << endl;
 	}
 	//delete svcController;
 	//svcController = nullptr;

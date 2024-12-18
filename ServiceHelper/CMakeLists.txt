@@ -13,8 +13,6 @@ target_include_directories(
 target_link_libraries(
 	ServiceHelper PRIVATE
 	Qt6::Core
-	HenchmanServiceException
-	EventManager
 	RegistryManager
 )
 

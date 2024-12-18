@@ -31,11 +31,11 @@ static string getCallerFunctionName(const source_location& location)
 const char* HenchmanServiceException::what() const {
 
 	//EventManager("HenchmanService").ReportCustomEvent(functionName.data(), errorMessage);
-	EventManager::CEventManager("HenchmanService").ReportCustomEvent(functionName.data(), errorMessage.data(), 3);
+	//EventManager::CEventManager("HenchmanService").ReportCustomEvent(functionName.data(), errorMessage.data(), 3);
 	return errorMessage.data();
 }
 
-const char * HenchmanServiceException::what(EventManager::CEventManager& const evntManager) const {
+const char * HenchmanServiceException::what(EventManager::CEventManager& evntManager) const {
 
 	//EventManager("HenchmanService").ReportCustomEvent(functionName.data(), errorMessage);
 	evntManager.ReportCustomEvent(functionName.data(), errorMessage.data(), 3);
