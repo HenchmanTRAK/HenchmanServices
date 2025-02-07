@@ -2113,7 +2113,8 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
 
 		if (!query.exec("USE " + schema + ";"))
-			throw HenchmanServiceException("Failed to execute initial DB Query");
+			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
+			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + schema.toStdString() + ";");
 
 		for(QString &statement:sqlStatements)
 		{
