@@ -221,10 +221,10 @@ void TRAKManager::CreateDataModule()
 int TRAKManager::exportGeneralTables()
 {
 	return (
-		databaseManager->AddToolsIfNotExists() 
-		|| databaseManager->AddUsersIfNotExists() 
-		|| databaseManager->AddEmployeesIfNotExists()
-		|| databaseManager->AddJobsIfNotExists()
+		databaseManager->addToolsIfNotExists() 
+		|| databaseManager->addUsersIfNotExists() 
+		|| databaseManager->addEmployeesIfNotExists()
+		|| databaseManager->addJobsIfNotExists()
 		? 1
 		: 0
 		);
@@ -241,17 +241,19 @@ int TRAKManager::UploadCurrentStateToRemote()
 	switch (traktype)
 	{
 	case kabtrak: {
-		return (databaseManager->AddKabsIfNotExists() |
-			databaseManager->AddDrawersIfNotExists() |
-			databaseManager->AddToolsInDrawersIfNotExists());
+		return (databaseManager->addKabsIfNotExists() |
+			databaseManager->addDrawersIfNotExists() |
+			databaseManager->addToolsInDrawersIfNotExists());
 	}
 	case cribtrak: {
-		return 1;
+		return (databaseManager->addCribsIfNotExists() | 
+			databaseManager->addCribToolLocationIfNotExists() |
+			databaseManager->addCribToolsIfNotExists());
 	}
 	case portatrak: {
-		return (databaseManager->AddItemKitsIfNotExists() | 
-			databaseManager->AddKitCategoryIfNotExists() | 
-			databaseManager->AddKitLocationIfNotExists());
+		return (databaseManager->addItemKitsIfNotExists() | 
+			databaseManager->addKitCategoryIfNotExists() | 
+			databaseManager->addKitLocationIfNotExists());
 	}
 	default: {
 	

@@ -183,6 +183,8 @@ private:
 		{"kabDrawers", 0},
 		{"kabDrawerBins", 0},
 		// Cribtraks
+		{"cribs", 0},
+		{"toolLocation", 0},
 		{"cribtools", 0},
 		// Portatracks
 		{"itemkits", 0},
@@ -217,6 +219,8 @@ public:
 	 * This variable stores the name of the target application for the database operations.
 	 */
 	std::string targetApp;
+
+	QString databaseDriver;
 
 public:
 	/**
@@ -314,7 +318,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	*/
-	int AddToolsIfNotExists();
+	int addToolsIfNotExists();
 
 	/**
 	 * @brief Adds missing itemkabs to the database if they do not already exist.
@@ -326,7 +330,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	int AddKabsIfNotExists();
+	int addKabsIfNotExists();
 
 	/**
 	 * @brief Adds missing itemkabdrawers to the database if they do not already exist.
@@ -338,7 +342,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	int AddDrawersIfNotExists();
+	int addDrawersIfNotExists();
 
 	/**
 	 * @brief Adds missing tools in drawers to the database if they do not already exist.
@@ -350,7 +354,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
-	int AddToolsInDrawersIfNotExists();
+	int addToolsInDrawersIfNotExists();
 
 	/**
 	 * @brief Adds users to the database if they do not already exist.
@@ -362,7 +366,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
-	int AddUsersIfNotExists();
+	int addUsersIfNotExists();
 
 	/**
 	 * @brief Adds employees to the database if they do not already exist.
@@ -374,7 +378,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
-	int AddEmployeesIfNotExists();
+	int addEmployeesIfNotExists();
 
 	/**
 	 * @brief Adds jobs to the database if they do not already exist.
@@ -386,13 +390,19 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
-	int AddJobsIfNotExists();
+	int addJobsIfNotExists();
 
-	int AddItemKitsIfNotExists();
+	int addCribsIfNotExists();
 
-	int AddKitCategoryIfNotExists();
+	int addCribToolLocationIfNotExists();
 
-	int AddKitLocationIfNotExists();
+	int addCribToolsIfNotExists();
+
+	int addItemKitsIfNotExists();
+
+	int addKitCategoryIfNotExists();
+
+	int addKitLocationIfNotExists();
 
 	/**
 	 * @brief Parses a QJsonArray into a string representation.
@@ -467,8 +477,6 @@ private:
 	 * @param results The array to store the processed queryKeys and queryValues strings.
 	 */
 	void processKeysAndValues(QStringMap& map, QString(&results)[]);
-
-	int AddCribToolsIfNotExists();
 };
 
 std::string getValidDrivers();
