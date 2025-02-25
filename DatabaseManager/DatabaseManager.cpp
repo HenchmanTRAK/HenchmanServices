@@ -1711,6 +1711,7 @@ int DatabaseManager::connectToRemoteDB()
 				string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);*/
 				//RegCloseKey(hKey);
 
+				// Check if query contains customer id for verification. Not containing customer id renders query unsage to execute
 				if (res["query"].contains("custId =", Qt::CaseInsensitive) && !skipQuery)
 				{
 					ServiceHelper().WriteToLog("Checking custId is same as device settings");
@@ -1729,6 +1730,7 @@ int DatabaseManager::connectToRemoteDB()
 				trakId.resize(trakId.size()-2);
 				trakId.append("Id");
 
+				// Check if query contains a owner TRAK id. If not the query is skipped for being unsafe
 				if (res["query"].contains(QString(trakId.data()) + " =", Qt::CaseInsensitive) && !skipQuery)
 				{
 					ServiceHelper().WriteToLog("Checking trakId is same as device settings");
@@ -1747,6 +1749,7 @@ int DatabaseManager::connectToRemoteDB()
 				vector<std::string> splitQuery = ServiceHelper::ExplodeString(res["query"].toStdString(), " ");
 				//LOG << splitQuery;
 				
+				// Handle queries that aren't skipped and are inserting into the Database
 				if (QString::fromStdString(splitQuery[0]).contains("insert", Qt::CaseInsensitive) && !skipQuery) {
 					ServiceHelper().WriteToLog("Parsing insert to prevent duplication creation");
 					int startpoint = res["query"].indexOf("(") + 1;
@@ -1929,14 +1932,14 @@ int DatabaseManager::connectToRemoteDB()
 							" ORDER BY id DESC LIMIT 1)";
 						break;
 					}
-					/*case cribs:
-					case cribconsumables:
-					case cribtoollocation:
-					case cribtoollockers:
-					case cribtools:
-					case kittools:
-					case tooltransfer:
-					case itemkits:*/
+					//case cribs:
+					//case cribconsumables:
+					//case cribtoollocation:
+					//case cribtoollockers:
+					//case cribtools:
+					//case kittools:
+					//case tooltransfer:
+					//case itemkits:
 					case kitcategory:
 					{
 						std::vector categoryId = ExecuteTargetSql(QString("SELECT id FROM kitcategory WHERE description = ").append(map.value("description")).toStdString());
@@ -1989,7 +1992,8 @@ int DatabaseManager::connectToRemoteDB()
 						break;
 					}
 				}
-
+				
+				// handles queries that aren't skipped and are attempting to update existing enteries in the database
 				if (QString::fromStdString(splitQuery[0]).contains("update", Qt::CaseInsensitive) && !skipQuery) {
 					ServiceHelper().WriteToLog("Parsing update to prevent altering entries not for current device");
 					QStringList splitQueryForParsing = ServiceHelper::ExplodeString(res["query"], " ");
