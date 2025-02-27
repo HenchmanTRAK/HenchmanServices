@@ -1749,6 +1749,7 @@ int DatabaseManager::connectToRemoteDB()
 					LOG << splitQuery;
 					int startpoint = res["query"].indexOf("(") + 1;
 					int endpoint = res["query"].indexOf(")", startpoint) - startpoint;
+					LOG << startpoint << " | " << endpoint;
 					QString queryStart = res["query"].first(startpoint - 1);
 					QStringList splitQueryStart = ServiceHelper::ExplodeString(queryStart, " ");
 
@@ -1756,7 +1757,8 @@ int DatabaseManager::connectToRemoteDB()
 					QStringList splitColumns = ServiceHelper::ExplodeString(columns, ",");
 
 					startpoint = res["query"].indexOf("(", startpoint) + 1;
-					endpoint = res["query"].indexOf(")", startpoint) - startpoint;
+					endpoint = res["query"].lastIndexOf(")") - startpoint;
+					LOG << startpoint << " | " << endpoint;
 					QString values = res["query"].mid(startpoint, endpoint);
 					QStringList splitValues = ServiceHelper::ExplodeString(values, ",");
 
@@ -1770,6 +1772,10 @@ int DatabaseManager::connectToRemoteDB()
 
 						if (val.isEmpty() || val == "''")
 							continue;
+						if (val[0] == "'" && !val.endsWith("'")) {
+							val = val + "\, " + splitValues.at(i + 1).simplified();
+							splitValues.removeAt(i + 1);
+						}
 						if (val[0] != '\'')
 							val = "'" + val;
 						if (val[val.size()-1] != '\'')
