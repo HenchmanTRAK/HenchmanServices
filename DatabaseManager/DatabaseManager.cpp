@@ -2428,7 +2428,7 @@ int DatabaseManager::connectToRemoteDB()
 			LOG << res["query"];
 			ServiceHelper().WriteToLog("Query parsed. " + string(skipQuery ? "Query is getting skipped" : "Query is being run"));
 			ServiceHelper().WriteToCustomLog("Query after being parsed: \n" + res["query"].toStdString(), timeStamp[0] + "-queries");
-			if (!pushCloudUpdate && skipQuery ? true : makeNetworkRequest(apiUrl, res))
+			if (!pushCloudUpdate || skipQuery ? true : makeNetworkRequest(apiUrl, res))
 			{
 				string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 AND id = " + res["id"].toStdString();
 
