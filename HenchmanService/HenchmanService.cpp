@@ -212,11 +212,14 @@ static int CreateTargetProcess(string lpAppName)
 
 bool LaunchProcess(const TCHAR* process_path)
 {
+
+	ServiceHelper().WriteToLog("Attempting to launch process: " + std::string(process_path));
 	DWORD SessionId = GetCurrentSessionId();
 	if (SessionId == 0) {   // no-one logged in
 		ServiceHelper().WriteToError("No session id could be found");
 		return false;
 	}
+	ServiceHelper().WriteToLog(std::string("Retrieved session id: " + SessionId));
 
 	HANDLE hToken;
 	BOOL ok = WTSQueryUserToken(SessionId, &hToken);
@@ -267,6 +270,8 @@ bool LaunchProcess(const TCHAR* process_path)
 		ServiceHelper().WriteToError("Failed to create process as user");
 		return false;
 	}
+	ServiceHelper().WriteToLog("Seccessfully created process as user");
+	
 	CloseHandle(pi.hThread);
 	CloseHandle(pi.hProcess);
 	return true;

@@ -188,6 +188,7 @@ private:
 		{"cribs", 0},
 		{"toolLocation", 0},
 		{"cribtools", 0},
+		{"tooltransfer", 0},
 		// Portatracks
 		{"itemkits", 0},
 		{"kitCategory", 0},
@@ -399,6 +400,8 @@ public:
 	int addCribToolLocationIfNotExists();
 
 	int addCribToolsIfNotExists();
+
+	int addCribToolTransferIfNotExists();
 
 	int addItemKitsIfNotExists();
 

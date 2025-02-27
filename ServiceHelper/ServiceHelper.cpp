@@ -231,7 +231,7 @@ void ServiceHelper::WriteToError(std::string log)
 	logDir.append(timestamp()[0] + "-error.txt");
 	LOG << logDir << log.data();
 	WriteLog((char *)logDir.data(), log);
-	WriteToLog(log);
+	WriteToLog("Logged an error");
 	logDir.clear();
 	log.clear();
 }
@@ -242,7 +242,7 @@ void ServiceHelper::WriteToCustomLog(std::string log, std::string logName)
 	logDir.append(logName + ".txt");
 	LOG << logDir << log.data();
 	WriteLog((char *)logDir.data(), log);
-	WriteToLog(log);
+	WriteToLog("Logged to " + logName);
 	logDir.clear();
 	log.clear();
 }

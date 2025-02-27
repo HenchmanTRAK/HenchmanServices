@@ -451,7 +451,7 @@ int DatabaseManager::addUsersIfNotExists()
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
-		qDebug() << result;
+		//qDebug() << result;
 
 		QStringMap res;
 		res["id"] = result["id"];
@@ -562,7 +562,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
-		qDebug() << result;
+		//qDebug() << result;
 		QStringMap res;
 		res["id"] = result["id"];
 		result.remove("id");
@@ -1278,18 +1278,138 @@ int DatabaseManager::addCribToolsIfNotExists()
 	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	return 1;
 }
+int DatabaseManager::addCribToolTransferIfNotExists()
+{
+	QString targetKey = "tooltransfer";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tooltransfer");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+	ServiceHelper().WriteToLog("Exporting Tool Transfers from crib");
+	string query =
+		"SELECT * from tooltransfer ORDER BY id DESC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	performCleanup();
+
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
+	rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
+	std::string trakType(buffer);
+
+	RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+
+	size = 1024;
+	rtManagerCustomer.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
+	//string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+	std::string custId(buffer);
+	
+	size = 1024;
+	rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
+	//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+	std::string trakIdType(buffer);
+
+	size = 1024;
+	rtManagerCustomer.GetVal(trakIdType.data(), REG_SZ, (TCHAR*)buffer, size);
+	//string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+	std::string trakId(buffer);
+
+	/*std::array trakNini(GetTrakDirAndIni(rtManagerCustomer));
+
+	QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
+	QString custId = ini.value("Customer/ID", 0).toString();
+	QString trakIdType = ini.value("Customer/trakID", 0).toString();
+	QString trakId = ini.value("Customer/" + trakIdType, 0).toString();*/
+	
+	trakIdType.resize(trakId.size() - 2);
+	trakIdType.append("Id");
+
+	for (auto& result : sqlQueryResults) {
+		if (result.firstKey() == "success" || !result.contains("custId"))
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+
+		QString results[2];
+
+		processKeysAndValues(result, results);
+
+		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
+		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
+		RegCloseKey(hKey);*/
+
+		//QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
+
+		if (result.value("custId") != "'" + custId + "'" || result.value(trakIdType.data()) != "'" + trakId + "'") {
+			continue;
+		}
+
+		res["query"] = "INSERT INTO tooltransfer (" +
+			results[0] +
+			") SELECT " +
+			results[1] +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tooltransfer" +
+			" WHERE custId=" + result.value("custId") +
+			" AND cribId = " + result.value("cribId") +
+			" AND barcodeTAG=" + result.value("barcodeTAG") +
+			" AND userId=" + result.value("userId") +
+			" AND transfer_userId=" + result.value("transfer_userId") +
+			" AND tailId=" + result.value("tailId") +
+			" AND transfer_tailId=" + result.value("transfer_tailId") +
+			" ORDER BY id DESC LIMIT 1)";
+		LOG << res["query"];
+
+		QJsonDocument reply;
+		if (makeNetworkRequest(apiUrl, res, &reply)) {
+			if (!reply.isObject())
+				continue;
+			QJsonObject result = reply.object();
+			LOG << result["result"].toString().toStdString();
+			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+				databaseTablesChecked[targetKey]++;
+			}
+			else {
+				LOG << "No rows were altered on db";
+				databaseTablesChecked[targetKey]++;
+			}
+
+			//databaseTablesChecked[targetKey] += queryLimit;
+			//Sleep(100);
+			/*continue;*/
+			//break;
+		}
+
+	}
+	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
+	RegistryManager::SetVal(hKey, "numCribTools", databaseTablesChecked[targetKey], REG_DWORD);
+	RegCloseKey(hKey);*/
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	return 1;
+}
 
 /* TODO
  - upload cribconsumables
- - upload cribs
- - upload cribtoollocation
  - upload cribtoollockers
  - upload kittools
- - upload tooltransfer
 */
 
 // PortaTRAK Syncs
-
 int DatabaseManager::addItemKitsIfNotExists()
 {
 	QString targetKey = "itemkits";
@@ -1646,8 +1766,6 @@ int DatabaseManager::connectToRemoteDB()
 		int count = 0;
 
 		RegistryManager::CRegistryManager rtManagerMainSrv(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").data());
-		//buffer[0] = '\0';
-		//size = sizeof(buffer);
 		size = 1024;
 		rtManagerMainSrv.GetVal("APP_NAME", REG_SZ, (TCHAR *)buffer, size);
 		std::string trakType(buffer);
@@ -1932,7 +2050,17 @@ int DatabaseManager::connectToRemoteDB()
 							" ORDER BY id DESC LIMIT 1)";
 						break;
 					}
-					//case cribs:
+					case cribs:
+						res["query"] =
+							"INSERT INTO cribs (" +
+							QString(columns.data()) +
+							") SELECT " +
+							QString(values.data()) +
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribs WHERE" +
+							" custId=" + map.value("custId") +
+							" AND cribId=" + map.value("cribId") +
+							" ORDER BY id DESC LIMIT 1)";
+						break;
 					case cribconsumables:
 						res["query"] =
 							"INSERT INTO cribconsumables (" +
@@ -1984,7 +2112,24 @@ int DatabaseManager::connectToRemoteDB()
 							" ORDER BY toolId DESC LIMIT 1)";
 						break;
 					//case kittools:
-					//case tooltransfer:
+					case tooltransfer:
+						res["query"] =
+							"INSERT INTO tooltransfer (" +
+							QString(columns.data()) +
+							") SELECT " +
+							QString(values.data()) +
+							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tooltransfer WHERE" +
+							" custId=" + map.value("custId") +
+							" AND cribId=" + map.value("cribId") +
+							" AND barcodeTAG=" + map.value("barcodeTAG") +
+							" AND userId=" + map.value("userId") +
+							" AND tailId=" + map.value("tailId") +
+							" AND transfer_userId=" + map.value("transfer_userId") +
+							" AND transfer_tailId=" + map.value("transfer_tailId") +
+							" AND transactionDate=" + map.value("transactionDate") +
+							" AND dateTransferred=" + map.value("dateTransferred") +
+							" ORDER BY toolId DESC LIMIT 1)";
+						break;
 					//case itemkits:
 					case kitcategory:
 					{
@@ -2162,14 +2307,23 @@ int DatabaseManager::connectToRemoteDB()
 					//case cribtoollockers:
 					//case cribtools:
 					//case kittools:
-					//case tooltransfer:
+					case tooltransfer:
+						if (!hadCustId)
+							parsedConditionals.append(("custId = '" + custId + "'").data());
+						if(!hadTrakId)
+							parsedConditionals.append((trakId +" = '" + custId + "'").data());
+						returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
+						LOG << returnVal.join(" ");
+						break;
 					//case itemkits:
 					//case kitcategory:
 					//case kitlocation:
 					case tblcounterid:
 						skipQuery = true;
 						break;
-					//case kabemployeeitemtransactions:
+					case kabemployeeitemtransactions:
+						skipQuery = true;
+						break;
 					case cribemployeeitemtransactions:
 					{
 						returnVal.append({ "INSERT INTO cribemployeeitemtransactions", "("});
@@ -2188,15 +2342,17 @@ int DatabaseManager::connectToRemoteDB()
 						}
 						for (int i = 0; i < parsedConditionals.size(); ++i)
 						{
-							if (parsedConditionals.size() <= 1 && parsedConditionals[i].split("=")[1] == "''")
+							if (parsedConditionals.size() <= 1 && parsedConditionals[i].split("=")[1] == "''") {
 								skipQuery = true;
+								break;
+							}
 							QStringList parsedConditionalsSplit = parsedConditionals[i].split("=");
 							if (cols.contains(parsedConditionalsSplit[0].trimmed()))
 								continue;
 							LOG << parsedConditionalsSplit[0].trimmed();
 							if (parsedConditionalsSplit[0].trimmed() == "id") {
 								std::vector targetTransactionToBeAltered = ExecuteTargetSql((("SELECT * FROM cribemployeeitemtransactions WHERE  custId = '" + custId + "' AND cribId = '" + idNum + "' AND id = '").data() + parsedConditionalsSplit[1].trimmed() + "'").toStdString());
-								qDebug() << targetTransactionToBeAltered;
+								//qDebug() << targetTransactionToBeAltered;
 								for (const auto& key : targetTransactionToBeAltered[1].keys()) {
 									const QString val = targetTransactionToBeAltered[1][key];
 									const QString keyFromVal = targetTransactionToBeAltered[1].key(val);
@@ -2212,26 +2368,28 @@ int DatabaseManager::connectToRemoteDB()
 							cols.append(parsedConditionalsSplit[0].trimmed());
 							vals.append(parsedConditionalsSplit[1].trimmed());
 						}
-						qDebug() << parsedSets << "\n" << parsedConditionals << "\n" << cols << "\n" << vals;
-						if (!cols.contains("itemId", Qt::CaseInsensitive)) {
+						if (skipQuery)
+							break;
+						//qDebug() << parsedSets << "\n" << parsedConditionals << "\n" << cols << "\n" << vals;
+						if (!(cols.contains("itemId", Qt::CaseInsensitive) && skipQuery)) {
 							cols.append("itemId");
 							vals.append("(SELECT itemId FROM cribtools WHERE barcodeTAG = " + vals.at(cols.indexOf("barcode")) + " AND custId = '" + custId.data() + "' AND " + trakId.data() + " = '" + idNum.data() + "' ORDER BY id DESC LIMIT 1)");
 						}
-						if (!cols.contains("tailId", Qt::CaseInsensitive)) {
+						if (!(cols.contains("tailId", Qt::CaseInsensitive)&& skipQuery)) {
 							cols.append("tailId");
 							vals.append("(SELECT description FROM jobs WHERE trailId = '" + vals.at(cols.indexOf("trailId")) + "' AND custId = '" + custId.data() + "' ORDER BY id DESC LIMIT 1)");
 						}
-						if (!cols.contains("transDate", Qt::CaseInsensitive)) {
+						if (!(cols.contains("transDate", Qt::CaseInsensitive)&& skipQuery)) {
 							cols.append("transDate");
 							vals.append("CURDATE()");
 						}
-						if (!cols.contains("transTime", Qt::CaseInsensitive)) {
+						if (!(cols.contains("transTime", Qt::CaseInsensitive)&& skipQuery)) {
 							cols.append("transTime");
 							vals.append("CURTIME()");
 						}
 						/*cols.append("remarks");
 						vals.append(("(SELECT remarks FROM cribs WHERE custId = " + custId + " AND " + trakId + " = " + idNum + ")").data());*/
-						qDebug() << cols << " | " << vals;
+						//qDebug() << cols << " | " << vals;
 						returnVal.append(cols.join(", "));
 						returnVal.append(") VALUES (");
 						returnVal.append(vals.join(", "));
@@ -2241,8 +2399,12 @@ int DatabaseManager::connectToRemoteDB()
 						//skipQuery = true;
 						break;
 					}
-					//case portaemployeeitemtransactions:
-					//case lokkaemployeeitemtransactions:
+					case portaemployeeitemtransactions:
+						skipQuery = true;
+						break;
+					case lokkaemployeeitemtransactions:
+						skipQuery = true;
+						break;
 					default:
 						if (!hadCustId)
 							parsedConditionals.append(("custId = '" + custId + "'").data());
