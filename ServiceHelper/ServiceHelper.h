@@ -14,7 +14,7 @@
 #include <QList>
 #include <QDebug>
 
-#include "HenchmanServiceException.h"
+//#include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 
 //#ifdef DEBUG
@@ -103,6 +103,9 @@ public:
 	 * @throws None.
 	 */
 	std::string GetLogsPath(std::string app_path = "");
+
+
+	std::string GetServicePath(std::string app_path = "");
 
 	/**
 	 * @brief Writes the given log message to the log file.
@@ -233,6 +236,8 @@ public:
 	static QList<QString> ExplodeString(QString targetString, const char *seperator, int maxLen = -1);
 
 	void ConsoleLog(const char* log);
+
+	static int ShellExecuteApp(std::string appName, std::string params);
 
 	ServiceHelper& operator<<(const char* s);
 	ServiceHelper& operator<<(const std::string& s);

@@ -68,7 +68,10 @@ public:
 	 *
 	 * @return A string representation of the exception.
 	 */
-	const char * what() const override;
+	const char* what() const override;
+
+
+	const char * what(EventManager::CEventManager& evntManager) const;
 };
 
 #endif // !HENCHMAN_SERVICE_EXCEPTION_H

@@ -1,5 +1,7 @@
 
 qt_add_library(DatabaseManager STATIC "DatabaseManager.cpp")
+qt_disable_unicode_defines(DatabaseManager)
+
 message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
 
 target_include_directories(

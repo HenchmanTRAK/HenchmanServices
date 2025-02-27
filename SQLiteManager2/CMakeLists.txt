@@ -1,5 +1,6 @@
 
 qt_add_library(SQLiteManager2 STATIC "SQLiteManager2.cpp")
+qt_disable_unicode_defines(SQLiteManager2)
 
 target_include_directories(SQLiteManager2 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

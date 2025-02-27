@@ -85,6 +85,7 @@ Url = url_to_backend_api
 NumberOfQueries = number_of_cloudupdate_queries
 
 [SYSTEM]
+DatabaseDriver = default_database_driver
 Database = name_of_sqlite_database
 DatabaseLocation = location_to_place_database
 LocalSystemAccountName = name_of_local_system_account
@@ -118,6 +119,7 @@ testingDBManager = 0|1
 	- `NumberOfQueries` : Specified the maximum number of queries the application will attempt to run in a cycle. `default: 10`
 
  - `[SYSTEM]` section:
+	- `DatabaseDriver` = The default database driver the service should use. Don't specify if the service should decide for itself.
 	- `Database` = Specifies the name of the sqlite database. `default: ""`
 	- `DatabaseLocation` = Specifies the path the database will be placed. `default: ""`
 	- `LocalSystemAccountName` = Specifies the name of a local system account the service will run as. `default: ""`
@@ -142,16 +144,12 @@ If you encounter any issues while using HenchmanService, here are some troublesh
 
 Contributions are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
 
-## License
-
-HenchmanService is licensed under the [MIT License](LICENSE).
+[//]: # (## License)
+[//]: # ()
+[//]: # (HenchmanService is licensed under the X.)
 
 ## Contact
 
 For any questions or inquiries, you can reach out to [wjaco.swanepoel@gmail.com](mailto:wjaco.swanepoel@gmail.com).
 
 I hope this helps! Let me know if you need any further assistance.
-
-## Todo
-
- - Seperate out service functions from main application logic.
