@@ -65,7 +65,8 @@ enum table_enums{
 	kabemployeeitemtransactions,
 	cribemployeeitemtransactions,
 	portaemployeeitemtransactions,
-	lokkaemployeeitemtransactions
+	lokkaemployeeitemtransactions,
+	tblcounterid
 };
 
 static QMap<QString, table_enums> table_map = {
@@ -89,7 +90,8 @@ static QMap<QString, table_enums> table_map = {
 	{"kabemployeeitemtransactions", kabemployeeitemtransactions},
 	{"cribemployeeitemtransactions", cribemployeeitemtransactions},
 	{"portaemployeeitemtransactions", portaemployeeitemtransactions},
-	{"lokkaemployeeitemtransactions", lokkaemployeeitemtransactions}
+	{"lokkaemployeeitemtransactions", lokkaemployeeitemtransactions},
+	{"tblcounterid", tblcounterid}
 };
 
 /**
@@ -183,7 +185,10 @@ private:
 		{"kabDrawers", 0},
 		{"kabDrawerBins", 0},
 		// Cribtraks
+		{"cribs", 0},
+		{"toolLocation", 0},
 		{"cribtools", 0},
+		{"tooltransfer", 0},
 		// Portatracks
 		{"itemkits", 0},
 		{"kitCategory", 0},
@@ -217,6 +222,8 @@ public:
 	 * This variable stores the name of the target application for the database operations.
 	 */
 	std::string targetApp;
+
+	QString databaseDriver;
 
 public:
 	/**
@@ -314,7 +321,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	*/
-	int AddToolsIfNotExists();
+	int addToolsIfNotExists();
 
 	/**
 	 * @brief Adds missing itemkabs to the database if they do not already exist.
@@ -326,7 +333,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	int AddKabsIfNotExists();
+	int addKabsIfNotExists();
 
 	/**
 	 * @brief Adds missing itemkabdrawers to the database if they do not already exist.
@@ -338,7 +345,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	int AddDrawersIfNotExists();
+	int addDrawersIfNotExists();
 
 	/**
 	 * @brief Adds missing tools in drawers to the database if they do not already exist.
@@ -350,7 +357,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
-	int AddToolsInDrawersIfNotExists();
+	int addToolsInDrawersIfNotExists();
 
 	/**
 	 * @brief Adds users to the database if they do not already exist.
@@ -362,7 +369,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
-	int AddUsersIfNotExists();
+	int addUsersIfNotExists();
 
 	/**
 	 * @brief Adds employees to the database if they do not already exist.
@@ -374,7 +381,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
-	int AddEmployeesIfNotExists();
+	int addEmployeesIfNotExists();
 
 	/**
 	 * @brief Adds jobs to the database if they do not already exist.
@@ -386,13 +393,91 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
-	int AddJobsIfNotExists();
+	int addJobsIfNotExists();
 
-	int AddItemKitsIfNotExists();
+	/**
+	 * @brief Adds cribTRAKs to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of cribTRAKs from the local database and checks if each cribTRAK already exists on the remote database.
+	 * If a cribTRAK does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of cribTRAKs in the database is lesser than or equal to the number of cribTRAKs checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addCribsIfNotExists();
 
-	int AddKitCategoryIfNotExists();
+	/**
+	 * @brief Adds missing cribTRAK tool locations to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of locations from the local database and checks if each location already exists on the remote database.
+	 * If a location does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of tool locations in the database is lesser than or equal to the number of tool locations checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addCribToolLocationIfNotExists();
 
-	int AddKitLocationIfNotExists();
+	/**
+	 * @brief Adds missing cribTRAK tools to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of tools from the local database and checks if each tool already exists on the remote database.
+	 * If a tool does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of cribTRAK tools in the database is lesser than or equal to the number of cribTRAK tools checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addCribToolsIfNotExists();
+
+	/**
+	 * @brief Adds missing tool transactions to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of tool transactions from the local database and checks if each transaction already exists on the remote database.
+	 * If a tool transaction does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of tool transactions in the database is lesser than or equal to the number of tool transactions checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addCribToolTransferIfNotExists();
+
+	/**
+	 * @brief Adds missing tool transactions to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of tool transactions from the local database and checks if each transaction already exists on the remote database.
+	 * If a tool transaction does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of tool transactions in the database is lesser than or equal to the number of tool transactions checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addItemKitsIfNotExists();
+
+	/**
+	 * @brief Adds a kit category to the database if it does not already exist.
+	 *
+	 * This function checks if a kit category name from the local database already exists in the remote database.
+	 * If it does not exist, the function adds the kit category to the remote database.
+	 *
+	 * @return Returns 0 if the number of kit categories in the local database is lesser than or equal to the number of kit categories checked, otherwise returns 1
+	 * 
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addKitCategoryIfNotExists();
+
+	/**
+	 * @brief Adds a kit location to the database if it does not already exist.
+	 *
+	 * This function checks if a kit location from the local database already exists in the remote database.
+	 * If it does not exist, the function adds the kit location to the remote database.
+	 *
+	 * @return Returns 0 if the number of kit locations in the local database is lesser than or equal to the number of kit locations checked, otherwise returns 1
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addKitLocationIfNotExists();
 
 	/**
 	 * @brief Parses a QJsonArray into a string representation.
@@ -467,8 +552,6 @@ private:
 	 * @param results The array to store the processed queryKeys and queryValues strings.
 	 */
 	void processKeysAndValues(QStringMap& map, QString(&results)[]);
-
-	int AddCribToolsIfNotExists();
 };
 
 std::string getValidDrivers();

@@ -8,7 +8,7 @@ include(generate_product_version)
 
 generate_product_version(
    VersionFilesOutputVariable
-   NAME "HenchmanService"
+   NAME "HenchmanServiceController"
    ICON ${CMAKE_CURRENT_SOURCE_DIR}/henchman_trak_logo_redo.ico
    VERSION_MAJOR ${CMAKE_PROJECT_VERSION_MAJOR}
    VERSION_MINOR ${CMAKE_PROJECT_VERSION_MINOR}
@@ -18,50 +18,32 @@ generate_product_version(
 )
 
 #add_executable(HenchmanServices "HenchmanServices.cpp")
-qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" ${VersionFilesOutputVariable})
-qt_disable_unicode_defines(HenchmanService)
+add_executable(HenchmanServiceController "HenchmanServiceController.cpp" "HenchmanServiceController.h" ${VersionFilesOutputVariable})
+#qt_disable_unicode_defines(HenchmanService)
 
 target_include_directories(
-	HenchmanService BEFORE PRIVATE 
+	HenchmanServiceController PRIVATE 
 	${CMAKE_CURRENT_SOURCE_DIR}
-#	${ServiceController_DIR}
-#	${OPENSSL_INCLUDE_DIR}
-#	${CMAKE_SOURCE_DIR}/resources
 )
 
-message(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
-message(STATUS "OpenSSL ssl library: ${OPENSSL_SSL_LIBRARY}")
-message(STATUS "OpenSSL crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
-
-
-#target_link_directories(HenchmanService PRIVATE
-#	C:/Users/Willem/source/repos/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release
-#)
 
 target_link_libraries(
-	HenchmanService PRIVATE 
+	HenchmanServiceController PRIVATE 
 	Qt6::Core
-	Qt6::Network
-	Qt6::Sql
-	SimpleIni
+	ServiceHelper
+	RegistryManager
 	HenchmanServiceException
 	EventManager
-	ServiceHelper
-	DatabaseManager
-	RegistryManager
-	SQLiteManager2
-	TRAKManager
-	ServiceController
 )
 
 set_target_properties(
-	HenchmanService PROPERTIES 
+	HenchmanServiceController PROPERTIES 
 	LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator'\""
-	AUTOMOC TRUE
+#	AUTOMOC TRUE
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET HenchmanService PROPERTY CXX_STANDARD 20)
+  set_property(TARGET HenchmanServiceController PROPERTY CXX_STANDARD 20)
 endif()
 
 #if (CMAKE_VERSION VERSION_GREATER 2.21)

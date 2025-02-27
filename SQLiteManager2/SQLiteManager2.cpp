@@ -8,9 +8,17 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	LOG << "Constructing SQLiteManager2";
 
 	LOG << "Fetching values from registry";
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	QString installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
-	std::string dbName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
+	//QString installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
+	QString installDir(buffer);
+
+	rtManager.GetVal("DatabaseName", REG_SZ, (char*)buffer, size);
+	//std::string dbName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
+	std::string dbName(buffer);
 
 	LOG << "Fetching values from ini file";
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
@@ -27,13 +35,16 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 		LOG << "Initializing requirements";
 		LOG << "Database name in ini: " << databaseName;
 		LOG << "Database name in registry: " << dbName;
+		// HenchmanServiceException
 		if(databaseName.empty() && dbName.empty())
 			throw HenchmanServiceException("No database name specified in service.ini");
 
 		if(databaseName.empty() && !dbName.empty())
 			databaseName = dbName;
 		if(databaseName != dbName)
-			RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
+			if (rtManager.SetVal("DatabaseName", REG_SZ, (char*)databaseName.c_str(), (databaseName.length() + 1)))
+				throw HenchmanServiceException("Failed to set SERVICE_NAME to registry");
+			//RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
 
 		LOG << "Checking for driver availability";
 		if (!QSqlDatabase::isDriverAvailable(databaseDriver))
@@ -60,11 +71,14 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 		}
 	
 		db.close();
-	}catch (std::exception& e){
+	}
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 	}
 
-	RegCloseKey(hKey);
+	//RegCloseKey(hKey);
 }
 
 SQLiteManager2::~SQLiteManager2()
@@ -82,6 +96,7 @@ void SQLiteManager2::ExecQuery(
 	QSqlDatabase db = QSqlDatabase::database(databaseName.data());
 
 	try {
+		// HenchmanServiceException
 		if (!db.open())
 		{
 			throw HenchmanServiceException("Failed to open database");
@@ -130,7 +145,9 @@ void SQLiteManager2::ExecQuery(
 		db.close();
 
 	}
-	catch (std::exception& e) {
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		db.rollback();
 		db.close();
 		throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
@@ -176,7 +193,10 @@ int SQLiteManager2::CreateTable(
 		ExecQuery(queryText.str());		
 		
 
-	}catch(std::exception& e){
+	}
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		
 		ServiceHelper().WriteToError(e.what());
 		return 0;
@@ -248,7 +268,10 @@ int SQLiteManager2::AddEntry(
 	
 		ExecQuery(queryText.str());
 
-	}catch(std::exception& e){
+	}
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
@@ -306,7 +329,9 @@ int SQLiteManager2::UpdateEntry(
 		ExecQuery(queryText.str());
 
 	}
-	catch (std::exception& e) {
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
@@ -341,7 +366,9 @@ int SQLiteManager2::RemoveEntry(
 		ExecQuery(queryText.str());
 
 	}
-	catch (std::exception& e) {
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 		return 0;
 	}
@@ -407,7 +434,9 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 		}
 
 	}
-	catch (std::exception& e) {
+	catch (std::exception& e)
+	//catch (const HenchmanServiceException& e)
+	{
 		ServiceHelper().WriteToError(e.what());
 		return results;
 	}

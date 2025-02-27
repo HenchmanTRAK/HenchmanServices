@@ -1,5 +1,6 @@
 
 qt_add_library(TRAKManager STATIC "TRAKManager.cpp")
+qt_disable_unicode_defines(TRAKManager)
 
 target_include_directories(TRAKManager PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

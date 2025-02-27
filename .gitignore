@@ -8,3 +8,6 @@ build
 resources/*
 !resources/*.dll
 !resources/*.h
+*old
+*Old
+/cmake/RCa40520

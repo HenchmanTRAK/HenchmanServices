@@ -32,9 +32,9 @@ std::vector<std::string> ServiceHelper::ExplodeString(std::string targetString, 
 	std::vector<std::string> results;
 	try {
 		if (targetString == "")
-			throw HenchmanServiceException("No String was provided");
+			throw ("No String was provided");
 		if (seperator == "")
-			throw HenchmanServiceException("Invalid Seperator provided");
+			throw ("Invalid Seperator provided");
 
 		size_t pos = 0;
 		while ((pos = targetString.find(seperator)) != std::string::npos) {
@@ -63,9 +63,9 @@ QList<QString> ServiceHelper::ExplodeString(QString targetString, const char *se
 	QList<QString> results;
 	try {
 		if (targetString == "")
-			throw HenchmanServiceException("No String was provided");
+			throw "No String was provided";
 		if (seperator == "")
-			throw HenchmanServiceException("Invalid Seperator provided");
+			throw "Invalid Seperator provided";
 
 		size_t pos = 0;
 		while ((pos = targetString.indexOf(seperator)) != std::string::npos) {
@@ -137,60 +137,58 @@ char * ServiceHelper::GetFileExtension(std::string& FileName)
 	return (char *)"";
 }
 
+std::string ServiceHelper::GetServicePath(std::string app_path)
+{
+
+	std::string installDir;
+	TCHAR buffer[MAX_PATH];
+	DWORD size = MAX_PATH;
+	DWORD _results;
+
+	if (app_path.empty())
+	{
+		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
+		rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
+		installDir = buffer;
+		//return app_path.ends_with("\\") ? app_path.substr(0, app_path.find_last_of("/\\")) : app_path;
+	}
+	else
+	{
+		installDir = app_path.ends_with("\\") ? app_path.substr(0, app_path.find_last_of("/\\")) : app_path;
+	}
+
+	if (installDir.empty())
+	{
+		do {
+			_results = GetCurrentDirectory(size, buffer);
+			installDir = buffer;
+		} while (_results > installDir.length() && !installDir.empty());
+	}
+
+	return installDir;
+
+}
+
 std::string ServiceHelper::GetExportsPath(std::string app_path)
 {
-	std::string exportsPath;
-	int _results = 0;
-	char buff[1024];
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	std::string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-	if (app_path == "" && installDir == "") {
-		do {
-			_results = GetCurrentDirectoryA(sizeof(buff), buff);
-			exportsPath = buff;
-		} while (_results > exportsPath.length() && exportsPath.data());
-	}
-	else if (installDir != "") {
-		exportsPath = installDir;
-	}
-	else {
-		exportsPath = app_path.substr(0, app_path.find_last_of("/\\"));
-	}
-	RegCloseKey(hKey);
-	exportsPath.append("\\exports\\");
+	std::string exportsPath = GetServicePath().append("\\exports\\");
+
 	if (!std::filesystem::is_directory(exportsPath.c_str())) {
 		std::filesystem::create_directory(exportsPath.c_str());
 	}
-	installDir.clear();
+
 	return exportsPath;
 }
 
 std::string ServiceHelper::GetLogsPath(std::string app_path)
 {
-	std::string logsPath;
-	int _results = 0;
-	char buff[1024];
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	std::string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-	if (app_path == "" && installDir == "") {
-		do {
-			_results = GetCurrentDirectoryA(sizeof(buff), buff);
-			logsPath = buff;
-		} while (_results > logsPath.length() && logsPath.data());
+	std::string exportsPath = GetServicePath().append("\\logs\\");
+
+	if (!std::filesystem::is_directory(exportsPath.c_str())) {
+		std::filesystem::create_directory(exportsPath.c_str());
 	}
-	else if (installDir != "") {
-		logsPath = installDir;
-	}
-	else {
-		logsPath = app_path.substr(0, app_path.find_last_of("/\\"));
-	}
-	RegCloseKey(hKey);
-	logsPath.append("\\logs\\");
-	if (!std::filesystem::is_directory(logsPath.c_str())) {
-		std::filesystem::create_directory(logsPath.c_str());
-	}
-	installDir.clear();
-	return logsPath;
+
+	return exportsPath;
 }
 
 std::array<std::string, 2> ServiceHelper::timestamp()
@@ -221,7 +219,7 @@ void ServiceHelper::WriteToLog(std::string log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-log.txt");
-	LOG << log.data();
+	LOG << logDir << log.data();
 	WriteLog((char *)logDir.data(), log);
 	logDir.clear();
 	log.clear();
@@ -231,8 +229,9 @@ void ServiceHelper::WriteToError(std::string log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-error.txt");
+	LOG << logDir << log.data();
 	WriteLog((char *)logDir.data(), log);
-	WriteToLog(log);
+	WriteToLog("Logged an error");
 	logDir.clear();
 	log.clear();
 }
@@ -241,8 +240,9 @@ void ServiceHelper::WriteToCustomLog(std::string log, std::string logName)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
+	LOG << logDir << log.data();
 	WriteLog((char *)logDir.data(), log);
-	WriteToLog(log);
+	WriteToLog("Logged to " + logName);
 	logDir.clear();
 	log.clear();
 }
@@ -290,6 +290,47 @@ void ServiceHelper::removeQuotes(std::string& stringValue)
 		),
 		stringValue.end()
 	);
+}
+
+int ServiceHelper::ShellExecuteApp(std::string appName, std::string params)
+{
+	SHELLEXECUTEINFO SEInfo;
+	DWORD ExitCode;
+	std::string exeFile = appName;
+	std::string paramStr = params;
+	std::string StartInString;
+
+	if (!std::filesystem::exists(appName)) {
+		ServiceHelper().WriteToError("Could not find Target EXE: " + appName);
+		return 0;
+	}
+
+
+	// fine the windows handle using https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/obtain-console-window-handle
+
+	ZeroMemory(&SEInfo, sizeof(SEInfo));
+	SEInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+	SEInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+	//SEInfo.hwnd = NULL;
+	//SEInfo.lpVerb = NULL;
+	//SEInfo.lpDirectory = NULL;
+	SEInfo.lpFile = exeFile.data();
+	SEInfo.lpParameters = paramStr.data();
+	//: SW_HIDE
+	SEInfo.nShow = paramStr == "" && SW_NORMAL;
+	ServiceHelper().WriteToLog("Executing target: " + appName + params);
+	if (ShellExecuteEx(&SEInfo)) {
+		std::stringstream exitCodeMessage;
+		//do {
+		GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
+		exitCodeMessage << "Target: " << exeFile << " return exit code : " << std::to_string(ExitCode);
+		ServiceHelper().WriteToLog(exitCodeMessage.str());
+		exitCodeMessage.clear();
+		//} while (ExitCode != STILL_ACTIVE);
+		return 1;
+	}
+
+	return 0;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const char* s) 

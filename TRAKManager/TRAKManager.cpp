@@ -103,6 +103,7 @@ const {
 
 	SI_Error rc = ini.LoadFile((appDir + iniFile).data());
 	if (rc < 0) {
+		// HenchmanServiceException
 		throw HenchmanServiceException("Failed to Load INI File: " + appDir + iniFile);
 	}
 	
@@ -133,7 +134,11 @@ const {
 	}
 
 	ServiceHelper().WriteToLog("Adding " + section + " entries to registry");
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section).data());
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section).data());
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + appType + "\\" + section).c_str());
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
 	try
 	{
 		map<string, string> map;
@@ -147,11 +152,16 @@ const {
 			if (key == "Password" && value != "")
 				value = QByteArray(value.data()).toBase64();
 			map[key] = value;
-			RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
-			RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
+			//RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);
+			//RegistryManager::SetVal(hKey, key.data(), map[key].data(), REG_SZ);
+			if (rtManager.SetVal(key.data(), REG_SZ, (char*)map[key].data(), (map[key].length() + 1)))
+				throw HenchmanServiceException("Failed to set Key and key value to registry");
+
 			if (key == "kabID" || key == "portaID" || key == "cribID" || key == "scaleID")
 			{
-				RegistryManager::SetVal(hKey, "trakID", key.data(), REG_SZ);
+				//RegistryManager::SetVal(hKey, "trakID", key.data(), REG_SZ);
+				if (rtManager.SetVal("trakID", REG_SZ, (char*)key.data(), (key.length() + 1)))
+					throw HenchmanServiceException("Failed to set trakId and trakId value to registry");
 			}
 			key.clear();
 			value.clear();
@@ -163,7 +173,7 @@ const {
 	{
 		ServiceHelper().WriteToError(e.what());
 	}
-	RegCloseKey(hKey);
+	//RegCloseKey(hKey);
 
 }
 
@@ -172,10 +182,16 @@ void TRAKManager::CreateDataModule()
 	CSimpleIniA ini;
 	ini.SetUnicode();
 
-	HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
 
-	string serviceInstallDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ) + "\\service.ini";
-	RegCloseKey(hKey);
+	//string serviceInstallDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ) + "\\service.ini";
+	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
+	std::string serviceInstallDir(buffer);
+	serviceInstallDir.append("\\service.ini");
+	//RegCloseKey(hKey);
 	try 
 	{
 		SI_Error rc = ini.LoadFile(serviceInstallDir.data());
@@ -205,10 +221,10 @@ void TRAKManager::CreateDataModule()
 int TRAKManager::exportGeneralTables()
 {
 	return (
-		databaseManager->AddToolsIfNotExists() 
-		|| databaseManager->AddUsersIfNotExists() 
-		|| databaseManager->AddEmployeesIfNotExists()
-		|| databaseManager->AddJobsIfNotExists()
+		databaseManager->addToolsIfNotExists() 
+		|| databaseManager->addUsersIfNotExists() 
+		|| databaseManager->addEmployeesIfNotExists()
+		|| databaseManager->addJobsIfNotExists()
 		? 1
 		: 0
 		);
@@ -225,17 +241,20 @@ int TRAKManager::UploadCurrentStateToRemote()
 	switch (traktype)
 	{
 	case kabtrak: {
-		return (databaseManager->AddKabsIfNotExists() |
-			databaseManager->AddDrawersIfNotExists() |
-			databaseManager->AddToolsInDrawersIfNotExists());
+		return (databaseManager->addKabsIfNotExists() |
+			databaseManager->addDrawersIfNotExists() |
+			databaseManager->addToolsInDrawersIfNotExists());
 	}
 	case cribtrak: {
-		return 1;
+		return (databaseManager->addCribsIfNotExists() | 
+			databaseManager->addCribToolLocationIfNotExists() |
+			databaseManager->addCribToolsIfNotExists() |
+			databaseManager->addCribToolTransferIfNotExists());
 	}
 	case portatrak: {
-		return (databaseManager->AddItemKitsIfNotExists() | 
-			databaseManager->AddKitCategoryIfNotExists() | 
-			databaseManager->AddKitLocationIfNotExists());
+		return (databaseManager->addItemKitsIfNotExists() | 
+			databaseManager->addKitCategoryIfNotExists() | 
+			databaseManager->addKitLocationIfNotExists());
 	}
 	default: {
 	

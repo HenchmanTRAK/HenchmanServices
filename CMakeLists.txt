@@ -14,6 +14,8 @@ if(MSVC)
 	target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
 
+set(MSVC_ROOT_DIR C:/Users/Willem/source/repos)
+
 # set the project version. 
 #set(PROJECT_VER_PATCH 6)
 #set(PROJECT_VER_MINOR 1)
@@ -42,6 +44,8 @@ set($ENV{VERSION} ${PROJECT_VERSION})
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+
 #execute_process (
 #    COMMAND echo "${Project_Version}" >> "$ENV{VERSION}"
 #    OUTPUT_VARIABLE outVar
@@ -49,7 +53,10 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+#set(CMAKE_C_STANDARD 17)
+#set(CMAKE_C_STANDARD_REQUIRED ON)
 message(STATUS "Using c++ standard c++ ${CMAKE_CXX_STANDARD}")
+message(STATUS "Using c standard c ${CMAKE_C_STANDARD}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
@@ -67,20 +74,28 @@ message (STATUS "Project version: ${PROJECT_VERSION}")
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
+# set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} /Wall /GR)
+
 include(FetchContent)
 include(ExternalProject)
 include(GNUInstallDirs)
-set (CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP FALSE)
+set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+set(CMAKE_INSTALL_UCRT_LIBRARIES FALSE)
 include (InstallRequiredSystemLibraries)
 
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 # Second, for multi-config builds (e.g. msvc)
 foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
+	message(${OUTPUTCONFIG})
 	string( TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG )
 	string( TOLOWER ${OUTPUTCONFIG} CONFIGTYPE )
+	message(${OUTPUTCONFIG})
+	message(${CONFIGTYPE})
 	set( CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} )
 	set( CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY} )
 	set( CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY} )
-	set (CMAKE_CXX_FLAGS_${OUTPUTCONFIG}                "/ZI /Od")
+	set (CMAKE_CXX_FLAGS_${OUTPUTCONFIG}	"/ZI /Od")
 	set (CMAKE_EXE_LINKER_FLAGS_${OUTPUTCONFIG}         "/${CONFIGTYPE}")
 endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
@@ -92,7 +107,6 @@ set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
 qt_standard_project_setup()
-
 
 #INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
 #COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
@@ -127,9 +141,9 @@ option(SQLITECPP_RUN_CPPLINT "Run c++ lint" ON)
 qt_policy(SET QTP0003 NEW)
 
 #set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL")
-if(WIN32)
-find_package(OpenSSL REQUIRED)
-endif(WIN32)
+#if(WIN32)
+#find_package(OpenSSL REQUIRED)
+#endif(WIN32)
 
 message(STATUS "Fetching content for GoogleTest")
 FetchContent_Declare(
@@ -156,7 +170,7 @@ FetchContent_Declare(
 	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
 	FIND_PACKAGE_ARGS HINTS x64
 )
-message(STATUS "Fetching content for QMYSQL")
+message(STATUS "Fetching content for QMYSQL version: ${Qt6_VERSION}")
 if(${Qt6_VERSION} EQUAL "6.7.2")
 	set(QMySQL_URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip)
 elseif(${Qt6_VERSION} EQUAL "6.8.0")
@@ -183,10 +197,12 @@ FetchContent_MakeAvailable(SimpleIni OpenSSL QMYSQL)
 
 #add_compile_definitions($<$<CONFIG:Debug>:_ITERATOR_DEBUG_LEVEL=0>)
 
+
 # Include sub-projects.
 #add_subdirectory ("simpleini-4.22")
 #add_subdirectory (thirdparty/SQLiteCpp-3.3.2)
 add_subdirectory (HenchmanService)
+add_subdirectory (HenchmanServiceController)
 add_subdirectory (ServiceHelper)
 #add_subdirectory (SQLiteManager)
 add_subdirectory (SQLiteManager2)
@@ -240,15 +256,16 @@ qt_generate_deploy_script(
 qt_deploy_runtime_dependencies(
 	EXECUTABLE \"${executable_path}\"
 	PRE_EXCLUDE_REGEXES \"api-ms-\" \"ext-ms-\" 
-	POST_EXCLUDE_REGEXES \".*system32/.*\\.dll\" 
+	POST_EXCLUDE_REGEXES \".*system32/.*\\.dll\" \"api-ms-\" \"ext-ms-\"
 	NO_UNSUPPORTED_PLATFORM_ERROR
 	NO_TRANSLATIONS
 	GENERATE_QT_CONF
 	VERBOSE
 )"
 )
+# 	
 
-if(EXISTS $ENV{QTDIR}/bin/Qt6Cored.dll)
+if(EXISTS $ENV{QTDIR}/bin/Qt6Cored.dll OR EXISTS $ENV{QTDIR}/bin/Qt6Core.dll)
 	message(STATUS "Checking for Qt6Core in " $ENV{QTDIR}/bin ": Yes")
 else()
 	message(STATUS "Checking for Qt6Core in " $ENV{QTDIR}/bin ": No")
@@ -292,6 +309,14 @@ install (
 )
 endif()
 
+install (
+	TARGETS HenchmanServiceController
+	BUNDLE DESTINATION .
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}							COMPONENT Runtime
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}							COMPONENT Runtime
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${CMAKE_PROJECT_NAME}	COMPONENT Development
+)
+
 install(
 	TARGETS HenchmanService
 	BUNDLE DESTINATION .
@@ -299,6 +324,7 @@ install(
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}							COMPONENT Runtime
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${CMAKE_PROJECT_NAME}	COMPONENT Development
 )
+add_dependencies(HenchmanService HenchmanServiceController)
 #set_property(TARGET HenchmanService PROPERTY WIN32_EXECUTABLE TRUE)
 install (PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
 		DESTINATION ${CMAKE_INSTALL_BINDIR}	COMPONENT Runtime)
@@ -350,7 +376,7 @@ add_custom_target(
 	COMMENT "Generate installer for project using package target" VERBATIM
 )
 if(DOXYGEN_FOUND)
-add_dependencies(Generate_Project_Installer DOC)
+	add_dependencies(Generate_Project_Installer DOC)
 endif(DOXYGEN_FOUND)
 #add_dependencies(Generate_Project_Installer HenchmanService)
 
