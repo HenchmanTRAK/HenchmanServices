@@ -837,7 +837,7 @@ int main(int argc, char* argv[])
 		try {
 			RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
 			//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-			TCHAR buffer[MAX_PATH];
+			TCHAR buffer[MAX_PATH] = "\0";
 			DWORD size = MAX_PATH;
 			rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR *)buffer, size);
 			tstring installDir(buffer);

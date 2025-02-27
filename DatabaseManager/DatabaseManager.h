@@ -65,7 +65,8 @@ enum table_enums{
 	kabemployeeitemtransactions,
 	cribemployeeitemtransactions,
 	portaemployeeitemtransactions,
-	lokkaemployeeitemtransactions
+	lokkaemployeeitemtransactions,
+	tblcounterid
 };
 
 static QMap<QString, table_enums> table_map = {
@@ -89,7 +90,8 @@ static QMap<QString, table_enums> table_map = {
 	{"kabemployeeitemtransactions", kabemployeeitemtransactions},
 	{"cribemployeeitemtransactions", cribemployeeitemtransactions},
 	{"portaemployeeitemtransactions", portaemployeeitemtransactions},
-	{"lokkaemployeeitemtransactions", lokkaemployeeitemtransactions}
+	{"lokkaemployeeitemtransactions", lokkaemployeeitemtransactions},
+	{"tblcounterid", tblcounterid}
 };
 
 /**
