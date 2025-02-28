@@ -5,8 +5,10 @@ name: CMake on multiple platforms
 on: 
   workflow_dispatch:
   push:
-    tags:
-      - '*'
+    # tags:
+      # - '*'
+    branches:
+      - 'main'
 
 env:
   VERSION: 1.1.5
