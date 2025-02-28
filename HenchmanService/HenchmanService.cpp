@@ -434,9 +434,9 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 		a->exec();
 		ServiceHelper().WriteToLog("Service sleeping for 30000 ms...");
 		if (!testing)
-			Sleep(30000);
+			Sleep(30*1000);
 		else
-			Sleep(5);
+			Sleep(10*1000);
 	
 	}
 	

@@ -7,7 +7,7 @@ static array<string, 2> timeStamp;
 
 static bool doNotRunCloudUpdate = 0;
 static bool parseCloudUpdate = 1;
-static bool pushCloudUpdate = 0;
+static bool pushCloudUpdate = 1;
 
 string getValidDrivers()
 {
@@ -280,19 +280,23 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
 				return;
 			}
-
 			string parsedVal;
-			if (json->isArray())
+			if (json->isArray()) {
 				parsedVal = parseData(json->array());
-			else if (json->isObject())
+			}
+			else if (json->isObject()) {
+				QJsonObject retVal = json->object();
+				if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
+					result = 1;
 				parsedVal = parseData(json->object());
+			}
 
 			ServiceHelper().WriteToCustomLog("Webportal response: \n" + parsedVal, timeStamp[0] + "-queries");
-
 			if (results)
 				json.value().swap(*results);
 			
-			result = reply.isSuccess();
+			if(!result)
+				result = reply.isSuccess();
 
 			if (reply.isSuccess())
 			{
@@ -1760,8 +1764,9 @@ int DatabaseManager::connectToRemoteDB()
 			ServiceHelper().WriteToLog(string("Closing DB Session"));
 			throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
 		}
-
-		ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
+		
+		if(query.numRowsAffected() > 0)
+			ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
 
 		int count = 0;
 
@@ -1894,9 +1899,9 @@ int DatabaseManager::connectToRemoteDB()
 							val = val + "\, " + splitValues.at(i + 1).simplified();
 							splitValues.removeAt(i + 1);
 						}
-						if (val[0] != '\'')
+						if (val[0] != '\'' && val != "NULL")
 							val = "'" + val;
-						if (val[val.size()-1] != '\'')
+						if (val[val.size()-1] != '\'' && val != "NULL")
 							val.append("'");
 
 						string valueCheck;
@@ -2123,12 +2128,12 @@ int DatabaseManager::connectToRemoteDB()
 							" AND cribId=" + map.value("cribId") +
 							" AND barcodeTAG=" + map.value("barcodeTAG") +
 							" AND userId=" + map.value("userId") +
-							" AND tailId=" + map.value("tailId") +
 							" AND transfer_userId=" + map.value("transfer_userId") +
+							" AND tailId=" + map.value("tailId") +
 							" AND transfer_tailId=" + map.value("transfer_tailId") +
 							" AND transactionDate=" + map.value("transactionDate") +
 							" AND dateTransferred=" + map.value("dateTransferred") +
-							" ORDER BY toolId DESC LIMIT 1)";
+							" ORDER BY id DESC LIMIT 1)";
 						break;
 					//case itemkits:
 					case kitcategory:
@@ -2371,22 +2376,27 @@ int DatabaseManager::connectToRemoteDB()
 						if (skipQuery)
 							break;
 						//qDebug() << parsedSets << "\n" << parsedConditionals << "\n" << cols << "\n" << vals;
-						if (!(cols.contains("itemId", Qt::CaseInsensitive) && skipQuery)) {
+						if ((cols.contains("barcode") && !cols.contains("itemId", Qt::CaseInsensitive)) && !skipQuery) {
 							cols.append("itemId");
 							vals.append("(SELECT itemId FROM cribtools WHERE barcodeTAG = " + vals.at(cols.indexOf("barcode")) + " AND custId = '" + custId.data() + "' AND " + trakId.data() + " = '" + idNum.data() + "' ORDER BY id DESC LIMIT 1)");
 						}
-						if (!(cols.contains("tailId", Qt::CaseInsensitive)&& skipQuery)) {
+						if ((cols.contains("trailId") && !cols.contains("tailId", Qt::CaseInsensitive)) && !skipQuery) {
 							cols.append("tailId");
 							vals.append("(SELECT description FROM jobs WHERE trailId = '" + vals.at(cols.indexOf("trailId")) + "' AND custId = '" + custId.data() + "' ORDER BY id DESC LIMIT 1)");
 						}
-						if (!(cols.contains("transDate", Qt::CaseInsensitive)&& skipQuery)) {
+						qDebug() << cols;
+						std::cout << (!cols.contains("transDate", Qt::CaseInsensitive)) << " && " << (!skipQuery) << "\n";
+						if (!cols.contains("transDate", Qt::CaseInsensitive) && !skipQuery) {
 							cols.append("transDate");
 							vals.append("CURDATE()");
 						}
-						if (!(cols.contains("transTime", Qt::CaseInsensitive)&& skipQuery)) {
+						qDebug() << cols;
+						std::cout << (!cols.contains("transTime", Qt::CaseInsensitive)) << " && " << (!skipQuery) << "\n";
+						if (!cols.contains("transTime", Qt::CaseInsensitive) && !skipQuery) {
 							cols.append("transTime");
 							vals.append("CURTIME()");
 						}
+						qDebug() << cols;
 						/*cols.append("remarks");
 						vals.append(("(SELECT remarks FROM cribs WHERE custId = " + custId + " AND " + trakId + " = " + idNum + ")").data());*/
 						//qDebug() << cols << " | " << vals;
@@ -2444,7 +2454,9 @@ int DatabaseManager::connectToRemoteDB()
 				break;
 			}
 		}
-		ServiceHelper().WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
+		
+		if (query.numRowsAffected() > 0)
+			ServiceHelper().WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
 
 		query.clear();
 		query.finish();
