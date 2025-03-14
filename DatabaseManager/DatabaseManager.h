@@ -48,6 +48,7 @@ enum table_enums{
 	tools,
 	users,
 	employees,
+	customer,
 	jobs,
 	kabs,
 	drawers,
@@ -72,6 +73,7 @@ enum table_enums{
 static QMap<QString, table_enums> table_map = {
 	{"tools", tools},
 	{"users", users},
+	{"customer", customer},
 	{"employees", employees},
 	{"jobs", jobs},
 	{"itemkabs", kabs},
