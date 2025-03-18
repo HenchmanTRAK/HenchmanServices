@@ -62,6 +62,30 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
 	std::string installDir(buffer);
+
+	//size = 1024;
+	//rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
+	//trakType = buffer;
+
+	//RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+	//size = 1024;
+	//rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
+	////string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+	//std::string trakID(buffer);
+	//size = 1024;
+	//rtManagerCustomer.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
+	////string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+	//std::string strCustId(buffer);
+	//custId = std::stoi(strCustId);
+
+	//size = 1024;
+	//rtManagerCustomer.GetVal(trakId.data(), REG_SZ, (TCHAR*)buffer, size);
+	////string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+	//std::string idNum(buffer);
+	//trakIdNum = std::stoi(idNum);
+
+	//trakId.resize(trakId.size() - 2);
+	//trakId.append("Id");
 	
 	//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 
@@ -145,6 +169,38 @@ DatabaseManager::~DatabaseManager()
 	LOG << "Deleting DatabaseManager";
 
 	performCleanup();
+}
+
+void DatabaseManager::loadTrakDetailsFromRegistry()
+{
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
+	trakType = buffer;
+
+	RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+
+	size = 1024;
+	rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
+	//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+	trakId = buffer;
+
+	size = 1024;
+	rtManagerCustomer.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
+	//string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+	std::string strCustId(buffer);
+	custId = std::stoi(strCustId);
+
+	size = 1024;
+	rtManagerCustomer.GetVal(trakId.data(), REG_SZ, (TCHAR*)buffer, size);
+	//string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+	std::string idNum(buffer);
+	trakIdNum = idNum.data();
+
+	trakId.resize(trakId.size() - 2);
+	trakId.append("Id");
 }
 
 bool DatabaseManager::isInternetConnected()
@@ -238,7 +294,7 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 	request.setRawHeader("Content-Type", "application/json");
 	
 	QJsonObject data;
-	data["sql"] = query["query"];	
+	data["sql"] = query["query"];
 	QJsonDocument doc(data);
 
 	ServiceHelper().WriteToCustomLog(
@@ -350,14 +406,39 @@ int DatabaseManager::addToolsIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 	
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	//TCHAR buffer[1024] = "\0";
+	//DWORD size = sizeof(buffer);
+
+	//size = 1024;
+	//rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
+	//std::string trakType(buffer);
+
+	//RegistryManager::CRegistryManager rtManagerSrv(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+	//size = 1024;
+	//rtManagerSrv.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
+	////string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+	//std::string custId(buffer);
+
+	//size = 1024;
+	//rtManagerSrv.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
+	////string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+	//std::string trakId(buffer);
+
+	//size = 1024;
+	//rtManagerSrv.GetVal(trakId.data(), REG_SZ, (TCHAR*)buffer, size);
+	////string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+	//std::string idNum(buffer);
+
+	//trakId.resize(trakId.size() - 2);
+	//trakId.append("Id");
 
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
+
+		result["toolId"] = result["id"];
 
 		QString results[2];
 
@@ -376,12 +457,8 @@ int DatabaseManager::addToolsIfNotExists()
 		//QString iniFile(buffer);
 		//RegCloseKey(hKey);
 
-		std::array trakNini(GetTrakDirAndIni(rtManager));
 
-		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
-
-		if (result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -392,14 +469,16 @@ int DatabaseManager::addToolsIfNotExists()
 			results[1] +
 			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools" +
 			" WHERE custId=" + result.value("custId") +
+			/*(!result.value("PartNo").isEmpty() 
+				? " AND PartNo=" + result.value("PartNo") : "") +*/
 			(!result.value("stockcode").isEmpty() ?
 				" AND stockcode=" + result.value("stockcode") : "") +
 			(!result.value("serialNo").isEmpty() ?
 				" AND serialNo=" + result.value("serialNo") : "") +
-			/*(!result.value("PartNo").isEmpty() ?
-				" AND PartNo=" + result.value("PartNo") : "") +*/
 			(!result.value("description").isEmpty() ?
 				" AND description=" + result.value("description") : "") +
+			(!result.value("toolId").isEmpty() ?
+				" AND toolId=" + result.value("toolId") : "") +
 			" ORDER BY id DESC LIMIT 1)" +
 			" ON DUPLICATE KEY UPDATE ";
 		for (auto& key : result.keys())
@@ -466,30 +545,30 @@ int DatabaseManager::addUsersIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	//TCHAR buffer[1024] = "\0";
+	//DWORD size = sizeof(buffer);
 
-	size = 1024;
-	rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
-	std::string trakType(buffer);
+	//size = 1024;
+	//rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
+	//std::string trakType(buffer);
 
-	RegistryManager::CRegistryManager rtManagerSrv(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
-	size = 1024;
-	rtManagerSrv.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
-	//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
-	std::string trakId(buffer);
-	size = 1024;
-	rtManagerSrv.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
-	//string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
-	std::string custId(buffer);
+	//RegistryManager::CRegistryManager rtManagerSrv(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+	//size = 1024;
+	//rtManagerSrv.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
+	////string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+	//std::string trakId(buffer);
+	//size = 1024;
+	//rtManagerSrv.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
+	////string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+	//std::string custId(buffer);
 
-	size = 1024;
-	rtManagerSrv.GetVal(trakId.data(), REG_SZ, (TCHAR*)buffer, size);
-	//string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
-	std::string idNum(buffer);
+	//size = 1024;
+	//rtManagerSrv.GetVal(trakId.data(), REG_SZ, (TCHAR*)buffer, size);
+	////string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+	//std::string idNum(buffer);
 
-	trakId.resize(trakId.size() - 2);
-	trakId.append("Id");
+	//trakId.resize(trakId.size() - 2);
+	//trakId.append("Id");
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -500,6 +579,21 @@ int DatabaseManager::addUsersIfNotExists()
 		res["id"] = result["id"];
 		result.remove("id");
 
+		qDebug() << result;
+
+		if (trakId != "kabId")
+			result["kabId"] = "";
+		if (trakId != "cribId")
+			result["cribId"] = "";
+		if(trakId != "scaleId")
+			result["scaleId"] = "";
+		
+		if (result.value(trakId.data()).isEmpty())
+			result[trakId.data()] = trakIdNum;
+
+		qDebug() << result;
+
+
 		QString results[2];
 
 		processKeysAndValues(result, results);
@@ -509,12 +603,12 @@ int DatabaseManager::addUsersIfNotExists()
 			results[0] +
 			") SELECT " +
 			results[1] +
-			" FROM DUAL WHERE NOT EXISTS ("+
-			"SELECT * FROM users WHERE " +
-			"userId=" + result.value("userId") +
+			" FROM DUAL WHERE NOT EXISTS"+
+			" (SELECT * FROM users WHERE" +
+			" userId=" + result.value("userId") +
 			" AND custId=" + result.value("custId") +
 			(result.value(trakId.data()).isEmpty()
-				? (" AND " + trakId + " = " + idNum).data()
+				? (" AND " + trakId + " = ").data() + trakIdNum
 				: (" AND " + trakId +" = ").data() + result.value(trakId.data())) +
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
@@ -530,12 +624,12 @@ int DatabaseManager::addUsersIfNotExists()
 
 		//QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		//RegCloseKey(hKey);
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		QString custId = ini.value("Customer/ID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -593,8 +687,8 @@ int DatabaseManager::addEmployeesIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -625,13 +719,12 @@ int DatabaseManager::addEmployeesIfNotExists()
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		RegCloseKey(hKey);*/
 
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		QString custId = ini.value("Customer/ID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'") 
-		{
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			LOG << "entry does not belong to customer";
 			databaseTablesChecked[targetKey]++;
 			continue;
@@ -690,8 +783,8 @@ int DatabaseManager::addJobsIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -721,12 +814,12 @@ int DatabaseManager::addJobsIfNotExists()
 		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		RegCloseKey(hKey);*/
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		QString custId = ini.value("Customer/ID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -786,8 +879,8 @@ int DatabaseManager::addKabsIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -814,12 +907,12 @@ int DatabaseManager::addKabsIfNotExists()
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		RegCloseKey(hKey);*/
 
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		QString custId = ini.value("Customer/ID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -878,8 +971,8 @@ int DatabaseManager::addDrawersIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -895,8 +988,8 @@ int DatabaseManager::addDrawersIfNotExists()
 			results[0] +
 			") SELECT " +
 			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE " +
-			"custId="+result.value("custId")+
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE" +
+			" custId="+result.value("custId")+
 			" AND kabId="+result.value("kabId") +
 			" AND drawerCode="+result.value("drawerCode")+
 			" ORDER BY id DESC LIMIT 1)";
@@ -907,12 +1000,12 @@ int DatabaseManager::addDrawersIfNotExists()
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		RegCloseKey(hKey);*/
 
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		QString custId = ini.value("Customer/ID", 0).toString();*/
 
-		if(result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -970,8 +1063,8 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1001,12 +1094,12 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
 		RegCloseKey(hKey);*/
 
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		QString custId = ini.value("Customer/ID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -1066,8 +1159,8 @@ int DatabaseManager::addCribsIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -1079,13 +1172,13 @@ int DatabaseManager::addCribsIfNotExists()
 
 		processKeysAndValues(result, results);
 
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
-		QString cribId = ini.value("Customer/cribID", 0).toString();
+		QString cribId = ini.value("Customer/cribID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'" || result.value("cribId") != "'" + cribId + "'")
+		if (result.value("custId") != "'" + QString::number(custId) + "'" || result.value("cribId") != "'" + QString(trakIdNum) + "'")
 			continue;
 
 		res["query"] = "INSERT INTO cribs (" +
@@ -1155,8 +1248,8 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1176,13 +1269,13 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		RegCloseKey(hKey);
 
 		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
-		QString cribId = ini.value("Customer/cribID", 0).toString();
+		QString cribId = ini.value("Customer/cribID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'" || result.value("cribId") != "'" + cribId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'" || result.value("cribId") != "'" + QString(trakIdNum) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -1253,8 +1346,8 @@ int DatabaseManager::addCribToolsIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -1265,8 +1358,10 @@ int DatabaseManager::addCribToolsIfNotExists()
 		}
 		else {
 			res["id"] = result["id"];
-			result["toolId"] = result["id"];
+			//result["toolId"] = result["id"];
 		}
+		vector fetchTool = ExecuteTargetSql(("SELECT id FROM tools WHERE ((PartNo IS NOT NULL OR PartNo <> '') AND PartNo = '" + result["itemId"] + "') OR ((stockcode IS NOT NULL OR stockcode <> '') AND stockcode = '"+result["itemId"] + "') OR (id = '"+result["toolId"] + "') GROUP BY description;").toStdString());
+		result["toolId"] = fetchTool[1]["id"];
 		
 		if (result.contains("nextcalibrationdate")) {
 			result["currentcalibrationdate"] = result["nextcalibrationdate"];
@@ -1283,13 +1378,13 @@ int DatabaseManager::addCribToolsIfNotExists()
 
 		//QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
 
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
 		QString custId = ini.value("Customer/ID", 0).toString();
-		QString cribId = ini.value("Customer/cribID", 0).toString();
+		QString cribId = ini.value("Customer/cribID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'" || result.value("cribId") != "'" + cribId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'" || result.value("cribId") != "'" + QString(trakIdNum) + "'") {
 			continue;
 		}
 
@@ -1308,6 +1403,9 @@ int DatabaseManager::addCribToolsIfNotExists()
 				: "") +
 			(!result.value("serialNo").isEmpty()
 				? " AND serialNo=" + result.value("serialNo")
+				: "") +
+			(!result.value("toolId").isEmpty()
+				? " AND toolId=" + result.value("toolId")
 				: "") +
 			" ORDER BY toolId DESC LIMIT 1)";
 		LOG << res["query"];
@@ -1367,28 +1465,28 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
-	rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
-	std::string trakType(buffer);
+	//rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
+	//std::string trakType(buffer);
 
-	RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+	//RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
 
-	size = 1024;
-	rtManagerCustomer.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
-	//string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
-	std::string custId(buffer);
-	
-	size = 1024;
-	rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
-	//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
-	std::string trakIdType(buffer);
+	//size = 1024;
+	//rtManagerCustomer.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
+	////string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+	//std::string custId(buffer);
+	//
+	//size = 1024;
+	//rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
+	////string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+	//std::string trakIdType(buffer);
 
-	size = 1024;
-	rtManagerCustomer.GetVal(trakIdType.data(), REG_SZ, (TCHAR*)buffer, size);
-	//string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
-	std::string trakId(buffer);
+	//size = 1024;
+	//rtManagerCustomer.GetVal(trakIdType.data(), REG_SZ, (TCHAR*)buffer, size);
+	////string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+	//std::string trakId(buffer);
 
 	/*std::array trakNini(GetTrakDirAndIni(rtManagerCustomer));
 
@@ -1397,8 +1495,8 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 	QString trakIdType = ini.value("Customer/trakID", 0).toString();
 	QString trakId = ini.value("Customer/" + trakIdType, 0).toString();*/
 	
-	trakIdType.resize(trakId.size() - 2);
-	trakIdType.append("Id");
+	//trakIdType.resize(trakId.size() - 2);
+	//trakIdType.append("Id");
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -1417,7 +1515,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 
 		//QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
 
-		if (result.value("custId") != "'" + custId + "'" || result.value(trakIdType.data()) != "'" + trakId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'" || result.value(trakId.data()) != "'" + QString(trakIdNum) + "'") {
 			continue;
 		}
 
@@ -1499,8 +1597,8 @@ int DatabaseManager::addItemKitsIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -1531,12 +1629,12 @@ int DatabaseManager::addItemKitsIfNotExists()
 		RegCloseKey(hKey);
 
 		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		/*std::array trakNini(GetTrakDirAndIni(rtManager));
 
 		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		QString custId = ini.value("Customer/ID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -1593,8 +1691,8 @@ int DatabaseManager::addKitCategoryIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1627,12 +1725,12 @@ int DatabaseManager::addKitCategoryIfNotExists()
 		RegCloseKey(hKey);
 
 		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		//std::array trakNini(GetTrakDirAndIni(rtManager));
 
-		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		//QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
+		//QString custId = ini.value("Customer/ID", 0).toString();
 
-		if (result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -1689,8 +1787,8 @@ int DatabaseManager::addKitLocationIfNotExists()
 	restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	/*TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);*/
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1726,12 +1824,12 @@ int DatabaseManager::addKitLocationIfNotExists()
 		RegCloseKey(hKey);
 
 		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
-		std::array trakNini(GetTrakDirAndIni(rtManager));
+		//std::array trakNini(GetTrakDirAndIni(rtManager));
 
-		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
+		/*QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
+		QString custId = ini.value("Customer/ID", 0).toString();*/
 
-		if (result.value("custId") != "'" + custId + "'") {
+		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
 		}
@@ -1813,7 +1911,7 @@ int DatabaseManager::connectToRemoteDB()
 
 		vector<QStringMap> queries;
 		QSqlQuery query(db);
-		QString queryText = testingDBManager && doNotRunCloudUpdate ? "SHOW TABLES" : "SELECT * FROM cloudupdate WHERE posted = 0 ORDER BY DatePosted ASC, id ASC LIMIT " + QString::number(queryLimit);
+		QString queryText = testingDBManager && doNotRunCloudUpdate ? "SHOW TABLES" : "SELECT * FROM cloudupdate WHERE posted = 0 OR posted = 2 ORDER BY posted ASC, DatePosted ASC, id ASC LIMIT " + QString::number(queryLimit);
 		LOG << queryText;
 		query.prepare(queryText);
 		if (!query.exec())
@@ -1828,25 +1926,25 @@ int DatabaseManager::connectToRemoteDB()
 
 		int count = 0;
 
-		RegistryManager::CRegistryManager rtManagerMainSrv(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").data());
-		size = 1024;
-		rtManagerMainSrv.GetVal("APP_NAME", REG_SZ, (TCHAR *)buffer, size);
-		std::string trakType(buffer);
+		//RegistryManager::CRegistryManager rtManagerMainSrv(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").data());
+		//size = 1024;
+		//rtManagerMainSrv.GetVal("APP_NAME", REG_SZ, (TCHAR *)buffer, size);
+		//std::string trakType(buffer);
 
-		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
-		size = 1024;
-		rtManager.GetVal("trakID", REG_SZ, (TCHAR *)buffer, size);
-		//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
-		std::string trakId(buffer);
-		size = 1024;
-		rtManager.GetVal("ID", REG_SZ, (TCHAR *)buffer, size);
-		//string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
-		std::string custId(buffer);
+		//RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+		//size = 1024;
+		//rtManager.GetVal("trakID", REG_SZ, (TCHAR *)buffer, size);
+		////string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
+		//std::string trakId(buffer);
+		//size = 1024;
+		//rtManager.GetVal("ID", REG_SZ, (TCHAR *)buffer, size);
+		////string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
+		//std::string custId(buffer);
 
-		size = 1024;
-		rtManager.GetVal(trakId.data(), REG_SZ, (TCHAR *)buffer, size);
-		//string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
-		std::string idNum(buffer);
+		//size = 1024;
+		//rtManager.GetVal(trakId.data(), REG_SZ, (TCHAR *)buffer, size);
+		////string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
+		//std::string idNum(buffer);
 
 
 		//while (testingDBManager ? count < 5 : query.next())
@@ -1854,7 +1952,7 @@ int DatabaseManager::connectToRemoteDB()
 		{
 			count++;
 			bool skipQuery = false;
-			
+			bool retryingQuery = false;
 			QStringMap res;
 			res["number"] = QString::number(count);
 			
@@ -1878,7 +1976,7 @@ int DatabaseManager::connectToRemoteDB()
 							QRegularExpression::ExtendedPatternSyntaxOption
 						),"") + "\'"
 					).replace("()", "").simplified();
-
+				retryingQuery = query.value(4).toInt() == 2;
 				ServiceHelper().WriteToCustomLog("Query fetched from database: " + res["query"].toStdString(), timeStamp[0] + "-queries");
 
 				//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
@@ -1889,13 +1987,13 @@ int DatabaseManager::connectToRemoteDB()
 				string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
 				string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);*/
 				//RegCloseKey(hKey);
-
-				if(res["query"].contains(";") && res["query"].split(";").size() > 2 && !res["query"].split(";")[1].isEmpty()) {
+				if (res["query"].contains(";") && res["query"].split(";").size() > 2 && !res["query"].split(";")[1].isEmpty() && !skipQuery) {
 					LOG << res["query"].split(";").size();
-					skipQuery = true;
-					goto parsedQuery;
+					res["query"] = res["query"].split(";")[0];
+					LOG << res["query"];
+					/*skipQuery = true;
+					goto parsedQuery;*/
 				}
-
 				// Check if query contains customer id for verification. Containing custId that is not assigned to trak renders query unsafe.
 				if (res["query"].contains("custId =", Qt::CaseInsensitive) && !skipQuery && false)
 				{
@@ -1906,15 +2004,12 @@ int DatabaseManager::connectToRemoteDB()
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
 					QString substr2 = ServiceHelper::ExplodeString(substr.mid(startpoint, endpoint-startpoint).trimmed(), " ")[0];
 					LOG << substr2 << " | " << custId;
-					if (substr2.toStdString() != custId) {
+					if (substr2.toInt() != custId) {
 						skipQuery = true;
 						goto parsedQuery;
 					}
 				}
 				
-				trakId.resize(trakId.size()-2);
-				trakId.append("Id");
-
 				// Check if query contains a owner TRAK id. Containing trak Id that is not assigned to trak renders query unsafe.
 				if (res["query"].contains(QString(trakId.data()) + " =", Qt::CaseInsensitive) && !skipQuery && false)
 				{
@@ -1924,8 +2019,8 @@ int DatabaseManager::connectToRemoteDB()
 					int startpoint = substr.indexOf("=")+1;
 					int endpoint = substr.indexOf("and", Qt::CaseInsensitive)-1;
 					QString substr2 = ServiceHelper::ExplodeString(substr.mid(startpoint, endpoint - startpoint).trimmed(), " ")[0];
-					LOG << substr2 << " | " << "'" + idNum + "'";
-					if (substr2.toStdString() != "'" + idNum + "'") {
+					LOG << substr2 << " | " << trakIdNum;
+					if (!substr2.contains(trakIdNum)) {
 						skipQuery = true;
 						goto parsedQuery;
 					}
@@ -1938,720 +2033,20 @@ int DatabaseManager::connectToRemoteDB()
 				if (QString::fromStdString(splitQuery[0]).contains("insert", Qt::CaseInsensitive) && !skipQuery) {
 					ServiceHelper().WriteToLog("Parsing insert to prevent duplication creation");
 					LOG << splitQuery;
-					int startpoint = res["query"].indexOf("(") + 1;
-					int endpoint = res["query"].indexOf(")", startpoint) - startpoint;
-					LOG << startpoint << " | " << endpoint;
-					QString queryStart = res["query"].first(startpoint - 1);
-					QStringList splitQueryStart = ServiceHelper::ExplodeString(queryStart, " ");
-
-					QString columns = res["query"].mid(startpoint, endpoint);
-					QStringList splitColumns = ServiceHelper::ExplodeString(columns, ",");
-
-					startpoint = res["query"].indexOf("(", startpoint) + 1;
-					endpoint = res["query"].lastIndexOf(")") - startpoint;
-					LOG << startpoint << " | " << endpoint;
-					QString values = res["query"].mid(startpoint, endpoint);
-					QStringList splitValues = ServiceHelper::ExplodeString(values, ",");
-
-					QStringMap map;
-					columns.clear();
-					values.clear();
-
-					int hasCustId = 0;
-					int hasTrakId = 0;
-
-					for (int i = 0; i < splitColumns.size(); i++) {
-						QString col = splitColumns.at(i).simplified();
-						QString val = splitValues.at(i).simplified();
-
-						if (val.isEmpty() || val == "''")
-							continue;
-						if (val[0] == "'" && !val.endsWith("'")) {
-							val = val + "\, " + splitValues.at(i + 1).simplified();
-							splitValues.removeAt(i + 1);
-						}
-						if (val[0] != '\'' && val != "NULL")
-							val = "'" + val;
-						if (val[val.size()-1] != '\'' && val != "NULL")
-							val.append("'");
-
-						string valueCheck;
-						if (col.contains(trakId.data(), Qt::CaseInsensitive)) {
-							hasTrakId = 1;
-							col = trakId.data();
-							valueCheck = "'" + idNum + "'";
-						}
-						if (col.contains("custId", Qt::CaseInsensitive)) {
-							hasCustId = 1;
-							col = "custId";
-							valueCheck = "'" + custId + "'";
-						}
-
-						if ((col == trakId.data() || col == "custId") && (valueCheck.data() != val))
-						{
-							ServiceHelper().WriteToLog(
-								"Query is not for current device. Device value: " +
-								valueCheck +
-								". Query value: " +
-								val.toStdString()
-							);
-							skipQuery = true;
-							break;
-						}
-						map[col] = val;
-						if (col != "id" || col != "toolId")
-						{
-							columns.append(col.toStdString() + (i < splitColumns.size() ? ", " : ""));
-							values.append(val.toStdString() + (i < splitColumns.size() ? ", " : ""));
-						}
-					}
-
-					if (skipQuery)
+					processInsertStatement(res["query"], skipQuery);
+					LOG << res["query"];
+					if(skipQuery)
 						goto parsedQuery;
-
-					if (columns.endsWith(", "))
-						columns.resize(columns.size() - 2);
-					if (values.endsWith(", "))
-						values.resize(values.size() - 2);
-
-					switch (table_map[splitQueryStart.at(splitQueryStart.size() - 1)])
-					{
-					case tools:
-					{
-						QStringMap conditionals;
-						if (!map.value("stockcode").isEmpty())
-							conditionals.insert("stockcode", "stockcode=" + map.value("stockcode"));
-						if (!map.value("PartNo").isEmpty())
-							conditionals.insert("PartNo", "PartNo=" + map.value("PartNo"));
-						res["query"] = 
-							"INSERT INTO tools ("+
-							QString(columns.data())+
-							") SELECT "+
-							QString(values.data())+
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE"+
-						(hasCustId ? 
-							" custId=" + map.value("custId") 
-							: (" custId=" + custId).data()) +
-							" AND ( " +
-							conditionals.values().join(" OR ") +
-							")"
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					case users: 
-					{
-						res["query"] = 
-							"INSERT INTO users ("+
-							QString(columns.data())+ 
-							") SELECT "+ 
-							QString(values.data())+
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE"+
-						(hasCustId ?
-							" custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-							" AND userId=" + map.value("userId") +
-						(map.value(trakId.data()).isEmpty()
-							? " AND " + trakId + " = " + idNum
-							: " AND " + trakId + " = " + map.value(trakId.data()).toStdString()).data() +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					case employees:
-					{
-						res["query"] = 
-							"INSERT INTO employees (" +
-							QString(columns.data()) +
-							") SELECT " +
-							QString(values.data())+
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM employees WHERE"+
-						(hasCustId ?
-							" custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-							" AND userId=" + map.value("userId") +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					case jobs:
-					{
-						res["query"] = 
-							"INSERT INTO jobs ("+
-							QString(columns.data())+
-							") SELECT "+ 
-							QString(values.data())+
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE"+
-						(hasCustId ?
-							" custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(map.value("trailId").isEmpty() 
-							? ""
-							: " AND trailId=" + map.value("trailId")) +
-						(map.value("description").isEmpty()
-							? ""
-							: " AND description=" + map.value("description")) +
-						(map.value("remark").isEmpty()
-							? ""
-							: " AND remark=" + map.value("remark")) +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					case kabs: 
-					{
-						res["query"] = 
-							"INSERT INTO itemkabs ("+
-							QString(columns.data())+
-							") SELECT "+
-							QString(values.data())+ 
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabs WHERE"+
-						(hasCustId 
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId 
-							? " AND "+ trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					case drawers: 
-					{
-						res["query"] = 
-							"INSERT INTO itemkabdrawers ("+
-							QString(columns.data())+
-							") SELECT "+
-							QString(values.data())+
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE"+
-						(hasCustId 
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId
-							? " AND " + trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-							" AND drawerCode=" + map.value("drawerCode") +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					case toolbins: 
-					{
-						res["query"] =
-							"INSERT INTO itemkabdrawerbins ("+
-							QString(columns.data())+
-							") SELECT "+
-							QString(values.data())+
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawerbins WHERE"+
-						(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId
-							? " AND " + trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-							" AND toolNumber=" + map.value("toolNumber") +
-							" AND drawerNum=" + map.value("drawerNum") +
-							" AND itemId=" + map.value("itemId") +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					case cribs:
-						res["query"] =
-							"INSERT INTO cribs (" +
-							QString(columns.data()) +
-							") SELECT " +
-							QString(values.data()) +
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribs WHERE" +
-						(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId
-							? " AND " + trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					case cribconsumables:
-						res["query"] =
-							"INSERT INTO cribconsumables (" +
-							QString(columns.data()) +
-							") SELECT " +
-							QString(values.data()) +
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribconsumables WHERE" +
-						(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId
-							? " AND " + trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-							" AND userId=" + map.value("userId") +
-							" AND tailId=" + map.value("tailId") +
-							" AND barcode=" + map.value("barcode") +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					case cribtoollocation:
-					{
-						std::vector locationId = ExecuteTargetSql(QString("SELECT id FROM cribtoollocation WHERE description = ").append(map.value("description")).toStdString());
-						map["locationId"] = locationId.at(1).value("id");
-
-						res["query"] = "INSERT INTO cribtoollocation (" +
-							QString(columns.data()) + ", locationId" +
-							") SELECT " +
-							QString(values.data()) + ", '" + map.value("locationId") +
-							"' FROM DUAL WHERE NOT EXISTS (" +
-							"SELECT * FROM cribtoollocation WHERE" +
-						(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId
-							? " AND " + trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-						(!map.value("locationId").isEmpty()
-							? "AND locationId='" + map.value("locationId") + "'"
-							: "") +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					//case cribtoollockers:
-					case cribtools:
-						res["query"] =
-							"INSERT INTO cribtools (" +
-							QString(columns.data()) +
-							") SELECT " +
-							QString(values.data()) +
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribtools WHERE" +
-						(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId
-							? " AND " + trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-							" AND barcodeTAG=" + map.value("barcodeTAG") +
-							" AND serialNo=" + map.value("serialNo") +
-							" AND itemId=" + map.value("itemId") +
-							" ORDER BY toolId DESC LIMIT 1)";
-						break;
-					//case kittools:
-					case tooltransfer:
-						res["query"] =
-							"INSERT INTO tooltransfer (" +
-							QString(columns.data()) +
-							") SELECT " +
-							QString(values.data()) +
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tooltransfer WHERE" +
-						(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId
-							? " AND " + trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-							" AND barcodeTAG=" + map.value("barcodeTAG") +
-							(!map.value("userId").isEmpty() ? " AND userId=" + map.value("userId") : "") +
-							(!map.value("transfer_userId").isEmpty() ? " AND transfer_userId=" + map.value("transfer_userId") : "") +
-							(!map.value("tailId").isEmpty() ? " AND tailId=" + map.value("tailId") : "") +
-							(!map.value("transfer_tailId").isEmpty() ? " AND transfer_tailId=" + map.value("transfer_tailId") : "") +
-							(!map.value("transactionDate").isEmpty() ? " AND transactionDate=" + map.value("transactionDate") : "") +
-							(!map.value("dateTransferred").isEmpty() ? " AND dateTransferred=" + map.value("dateTransferred") : "") +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					//case itemkits:
-					case kitcategory:
-					{
-						std::vector categoryId = ExecuteTargetSql(QString("SELECT id FROM kitcategory WHERE description = ").append(map.value("description")).toStdString());
-						map["categoryId"] = categoryId.at(1).value("id");
-
-						res["query"] = "INSERT INTO kitcategory (" +
-							QString(columns.data()) + ", categoryId" +
-							") SELECT " +
-							QString(values.data()) + ", '" + map.value("categoryId") +
-							"' FROM DUAL WHERE NOT EXISTS (" +
-							"SELECT * FROM kitcategory WHERE " +
-						(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-							"AND categoryId='" + map.value("categoryId") + "'" +
-							"AND description=" + map.value("description") +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					case kitlocation:
-					{
-						std::vector locationId = ExecuteTargetSql(QString("SELECT id FROM kitlocation WHERE description = ").append(map.value("description")).toStdString());
-						map["locationId"] = locationId.at(1).value("id");
-
-						res["query"] = "INSERT INTO kitlocation (" +
-							QString(columns.data()) + ", locationId" +
-							") SELECT " +
-							QString(values.data()) + ", '" + map.value("locationId") +
-							"' FROM DUAL WHERE NOT EXISTS (" +
-							"SELECT * FROM kitlocation WHERE " +
-						(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data()) +
-						(hasTrakId
-							? " AND " + trakId + " = " + map.value(trakId.data()).toStdString()
-							: " AND " + trakId + " = " + idNum).data() +
-						(!map.value("locationId").isEmpty()
-							? "AND locationId='" + map.value("locationId") + "'"
-							: "") +
-							" ORDER BY id DESC LIMIT 1)";
-						break;
-					}
-					/*case kabemployeeitemtransactions:
-					case cribemployeeitemtransactions:
-					case portaemployeeitemtransactions:
-					case lokkaemployeeitemtransactions:*/
-					default: 
-						res["query"] =
-							queryStart + "(" +
-							columns +
-							") SELECT " +
-							values +
-							" FROM DUAL WHERE NOT EXISTS (" +
-							"SELECT * FROM " + splitQueryStart.at(splitQueryStart.size() - 1) + " WHERE";
-
-						QStringList conditionals;
-						conditionals.append(
-							(hasCustId
-							? " custId=" + map.value("custId")
-							: (" custId=" + custId).data())
-						);
-						conditionals.append(
-							(hasTrakId
-								? trakId + " = " + map.value(trakId.data()).toStdString()
-								: trakId + " = " + idNum).data()
-						);
-						for (auto [key, value] : map.asKeyValueRange()) {
-							if (key == "custId" || key == trakId.data())
-								continue;
-							conditionals.append(key + "=" + value);
-						}
-						res["query"] += conditionals.join(" AND ") + " ORDER BY id DESC LIMIT 1)";
-
-						break;
-					}
 				}
 				
 				// handles queries that aren't skipped and are attempting to update existing enteries in the database
 				if (QString::fromStdString(splitQuery[0]).contains("update", Qt::CaseInsensitive) && !skipQuery) {
 					ServiceHelper().WriteToLog("Parsing update to prevent altering entries not for current device");
 					LOG << splitQuery;
-					QStringList splitQueryForParsing = ServiceHelper::ExplodeString(res["query"], " ");
-					string splitBy;
-					if (res["query"].contains("SET"))
-						splitBy = " SET ";
-					else
-						splitBy = " set ";
-					QStringList querySections = ServiceHelper::ExplodeString(res["query"], splitBy.data());
-					qDebug() << splitQueryForParsing;
-					qDebug() << querySections;
-					if (querySections.size() > 2) {
-						QStringList tempQuerySections = querySections;
-						tempQuerySections.removeAt(0);
-						querySections[1] = tempQuerySections.join(" SET ");
-						querySections.remove(2, querySections.size() - 2);
-					}
-					qDebug() << querySections;
-					if (res["query"].contains("WHERE"))
-						splitBy = " WHERE ";
-					else
-						splitBy = " where ";
-					//QStringList querySections = ServiceHelper::ExplodeString(querySections[1], splitBy.data());
-					querySections.append(ServiceHelper::ExplodeString(querySections[1], splitBy.data()));
-					querySections.removeAt(1);
-					qDebug() << querySections;
-					if (querySections.size() > 3) {
-						QStringList tempQuerySections = querySections;
-						tempQuerySections.removeAt(2);
-						querySections[2] = tempQuerySections.join(" WHERE ");
-						querySections.remove(3, querySections.size() - 3);
-					}
-					QStringList returnVal;
-					QMap<QString, QString> SetPairs;
-					//QMap<QString, QString> ConditionPairs;
-					QStringList parsedSets;
-					QStringList parsedConditionals;
-					bool switchToConditions = 0;
-					bool hadCustId = 0;
-					bool hadTrakId = 0;
-
-					QStringList querySetSection = ServiceHelper::ExplodeString(querySections[1], ",");
-					for (const auto& set : querySetSection)
-					{
-						QString setTrimmed = set.trimmed();
-						QStringList colAndVal;
-						if (setTrimmed.contains("id"))
-							continue;
-
-						parsedSets.append(setTrimmed);
-					}
-
-					// Parse conditionals
-					QStringList queryConditionalSections = ServiceHelper::ExplodeString(querySections[2], "AND");
-					for (const auto & conditional : queryConditionalSections)
-					{
-						QString conditionalTrimmed = conditional.trimmed();
-						QStringList colAndVal;
-
-						if (conditionalTrimmed.contains("custId", Qt::CaseInsensitive))
-						{	
-							hadCustId  = 1;
-							colAndVal = ServiceHelper::ExplodeString(conditionalTrimmed, "=");
-							if (colAndVal[1].trimmed() == custId)
-								parsedConditionals.append(colAndVal[0].trimmed() +" = '"+colAndVal[1].trimmed()+"'");
-							else
-								parsedConditionals.append(colAndVal[0].trimmed() +" = '" + custId.data()+"'");
-							continue;
-						}
-						if (conditionalTrimmed.contains(trakId.data(), Qt::CaseInsensitive))
-						{
-							hadTrakId = 1;
-							colAndVal = ServiceHelper::ExplodeString(conditionalTrimmed, "=");
-							if (colAndVal[1].trimmed() == idNum)
-								parsedConditionals.append(colAndVal[0].trimmed() + " = '" + colAndVal[1].trimmed()+"'");
-							else
-								parsedConditionals.append(colAndVal[0].trimmed() + " = '" + idNum.data() + "'");
-							continue;
-						}
-						if (conditionalTrimmed.contains("toolId", Qt::CaseInsensitive))
-						{
-							colAndVal = ServiceHelper::ExplodeString(conditionalTrimmed, "=");
-							std::vector cribToolItemId = ExecuteTargetSql("SELECT itemId FROM " + splitQueryForParsing[1].toStdString() + " WHERE  custId = '" + custId + "' AND cribId = '" + idNum + "' AND toolId = '" + colAndVal[1].trimmed().toStdString() + "'");
-							//qDebug() << cribToolItemId << " | " << cribToolItemId.size();
-							if (cribToolItemId.size() <= 1 || !cribToolItemId[1].contains("itemId")) {
-								skipQuery = true;
-								continue;
-							}
-							parsedConditionals.append("itemId = '" + cribToolItemId[1]["itemId"]+"'");
-							continue;
-						}
-						LOG << splitQueryForParsing[1];
-						if(conditionalTrimmed.contains("id") && !(splitQueryForParsing[1] == "tools" || splitQueryForParsing[1] == "cribemployeeitemtransactions"))
-						{
-							continue;
-						}
-
-						parsedConditionals.append(conditionalTrimmed);
-					}
-
-					switch (table_map[splitQueryForParsing.at(1)])
-					{
-					case tools:
-						for (auto& value : parsedConditionals) {
-							if (parsedConditionals.size() <= 1 && value.split("=")[1] == "''")
-								skipQuery = true;
-							if (value.split("=")[0].contains("id")) {
-								std::vector toolStockcode = ExecuteTargetSql("SELECT serialNo, stockcode FROM tools WHERE  custId = '" + custId + "' AND id = '" + value.split("=")[1].trimmed().toStdString() + "'");
-								value = "serialNo = '" + toolStockcode[1]["serialNo"] + "' AND stockcode = '" + toolStockcode[1]["stockcode"] + "'";
-							}
-						}
-						if (!hadCustId)
-							parsedConditionals.append(("custId = '" + custId + "'").data());
-						returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
-						LOG << returnVal.join(" ");
-						break;
-					case users:
-						/*res["query"] =
-							"INSERT INTO users (" +
-							QString(columns.data()) +
-							") SELECT " +
-							QString(values.data()) +
-							" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE" +
-							" userId=" + map.value("userId") +
-							" AND custId=" + map.value("custId") +
-							(map.value(trakId.data()).isEmpty()
-								? " AND " + trakId + " = " + idNum
-								: " AND " + trakId + " = " + map.value(trakId.data()).toStdString()).data() +
-							" ORDER BY id DESC LIMIT 1)";*/
-						if (!hadCustId)
-							parsedConditionals.append(("custId = '" + custId + "'").data());
-						if (!hadTrakId)
-							parsedConditionals.append((trakId + " = '" + idNum + "'").data());
-						returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
-						LOG << returnVal.join(" ");
-						break;
-					//case employees:
-					case jobs:
-						for (auto& value : parsedConditionals) {
-							if (parsedConditionals.size() <= 1 && value.split("=")[1] == "''")
-								skipQuery = true;
-							if (value.split("=")[0].contains("trailId")) {
-								parsedConditionals.removeAt(parsedConditionals.indexOf(value));
-							}
-						}
-						if (!hadCustId)
-							parsedConditionals.append(("custId = '" + custId + "'").data());
-						returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ")});
-						LOG << returnVal.join(" ");
-						break;
-					case customer: {
-						if(parsedConditionals.size() <= 0)
-							parsedConditionals.append(("id=" + custId).data());
-						returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
-						LOG << returnVal.join(" ");
-						break;
-					}
-					//case kabs:
-					//case drawers:
-					//case toolbins:
-					//case cribs:
-					//case cribconsumables:
-					//case cribtoollocation:
-					//case cribtoollockers:
-					//case cribtools:
-					//case kittools:
-					case tooltransfer:
-						if (!hadCustId)
-							parsedConditionals.append(("custId = '" + custId + "'").data());
-						if(!hadTrakId)
-							parsedConditionals.append((trakId +" = '" + idNum + "'").data());
-						returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
-						LOG << returnVal.join(" ");
-						break;
-					//case itemkits:
-					//case kitcategory:
-					//case kitlocation:
-					case tblcounterid:
-						skipQuery = true;
-						break;
-					case kabemployeeitemtransactions:
-						skipQuery = true;
-						break;
-					case cribemployeeitemtransactions:
-					{
-						returnVal.append({ "INSERT INTO cribemployeeitemtransactions", "("});
-						QStringList cols;
-						QStringList vals;
-						for (int i = 0; i < parsedSets.size(); ++i)
-						{
-							QStringList parsedSetsSplit = parsedSets[i].split("=");
-							if(parsedSetsSplit[0].trimmed() == "inDate")
-								cols.append("transDate");
-							else if (parsedSetsSplit[0].trimmed() == "inTime")
-								cols.append("transTime");
-							else
-								cols.append(parsedSetsSplit[0].trimmed());
-							vals.append(parsedSetsSplit[1].trimmed());
-						}
-						for (int i = 0; i < parsedConditionals.size(); ++i)
-						{
-							if (parsedConditionals.size() <= 1 && parsedConditionals[i].split("=")[1] == "''") {
-								skipQuery = true;
-								break;
-							}
-							QStringList parsedConditionalsSplit = parsedConditionals[i].split("=");
-							if (cols.contains(parsedConditionalsSplit[0].trimmed()))
-								continue;
-							LOG << parsedConditionalsSplit[0].trimmed();
-							if (parsedConditionalsSplit[0].trimmed() == "id") {
-								parsedConditionalsSplit[1] = parsedConditionalsSplit[1].trimmed();
-								if (parsedConditionalsSplit[1].startsWith("'"))
-									parsedConditionalsSplit[1].removeFirst();
-								if (parsedConditionalsSplit[1].endsWith("'"))
-									parsedConditionalsSplit[1].removeLast();
-								LOG << parsedConditionalsSplit[1];
-								std::vector targetTransactionToBeAltered = ExecuteTargetSql((("SELECT * FROM cribemployeeitemtransactions WHERE  custId = '" + custId + "' AND cribId = '" + idNum + "' AND id = '").data() + parsedConditionalsSplit[1] + "'").toStdString());
-								qDebug() << targetTransactionToBeAltered;
-								if (targetTransactionToBeAltered.size() <= 1) {
-									skipQuery = true;
-									break;
-								}
-								for (const auto& key : targetTransactionToBeAltered[1].keys()) {
-									const QString val = targetTransactionToBeAltered[1][key];
-									const QString keyFromVal = targetTransactionToBeAltered[1].key(val);
-									if (cols.contains(keyFromVal) || QStringList {"id", "transDate", "transTime"}.contains(keyFromVal))
-										continue;
-									cols.append(keyFromVal);
-									vals.append("'" + val + "'");
-								}
-								LOG << cols.join(", ");
-								LOG << vals.join(", ");
-								continue;
-							}
-							cols.append(parsedConditionalsSplit[0].trimmed());
-							vals.append(parsedConditionalsSplit[1].trimmed());
-						}
-						if (skipQuery)
-							break;
-						//qDebug() << parsedSets << "\n" << parsedConditionals << "\n" << cols << "\n" << vals;
-						if ((cols.contains("itemId") && !cols.contains("barcode", Qt::CaseInsensitive)) && !skipQuery) {
-							cols.append("barcode");
-							std::vector barcode = ExecuteTargetSql("SELECT barcodeTAG FROM cribtools WHERE itemId='" + vals.at(cols.indexOf("itemId")).toStdString() + "' AND custId = '" + custId + "' AND " + trakId + " = '" + idNum + "' ORDER BY toolId DESC LIMIT 1");
-							vals.append("'"+barcode[1]["barcode"]+"'");
-						}
-						if (((cols.contains("barcode") || cols.contains("toolId")) && !cols.contains("itemId", Qt::CaseInsensitive)) && !skipQuery) {
-							cols.append("itemId");
-							QStringList queryString;
-							queryString.resize(3);
-							queryString[0] = "SELECT itemId FROM cribtools WHERE ";
-							queryString[2] = ("custId = '" + custId + "' AND " + trakId + " = '" + idNum + "' ORDER BY toolId DESC LIMIT 1").data();
-							
-							std::vector<QStringMap> itemid;
-							if (cols.contains("toolId")) {
-								queryString[1] = " toolId = " + vals.at(cols.indexOf("toolId")) + " AND ";
-								itemid = ExecuteTargetSql(queryString.join(" ").toStdString());
-								qDebug() << itemid;
-
-							}
-
-							if (cols.contains("barcode") && itemid.size() <= 1) {
-								queryString[1] = " barcodeTAG = " + vals.at(cols.indexOf("barcode")) + " AND ";
-								itemid.clear();
-								itemid = ExecuteTargetSql(queryString.join(" ").toStdString());
-								qDebug() << itemid;
-							}
-							
-
-							if (itemid.size() > 1 && !itemid[1]["itemId"].isEmpty())
-								vals.append("'" + itemid[1]["itemId"] + "'");
-							else {
-								skipQuery = true;
-								break;
-							}
-							qDebug() << itemid;
-							//vals.append("(SELECT itemId FROM cribtools WHERE barcodeTAG = " + vals.at(cols.indexOf("barcode")) + " AND custId = '" + custId.data() + "' AND " + trakId.data() + " = '" + idNum.data() + "' ORDER BY id DESC LIMIT 1)");
-						}
-						if ((cols.contains("trailId") && !cols.contains("tailId", Qt::CaseInsensitive)) && !skipQuery) {
-							cols.append("tailId");
-							std::vector tailId = ExecuteTargetSql("SELECT description FROM jobs WHERE trailId = '" + vals.at(cols.indexOf("trailId")).toStdString() + "' AND custId = '" + custId.data() + "'");
-							vals.append("'" + tailId[1]["description"] + "'");
-							/*vals.append("(SELECT description FROM jobs WHERE trailId = '" + vals.at(cols.indexOf("trailId")) + "' AND custId = '" + custId.data() + "' ORDER BY id DESC LIMIT 1)");*/
-						}
-						qDebug() << cols;
-						std::cout << (!cols.contains("transDate", Qt::CaseInsensitive)) << " && " << (!skipQuery) << "\n";
-						if (!cols.contains("transDate", Qt::CaseInsensitive) && !skipQuery) {
-							cols.append("transDate");
-							vals.append("CURDATE()");
-						}
-						qDebug() << cols;
-						std::cout << (!cols.contains("transTime", Qt::CaseInsensitive)) << " && " << (!skipQuery) << "\n";
-						if (!cols.contains("transTime", Qt::CaseInsensitive) && !skipQuery) {
-							cols.append("transTime");
-							vals.append("CURTIME()");
-						}
-						qDebug() << cols;
-						/*cols.append("remarks");
-						vals.append(("(SELECT remarks FROM cribs WHERE custId = " + custId + " AND " + trakId + " = " + idNum + ")").data());*/
-						//qDebug() << cols << " | " << vals;
-						returnVal.append(cols.join(", "));
-						returnVal.append(") VALUES (");
-						returnVal.append(vals.join(", "));
-
-						returnVal.append(")");
-						LOG << returnVal.join(" ");
-						//skipQuery = true;
-						break;
-					}
-					case portaemployeeitemtransactions:
-						skipQuery = true;
-						break;
-					case lokkaemployeeitemtransactions:
-						skipQuery = true;
-						break;
-					default:
-						if (!hadCustId)
-							parsedConditionals.append(("custId = '" + custId + "'").data());
-						if (!hadTrakId)
-							parsedConditionals.append((trakId + " = '" + idNum + "'").data());
-						returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
-						LOG << returnVal.join(" ");
-						break;
-					}
-
-					res["query"] = returnVal.join(" ");
+					processUpdateStatement(res["query"], skipQuery);
+					LOG << res["query"];
+					if (skipQuery)
+						goto parsedQuery;
 				}
 			}
 			else {
@@ -2664,20 +2059,80 @@ int DatabaseManager::connectToRemoteDB()
 			LOG << res["query"];
 			ServiceHelper().WriteToCustomLog("Query parsed. " + string(skipQuery ? "Query is getting skipped" : "Query is being run"), timeStamp[0] + "-queries");
 			ServiceHelper().WriteToCustomLog("Query after being parsed: \n" + res["query"].toStdString(), timeStamp[0] + "-queries");
-			if (!pushCloudUpdate || skipQuery ? true : makeNetworkRequest(apiUrl, res))
-			{
-				string sqlQuery = "UPDATE cloudupdate SET posted = " + string(skipQuery ? "2" : "1") + " WHERE posted = 0 AND id = " + res["id"].toStdString();
+			
+			if (!pushCloudUpdate || skipQuery) {
+				string sqlQuery = "UPDATE cloudupdate SET posted = " + string(skipQuery ? (retryingQuery ? "3" : "2") : "1") + " WHERE posted <> 1 AND id = " + res["id"].toStdString();
 
-				ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+				ServiceHelper().WriteToCustomLog("Updating skipped query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
 				vector queryResult = ExecuteTargetSql(sqlQuery);
 				if (queryResult.size() > 0) {
-					for(auto result: queryResult)
+					for (auto result : queryResult)
 						LOG << result["success"];
 				}
+				continue;
+			}
+
+			QStringMap queryMap;
+			queryMap.insert("start", "START TRANSACTION;");
+			queryMap.insert("query", res["query"]);
+			queryMap.insert("commit", "COMMIT;");
+			queryMap.insert("rollback", "ROLLBACK;");
+			res["query"] = queryMap.value("start");
+			makeNetworkRequest(apiUrl, res);
+			res["query"] = queryMap.value("query");
+			
+			QJsonDocument reply;
+			
+			if (!makeNetworkRequest(apiUrl, res, &reply))
+			{	
+				LOG << "request failed";
+				res["query"] = queryMap.value("rollback");
+				makeNetworkRequest(apiUrl, res);
+				break;
+				
+			}
+
+			if (!reply.isObject()) {
+				LOG << "returned value not object";
+				res["query"] = queryMap.value("rollback");
+				makeNetworkRequest(apiUrl, res);
+				break;
+			}
+
+			QJsonObject result = reply.object();
+			if (!result.contains("result")) {
+				LOG << "returned value does not contain a result key";
+				res["query"] = queryMap.value("rollback");
+				makeNetworkRequest(apiUrl, res);
+				break;
+			}
+			QString resultVal;
+			qDebug() << result.value("result");
+			if (result.value("result").isArray()) {
+				resultVal = result.value("status").toObject().value("test").toString().trimmed();
+				resultVal += resultVal == "SQL Executed Successfully" ? ".1" : ".2";
 			}
 			else {
-				LOG << "request failed";
-				break;
+				resultVal = result.value("result").toString();
+			}
+			LOG << resultVal;
+			QString rowsAffected = resultVal.split(".")[1].trimmed().first(1);
+			LOG << rowsAffected;
+			if (rowsAffected.toInt() <= 1) {
+				res["query"] = queryMap.value("commit");
+				rowsAffected = "1";
+			}
+			else
+				res["query"] = queryMap.value("rollback");
+			makeNetworkRequest(apiUrl, res);
+
+			QString sqlQuery = "UPDATE cloudupdate SET posted = " + rowsAffected + " WHERE posted <> 1 AND id = " + res["id"];
+
+			ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+			vector queryResult = ExecuteTargetSql(sqlQuery);
+			if (queryResult.size() > 0) {
+				for (auto result : queryResult)
+					LOG << result["success"];
 			}
 		}
 		
@@ -2838,7 +2293,7 @@ int DatabaseManager::connectToLocalDB()
 	return 1;
 }
 
-int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
+int DatabaseManager::ExecuteTargetSqlScript(std::string& filepath)
 {
 	int successCount = 0;
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
@@ -2907,7 +2362,7 @@ int DatabaseManager::ExecuteTargetSqlScript(string& filepath)
 	return successCount;
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(std::string sqlQuery)
 {
 	int successCount = 0;
 	vector<QStringMap> resultVector;
@@ -2991,6 +2446,16 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(string sqlQuery)
 	return resultVector;
 }
 
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(QString sqlQuery)
+{
+	return ExecuteTargetSql(sqlQuery.toStdString());
+}
+
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(const TCHAR* sqlQuery)
+{
+	return ExecuteTargetSql((std::string)sqlQuery);
+}
+
 void DatabaseManager::parseData(QNetworkReply *netReply)
 {
 	QRestReply restReply(netReply);
@@ -3064,7 +2529,7 @@ void DatabaseManager::processKeysAndValues(QStringMap &map, QString (&results)[]
 	
 	for (auto& key : map.keys()) {
 		count--;
-		if (key == "id" || map.value(key).isEmpty() || map.value(key) == "0" || map.value(key) == "'0'" || key == "toolId")
+		if (key == "id" || map.value(key).isEmpty() || map.value(key) == "0" || map.value(key) == "'0'")
 			continue;
 		if (QRegularExpression("\\d\\d\\d\\d-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d.\\d\\d\\dZ").match(map.value(key)).hasMatch())
 			map[key] = 
@@ -3079,6 +2544,817 @@ void DatabaseManager::processKeysAndValues(QStringMap &map, QString (&results)[]
 	
 	results[0] = queryKeys;
 	results[1] = queryValues;
+}
+
+void DatabaseManager::processInsertStatement(QString& query, bool& skipQuery)
+{
+	int startpoint = query.indexOf("(") + 1;
+	int endpoint = query.indexOf(")", startpoint) - startpoint;
+	LOG << startpoint << " | " << endpoint;
+	QString queryStart = query.first(startpoint - 1);
+	QStringList splitQueryStart = ServiceHelper::ExplodeString(queryStart, " ");
+
+	QString columns = query.mid(startpoint, endpoint);
+	QStringList splitColumns = ServiceHelper::ExplodeString(columns, ",");
+
+	startpoint = query.indexOf("(", startpoint) + 1;
+	endpoint = query.lastIndexOf(")") - startpoint;
+	LOG << startpoint << " | " << endpoint;
+	QString values = query.mid(startpoint, endpoint);
+	QStringList splitValues = ServiceHelper::ExplodeString(values, ",");
+
+	QStringMap map;
+	columns.clear();
+	values.clear();
+
+	int hasCustId = 0;
+	int hasTrakId = 0;
+
+	for (int i = 0; i < splitColumns.size(); i++) {
+		QString col = splitColumns.at(i).simplified();
+		QString val = splitValues.at(i).simplified();
+
+		if (val.isEmpty() || val == "''")
+			continue;
+		if (val[0] == "'" && !val.endsWith("'")) {
+			val = val + "\, " + splitValues.at(i + 1).simplified();
+			splitValues.removeAt(i + 1);
+		}
+		if (val[0] != '\'' && val != "NULL")
+			val = "'" + val;
+		if (val[val.size() - 1] != '\'' && val != "NULL")
+			val.append("'");
+
+		string valueCheck;
+		if (col.contains(trakId.data(), Qt::CaseInsensitive)) {
+			hasTrakId = 1;
+			col = trakId.data();
+			valueCheck = "'" + trakIdNum.toStdString() + "'";
+		}
+		if (col.contains("custId", Qt::CaseInsensitive)) {
+			hasCustId = 1;
+			col = "custId";
+			valueCheck = "'" + std::to_string(custId) + "'";
+		}
+
+		if ((col == trakId.data() || col == "custId") && (valueCheck.data() != val))
+		{
+			ServiceHelper().WriteToLog(
+				"Query is not for current device. Device value: " +
+				valueCheck +
+				". Query value: " +
+				val.toStdString()
+			);
+			skipQuery = true;
+			break;
+		}
+		map[col] = val;
+		if (col != "id")
+		{
+			columns.append(col.toStdString() + (i < splitColumns.size() ? ", " : ""));
+			values.append(val.toStdString() + (i < splitColumns.size() ? ", " : ""));
+		}
+	}
+
+	if (skipQuery)
+		return;
+
+	if (columns.endsWith(", "))
+		columns.resize(columns.size() - 2);
+	if (values.endsWith(", "))
+		values.resize(values.size() - 2);
+
+	QString newQuery;
+
+	switch (table_map[splitQueryStart.at(splitQueryStart.size() - 1)])
+	{
+	case tools:
+	{
+		QStringMap conditionals;
+		if (!map.value("stockcode").isEmpty())
+			conditionals.insert("stockcode", "stockcode=" + map.value("stockcode"));
+		if (!map.value("PartNo").isEmpty())
+			conditionals.insert("PartNo", "PartNo=" + map.value("PartNo"));
+		if (!map.contains("toolId") && map.contains("description")) {
+			//&& 
+			QString query = "SELECT id FROM tools WHERE ";
+			if (!map.value("PartNo").isEmpty())
+				query.append("PartNo=" + map.value("PartNo") + " AND ");
+			query.append("UPPER(description) LIKE UPPER(" + map.value("description") + ") GROUP BY description;");
+			vector fetchTool = ExecuteTargetSql(query);
+			if (fetchTool.size() <= 1) {
+				skipQuery = true;
+				break;
+			}
+			if (columns.contains("toolId", Qt::CaseInsensitive)) {
+				QStringList updatedToolId = values.split(", ");
+				updatedToolId[columns.split(", ").indexOf("toolId")] = "'" + fetchTool[1]["id"] + "'";
+				values = updatedToolId.join(", ");
+			}
+			else {
+				columns.append(", toolId");
+				values.append(", '" + fetchTool[1]["id"] + "'");
+			}
+			conditionals.insert("toolId", "toolId =" + fetchTool[1]["id"]);
+		}
+			//conditionals.insert("toolId", "toolId=" + map.value("id"));
+		newQuery =
+			"INSERT INTO tools (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools WHERE" +
+		(hasCustId 
+			? " custId=" + map.value("custId")
+			: " custId=" + custId)+
+			" AND ( " +
+			conditionals.values().join(" OR ") +
+			")"
+			" ORDER BY id DESC LIMIT 1)";
+		LOG << newQuery;
+		break;
+	}
+	case users:
+	{
+		newQuery =
+			"INSERT INTO users (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE" +
+		(hasCustId 
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+			" AND userId=" + map.value("userId") +
+		(map.value(trakId.data()).isEmpty()
+			? (" AND " + trakId + " = ").data() + trakIdNum
+			: (" AND " + trakId + " = ").data() + map.value(trakId.data())) +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	case employees:
+	{
+		newQuery =
+			"INSERT INTO employees (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM employees WHERE" +
+		(hasCustId ?
+			" custId=" + map.value("custId")
+			: " custId=" + custId) +
+			" AND userId=" + map.value("userId") +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	case jobs:
+	{
+		newQuery =
+			"INSERT INTO jobs (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE" +
+		(hasCustId ?
+			" custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(map.value("trailId").isEmpty()
+			? ""
+			: " AND trailId=" + map.value("trailId")) +
+		(map.value("description").isEmpty()
+			? ""
+			: " AND description=" + map.value("description")) +
+		(map.value("remark").isEmpty()
+			? ""
+			: " AND remark=" + map.value("remark")) +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	case kabs:
+	{
+		newQuery =
+			"INSERT INTO itemkabs (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabs WHERE" +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	case drawers:
+	{
+		newQuery =
+			"INSERT INTO itemkabdrawers (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawers WHERE" +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			" AND drawerCode=" + map.value("drawerCode") +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	case toolbins:
+	{
+		newQuery =
+			"INSERT INTO itemkabdrawerbins (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM itemkabdrawerbins WHERE" +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			" AND toolNumber=" + map.value("toolNumber") +
+			" AND drawerNum=" + map.value("drawerNum") +
+			" AND itemId=" + map.value("itemId") +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	case cribs:
+		newQuery =
+			"INSERT INTO cribs (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribs WHERE" +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	case cribconsumables:
+		newQuery =
+			"INSERT INTO cribconsumables (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribconsumables WHERE" +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			" AND userId=" + map.value("userId") +
+			" AND tailId=" + map.value("tailId") +
+			" AND barcode=" + map.value("barcode") +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	case cribtoollocation:
+	{
+		std::vector locationId = ExecuteTargetSql(QString("SELECT id FROM cribtoollocation WHERE description = ").append(map.value("description")).toStdString());
+		map["locationId"] = locationId.at(1).value("id");
+
+		newQuery =
+			"INSERT INTO cribtoollocation (" +
+			QString(columns.data()) + ", locationId" +
+			") SELECT " +
+			QString(values.data()) + ", '" + map.value("locationId") +
+			"' FROM DUAL WHERE NOT EXISTS (" +
+			"SELECT * FROM cribtoollocation WHERE" +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			(!map.value("locationId").isEmpty()
+				? "AND locationId='" + map.value("locationId") + "'"
+				: "") +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	//case cribtoollockers:
+	case cribtools:
+	{
+		vector fetchTool = ExecuteTargetSql(("SELECT id FROM tools WHERE ((PartNo IS NOT NULL OR PartNo <> '') AND PartNo = '" + map.value("itemId") + "') OR ((stockcode IS NOT NULL OR stockcode <> '') AND stockcode = '" + map.value("itemId") + "') OR (id = '" + map.value("toolId") + "') GROUP BY PartNo, description;").toStdString());
+		if (columns.contains("toolId", Qt::CaseInsensitive)) {
+			QStringList updatedToolId = values.split(", ");
+			updatedToolId[columns.split(", ").indexOf("toolId")] = "'" + fetchTool[1]["id"] + "'";
+			values = updatedToolId.join(", ");
+		}
+		else {
+			columns.append(", toolId");
+			values.append(", '" + fetchTool[1]["id"] + "'");
+		}
+		if (!map.contains("toolId"))
+			map.insert("toolId", "toolId =" + fetchTool[1]["id"]);
+		else if (map.value("toolId").isEmpty())
+			map.value("toolId") = "toolId =" + fetchTool[1]["id"];
+		//conditionals.insert("toolId", "toolId =" + fetchTool[1]["id"]);
+
+		newQuery =
+			"INSERT INTO cribtools (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribtools WHERE" +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			" AND barcodeTAG=" + map.value("barcodeTAG") +
+			" AND serialNo=" + map.value("serialNo") +
+			" AND itemId=" + map.value("itemId") +
+			" AND toolId=" + map.value("toolId") +
+			" ORDER BY toolId DESC LIMIT 1)";
+		LOG << newQuery;
+		break;
+	}
+		//case kittools:
+	case tooltransfer:
+		newQuery =
+			"INSERT INTO tooltransfer (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tooltransfer WHERE" +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			" AND barcodeTAG=" + map.value("barcodeTAG") +
+			(!map.value("userId").isEmpty() ? " AND userId=" + map.value("userId") : "") +
+			(!map.value("transfer_userId").isEmpty() ? " AND transfer_userId=" + map.value("transfer_userId") : "") +
+			(!map.value("tailId").isEmpty() ? " AND tailId=" + map.value("tailId") : "") +
+			(!map.value("transfer_tailId").isEmpty() ? " AND transfer_tailId=" + map.value("transfer_tailId") : "") +
+			(!map.value("transactionDate").isEmpty() ? " AND transactionDate=" + map.value("transactionDate") : "") +
+			(!map.value("dateTransferred").isEmpty() ? " AND dateTransferred=" + map.value("dateTransferred") : "") +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+		//case itemkits:
+	case kitcategory:
+	{
+		std::vector categoryId = ExecuteTargetSql(QString("SELECT id FROM kitcategory WHERE description = ").append(map.value("description")).toStdString());
+		map["categoryId"] = categoryId.at(1).value("id");
+
+		newQuery =
+			"INSERT INTO kitcategory (" +
+			QString(columns.data()) + ", categoryId" +
+			") SELECT " +
+			QString(values.data()) + ", '" + map.value("categoryId") +
+			"' FROM DUAL WHERE NOT EXISTS (" +
+			"SELECT * FROM kitcategory WHERE " +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+			"AND categoryId='" + map.value("categoryId") + "'" +
+			"AND description=" + map.value("description") +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	case kitlocation:
+	{
+		std::vector locationId = ExecuteTargetSql(QString("SELECT id FROM kitlocation WHERE description = ").append(map.value("description")).toStdString());
+		map["locationId"] = locationId.at(1).value("id");
+
+		newQuery =
+			"INSERT INTO kitlocation (" +
+			QString(columns.data()) + ", locationId" +
+			") SELECT " +
+			QString(values.data()) + ", '" + map.value("locationId") +
+			"' FROM DUAL WHERE NOT EXISTS (" +
+			"SELECT * FROM kitlocation WHERE " +
+		(hasCustId
+			? " custId=" + map.value("custId")
+			: " custId=" + custId) +
+		(hasTrakId
+			? (" AND " + trakId + " = ").data() + map.value(trakId.data())
+			: (" AND " + trakId + " = ").data() + trakIdNum) +
+			(!map.value("locationId").isEmpty()
+				? "AND locationId='" + map.value("locationId") + "'"
+				: "") +
+			" ORDER BY id DESC LIMIT 1)";
+		break;
+	}
+	/*case kabemployeeitemtransactions:
+	case cribemployeeitemtransactions:
+	case portaemployeeitemtransactions:
+	case lokkaemployeeitemtransactions:*/
+	default:
+		newQuery =
+			queryStart + "(" +
+			columns +
+			") SELECT " +
+			values +
+			" FROM DUAL WHERE NOT EXISTS (" +
+			"SELECT "+ columns +
+			" FROM " + splitQueryStart.at(splitQueryStart.size() - 1) + " WHERE";
+
+		QStringList conditionals;
+		conditionals.append(
+			(hasCustId
+				? " custId=" + map.value("custId")
+				: " custId=" + custId)
+		);
+		conditionals.append(
+			(trakId + " = ").data() + (hasTrakId
+				? map.value(trakId.data())
+				: trakIdNum)
+		);
+		for (auto [key, value] : map.asKeyValueRange()) {
+			if (key == "custId" || key == trakId.data())
+				continue;
+			conditionals.append(key + "=" + value);
+		}
+		newQuery += conditionals.join(" AND ") + " ORDER BY id DESC LIMIT 1)";
+
+		break;
+	}
+	LOG << newQuery;
+	query = newQuery;
+	LOG << query;
+	return;
+}
+
+void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
+{
+	QStringList splitQueryForParsing = ServiceHelper::ExplodeString(query, " ");
+	string splitBy;
+	if (query.contains("SET"))
+		splitBy = " SET ";
+	else
+		splitBy = " set ";
+	QStringList querySections = ServiceHelper::ExplodeString(query, splitBy.data());
+	qDebug() << splitQueryForParsing;
+	qDebug() << querySections;
+	if (querySections.size() > 2) {
+		QStringList tempQuerySections = querySections;
+		tempQuerySections.removeAt(0);
+		querySections[1] = tempQuerySections.join(" SET ");
+		querySections.remove(2, querySections.size() - 2);
+	}
+	qDebug() << querySections;
+	if (query.contains("WHERE"))
+		splitBy = " WHERE ";
+	else
+		splitBy = " where ";
+	//QStringList querySections = ServiceHelper::ExplodeString(querySections[1], splitBy.data());
+	querySections.append(ServiceHelper::ExplodeString(querySections[1], splitBy.data()));
+	querySections.removeAt(1);
+	qDebug() << querySections;
+	if (querySections.size() > 3) {
+		QStringList tempQuerySections = querySections;
+		tempQuerySections.removeAt(2);
+		querySections[2] = tempQuerySections.join(" WHERE ");
+		querySections.remove(3, querySections.size() - 3);
+	}
+	qDebug() << querySections;
+	QStringList returnVal;
+	QMap<QString, QString> SetPairs;
+	QMap<QString, QString> ConditionPairs;
+	QStringList parsedSets;
+	QStringList parsedConditionals;
+	bool switchToConditions = 0;
+	bool hadCustId = 0;
+	bool hadTrakId = 0;
+
+	QStringList querySetSection = ServiceHelper::ExplodeString(querySections[1], ",");
+	for (const auto& set : querySetSection)
+	{
+		QString setTrimmed = set.trimmed();
+		QStringList colAndVal;
+		if (setTrimmed.contains("id"))
+			continue;
+
+		parsedSets.append(setTrimmed);
+	}
+
+	// Parse conditionals
+	QStringList queryConditionalSections;
+	if (query.contains("AND"))
+		queryConditionalSections = ServiceHelper::ExplodeString(querySections[2], "AND");
+	else
+		queryConditionalSections = ServiceHelper::ExplodeString(querySections[2], "and");
+
+	for (const auto& conditional : queryConditionalSections)
+	{
+		QString conditionalTrimmed = conditional.trimmed();
+		QStringList colAndVal = ServiceHelper::ExplodeString(conditionalTrimmed, "=");
+		ConditionPairs.insert(colAndVal[0], colAndVal[1]);
+		if (conditionalTrimmed.contains("custId", Qt::CaseInsensitive))
+		{
+			hadCustId = 1;
+			if (colAndVal[1].trimmed() == QString::number(custId))
+				parsedConditionals.append(colAndVal[0].trimmed() + " = '" + colAndVal[1].trimmed() + "'");
+			else
+				parsedConditionals.append(colAndVal[0].trimmed() + " = '" + QString::number(custId) + "'");
+			continue;
+		}
+		if (conditionalTrimmed.contains(trakId.data(), Qt::CaseInsensitive))
+		{
+			hadTrakId = 1;
+			if (colAndVal[1].trimmed() == trakIdNum)
+				parsedConditionals.append(colAndVal[0].trimmed() + " = '" + colAndVal[1].trimmed() + "'");
+			else
+				parsedConditionals.append(colAndVal[0].trimmed() + " = '" + trakIdNum + "'");
+			continue;
+		}
+		if (conditionalTrimmed.contains("toolId", Qt::CaseInsensitive))
+		{
+			std::vector cribToolItemId = ExecuteTargetSql(QString("SELECT itemId FROM " + splitQueryForParsing[1] + " WHERE  custId = '" + QString::number(custId) + "' AND cribId = '" + trakIdNum + "' AND toolId = '" + colAndVal[1].trimmed() + "'").toStdString());
+			//qDebug() << cribToolItemId << " | " << cribToolItemId.size();
+			if (cribToolItemId.size() <= 1 || !cribToolItemId[1].contains("itemId")) {
+				skipQuery = true;
+				continue;
+			}
+			parsedConditionals.append("itemId = '" + cribToolItemId[1]["itemId"] + "'");
+			continue;
+		}
+		LOG << splitQueryForParsing[1];
+		if (conditionalTrimmed.contains("id") && !(splitQueryForParsing[1] == "tools" || splitQueryForParsing[1] == "cribemployeeitemtransactions"))
+		{
+			LOG << "skipping id column";
+			continue;
+		}
+
+		parsedConditionals.append(conditionalTrimmed);
+	}
+	if (skipQuery)
+		return;
+	qDebug() << splitQueryForParsing;
+	switch (table_map[splitQueryForParsing.at(1)])
+	{
+	case tools:
+	{
+		for (auto& value : parsedConditionals) {
+			if (parsedConditionals.size() <= 1 && value.split("=")[1] == "''")
+				skipQuery = true;
+			if (value.split("=")[0].contains("id")) {
+				std::vector toolStockcode = ExecuteTargetSql(("SELECT serialNo, stockcode, id FROM tools WHERE  custId = '" + QString::number(custId) + "' AND id = '" + value.split("=")[1].trimmed() + "'").toStdString());
+				value = "(serialNo = '" + toolStockcode[1]["serialNo"] + "' OR stockcode = '" + toolStockcode[1]["stockcode"] + "' OR toolId='"+ toolStockcode[1]["id"] + "')";
+			}
+		}
+		if (!hadCustId)
+			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
+		
+		if (!ConditionPairs.contains("id")) {
+			std::vector toolId = ExecuteTargetSql(("SELECT id FROM tools WHERE " + parsedConditionals.join(" AND ")).toStdString());
+			qDebug() << toolId;
+			if (toolId.size() > 1)
+				parsedConditionals.append("toolId="+toolId[1]["id"]);
+		}
+
+		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
+		LOG << returnVal.join(" ");
+		break;
+	}
+	case users:
+	{
+		/*res["query"] =
+			"INSERT INTO users (" +
+			QString(columns.data()) +
+			") SELECT " +
+			QString(values.data()) +
+			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE" +
+			" userId=" + map.value("userId") +
+			" AND custId=" + map.value("custId") +
+			(map.value(trakId.data()).isEmpty()
+				? " AND " + trakId + " = " + idNum
+				: " AND " + trakId + " = " + map.value(trakId.data()).toStdString()).data() +
+			" ORDER BY id DESC LIMIT 1)";*/
+
+		if (!hadCustId)
+			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
+		if (!hadTrakId)
+			parsedConditionals.append(trakId.data() + (" = '" + trakIdNum + "'"));
+		if (!query.contains("userId", Qt::CaseInsensitive))
+			skipQuery = true;
+		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
+		LOG << returnVal.join(" ");
+		break;
+	}
+	//case employees:
+	case jobs:
+	{
+		for (auto& value : parsedConditionals) {
+			if (parsedConditionals.size() <= 1 && value.split("=")[1] == "''")
+				skipQuery = true;
+			if (value.split("=")[0].contains("trailId")) {
+				parsedConditionals.removeAt(parsedConditionals.indexOf(value));
+			}
+		}
+		if (!hadCustId)
+			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
+		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
+		LOG << returnVal.join(" ");
+		break;
+	}
+	case customer: 
+	{
+		if (parsedConditionals.size() <= 0)
+			parsedConditionals.append("id=" + QString::number(custId));
+		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
+		LOG << returnVal.join(" ");
+		break;
+	}
+	//case kabs:
+	//case drawers:
+	//case toolbins:
+	//case cribs:
+	//case cribconsumables:
+	//case cribtoollocation:
+	//case cribtoollockers:
+	//case cribtools:
+	//case kittools:
+	case tooltransfer:
+	{
+
+		if (!hadCustId)
+			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
+		if (!hadTrakId)
+			parsedConditionals.append(trakId.data() + (" = '" + trakIdNum + "'"));
+		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
+		LOG << returnVal.join(" ");
+		break;
+	}
+	//case itemkits:
+	//case kitcategory:
+	//case kitlocation:
+	case tblcounterid:
+	{
+		skipQuery = true;
+		break;
+	}
+	case kabemployeeitemtransactions:
+	{
+		skipQuery = true;
+		break;
+	}
+	case cribemployeeitemtransactions:
+	{
+		returnVal.append({ "INSERT INTO cribemployeeitemtransactions", "(" });
+		QStringList cols;
+		QStringList vals;
+		for (int i = 0; i < parsedSets.size(); ++i)
+		{
+			QStringList parsedSetsSplit = parsedSets[i].split("=");
+			if (parsedSetsSplit[0].trimmed() == "inDate")
+				cols.append("transDate");
+			else if (parsedSetsSplit[0].trimmed() == "inTime")
+				cols.append("transTime");
+			else
+				cols.append(parsedSetsSplit[0].trimmed());
+			vals.append(parsedSetsSplit[1].trimmed());
+		}
+		for (int i = 0; i < parsedConditionals.size(); ++i)
+		{
+			if (parsedConditionals.size() <= 1 && parsedConditionals[i].split("=")[1] == "''") {
+				skipQuery = true;
+				break;
+			}
+			QStringList parsedConditionalsSplit = parsedConditionals[i].split("=");
+			if (cols.contains(parsedConditionalsSplit[0].trimmed()))
+				continue;
+			LOG << parsedConditionalsSplit[0].trimmed();
+			if (parsedConditionalsSplit[0].trimmed() == "id") {
+				parsedConditionalsSplit[1] = parsedConditionalsSplit[1].trimmed();
+				if (parsedConditionalsSplit[1].startsWith("'"))
+					parsedConditionalsSplit[1].removeFirst();
+				if (parsedConditionalsSplit[1].endsWith("'"))
+					parsedConditionalsSplit[1].removeLast();
+				LOG << parsedConditionalsSplit[1];
+				std::vector targetTransactionToBeAltered = ExecuteTargetSql(("SELECT * FROM cribemployeeitemtransactions WHERE  custId = '" + QString::number(custId) + "' AND cribId = '" + trakIdNum + "' AND id = '" + parsedConditionalsSplit[1] + "'").toStdString());
+				qDebug() << targetTransactionToBeAltered;
+				if (targetTransactionToBeAltered.size() <= 1) {
+					skipQuery = true;
+					break;
+				}
+				for (const auto& key : targetTransactionToBeAltered[1].keys()) {
+					const QString val = targetTransactionToBeAltered[1][key];
+					const QString keyFromVal = targetTransactionToBeAltered[1].key(val);
+					if (cols.contains(keyFromVal) || QStringList{ "id", "transDate", "transTime" }.contains(keyFromVal))
+						continue;
+					cols.append(keyFromVal);
+					vals.append("'" + val + "'");
+				}
+				LOG << cols.join(", ");
+				LOG << vals.join(", ");
+				continue;
+			}
+			cols.append(parsedConditionalsSplit[0].trimmed());
+			vals.append(parsedConditionalsSplit[1].trimmed());
+		}
+		if (skipQuery)
+			break;
+		//qDebug() << parsedSets << "\n" << parsedConditionals << "\n" << cols << "\n" << vals;
+		if (((cols.contains("itemId") || cols.contains("toolId")) && !cols.contains("barcode", Qt::CaseInsensitive)) && !skipQuery) {
+			cols.append("barcode");
+			std::vector<QStringMap> barcode;
+			if(cols.contains("itemId"))
+				barcode = ExecuteTargetSql(("SELECT barcodeTAG FROM cribtools WHERE itemId='" + vals.at(cols.indexOf("itemId")) + "' GROUP BY itemId ORDER BY toolId DESC LIMIT 1").toStdString());
+			else
+				barcode = ExecuteTargetSql(("SELECT barcodeTAG FROM cribtools WHERE toolId='" + vals.at(cols.indexOf("toolId")) + "' GROUP BY toolId ORDER BY toolId DESC LIMIT 1").toStdString());
+			vals.append("'" + barcode[1]["barcodeTAG"] + "'");
+		}
+		if (((cols.contains("barcode") || cols.contains("toolId")) && !cols.contains("itemId", Qt::CaseInsensitive)) && !skipQuery && false) {
+			cols.append("itemId");
+			QStringList queryString;
+			queryString.resize(3);
+			queryString[0] = "SELECT itemId, toolId FROM cribtools WHERE";
+			queryString[2] = "ORDER BY toolId DESC LIMIT 1";
+
+			std::vector<QStringMap> itemid;
+			if (cols.contains("toolId")) {
+				queryString[1] = "toolId = " + vals.at(cols.indexOf("toolId"));
+				itemid = ExecuteTargetSql(queryString.join(" ").toStdString());
+				qDebug() << itemid;
+
+			}
+
+			if (cols.contains("barcode") && itemid.size() <= 1) {
+				queryString[1] = "barcodeTAG = " + vals.at(cols.indexOf("barcode"));
+				itemid.clear();
+				itemid = ExecuteTargetSql(queryString.join(" ").toStdString());
+				qDebug() << itemid;
+			}
+
+
+			if (itemid.size() > 1 && !itemid[1]["itemId"].isEmpty())
+				vals.append("'" + itemid[1]["itemId"] + "'");
+			else if (itemid.size() > 1 && !itemid[1]["toolId"].isEmpty())
+				vals.append("'" + itemid[1]["itemId"] + "'");
+			else {
+				skipQuery = true;
+				break;
+			}
+			qDebug() << itemid;
+			//vals.append("(SELECT itemId FROM cribtools WHERE barcodeTAG = " + vals.at(cols.indexOf("barcode")) + " AND custId = '" + custId.data() + "' AND " + trakId.data() + " = '" + idNum.data() + "' ORDER BY id DESC LIMIT 1)");
+		}
+		if ((cols.contains("trailId") && !cols.contains("tailId", Qt::CaseInsensitive)) && !skipQuery) {
+			cols.append("tailId");
+			std::vector tailId = ExecuteTargetSql(("SELECT description FROM jobs WHERE trailId = '" + vals.at(cols.indexOf("trailId")) + "'").toStdString());
+			vals.append("'" + tailId[1]["description"] + "'");
+			/*vals.append("(SELECT description FROM jobs WHERE trailId = '" + vals.at(cols.indexOf("trailId")) + "' AND custId = '" + custId.data() + "' ORDER BY id DESC LIMIT 1)");*/
+		}
+		qDebug() << cols;
+		std::cout << (!cols.contains("transDate", Qt::CaseInsensitive)) << " && " << (!skipQuery) << "\n";
+		if (!cols.contains("transDate", Qt::CaseInsensitive) && !skipQuery) {
+			cols.append("transDate");
+			vals.append("CURDATE()");
+		}
+		qDebug() << cols;
+		std::cout << (!cols.contains("transTime", Qt::CaseInsensitive)) << " && " << (!skipQuery) << "\n";
+		if (!cols.contains("transTime", Qt::CaseInsensitive) && !skipQuery) {
+			cols.append("transTime");
+			vals.append("CURTIME()");
+		}
+		qDebug() << cols;
+		/*cols.append("remarks");
+		vals.append(("(SELECT remarks FROM cribs WHERE custId = " + custId + " AND " + trakId + " = " + idNum + ")").data());*/
+		//qDebug() << cols << " | " << vals;
+		returnVal.append(cols.join(", "));
+		returnVal.append(") VALUES (");
+		returnVal.append(vals.join(", "));
+
+		returnVal.append(")");
+		LOG << returnVal.join(" ");
+		//skipQuery = true;
+		break;
+	}
+	case portaemployeeitemtransactions:
+	{
+		skipQuery = true;
+		break;
+	}
+	case lokkaemployeeitemtransactions:
+	{
+		skipQuery = true;
+		break;
+	}
+	default:
+		if (!hadCustId)
+			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
+		if (!hadTrakId)
+			parsedConditionals.append(trakId.data() + (" = '" + trakIdNum + "'"));
+		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
+		LOG << returnVal.join(" ");
+		break;
+	}
+
+	query = returnVal.join(" ");
 }
 
 void DatabaseManager::performCleanup()

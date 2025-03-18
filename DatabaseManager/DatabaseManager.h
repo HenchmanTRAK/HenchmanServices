@@ -197,6 +197,11 @@ private:
 		{"kitLocation", 0},
 	};
 
+	std::string trakType;
+	std::string trakId;
+	int custId;
+	QString trakIdNum;
+
 public:
 	/**
 	 * @var bool requestRunning
@@ -243,6 +248,8 @@ public:
 	 * This destructor performs cleanup operations for the DatabaseManager object.
 	 */
 	~DatabaseManager();
+
+	void loadTrakDetailsFromRegistry();
 
 	/**
 	 * @brief Connects to the remote database and performs various configuration steps if required.
@@ -292,6 +299,10 @@ public:
 	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
 	*/
 	std::vector<QStringMap> ExecuteTargetSql(std::string sqlQuery);
+	
+	std::vector<QStringMap> ExecuteTargetSql(QString sqlQuery);
+
+	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery);
 
 	/**
 	 * @brief Checks if the internet connection is available by attempting to connect to www.google.com on port 80.
@@ -554,6 +565,10 @@ private:
 	 * @param results The array to store the processed queryKeys and queryValues strings.
 	 */
 	void processKeysAndValues(QStringMap& map, QString(&results)[]);
+
+	void processInsertStatement(QString& query, bool& skipQuery);
+
+	void processUpdateStatement(QString& query, bool& skipQuery);
 };
 
 std::string getValidDrivers();

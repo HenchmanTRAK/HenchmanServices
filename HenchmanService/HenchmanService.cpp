@@ -652,6 +652,7 @@ int HenchmanService::MainFunction()
 	TRAKManager TrakM(dbManager.get());
 
 	TrakM.CreateDataModule();
+	dbManager->loadTrakDetailsFromRegistry();
 
 	ServiceHelper().WriteToLog("Checking if TRAK is Running");
 	if (!ProcessExists(TrakM.appName)) {
@@ -860,7 +861,7 @@ int main(int argc, char* argv[])
 
 				RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, tstring("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(service->serviceName).data());
 
-				TCHAR eventBuff[1024];
+				TCHAR eventBuff[1024] = "\0";
 				DWORD eventBuffSize = 1024;
 				rmEvent.GetVal("EventMessageFile", REG_SZ, (TCHAR*)eventBuff, eventBuffSize);
 				tstring eventMessageFile(eventBuff);
