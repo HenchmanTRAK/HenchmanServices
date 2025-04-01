@@ -483,7 +483,7 @@ int DatabaseManager::addToolsIfNotExists()
 			" ON DUPLICATE KEY UPDATE ";
 		for (auto& key : result.keys())
 		{
-			if (key == "id" || result.value(key).isEmpty())
+			if (key == "id" || result.value(key).isEmpty() || result.value(key) == "0")
 				continue;
 			res["query"] += key + "=" + result.value(key) + ", ";
 		}
@@ -573,13 +573,12 @@ int DatabaseManager::addUsersIfNotExists()
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
-		//qDebug() << result;
 
 		QStringMap res;
 		res["id"] = result["id"];
 		result.remove("id");
 
-		qDebug() << result;
+		//qDebug() << result;
 
 		if (trakId != "kabId")
 			result["kabId"] = "";
@@ -591,7 +590,7 @@ int DatabaseManager::addUsersIfNotExists()
 		if (result.value(trakId.data()).isEmpty())
 			result[trakId.data()] = trakIdNum;
 
-		qDebug() << result;
+		//qDebug() << result;
 
 
 		QString results[2];
@@ -2064,6 +2063,8 @@ int DatabaseManager::connectToRemoteDB()
 				string sqlQuery = "UPDATE cloudupdate SET posted = " + string(skipQuery ? (retryingQuery ? "3" : "2") : "1") + " WHERE posted <> 1 AND id = " + res["id"].toStdString();
 
 				ServiceHelper().WriteToCustomLog("Updating skipped query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+				if (skipQuery && !retryingQuery)
+					ServiceHelper().WriteToCustomLog("Skipping query to try again later:\n\tid: " + res["id"].toStdString() + "\n\t query: " + res["query"].toStdString(), timeStamp[0] + "-queries-skipped");
 				vector queryResult = ExecuteTargetSql(sqlQuery);
 				if (queryResult.size() > 0) {
 					for (auto result : queryResult)
@@ -2072,42 +2073,66 @@ int DatabaseManager::connectToRemoteDB()
 				continue;
 			}
 
-			QStringMap queryMap;
-			queryMap.insert("start", "START TRANSACTION;");
-			queryMap.insert("query", res["query"]);
-			queryMap.insert("commit", "COMMIT;");
-			queryMap.insert("rollback", "ROLLBACK;");
-			res["query"] = queryMap.value("start");
-			makeNetworkRequest(apiUrl, res);
-			res["query"] = queryMap.value("query");
+			//QStringMap queryMap;
+			//queryMap.insert("start", "SET autocommit=0;START TRANSACTION;");
+			//queryMap.insert("query", res["query"]);
+			//queryMap.insert("commit", "COMMIT;SET autocommit = 1;");
+			//queryMap.insert("rollback", "ROLLBACK;SET autocommit = 1;");
+			//res["query"] = queryMap.value("start");
+			////makeNetworkRequest(apiUrl, res);
+			//res["query"] = queryMap.value("query");
 			
 			QJsonDocument reply;
 			
 			if (!makeNetworkRequest(apiUrl, res, &reply))
 			{	
 				LOG << "request failed";
-				res["query"] = queryMap.value("rollback");
-				makeNetworkRequest(apiUrl, res);
-				break;
+				/*res["query"] = queryMap.value("rollback");
+				makeNetworkRequest(apiUrl, res);*/
+				QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
+
+				ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+				vector queryResult = ExecuteTargetSql(sqlQuery);
+				if (queryResult.size() > 0) {
+					for (auto result : queryResult)
+						LOG << result["success"];
+				}
+				continue;
 				
 			}
 
 			if (!reply.isObject()) {
 				LOG << "returned value not object";
-				res["query"] = queryMap.value("rollback");
-				makeNetworkRequest(apiUrl, res);
-				break;
+				/*res["query"] = queryMap.value("rollback");
+				makeNetworkRequest(apiUrl, res);*/
+				QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
+
+				ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+				vector queryResult = ExecuteTargetSql(sqlQuery);
+				if (queryResult.size() > 0) {
+					for (auto result : queryResult)
+						LOG << result["success"];
+				}
+				continue;
 			}
 
 			QJsonObject result = reply.object();
 			if (!result.contains("result")) {
 				LOG << "returned value does not contain a result key";
-				res["query"] = queryMap.value("rollback");
-				makeNetworkRequest(apiUrl, res);
-				break;
+				/*res["query"] = queryMap.value("rollback");
+				makeNetworkRequest(apiUrl, res);*/
+				QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
+
+				ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+				vector queryResult = ExecuteTargetSql(sqlQuery);
+				if (queryResult.size() > 0) {
+					for (auto result : queryResult)
+						LOG << result["success"];
+				}
+				continue;
 			}
 			QString resultVal;
-			qDebug() << result.value("result");
+			//qDebug() << result.value("result");
 			if (result.value("result").isArray()) {
 				resultVal = result.value("status").toObject().value("test").toString().trimmed();
 				resultVal += resultVal == "SQL Executed Successfully" ? ".1" : ".2";
@@ -2116,15 +2141,18 @@ int DatabaseManager::connectToRemoteDB()
 				resultVal = result.value("result").toString();
 			}
 			LOG << resultVal;
-			QString rowsAffected = resultVal.split(".")[1].trimmed().first(1);
+			QString rowsAffected = resultVal.split(".")[1].trimmed().split(" ")[0];
 			LOG << rowsAffected;
-			if (rowsAffected.toInt() <= 1) {
-				res["query"] = queryMap.value("commit");
+			if (rowsAffected.toInt() < 1) {
+				//res["query"] = queryMap.value("commit");
 				rowsAffected = "1";
 			}
-			else
-				res["query"] = queryMap.value("rollback");
-			makeNetworkRequest(apiUrl, res);
+			if (rowsAffected.toInt() > 1) {
+				rowsAffected = "3";
+			}
+			//else
+				//res["query"] = queryMap.value("rollback");
+			//makeNetworkRequest(apiUrl, res);
 
 			QString sqlQuery = "UPDATE cloudupdate SET posted = " + rowsAffected + " WHERE posted <> 1 AND id = " + res["id"];
 
@@ -2998,15 +3026,15 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 	else
 		splitBy = " set ";
 	QStringList querySections = ServiceHelper::ExplodeString(query, splitBy.data());
-	qDebug() << splitQueryForParsing;
-	qDebug() << querySections;
+	//qDebug() << splitQueryForParsing;
+	//qDebug() << querySections;
 	if (querySections.size() > 2) {
 		QStringList tempQuerySections = querySections;
 		tempQuerySections.removeAt(0);
 		querySections[1] = tempQuerySections.join(" SET ");
 		querySections.remove(2, querySections.size() - 2);
 	}
-	qDebug() << querySections;
+	//qDebug() << querySections;
 	if (query.contains("WHERE"))
 		splitBy = " WHERE ";
 	else
@@ -3014,14 +3042,14 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 	//QStringList querySections = ServiceHelper::ExplodeString(querySections[1], splitBy.data());
 	querySections.append(ServiceHelper::ExplodeString(querySections[1], splitBy.data()));
 	querySections.removeAt(1);
-	qDebug() << querySections;
+	//qDebug() << querySections;
 	if (querySections.size() > 3) {
 		QStringList tempQuerySections = querySections;
 		tempQuerySections.removeAt(2);
 		querySections[2] = tempQuerySections.join(" WHERE ");
 		querySections.remove(3, querySections.size() - 3);
 	}
-	qDebug() << querySections;
+	//qDebug() << querySections;
 	QStringList returnVal;
 	QMap<QString, QString> SetPairs;
 	QMap<QString, QString> ConditionPairs;
@@ -3030,6 +3058,8 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 	bool switchToConditions = 0;
 	bool hadCustId = 0;
 	bool hadTrakId = 0;
+	bool hadId = 0;
+	int idFromQuery = 0;
 
 	QStringList querySetSection = ServiceHelper::ExplodeString(querySections[1], ",");
 	for (const auto& set : querySetSection)
@@ -3053,6 +3083,10 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 	{
 		QString conditionalTrimmed = conditional.trimmed();
 		QStringList colAndVal = ServiceHelper::ExplodeString(conditionalTrimmed, "=");
+		if (colAndVal.size() < 2) {
+			parsedConditionals.append(conditionalTrimmed);
+			continue;
+		}
 		ConditionPairs.insert(colAndVal[0], colAndVal[1]);
 		if (conditionalTrimmed.contains("custId", Qt::CaseInsensitive))
 		{
@@ -3086,7 +3120,8 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 		LOG << splitQueryForParsing[1];
 		if (conditionalTrimmed.contains("id") && !(splitQueryForParsing[1] == "tools" || splitQueryForParsing[1] == "cribemployeeitemtransactions"))
 		{
-			LOG << "skipping id column";
+			hadId = 1;
+			idFromQuery = colAndVal[1].trimmed().toInt();
 			continue;
 		}
 
@@ -3094,7 +3129,7 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 	}
 	if (skipQuery)
 		return;
-	qDebug() << splitQueryForParsing;
+	//qDebug() << splitQueryForParsing;
 	switch (table_map[splitQueryForParsing.at(1)])
 	{
 	case tools:
@@ -3112,7 +3147,7 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 		
 		if (!ConditionPairs.contains("id")) {
 			std::vector toolId = ExecuteTargetSql(("SELECT id FROM tools WHERE " + parsedConditionals.join(" AND ")).toStdString());
-			qDebug() << toolId;
+			//qDebug() << toolId;
 			if (toolId.size() > 1)
 				parsedConditionals.append("toolId="+toolId[1]["id"]);
 		}
@@ -3135,13 +3170,31 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 				? " AND " + trakId + " = " + idNum
 				: " AND " + trakId + " = " + map.value(trakId.data()).toStdString()).data() +
 			" ORDER BY id DESC LIMIT 1)";*/
-
+		for (auto& value : parsedConditionals) {
+			if (parsedConditionals.size() <= 1 && value.split("=")[1] == "''")
+				skipQuery = true;
+			if (value.split("=")[0].contains("id")) {
+				std::vector userId = ExecuteTargetSql(("SELECT userId FROM users WHERE id = '" + value.split("=")[1].trimmed() + "'").toStdString());
+				if(userId.size()<=1)
+					skipQuery = true;
+				else
+					value = "userId='"+userId[1]["userId"]+"'";
+			}
+		}
+		if (hadId && !query.contains("userId", Qt::CaseInsensitive)) {
+			std::vector userId = ExecuteTargetSql("SELECT userId FROM users WHERE id = '" + QString::number(idFromQuery) + "'");
+			if (userId.size() > 1)
+				parsedConditionals.append("userId='" + userId[1]["userId"] + "'");
+			else {
+				skipQuery = true;
+			}
+		}
 		if (!hadCustId)
 			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
 		if (!hadTrakId)
 			parsedConditionals.append(trakId.data() + (" = '" + trakIdNum + "'"));
-		if (!query.contains("userId", Qt::CaseInsensitive))
-			skipQuery = true;
+		/*if (!query.contains("userId", Qt::CaseInsensitive))
+			skipQuery = true;*/
 		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
 		LOG << returnVal.join(" ");
 		break;
@@ -3152,9 +3205,12 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 		for (auto& value : parsedConditionals) {
 			if (parsedConditionals.size() <= 1 && value.split("=")[1] == "''")
 				skipQuery = true;
-			if (value.split("=")[0].contains("trailId")) {
+			/*if (value.split("=")[0].contains("trailId")) {
 				parsedConditionals.removeAt(parsedConditionals.indexOf(value));
-			}
+			}*/
+		}
+		if (hadId) {
+			skipQuery = true;
 		}
 		if (!hadCustId)
 			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
@@ -3164,7 +3220,7 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 	}
 	case customer: 
 	{
-		if (parsedConditionals.size() <= 0)
+		if(!hadId)
 			parsedConditionals.append("id=" + QString::number(custId));
 		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
 		LOG << returnVal.join(" ");
@@ -3172,7 +3228,25 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 	}
 	//case kabs:
 	//case drawers:
-	//case toolbins:
+	case toolbins: 
+	{
+		if (hadId && !query.contains("itemId", Qt::CaseInsensitive)) {
+			std::vector itemId = ExecuteTargetSql("SELECT itemId FROM itemkabdrawerbins WHERE id = '" + QString::number(idFromQuery) + "'");
+			if (itemId.size() > 1)
+				parsedConditionals.append("itemId='" + itemId[1]["itemId"]+"'");
+			else {
+				skipQuery = true;
+			}
+		}
+
+		if (!hadCustId)
+			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
+		if (!hadTrakId)
+			parsedConditionals.append(trakId.data() + (" = '" + trakIdNum + "'"));
+		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
+		LOG << returnVal.join(" ");
+		break;
+	}
 	//case cribs:
 	//case cribconsumables:
 	//case cribtoollocation:
@@ -3237,7 +3311,7 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 					parsedConditionalsSplit[1].removeLast();
 				LOG << parsedConditionalsSplit[1];
 				std::vector targetTransactionToBeAltered = ExecuteTargetSql(("SELECT * FROM cribemployeeitemtransactions WHERE  custId = '" + QString::number(custId) + "' AND cribId = '" + trakIdNum + "' AND id = '" + parsedConditionalsSplit[1] + "'").toStdString());
-				qDebug() << targetTransactionToBeAltered;
+				//qDebug() << targetTransactionToBeAltered;
 				if (targetTransactionToBeAltered.size() <= 1) {
 					skipQuery = true;
 					break;
@@ -3280,7 +3354,7 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 			if (cols.contains("toolId")) {
 				queryString[1] = "toolId = " + vals.at(cols.indexOf("toolId"));
 				itemid = ExecuteTargetSql(queryString.join(" ").toStdString());
-				qDebug() << itemid;
+				//qDebug() << itemid;
 
 			}
 
@@ -3288,7 +3362,7 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 				queryString[1] = "barcodeTAG = " + vals.at(cols.indexOf("barcode"));
 				itemid.clear();
 				itemid = ExecuteTargetSql(queryString.join(" ").toStdString());
-				qDebug() << itemid;
+				//qDebug() << itemid;
 			}
 
 
@@ -3300,7 +3374,7 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 				skipQuery = true;
 				break;
 			}
-			qDebug() << itemid;
+			//qDebug() << itemid;
 			//vals.append("(SELECT itemId FROM cribtools WHERE barcodeTAG = " + vals.at(cols.indexOf("barcode")) + " AND custId = '" + custId.data() + "' AND " + trakId.data() + " = '" + idNum.data() + "' ORDER BY id DESC LIMIT 1)");
 		}
 		if ((cols.contains("trailId") && !cols.contains("tailId", Qt::CaseInsensitive)) && !skipQuery) {
@@ -3309,19 +3383,19 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 			vals.append("'" + tailId[1]["description"] + "'");
 			/*vals.append("(SELECT description FROM jobs WHERE trailId = '" + vals.at(cols.indexOf("trailId")) + "' AND custId = '" + custId.data() + "' ORDER BY id DESC LIMIT 1)");*/
 		}
-		qDebug() << cols;
+		//qDebug() << cols;
 		std::cout << (!cols.contains("transDate", Qt::CaseInsensitive)) << " && " << (!skipQuery) << "\n";
 		if (!cols.contains("transDate", Qt::CaseInsensitive) && !skipQuery) {
 			cols.append("transDate");
 			vals.append("CURDATE()");
 		}
-		qDebug() << cols;
+		//qDebug() << cols;
 		std::cout << (!cols.contains("transTime", Qt::CaseInsensitive)) << " && " << (!skipQuery) << "\n";
 		if (!cols.contains("transTime", Qt::CaseInsensitive) && !skipQuery) {
 			cols.append("transTime");
 			vals.append("CURTIME()");
 		}
-		qDebug() << cols;
+		//qDebug() << cols;
 		/*cols.append("remarks");
 		vals.append(("(SELECT remarks FROM cribs WHERE custId = " + custId + " AND " + trakId + " = " + idNum + ")").data());*/
 		//qDebug() << cols << " | " << vals;
@@ -3345,6 +3419,8 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 		break;
 	}
 	default:
+		if (hadId)
+			skipQuery = true;
 		if (!hadCustId)
 			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
 		if (!hadTrakId)
