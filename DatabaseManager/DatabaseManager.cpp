@@ -124,43 +124,6 @@ DatabaseManager::DatabaseManager(QObject* parent)
 
 		}
 	}
-	//try {
-	//	// General
-	//	//databaseTablesChecked["tools"] = RegistryManager::GetVal(hKey, "numToolsChecked", REG_DWORD);
-	//	rtManager.GetVal("numToolsChecked", REG_DWORD, (int *)&databaseTablesChecked["tools"], sizeof(databaseTablesChecked["tools"]));
-	//	//databaseTablesChecked["users"] = RegistryManager::GetVal(hKey, "numUsersChecked", REG_DWORD);
-	//	rtManager.GetVal("numUsersChecked", REG_DWORD, (int*)&databaseTablesChecked["users"], sizeof(databaseTablesChecked["users"]));
-	//	//databaseTablesChecked["employees"] = RegistryManager::GetVal(hKey, "numEmployeesChecked", REG_DWORD);
-	//	rtManager.GetVal("numEmployeesChecked", REG_DWORD, (int*)&databaseTablesChecked["employees"], sizeof(databaseTablesChecked["employees"]));
-	//	//databaseTablesChecked["jobs"] = RegistryManager::GetVal(hKey, "numJobsChecked", REG_DWORD);
-	//	rtManager.GetVal("numJobsChecked", REG_DWORD, (int*)&databaseTablesChecked["jobs"], sizeof(databaseTablesChecked["jobs"]));
-
-	//	// KabTRAK
-	//	//databaseTablesChecked["kabs"] = RegistryManager::GetVal(hKey, "numKabsChecked", REG_DWORD);
-	//	rtManager.GetVal("numKabsChecked", REG_DWORD, (int*)&databaseTablesChecked["kabs"], sizeof(databaseTablesChecked["kabs"]));
-
-	//	//databaseTablesChecked["kabDrawers"] = RegistryManager::GetVal(hKey, "numDrawersChecked", REG_DWORD);
-	//	rtManager.GetVal("numDrawersChecked", REG_DWORD, (int*)&databaseTablesChecked["kabDrawers"], sizeof(databaseTablesChecked["kabDrawers"]));
-
-	//	//databaseTablesChecked["kabDrawerBins"] = RegistryManager::GetVal(hKey, "numToolsInDrawersChecked", REG_DWORD);
-	//	rtManager.GetVal("numToolsInDrawersChecked", REG_DWORD, (int*)&databaseTablesChecked["kabDrawerBins"], sizeof(databaseTablesChecked["kabDrawerBins"]));
-
-	//	// PortaTRAK
-	//	//databaseTablesChecked["itemkits"] = RegistryManager::GetVal(hKey, "numItemKits", REG_DWORD);
-	//	rtManager.GetVal("numItemKits", REG_DWORD, (int*)&databaseTablesChecked["itemkits"], sizeof(databaseTablesChecked["itemkits"]));
-
-	//	//databaseTablesChecked["kitCategory"] = RegistryManager::GetVal(hKey, "numKitCategory", REG_DWORD);
-	//	rtManager.GetVal("numKitCategory", REG_DWORD, (int*)&databaseTablesChecked["kitCategory"], sizeof(databaseTablesChecked["kitCategory"]));
-
-	//	//databaseTablesChecked["kitLocation"] = RegistryManager::GetVal(hKey, "numKitLocation", REG_DWORD);
-	//	rtManager.GetVal("numKitLocation", REG_DWORD, (int*)&databaseTablesChecked["kitLocation"], sizeof(databaseTablesChecked["kitLocation"]));
-	//}
-	//catch (std::exception& e)
-	//{
-	//	ServiceHelper().WriteToError(e.what());
-	//}
-
-	//RegCloseKey(hKey);
 
 }
 
@@ -483,9 +446,16 @@ int DatabaseManager::addToolsIfNotExists()
 			" ON DUPLICATE KEY UPDATE ";
 		for (auto& key : result.keys())
 		{
-			if (key == "id" || result.value(key).isEmpty() || result.value(key) == "0")
+			QString value = result.value(key).simplified();
+			if (key == "id" || value.isEmpty() || value == "0" || value == "''")
 				continue;
-			res["query"] += key + "=" + result.value(key) + ", ";
+			if (value.startsWith("'")) {
+				value.remove(0, 1);
+			}
+			if(value.endsWith("'"))
+				value.remove(value.length()-1, 1);
+			value.replace("'", "\'");
+			res["query"] += key + "='" + value + "', ";
 		}
 		res["query"] = res["query"].trimmed();
 		res["query"].removeLast();
