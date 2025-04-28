@@ -61,47 +61,25 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
+
 	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
 	std::string installDir(buffer);
-
-	//size = 1024;
-	//rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
-	//trakType = buffer;
-
-	//RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
-	//size = 1024;
-	//rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
-	////string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
-	//std::string trakID(buffer);
-	//size = 1024;
-	//rtManagerCustomer.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
-	////string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
-	//std::string strCustId(buffer);
-	//custId = std::stoi(strCustId);
-
-	//size = 1024;
-	//rtManagerCustomer.GetVal(trakId.data(), REG_SZ, (TCHAR*)buffer, size);
-	////string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
-	//std::string idNum(buffer);
-	//trakIdNum = std::stoi(idNum);
-
-	//trakId.resize(trakId.size() - 2);
-	//trakId.append("Id");
-	
-	//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 
 	QSettings ini(installDir.append("\\service.ini").data(), QSettings::IniFormat, this);
 	ini.sync();
 	testingDBManager = ini.value("DEVELOPMENT/testingDBManager", 0).toBool();
+
 	ini.beginGroup("API");
 	queryLimit = ini.value("NumberOfQueries", 10).toInt();
 	apiUsername = ini.value("Username", "").toString();
 	apiPassword = ini.value("Password", "").toString();
 	apiKey = ini.value("apiKey", "").toString();
 	ini.endGroup();
+
 	ini.beginGroup("SYSTEM");
 	databaseDriver = ini.value("databaseDriver", "").toString();
 	ini.endGroup();
+
 	if (testingDBManager)
 		apiUrl = ini.value("DEVELOPMENT/URL", "http://localhost/webapi/public/api/portals/exec_query").toString();
 	else
@@ -346,12 +324,14 @@ int DatabaseManager::makeNetworkRequest(const QString &url, QStringMap &query, Q
 			else {
 				LOG << "network request failed";
 			}
+			reply.networkReply()->close();
 		}
 		catch (exception& e) {
 			ServiceHelper().WriteToError(e.what());
+			reply.networkReply()->abort();
+
 		}
 		reply.networkReply()->finished();
-		reply.networkReply()->close();
 		
 		});
 
