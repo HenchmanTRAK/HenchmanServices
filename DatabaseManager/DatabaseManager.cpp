@@ -55,6 +55,7 @@ static std::array<QString, 2> GetTrakDirAndIni(RegistryManager::CRegistryManager
 DatabaseManager::DatabaseManager(QObject* parent) 
 : QObject(parent)
 {
+	timeStamp = ServiceHelper().timestamp();
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	
@@ -96,11 +97,12 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	queryLimit = ini.value("NumberOfQueries", 10).toInt();
 	apiUsername = ini.value("Username", "").toString();
 	apiPassword = ini.value("Password", "").toString();
+	apiKey = ini.value("apiKey", "").toString();
 	ini.endGroup();
 	ini.beginGroup("SYSTEM");
 	databaseDriver = ini.value("databaseDriver", "").toString();
 	ini.endGroup();
-	if(testingDBManager)
+	if (testingDBManager)
 		apiUrl = ini.value("DEVELOPMENT/URL", "http://localhost/webapi/public/api/portals/exec_query").toString();
 	else
 		apiUrl = ini.value("API/URL", "http://localhost/webapi/public/api/portals/exec_query").toString();
@@ -125,6 +127,18 @@ DatabaseManager::DatabaseManager(QObject* parent)
 		}
 	}
 
+	netManager = new QNetworkAccessManager(this);
+	if (!testingDBManager)
+		netManager->setStrictTransportSecurityEnabled(true);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+
+	restManager = new QRestAccessManager(netManager, this);
+	
+	QStringMap placeholder;
+	makeNetworkRequest(apiUrl.slice(0, apiUrl.lastIndexOf("/")) + "/auth/key", placeholder);
+	apiUrl.append("/service");
 }
 
 DatabaseManager::~DatabaseManager() 
@@ -240,25 +254,32 @@ string DatabaseManager::parseData(QJsonObject object)
 	return dataRes.str();
 }
 
-int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDocument *results)
+int DatabaseManager::makeNetworkRequest(const QString &url, QStringMap &query, QJsonDocument *results)
 {
 	int result = 0;
 	QEventLoop loop(this);
 
 	// Generate auth header for request.
-	QString concatenated = apiUsername+":"+apiPassword;
-	QByteArray credentials = concatenated.toLocal8Bit().toBase64();
-	QString headerData = "Basic " + credentials;
-	
+	//QString concatenated = apiUsername+":"+apiPassword;
+	//QByteArray credentials = concatenated.toLocal8Bit().toBase64();
+	//QString headerData = "Basic " + credentials;
+	LOG << url;
 	// Create network request object.
-	QNetworkRequest request;
 	request.setUrl(QUrl(url));
-	request.setRawHeader("Authorization", headerData.toLocal8Bit());
+	request.setRawHeader("Authorization", "Bearer "+apiKey.toLocal8Bit());
 	request.setRawHeader("Content-Type", "application/json");
 	
 	QJsonObject data;
-	data["sql"] = query["query"];
-	QJsonDocument doc(data);
+	for (auto it = query.cbegin(); it != query.cend(); ++it)
+	{
+		data.insert(it.key(), it.value());
+	}
+
+	QJsonObject body;
+	body["data"] = data;
+	/*data["values"] = */
+	//data["sql"] = query["query"];
+	QJsonDocument doc(body);
 
 	ServiceHelper().WriteToCustomLog(
 		"Making query to: " +url.toStdString() + 
@@ -269,13 +290,14 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
+			qDebug() << reply.networkReply()->request().headers().toMultiMap();
+			qDebug() << reply.networkReply()->headers().toListOfPairs();
 			if (reply.error() != QNetworkReply::NoError) {
 				// HenchmanServiceException
 				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
 				//ServiceHelper().WriteToError("A Network error has occured: " + reply.errorString().toStdString());
 				//return;
 			}
-
 			int status = reply.httpStatus();
 			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 
@@ -327,10 +349,15 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 		}
 		catch (exception& e) {
 			ServiceHelper().WriteToError(e.what());
-			reply.networkReply()->close();
 		}
+		reply.networkReply()->finished();
+		reply.networkReply()->close();
+		
 		});
+
+	//connect(reply, &QNetworkReply::finished, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+	//connect(&loop, &QEventLoop::quit, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
 	loop.exec();
 
 	return result;
@@ -344,6 +371,7 @@ int DatabaseManager::makeNetworkRequest(QString &url, QStringMap &query, QJsonDo
 // Misc Syncs
 int DatabaseManager::addToolsIfNotExists()
 {
+	LOG << "Adding Tools to Webportal";
 	QString targetKey = "tools";
 	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tools");
@@ -357,16 +385,16 @@ int DatabaseManager::addToolsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 	
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
 		netManager->setStrictTransportSecurityEnabled(true);
 	netManager->setAutoDeleteReplies(true);
 	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);*/
 
-	restManager = new QRestAccessManager(netManager, this);
+	//restManager = new QRestAccessManager(netManager, this);
 	
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	//TCHAR buffer[1024] = "\0";
@@ -421,48 +449,51 @@ int DatabaseManager::addToolsIfNotExists()
 		//RegCloseKey(hKey);
 
 
-		if (result.value("custId") != "'" + QString::number(custId) + "'") {
-			databaseTablesChecked[targetKey]++;
-			continue;
-		}
+		//if (result.value("custId") != "'" + QString::number(custId) + "'") {
+		//	databaseTablesChecked[targetKey]++;
+		//	continue;
+		//}
 
-		res["query"] = "INSERT INTO tools (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools" +
-			" WHERE custId=" + result.value("custId") +
-			/*(!result.value("PartNo").isEmpty() 
-				? " AND PartNo=" + result.value("PartNo") : "") +*/
-			(!result.value("stockcode").isEmpty() ?
-				" AND stockcode=" + result.value("stockcode") : "") +
-			(!result.value("serialNo").isEmpty() ?
-				" AND serialNo=" + result.value("serialNo") : "") +
-			(!result.value("description").isEmpty() ?
-				" AND description=" + result.value("description") : "") +
-			(!result.value("toolId").isEmpty() ?
-				" AND toolId=" + result.value("toolId") : "") +
-			" ORDER BY id DESC LIMIT 1)" +
-			" ON DUPLICATE KEY UPDATE ";
-		for (auto& key : result.keys())
-		{
-			QString value = result.value(key).simplified();
-			if (key == "id" || value.isEmpty() || value == "0" || value == "''")
-				continue;
-			if (value.startsWith("'")) {
-				value.remove(0, 1);
-			}
-			if(value.endsWith("'"))
-				value.remove(value.length()-1, 1);
-			value.replace("'", "\'");
-			res["query"] += key + "='" + value + "', ";
-		}
-		res["query"] = res["query"].trimmed();
-		res["query"].removeLast();
-		LOG << res["query"];
+		//res["query"] = "INSERT INTO tools (" +
+		//	results[0] +
+		//	") SELECT " +
+		//	results[1] +
+		//	" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tools" +
+		//	" WHERE custId=" + result.value("custId") +
+		//	/*(!result.value("PartNo").isEmpty() 
+		//		? " AND PartNo=" + result.value("PartNo") : "") +*/
+		//	(!result.value("stockcode").isEmpty() ?
+		//		" AND stockcode=" + result.value("stockcode") : "") +
+		//	(!result.value("serialNo").isEmpty() ?
+		//		" AND serialNo=" + result.value("serialNo") : "") +
+		//	(!result.value("description").isEmpty() ?
+		//		" AND description=" + result.value("description") : "") +
+		//	(!result.value("toolId").isEmpty() ?
+		//		" AND toolId=" + result.value("toolId") : "") +
+		//	" ORDER BY id DESC LIMIT 1)" +
+		//	" ON DUPLICATE KEY UPDATE ";
+		//for (auto& key : result.keys())
+		//{
+		//	QString value = result.value(key).simplified();
+		//	if (key == "id" || value.isEmpty() || value == "0" || value == "''")
+		//		continue;
+		//	if (value.startsWith("'")) {
+		//		value.remove(0, 1);
+		//	}
+		//	if(value.endsWith("'"))
+		//		value.remove(value.length()-1, 1);
+		//	value.replace("'", "\'");
+		//	res["query"] += key + "='" + value + "', ";
+		//}
+		//res["query"] = res["query"].trimmed();
+		//res["query"].removeLast();
+
+
+
+		//LOG << res["query"];
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
+		if (makeNetworkRequest(apiUrl+"/tools", result, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
@@ -484,12 +515,14 @@ int DatabaseManager::addToolsIfNotExists()
 	//RegistryManager::SetVal(hKey, "numToolsChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	//RegCloseKey(hKey);
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	//performCleanup();
 	return 1;
 }
 int DatabaseManager::addUsersIfNotExists()
 {
+	LOG << "Adding Users to Webportal";
 	QString targetKey = "users";
 	timeStamp = ServiceHelper().timestamp();
 	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
@@ -503,16 +536,16 @@ int DatabaseManager::addUsersIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
 		netManager->setStrictTransportSecurityEnabled(true);
 	netManager->setAutoDeleteReplies(true);
 	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);*/
 
-	restManager = new QRestAccessManager(netManager, this);
+	//restManager = new QRestAccessManager(netManager, this);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	//TCHAR buffer[1024] = "\0";
@@ -560,10 +593,8 @@ int DatabaseManager::addUsersIfNotExists()
 		if (result.value(trakId.data()).isEmpty())
 			result[trakId.data()] = trakIdNum;
 
-		//qDebug() << result;
 
-
-		QString results[2];
+		/*QString results[2];
 
 		processKeysAndValues(result, results);
 
@@ -582,29 +613,13 @@ int DatabaseManager::addUsersIfNotExists()
 			" ORDER BY id DESC LIMIT 1)";
 		LOG << res["query"];
 
-		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);*/
-
-		//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-
-		//QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-
-		//QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		//RegCloseKey(hKey);
-		/*std::array trakNini(GetTrakDirAndIni(rtManager));
-
-		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();*/
-
 		if (result.value("custId") != "'" + QString::number(custId) + "'") {
 			databaseTablesChecked[targetKey]++;
 			continue;
-		}
+		}*/
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
+		if (makeNetworkRequest(apiUrl+"/users", result, &reply)) {
 			if (!reply.isObject())
 				continue;
 			QJsonObject result = reply.object();
@@ -626,7 +641,8 @@ int DatabaseManager::addUsersIfNotExists()
 	RegistryManager::SetVal(hKey, "numUsersChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);*/
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	return 1;
 }
 int DatabaseManager::addEmployeesIfNotExists()
@@ -644,7 +660,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -653,7 +669,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -740,7 +756,7 @@ int DatabaseManager::addJobsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -749,7 +765,7 @@ int DatabaseManager::addJobsIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -836,7 +852,7 @@ int DatabaseManager::addKabsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -845,7 +861,7 @@ int DatabaseManager::addKabsIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -928,7 +944,7 @@ int DatabaseManager::addDrawersIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -937,7 +953,7 @@ int DatabaseManager::addDrawersIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1020,7 +1036,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -1029,7 +1045,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1116,7 +1132,7 @@ int DatabaseManager::addCribsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -1125,7 +1141,7 @@ int DatabaseManager::addCribsIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1205,7 +1221,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -1214,7 +1230,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1303,7 +1319,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -1312,7 +1328,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1422,7 +1438,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -1431,7 +1447,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1554,7 +1570,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -1563,7 +1579,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1648,7 +1664,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -1657,7 +1673,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1744,7 +1760,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	performCleanup();
+	/*performCleanup();
 
 	netManager = new QNetworkAccessManager(this);
 	if (!testingDBManager)
@@ -1753,7 +1769,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 	netManager->setTransferTimeout(30000);
 	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	/*TCHAR buffer[1024] = "\0";
@@ -1866,7 +1882,7 @@ int DatabaseManager::connectToRemoteDB()
 
 		requestRunning = true;
 
-		performCleanup();
+		/*performCleanup();
 
 		netManager = new QNetworkAccessManager(this);
 		if (!testingDBManager)
@@ -1875,7 +1891,7 @@ int DatabaseManager::connectToRemoteDB()
 		netManager->setTransferTimeout(30000);
 		connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
 
-		restManager = new QRestAccessManager(netManager, this);
+		restManager = new QRestAccessManager(netManager, this);*/
 		
 
 		vector<QStringMap> queries;
@@ -2151,8 +2167,8 @@ int DatabaseManager::connectToRemoteDB()
 			db.close();
 		ServiceHelper().WriteToError(e.what());
 	}
-
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 
 	return result;
 }
@@ -3405,12 +3421,12 @@ void DatabaseManager::processUpdateStatement(QString& query, bool& skipQuery)
 
 void DatabaseManager::performCleanup()
 {
-	if (netManager) {
-		netManager->deleteLater();
-		netManager = nullptr;
-	}
 	if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
+	}
+	if (netManager) {
+		netManager->deleteLater();
+		netManager = nullptr;
 	}
 }

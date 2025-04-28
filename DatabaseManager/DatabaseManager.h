@@ -172,6 +172,13 @@ private:
 	QString apiUrl = "";
 
 	/**
+	 * @brief The API Key.
+	 *
+	 * This is used to authenticate the service connection with the api server.
+	 */
+	QString apiKey = "";
+
+	/**
 	 * @brief A map of database tables and their corresponding check status.
 	 *
 	 * This map is used to keep track of the status of each database table.
@@ -201,6 +208,8 @@ private:
 	std::string trakId;
 	int custId;
 	QString trakIdNum;
+
+	QNetworkRequest request;
 
 public:
 	/**
@@ -550,7 +559,7 @@ private:
 	 *
 	 * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
 	*/
-	int makeNetworkRequest(QString &url, QStringMap &query, QJsonDocument* results = nullptr);
+	int makeNetworkRequest(const QString &url, QStringMap &query, QJsonDocument* results = nullptr);
 
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.
