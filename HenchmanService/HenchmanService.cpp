@@ -436,7 +436,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 		if (!testing)
 			Sleep(30*1000);
 		else
-			Sleep(10*1000);
+			Sleep(1*1000);
 	
 	}
 	

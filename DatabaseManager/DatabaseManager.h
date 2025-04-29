@@ -561,6 +561,8 @@ private:
 	*/
 	int makeNetworkRequest(const QString &url, QStringMap &query, QJsonDocument* results = nullptr);
 
+	int makePostRequest(const QString& url, QJsonObject& body, QJsonDocument* results = nullptr);
+
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.
 	 *
