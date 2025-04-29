@@ -712,7 +712,7 @@ int DatabaseManager::addUsersIfNotExists()
 
 		QStringMap res;
 		res["id"] = result["id"];
-		result.remove("id");
+		//result.remove("id");
 
 		//qDebug() << result;
 
@@ -842,11 +842,11 @@ int DatabaseManager::addEmployeesIfNotExists()
 		//qDebug() << result;
 		QStringMap res;
 		res["id"] = result["id"];
-		result.remove("id");
+		//result.remove("id");
 
-		QString results[2];
+		/*QString results[2];
 
-		processKeysAndValues(result, results);
+		processKeysAndValues(result, results);*/
 
 		/*res["query"] = 
 			"INSERT INTO employees ("+
