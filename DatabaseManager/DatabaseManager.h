@@ -561,7 +561,15 @@ private:
 	*/
 	int makeNetworkRequest(const QString &url, QStringMap &query, QJsonDocument* results = nullptr);
 
-	int makePostRequest(const QString& url, QJsonObject& body, QJsonDocument* results = nullptr);
+	int authenticateSession(const QString& url = "");
+	
+	int makeGetRequest(const QString& url, QJsonDocument* results = nullptr);
+
+	int makePostRequest(const QString& url, const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+
+	int makePatchRequest(const QString& url, QJsonObject& body, QJsonDocument* results = nullptr);
+
+	int makeDeleteRequest(const QString& url, QJsonObject& body, QJsonDocument* results = nullptr);
 
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.
