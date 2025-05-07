@@ -1113,69 +1113,46 @@ int DatabaseManager::addCribsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	/*performCleanup();
-
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
-
-	restManager = new QRestAccessManager(netManager, this);*/
-
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	/*TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);*/
-
 	for (auto& result : sqlQueryResults) {
-		if (result.firstKey() == "success" || !result.contains("custId"))
+		if (result.firstKey() == "success")
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
 
-		QString results[2];
+		QJsonObject data;
+		for (auto it = result.cbegin(); it != result.cend(); ++it)
+		{
+			data[it.key()] = it.value();
+		}
 
-		processKeysAndValues(result, results);
-
-		/*std::array trakNini(GetTrakDirAndIni(rtManager));
-
-		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
-		QString cribId = ini.value("Customer/cribID", 0).toString();*/
-
-		if (result.value("custId") != "'" + QString::number(custId) + "'" || result.value("cribId") != "'" + QString(trakIdNum) + "'")
-			continue;
-
-		res["query"] = "INSERT INTO cribs (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribs " +
-			"WHERE custId=" + result.value("custId") +
-			"AND cribId=" + result.value("cribId") +
-			"ORDER BY id DESC LIMIT 1)";
-		LOG << res["query"];
+		QJsonObject body;
+		body["data"] = data;
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
+
+		if (makePostRequest(apiUrl + "/cribtrak", body, &reply)) {
+			if (!reply.isObject()) {
+				LOG << "Reply was not an Object";
 				continue;
+			}
+			LOG << reply.toJson().toStdString();
 			QJsonObject result = reply.object();
-			LOG << result["result"].toString().toStdString();
-			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+			if (result["status"].toDouble() == 200) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			continue;
+			//break;
 		}
 
 	}
-	
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	return 1;
 }
 int DatabaseManager::addCribToolLocationIfNotExists()
@@ -1203,21 +1180,6 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	/*performCleanup();
-
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
-
-	restManager = new QRestAccessManager(netManager, this);*/
-
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	/*TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);*/
-
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1226,64 +1188,40 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 
 		result["locationId"] = result["id"];
 
-		QString results[2];
-
-		processKeysAndValues(result, results);
-
-		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
-
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
-		/*std::array trakNini(GetTrakDirAndIni(rtManager));
-
-		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
-		QString cribId = ini.value("Customer/cribID", 0).toString();*/
-
-		if (result.value("custId") != "'" + QString::number(custId) + "'" || result.value("cribId") != "'" + QString(trakIdNum) + "'") {
-			databaseTablesChecked[targetKey]++;
-			continue;
+		QJsonObject data;
+		for (auto it = result.cbegin(); it != result.cend(); ++it)
+		{
+			data[it.key()] = it.value();
 		}
 
-		res["query"] = "INSERT INTO cribtoollocation (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (" +
-			"SELECT * FROM cribtoollocation " +
-			"WHERE custId=" + result.value("custId") +
-			(!result.value("cribId").isEmpty()
-				? "AND cribId=" + result.value("cribId")
-				: "") +
-			(!result.value("locationId").isEmpty()
-				? "AND locationId=" + result.value("locationId")
-				: "") +
-			" ORDER BY id DESC LIMIT 1)";
-		LOG << res["query"];
+		QJsonObject body;
+		body["data"] = data;
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
+
+		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+			if (!reply.isObject()) {
+				LOG << "Reply was not an Object";
 				continue;
+			}
+			LOG << reply.toJson().toStdString();
 			QJsonObject result = reply.object();
-			LOG << result["result"].toString().toStdString();
-			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+			if (result["status"].toDouble() == 200) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
-			else {
-				LOG << "No rows were altered on db";
-				databaseTablesChecked[targetKey]++;
-			}
-			
+			LOG << "No rows were altered on db";
+			databaseTablesChecked[targetKey]++;
+			continue;
+			//break;
 		}
 
 	}
-	
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	return 1;
 }
 int DatabaseManager::addCribToolsIfNotExists()
@@ -1302,21 +1240,6 @@ int DatabaseManager::addCribToolsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	/*performCleanup();
-
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
-
-	restManager = new QRestAccessManager(netManager, this);*/
-
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	/*TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);*/
-
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
 			continue;
@@ -1329,81 +1252,47 @@ int DatabaseManager::addCribToolsIfNotExists()
 			//result["toolId"] = result["id"];
 		}
 		vector fetchTool = ExecuteTargetSql(("SELECT id FROM tools WHERE ((PartNo IS NOT NULL OR PartNo <> '') AND PartNo = '" + result["itemId"] + "') OR ((stockcode IS NOT NULL OR stockcode <> '') AND stockcode = '"+result["itemId"] + "') OR (id = '"+result["toolId"] + "') GROUP BY description;").toStdString());
-		result["toolId"] = fetchTool[1]["id"];
+		if(!fetchTool[1]["id"].isEmpty())
+			result["toolId"] = fetchTool[1]["id"];
 		
 		if (result.contains("nextcalibrationdate")) {
 			result["currentcalibrationdate"] = result["nextcalibrationdate"];
 			result.remove("nextcalibrationdate");
 		}
-		QString results[2];
-
-		processKeysAndValues(result, results);		
-
-		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);*/
-
-		//QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
-
-		/*std::array trakNini(GetTrakDirAndIni(rtManager));
-
-		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();
-		QString cribId = ini.value("Customer/cribID", 0).toString();*/
-
-		if (result.value("custId") != "'" + QString::number(custId) + "'" || result.value("cribId") != "'" + QString(trakIdNum) + "'") {
-			continue;
+		QJsonObject data;
+		for (auto it = result.cbegin(); it != result.cend(); ++it)
+		{
+			data[it.key()] = it.value();
 		}
 
-		res["query"] = "INSERT INTO cribtools (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM cribtools" +
-			" WHERE custId=" + result.value("custId") +
-			" AND cribId=" + result.value("cribId") +
-			(!result.value("itemId").isEmpty()
-				? " AND itemId=" + result.value("itemId")
-				: "") +
-			(!result.value("barcodeTAG").isEmpty()
-				? " AND barcodeTAG=" + result.value("barcodeTAG")
-				: "") +
-			(!result.value("serialNo").isEmpty()
-				? " AND serialNo=" + result.value("serialNo")
-				: "") +
-			(!result.value("toolId").isEmpty()
-				? " AND toolId=" + result.value("toolId")
-				: "") +
-			" ORDER BY toolId DESC LIMIT 1)";
-		LOG << res["query"];
+		QJsonObject body;
+		body["data"] = data;
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
-				continue;
-			QJsonObject result = reply.object();
-			LOG << result["result"].toString().toStdString();
-			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-				databaseTablesChecked[targetKey]++;
-			}
-			else {
-				LOG << "No rows were altered on db";
-				databaseTablesChecked[targetKey]++;
-			}
 
-			//databaseTablesChecked[targetKey] += queryLimit;
-			//Sleep(100);
-			/*continue;*/
+		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+			if (!reply.isObject()) {
+				LOG << "Reply was not an Object";
+				continue;
+			}
+			LOG << reply.toJson().toStdString();
+			QJsonObject result = reply.object();
+			if (result["status"].toDouble() == 200) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			LOG << "No rows were altered on db";
+			databaseTablesChecked[targetKey]++;
+			continue;
 			//break;
 		}
 
 	}
-	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numCribTools", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);*/
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	return 1;
 }
 int DatabaseManager::addCribToolTransferIfNotExists()
@@ -1422,113 +1311,46 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	/*performCleanup();
-
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
-
-	restManager = new QRestAccessManager(netManager, this);*/
-
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	/*TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);*/
-
-	//rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
-	//std::string trakType(buffer);
-
-	//RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
-
-	//size = 1024;
-	//rtManagerCustomer.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
-	////string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
-	//std::string custId(buffer);
-	//
-	//size = 1024;
-	//rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
-	////string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
-	//std::string trakIdType(buffer);
-
-	//size = 1024;
-	//rtManagerCustomer.GetVal(trakIdType.data(), REG_SZ, (TCHAR*)buffer, size);
-	////string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
-	//std::string trakId(buffer);
-
-	/*std::array trakNini(GetTrakDirAndIni(rtManagerCustomer));
-
-	QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-	QString custId = ini.value("Customer/ID", 0).toString();
-	QString trakIdType = ini.value("Customer/trakID", 0).toString();
-	QString trakId = ini.value("Customer/" + trakIdType, 0).toString();*/
-	
-	//trakIdType.resize(trakId.size() - 2);
-	//trakIdType.append("Id");
-
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
 
-		QString results[2];
-
-		processKeysAndValues(result, results);
-
-		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);*/
-
-		//QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);
-
-		if (result.value("custId") != "'" + QString::number(custId) + "'" || result.value(trakId.data()) != "'" + QString(trakIdNum) + "'") {
-			continue;
+		QJsonObject data;
+		for (auto it = result.cbegin(); it != result.cend(); ++it)
+		{
+			data[it.key()] = it.value();
 		}
 
-		res["query"] = "INSERT INTO tooltransfer (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM tooltransfer" +
-			" WHERE custId=" + result.value("custId") +
-			" AND cribId = " + result.value("cribId") +
-			" AND barcodeTAG=" + result.value("barcodeTAG") +
-			(!result.value("userId").isEmpty() ? " AND userId=" + result.value("userId") : "") +
-			(!result.value("transfer_userId").isEmpty() ? " AND transfer_userId=" + result.value("transfer_userId") : "") +
-			(!result.value("tailId").isEmpty() ? " AND tailId=" + result.value("tailId") : "") +
-			(!result.value("transfer_tailId").isEmpty() ? " AND transfer_tailId=" + result.value("transfer_tailId") : "") +
-			" ORDER BY id DESC LIMIT 1)";
-		LOG << res["query"];
+		QJsonObject body;
+		body["data"] = data;
 
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
-				continue;
-			QJsonObject result = reply.object();
-			LOG << result["result"].toString().toStdString();
-			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-				databaseTablesChecked[targetKey]++;
-			}
-			else {
-				LOG << "No rows were altered on db";
-				databaseTablesChecked[targetKey]++;
-			}
 
-			//databaseTablesChecked[targetKey] += queryLimit;
-			//Sleep(100);
-			/*continue;*/
+		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+			if (!reply.isObject()) {
+				LOG << "Reply was not an Object";
+				continue;
+			}
+			LOG << reply.toJson().toStdString();
+			QJsonObject result = reply.object();
+			if (result["status"].toDouble() == 200) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			LOG << "No rows were altered on db";
+			databaseTablesChecked[targetKey]++;
+			continue;
 			//break;
 		}
 
 	}
-	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numCribTools", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);*/
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	return 1;
 }
 
@@ -1555,83 +1377,46 @@ int DatabaseManager::addItemKitsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	/*performCleanup();
-
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
-
-	restManager = new QRestAccessManager(netManager, this);*/
-
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	/*TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);*/
-
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
 
-		QString results[2];
-
-		processKeysAndValues(result, results);
-
-		res["query"] = "INSERT INTO itemkits (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS ("+
-			"SELECT * FROM itemkits "+
-			"WHERE scaleId=" + result.value("scaleId") +
-			"AND custId=" + result.value("custId") +
-			"AND kitTAG=" + result.value("kitTAG") +
-			"AND serial=" + result.value("serial") +
-			" ORDER BY id DESC LIMIT 1)";
-		LOG << res["query"];
-
-		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
-
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
-		/*std::array trakNini(GetTrakDirAndIni(rtManager));
-
-		QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();*/
-
-		if (result.value("custId") != "'" + QString::number(custId) + "'") {
-			databaseTablesChecked[targetKey]++;
-			continue;
+		QJsonObject data;
+		for (auto it = result.cbegin(); it != result.cend(); ++it)
+		{
+			data[it.key()] = it.value();
 		}
 
+		QJsonObject body;
+		body["data"] = data;
+
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
+
+		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+			if (!reply.isObject()) {
+				LOG << "Reply was not an Object";
 				continue;
+			}
+			LOG << reply.toJson().toStdString();
 			QJsonObject result = reply.object();
-			LOG << result["result"].toString().toStdString();
-			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+			if (result["status"].toDouble() == 200) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
-			//databaseTablesChecked[targetKey] += queryLimit;
-			//Sleep(100);
+			continue;
 			//break;
 		}
 
 	}
-	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numItemKits", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);*/
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	return 1;
 }
 int DatabaseManager::addKitCategoryIfNotExists()
@@ -1650,21 +1435,6 @@ int DatabaseManager::addKitCategoryIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	/*performCleanup();
-
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
-
-	restManager = new QRestAccessManager(netManager, this);*/
-
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	/*TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);*/
-
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1674,61 +1444,40 @@ int DatabaseManager::addKitCategoryIfNotExists()
 
 		result["categoryId"] = result["id"];
 		
-		QString results[2];
-
-		processKeysAndValues(result, results);
-
-		res["query"] = "INSERT INTO kitcategory (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (" +
-			"SELECT * FROM kitcategory " +
-			"WHERE custId=" + result.value("custId") +
-			"AND categoryId=" + result.value("categoryId") +
-			"AND description=" + result.value("description") +
-			" ORDER BY id DESC LIMIT 1)";
-		LOG << res["query"];
-
-		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
-
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
-		//std::array trakNini(GetTrakDirAndIni(rtManager));
-
-		//QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		//QString custId = ini.value("Customer/ID", 0).toString();
-
-		if (result.value("custId") != "'" + QString::number(custId) + "'") {
-			databaseTablesChecked[targetKey]++;
-			continue;
+		QJsonObject data;
+		for (auto it = result.cbegin(); it != result.cend(); ++it)
+		{
+			data[it.key()] = it.value();
 		}
 
+		QJsonObject body;
+		body["data"] = data;
+
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
+
+		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+			if (!reply.isObject()) {
+				LOG << "Reply was not an Object";
 				continue;
+			}
+			LOG << reply.toJson().toStdString();
 			QJsonObject result = reply.object();
-			LOG << result["result"].toString().toStdString();
-			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+			if (result["status"].toDouble() == 200) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
-			//databaseTablesChecked[targetKey] += queryLimit;
-			//Sleep(100);
+			continue;
 			//break;
 		}
 
 	}
-	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numKitCategory", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);*/
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	return 1;
 }
 int DatabaseManager::addKitLocationIfNotExists()
@@ -1747,21 +1496,6 @@ int DatabaseManager::addKitLocationIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	/*performCleanup();
-
-	netManager = new QNetworkAccessManager(this);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
-
-	restManager = new QRestAccessManager(netManager, this);*/
-
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	/*TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);*/
-
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1770,65 +1504,40 @@ int DatabaseManager::addKitLocationIfNotExists()
 
 		result["locationId"] = result["id"];
 
-		QString results[2];
-
-		processKeysAndValues(result, results);
-
-		res["query"] = "INSERT INTO kitlocation (" +
-			results[0] +
-			") SELECT " +
-			results[1] +
-			" FROM DUAL WHERE NOT EXISTS (" +
-			"SELECT * FROM kitlocation " +
-			"WHERE custId=" + result.value("custId") +
-			(!result.value("scaleId").isEmpty() 
-				? "AND scaleId=" + result.value("scaleId") 
-				: "") +
-			(!result.value("locationId").isEmpty()
-				? "AND locationId=" + result.value("locationId")
-				: "") +
-			" ORDER BY id DESC LIMIT 1)";
-		LOG << res["query"];
-
-		/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-		QString trakDir = RegistryManager::GetStrVal(hKey, "TRAK_DIR", REG_SZ).data();
-		QString iniFile = RegistryManager::GetStrVal(hKey, "INI_FILE", REG_SZ).data();
-		RegCloseKey(hKey);
-
-		QSettings ini(trakDir.append("\\").append(iniFile), QSettings::IniFormat, this);*/
-		//std::array trakNini(GetTrakDirAndIni(rtManager));
-
-		/*QSettings ini(trakNini[0].append("\\").append(trakNini[1]), QSettings::IniFormat, this);
-		QString custId = ini.value("Customer/ID", 0).toString();*/
-
-		if (result.value("custId") != "'" + QString::number(custId) + "'") {
-			databaseTablesChecked[targetKey]++;
-			continue;
+		QJsonObject data;
+		for (auto it = result.cbegin(); it != result.cend(); ++it)
+		{
+			data[it.key()] = it.value();
 		}
 
+		QJsonObject body;
+		body["data"] = data;
+
 		QJsonDocument reply;
-		if (makeNetworkRequest(apiUrl, res, &reply)) {
-			if (!reply.isObject())
+
+		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+			if (!reply.isObject()) {
+				LOG << "Reply was not an Object";
 				continue;
+			}
+			LOG << reply.toJson().toStdString();
 			QJsonObject result = reply.object();
-			LOG << result["result"].toString().toStdString();
-			if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
+			if (result["status"].toDouble() == 200) {
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
-			//databaseTablesChecked[targetKey] += queryLimit;
-			//Sleep(100);
+			continue;
 			//break;
 		}
 
 	}
-	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
-	RegistryManager::SetVal(hKey, "numKitLocation", databaseTablesChecked[targetKey], REG_DWORD);
-	RegCloseKey(hKey);*/
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
 	return 1;
 }
 
