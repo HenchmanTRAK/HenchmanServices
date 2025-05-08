@@ -70,6 +70,20 @@ enum table_enums{
 	tblcounterid
 };
 
+enum query_types_enum {
+	SELECT,
+	INSERT,
+	UPDATE,
+	REMOVE
+};
+
+static QMap<QString, query_types_enum> query_types = {
+	{"insert", INSERT},
+	{"select", SELECT},
+	{"update", UPDATE},
+	{"delete", REMOVE},
+};
+
 static QMap<QString, table_enums> table_map = {
 	{"tools", tools},
 	{"users", users},
@@ -567,9 +581,9 @@ private:
 
 	int makePostRequest(const QString& url, const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
 
-	int makePatchRequest(const QString& url, QJsonObject& body, QJsonDocument* results = nullptr);
+	int makePatchRequest(const QString& url, const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
 
-	int makeDeleteRequest(const QString& url, QJsonObject& body, QJsonDocument* results = nullptr);
+	int makeDeleteRequest(const QString& url, const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
 
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.
@@ -585,9 +599,9 @@ private:
 	 */
 	void processKeysAndValues(QStringMap& map, QString(&results)[]);
 
-	void processInsertStatement(QString& query, bool& skipQuery);
+	void processInsertStatement(QString& query, QJsonObject& data, bool& skipQuery);
 
-	void processUpdateStatement(QString& query, bool& skipQuery);
+	void processUpdateStatement(QString& query, QJsonObject& data, bool& skipQuery);
 };
 
 std::string getValidDrivers();
