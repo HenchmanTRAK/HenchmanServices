@@ -333,7 +333,7 @@ int DatabaseManager::makeGetRequest(const QString& url, QJsonDocument* results)
 
 			if (!result)
 				//result = reply.isSuccess();
-				result = 1;
+				result = reply.isSuccess();
 
 			if (reply.isSuccess())
 			{
@@ -361,7 +361,7 @@ int DatabaseManager::makeGetRequest(const QString& url, QJsonDocument* results)
 }
 
 int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body, QJsonDocument* results)
-{
+{		
 	int result = 0;
 	QEventLoop loop(this);
 
@@ -440,7 +440,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body
 
 			if (!result)
 				//result = reply.isSuccess();
-				result = 1;
+				result = reply.isSuccess();
 
 			if (reply.isSuccess())
 			{
@@ -547,7 +547,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QJsonObject& bod
 
 			if (!result)
 				//result = reply.isSuccess();
-				result = 1;
+				result = reply.isSuccess();
 
 			if (reply.isSuccess())
 			{
@@ -1888,6 +1888,11 @@ int DatabaseManager::connectToRemoteDB()
 			////makeNetworkRequest(apiUrl, res);
 			//res["query"] = queryMap.value("query");
 			
+			QString targetTable = "";
+			if (data.contains("table")) {
+				targetTable = data.value("table").toString();
+				data.remove("table");
+			}
 
 			QJsonObject body;
 			body["data"] = data;
@@ -1896,6 +1901,20 @@ int DatabaseManager::connectToRemoteDB()
 			QJsonDocument reply;
 			
 			switch (query_types[queryType]) {
+			case INSERT: {
+				if (!makePostRequest(apiUrl + "/" + targetTable, body, &reply)) {
+					LOG << "request failed";
+					QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
+					ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status 3", timeStamp[0] + "-queries");
+					vector queryResult = ExecuteTargetSql(sqlQuery);
+					if (queryResult.size() > 0) {
+						for (auto result : queryResult)
+							LOG << result["success"];
+					}
+					continue;
+				}
+				break;
+			}
 			case UPDATE: {
 				if (!makePatchRequest(apiUrl+"/"+data["table"].toString(), body, &reply)) {
 					LOG << "request failed";
@@ -2407,89 +2426,114 @@ void DatabaseManager::processKeysAndValues(QStringMap &map, QString (&results)[]
 
 void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data,  bool& skipQuery)
 {
-
-	int startpoint = query.indexOf("(") + 1;
-	int endpoint = query.indexOf(")", startpoint);
+	//int startpoint = query.indexOf("(");
+	//int endpoint = query.indexOf(")", startpoint);
 		//- startpoint;
-	LOG << startpoint << " | " << endpoint;
-	QString queryStart = query.first(startpoint - 1);
-	qDebug() << queryStart;
-	QStringList splitQueryStart = ServiceHelper::ExplodeString(queryStart, " ");
-	qDebug() << splitQueryStart;
+	//LOG << startpoint << " | " << endpoint;
+	QString targetQuery = query;
+	
+	QStringList splitQuery;
+	splitQuery.append(targetQuery.slice(0, query.indexOf("(")).trimmed());
+	splitQuery.append(query.slice(query.indexOf("(")).trimmed().split("VALUES", Qt::SkipEmptyParts, Qt::CaseInsensitive));
+	
+	qDebug() << splitQuery;
 
-	QString columns = query.mid(startpoint, endpoint);
-	QStringList splitColumns = ServiceHelper::ExplodeString(columns, ",");
+	bool hasCustId = 0;
+	bool hasTrakId = 0;
+	bool hasId = 0;
+	bool switchToConditions = 0;
+	int idFromQuery = 0;
 
-	startpoint = query.indexOf("(", startpoint) + 1;
-	endpoint = query.lastIndexOf(")") - startpoint;
-	LOG << startpoint << " | " << endpoint;
-	QString values = query.mid(startpoint, endpoint);
-	QStringList splitValues = ServiceHelper::ExplodeString(values, ",");
+	QJsonArray cols;
+	QJsonArray vals;
 
-	QStringMap map;
-	columns.clear();
-	values.clear();
+	QStringList insertColumns = splitQuery.at(1).trimmed().split(",", Qt::SkipEmptyParts);
+	for (auto it = insertColumns.cbegin(); it != insertColumns.cend(); ++it) {
+		QString targetCol = it->trimmed();
+		if (targetCol.startsWith("("))
+			targetCol.slice(1);
+		if (targetCol.endsWith(")"))
+			targetCol.slice(0, targetCol.length() - 1);
 
-	int hasCustId = 0;
-	int hasTrakId = 0;
+		cols.append(targetCol);
+	}
+	qDebug() << cols;
 
-	for (int i = 0; i < splitColumns.size(); i++) {
-		QString col = splitColumns.at(i).simplified();
-		QString val = splitValues.at(i).simplified();
+	QStringList insertValues = splitQuery.at(2).trimmed().split(",", Qt::SkipEmptyParts);
+	QString tempVal;
+	for (auto it = insertValues.cbegin(); it != insertValues.cend(); ++it) {
+		QString targetVal = *it;
 
-		if (val.isEmpty() || val == "''")
+		if (targetVal.startsWith("("))
+			targetVal.slice(1);
+		if (targetVal.endsWith(")"))
+			targetVal.slice(0, targetVal.length() - 1);
+
+		if (!tempVal.isEmpty()) {
+			tempVal.append(",");
+			tempVal.append(targetVal);
 			continue;
-		if (val[0] == "'" && !val.endsWith("'")) {
-			val = val + "\, " + splitValues.at(i + 1).simplified();
-			splitValues.removeAt(i + 1);
-		}
-		if (val[0] != '\'' && val != "NULL")
-			val = "'" + val;
-		if (val[val.size() - 1] != '\'' && val != "NULL")
-			val.append("'");
-
-		string valueCheck;
-		if (col.contains(trakId.data(), Qt::CaseInsensitive)) {
-			hasTrakId = 1;
-			col = trakId.data();
-			valueCheck = "'" + trakIdNum.toStdString() + "'";
-		}
-		if (col.contains("custId", Qt::CaseInsensitive)) {
-			hasCustId = 1;
-			col = "custId";
-			valueCheck = "'" + std::to_string(custId) + "'";
 		}
 
-		if ((col == trakId.data() || col == "custId") && (valueCheck.data() != val))
-		{
-			ServiceHelper().WriteToLog(
-				"Query is not for current device. Device value: " +
-				valueCheck +
-				". Query value: " +
-				val.toStdString()
-			);
-			skipQuery = true;
-			break;
+		targetVal = targetVal.trimmed();
+		
+		if (targetVal.startsWith("'") && !targetVal.endsWith("'")) {
+			tempVal.append(targetVal.slice(1));
+			continue;
 		}
-		map[col] = val;
-		if (col != "id")
-		{
-			columns.append(col.toStdString() + (i < splitColumns.size() ? ", " : ""));
-			values.append(val.toStdString() + (i < splitColumns.size() ? ", " : ""));
+
+		if (targetVal.endsWith("'") && !targetVal.startsWith("'")) {
+			tempVal.append(targetVal.slice(0, targetVal.length() - 1));
+			vals.append(tempVal);
+			tempVal = "";
+			continue;
 		}
+		if (targetVal.startsWith("'") && targetVal.endsWith("'")) {
+			targetVal.slice(1, targetVal.length() - 2);
+		}
+
+		vals.append(targetVal);
+
 	}
 
-	if (skipQuery)
-		return;
+	qDebug() << vals;
 
-	if (columns.endsWith(", "))
-		columns.resize(columns.size() - 2);
-	if (values.endsWith(", "))
-		values.resize(values.size() - 2);
+	QJsonObject entry;
 
+	int limit = cols.count();
+	if (vals.count() > limit)
+		limit = vals.count();
+
+	for (int i = 0; i < limit; i++) {
+		entry[cols.at(i).toString().trimmed()] = vals.at(i).toString().trimmed();
+	}
+	qDebug() << entry;
+
+	if (entry.keys().contains("custId", Qt::CaseInsensitive))
+		hasCustId = 1;
+	if (entry.keys().contains(trakId.data(), Qt::CaseInsensitive))
+		hasTrakId = 1;
+	if (entry.keys().contains("id", Qt::CaseInsensitive))
+		hasId = 1;
+
+
+
+	entry["table"] = splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed();
+	QMap<QString, QString> map;
+	QString columns;
+	QString values;
 	QString newQuery;
 
-	switch (table_map[splitQueryStart.at(splitQueryStart.size() - 1)])
+	//QStringList columns = splitQuery.at(1).split(",", Qt::SkipEmptyParts);
+	
+
+	
+
+	
+
+	
+
+	switch (table_map[splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed()])
 	{
 	case tools:
 	{
@@ -2539,35 +2583,16 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	}
 	case users:
 	{
-		newQuery =
-			"INSERT INTO users (" +
-			QString(columns.data()) +
-			") SELECT " +
-			QString(values.data()) +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM users WHERE" +
-		(hasCustId 
-			? " custId=" + map.value("custId")
-			: " custId=" + custId) +
-			" AND userId=" + map.value("userId") +
-		(map.value(trakId.data()).isEmpty()
-			? (" AND " + trakId + " = ").data() + trakIdNum
-			: (" AND " + trakId + " = ").data() + map.value(trakId.data())) +
-			" ORDER BY id DESC LIMIT 1)";
+		if (!hasCustId)
+			entry["custId"] = custId;
+		if (!hasTrakId)
+			entry[trakId.data()] = trakIdNum;
 		break;
 	}
 	case employees:
 	{
-		newQuery =
-			"INSERT INTO employees (" +
-			QString(columns.data()) +
-			") SELECT " +
-			QString(values.data()) +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM employees WHERE" +
-		(hasCustId ?
-			" custId=" + map.value("custId")
-			: " custId=" + custId) +
-			" AND userId=" + map.value("userId") +
-			" ORDER BY id DESC LIMIT 1)";
+		if (!hasCustId)
+			entry["custId"] = custId;
 		break;
 	}
 	case jobs:
@@ -2817,35 +2842,21 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	case portaemployeeitemtransactions:
 	case lokkaemployeeitemtransactions:*/
 	default:
-		newQuery =
-			queryStart + "(" +
-			columns +
-			") SELECT " +
-			values +
-			" FROM DUAL WHERE NOT EXISTS (" +
-			"SELECT "+ columns +
-			" FROM " + splitQueryStart.at(splitQueryStart.size() - 1) + " WHERE";
-
-		QStringList conditionals;
-		conditionals.append(
-			(hasCustId
-				? " custId=" + map.value("custId")
-				: " custId=" + custId)
-		);
-		conditionals.append(
-			(trakId + " = ").data() + (hasTrakId
-				? map.value(trakId.data())
-				: trakIdNum)
-		);
-		for (auto [key, value] : map.asKeyValueRange()) {
-			if (key == "custId" || key == trakId.data())
-				continue;
-			conditionals.append(key + "=" + value);
-		}
-		newQuery += conditionals.join(" AND ") + " ORDER BY id DESC LIMIT 1)";
+		if (!hasCustId)
+			entry["custId"] = custId;
+		if (!hasTrakId)
+			entry[trakId.data()] = trakIdNum;
 
 		break;
 	}
+	qDebug() << entry;
+	qDebug() << data;
+
+	data.swap(entry);
+
+	qDebug() << entry;
+	qDebug() << data;
+
 	LOG << newQuery;
 	query = newQuery;
 	LOG << query;
@@ -3318,14 +3329,11 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		break;
 	}
 	default:
-		if (hadId)
-			skipQuery = true;
+		data["table"] = "users";
 		if (!hadCustId)
-			parsedConditionals.append("custId = '" + QString::number(custId) + "'");
+			ConditionPairs["custId"] = custId;
 		if (!hadTrakId)
-			parsedConditionals.append(trakId.data() + (" = '" + trakIdNum + "'"));
-		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
-		LOG << returnVal.join(" ");
+			ConditionPairs[trakId.data()] = trakIdNum;
 		break;
 	}
 	
