@@ -1916,7 +1916,7 @@ int DatabaseManager::connectToRemoteDB()
 				break;
 			}
 			case UPDATE: {
-				if (!makePatchRequest(apiUrl+"/"+data["table"].toString(), body, &reply)) {
+				if (!makePatchRequest(apiUrl + "/" + targetTable, body, &reply)) {
 					LOG << "request failed";
 					QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
 					ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status 3", timeStamp[0] + "-queries");
@@ -2509,16 +2509,13 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	}
 	qDebug() << entry;
 
-	if (entry.keys().contains("custId", Qt::CaseInsensitive))
-		hasCustId = 1;
-	if (entry.keys().contains(trakId.data(), Qt::CaseInsensitive))
-		hasTrakId = 1;
+	hasCustId = entry.contains("custId");
+	hasTrakId = entry.contains(trakId.data());
 	if (entry.keys().contains("id", Qt::CaseInsensitive))
 		hasId = 1;
 
 
 
-	entry["table"] = splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed();
 	QMap<QString, QString> map;
 	QString columns;
 	QString values;
@@ -2597,25 +2594,38 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	}
 	case jobs:
 	{
-		newQuery =
-			"INSERT INTO jobs (" +
-			QString(columns.data()) +
-			") SELECT " +
-			QString(values.data()) +
-			" FROM DUAL WHERE NOT EXISTS (SELECT * FROM jobs WHERE" +
-		(hasCustId ?
-			" custId=" + map.value("custId")
-			: " custId=" + custId) +
-		(map.value("trailId").isEmpty()
-			? ""
-			: " AND trailId=" + map.value("trailId")) +
-		(map.value("description").isEmpty()
-			? ""
-			: " AND description=" + map.value("description")) +
-		(map.value("remark").isEmpty()
-			? ""
-			: " AND remark=" + map.value("remark")) +
-			" ORDER BY id DESC LIMIT 1)";
+		if (!hasCustId)
+			entry["custId"] = custId;
+		
+		if (entry.contains("trailId"))
+			break;
+
+		QString jobQuery = "SELECT * FROM jobs WHERE ";
+		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if(value.startsWith("'"))
+				jobQuery.append(it.key() + " = " + value);
+			else
+				jobQuery.append(it.key() + " = '" + value + "'");
+			if ((it + 1) != entry.constEnd())
+				jobQuery.append(" AND ");
+		}
+		qDebug() << jobQuery;
+		vector fetchedJob = ExecuteTargetSql(jobQuery);
+	
+		if (fetchedJob.size() <= 1) {
+			skipQuery = true;
+			break;
+		}
+
+		for (auto it = fetchedJob[1].cbegin(); it != fetchedJob[1].cend(); ++it) {
+			if (entry.contains(it.key()) || it.value().isEmpty())
+				continue;
+			entry[it.key()] = it.value();
+		}
+
 		break;
 	}
 	case kabs:
@@ -2849,6 +2859,9 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 		break;
 	}
+
+	entry["table"] = splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed();
+
 	qDebug() << entry;
 	qDebug() << data;
 
@@ -2924,6 +2937,9 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			if (nextIt != querySetSection.cend()) {
 				QString currVal = setTrimmed;
 				currVal = currVal.slice(0, setTrimmed.lastIndexOf(",")).trimmed();
+				if (currVal.startsWith("'") && currVal.endsWith("'")) {
+					currVal.slice(1, currVal.length() - 2);
+				}
 				qDebug() << currVal;
 				SetPairs[priorVal] = currVal;
 				QString nextVal = setTrimmed;
@@ -2933,7 +2949,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 			}
 			else {
-				if (setTrimmed.startsWith("'")) {
+				if (setTrimmed.startsWith("'") && setTrimmed.endsWith("'")) {
 					setTrimmed.slice(1, setTrimmed.length() - 2);
 				}
 				qDebug() << setTrimmed;
@@ -2955,7 +2971,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		QString key = colAndVal.at(0);
 		QString val = conditionTrimmed.slice(colAndVal.at(0).length() + colAndVal.at(1).length() + 2);
 		val.trimmed();
-		if (val.startsWith("'")) {
+		if (val.startsWith("'") && val.endsWith("'")) {
 			val.slice(1, val.length() - 2);
 		}
 
@@ -2964,10 +2980,8 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		ConditionPairs[key] = val;
 	}
 	
-	if (ConditionPairs.keys().contains("custId", Qt::CaseInsensitive))
-		hadCustId = 1;
-	if (ConditionPairs.keys().contains(trakId.data(), Qt::CaseInsensitive))
-		hadTrakId = 1;
+	hadCustId = ConditionPairs.contains("custId");
+	hadTrakId = ConditionPairs.contains(trakId.data());
 	if (ConditionPairs.keys().contains("id", Qt::CaseInsensitive))
 		hadId = 1;
 
@@ -3060,7 +3074,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 	}
 	case users:
 	{
-		data["table"] = "users";
+		/*data["table"] = "users";*/
 		if (!hadCustId)
 			ConditionPairs["custId"] = custId;
 		if (!hadTrakId)
@@ -3130,10 +3144,12 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 	}
 	case customer: 
 	{
-		if(!hadId)
+		/*if(!hadId)
 			parsedConditionals.append("id=" + QString::number(custId));
 		returnVal.append({ querySections[0], "SET", parsedSets.join(", "), "WHERE", parsedConditionals.join(" AND ") });
-		LOG << returnVal.join(" ");
+		LOG << returnVal.join(" ");*/
+		if (!hadId)
+			ConditionPairs["id"] = custId;
 		break;
 	}
 	//case kabs:
@@ -3329,14 +3345,13 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		break;
 	}
 	default:
-		data["table"] = "users";
 		if (!hadCustId)
 			ConditionPairs["custId"] = custId;
 		if (!hadTrakId)
 			ConditionPairs[trakId.data()] = trakIdNum;
 		break;
 	}
-	
+	data["table"] = querySections[0].split(" ").at(1);
 	data["update"] = SetPairs;
 	data["where"] = ConditionPairs;
 
