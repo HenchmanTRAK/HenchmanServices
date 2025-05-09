@@ -76,6 +76,8 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	//catch (const HenchmanServiceException& e)
 	{
 		ServiceHelper().WriteToError(e.what());
+		if (db.isOpen())
+			db.close();
 	}
 
 	//RegCloseKey(hKey);
