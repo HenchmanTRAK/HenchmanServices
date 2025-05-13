@@ -91,7 +91,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	
 	targetApp = "";
 	requestRunning = false;
-	for (auto i = databaseTablesChecked.begin(), end= databaseTablesChecked.end(); i!=end; ++i)
+	for (auto i = databaseTablesChecked.cbegin(); i != databaseTablesChecked.cend(); ++i)
 	{
 		try {
 			if(rtManager.GetVal(i.key().toStdString().append("Checked").c_str(), REG_DWORD, (DWORD *)&databaseTablesChecked[i.key()], sizeof(DWORD)))
@@ -752,6 +752,8 @@ int DatabaseManager::addToolsIfNotExists()
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
+		}
+		else {
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			continue;
@@ -809,12 +811,18 @@ int DatabaseManager::addUsersIfNotExists()
 
 		//qDebug() << result;
 
-		if (trakId != "kabId")
+		if (trakId != "kabId") {
 			result["kabId"] = "";
-		if (trakId != "cribId")
+			result["accessCountKab"] = 0;
+		}
+		if (trakId != "cribId") {
 			result["cribId"] = "";
-		if(trakId != "scaleId")
+			result["accessCountCrib"] = 0;
+		}
+		if (trakId != "scaleId") {
 			result["scaleId"] = "";
+			result["accessCountPorta"] = 0;
+		}
 		
 		if (result.value(trakId.data()).isEmpty())
 			result[trakId.data()] = trakIdNum;
@@ -844,10 +852,11 @@ int DatabaseManager::addUsersIfNotExists()
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
+		}
+		else {
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			continue;
-			//break;
 		}
 		
 		//if (makeNetworkRequest(apiUrl+"/users", result, &reply)) {
@@ -919,10 +928,11 @@ int DatabaseManager::addEmployeesIfNotExists()
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
+		}
+		else {
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			continue;
-			//break;
 		}
 
 		//if (makeNetworkRequest(apiUrl, res, &reply)) {
@@ -997,10 +1007,11 @@ int DatabaseManager::addJobsIfNotExists()
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
+		}
+		else {
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			continue;
-			//break;
 		}
 
 		//QJsonDocument reply;
@@ -1048,6 +1059,25 @@ int DatabaseManager::addKabsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+
+	rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
+	std::string trakDir(buffer);
+	size = 1024;
+
+	rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
+	std::string iniFile(buffer);
+	//size = 1024;
+
+	QSettings ini((trakDir + "\\" + iniFile).data(), QSettings::IniFormat, this);
+	ini.sync();
+	QString trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
+
+	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
+
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1057,6 +1087,18 @@ int DatabaseManager::addKabsIfNotExists()
 		QJsonObject data;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
+			if (ensureValForTargetCols.contains(it.key()) && (it.value().isEmpty() || it.value() == "''")) {
+				if (it.key() == "description") {
+					data[it.key()] = "KT-" + trakIdNum.last(3);
+				}
+				if (it.key() == "serialNumber") {
+					data[it.key()] = "KT-" + trakIdNum.last(3);
+				}
+				if (it.key() == "modelNumber" && !trakModelNumber.isEmpty()) {
+					data[it.key()] = trakModelNumber;
+				}
+				continue;
+			}
 			data[it.key()] = it.value();
 		}
 
@@ -1076,15 +1118,16 @@ int DatabaseManager::addKabsIfNotExists()
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
+		}
+		else {
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			continue;
-			//break;
 		}
 
 	}
 
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	//RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
 	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
@@ -1136,10 +1179,11 @@ int DatabaseManager::addDrawersIfNotExists()
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
+		}
+		else {
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			continue;
-			//break;
 		}
 
 	}
@@ -1178,6 +1222,8 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		QJsonObject data;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
+			if (it.value().isEmpty() || it.value() == "''")
+				continue;
 			data[it.key()] = it.value();
 		}
 
@@ -1187,6 +1233,10 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		qDebug() << body;
 
 		QJsonDocument reply;
+		qDebug() << "Tool: itemId: " << data.value("itemId") << " toolId:" << data.value("toolId") << " drawerNum: " << data.value("drawerNum") << " toolNumber: " << data.value("toolNumber");
+		if (data.value("drawerNum").toString() == "7" && data.value("toolNumber").toString() == "79") {
+			qDebug() << "forced breakout";
+		}
 
 		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
 			if (!reply.isObject()) {
@@ -1199,11 +1249,13 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 				databaseTablesChecked[targetKey]++;
 				continue;
 			}
+		}
+		else {
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 			continue;
-			//break;
 		}
+
 
 	}
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
@@ -1667,6 +1719,11 @@ int DatabaseManager::connectToRemoteDB()
 	QSqlDatabase db;
 	bool result = false;
 	try {
+		if (restManager == nullptr) {
+			//restManager->deleteLater();
+			restManager = new QRestAccessManager(netManager, this);
+		}
+
 		//HKEY hKeyLocal = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 		RegistryManager::CRegistryManager rtManagerAddDB(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\"+ targetApp + "\\Database").c_str());
 
@@ -1873,13 +1930,14 @@ int DatabaseManager::connectToRemoteDB()
 
 		parsedQuery:
 			LOG << res["query"];
-			ServiceHelper().WriteToCustomLog("Query parsed. " + string(skipQuery ? "Query is getting skipped" : "Query is being run"), timeStamp[0] + "-queries");
+			qDebug() << data;
+			ServiceHelper().WriteToCustomLog("Query parsed. " + std::string(skipQuery ? "Query is getting skipped" : "Query is being run"), timeStamp[0] + "-queries");
 			ServiceHelper().WriteToCustomLog("Query after being parsed: \n" + res["query"].toStdString(), timeStamp[0] + "-queries");
 			
 			if (!pushCloudUpdate || skipQuery) {
-				string sqlQuery = "UPDATE cloudupdate SET posted = " + string(skipQuery ? (retryingQuery ? "3" : "2") : "1") + " WHERE posted <> 1 AND id = " + res["id"].toStdString();
+				string sqlQuery = "UPDATE cloudupdate SET posted = " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1") + " WHERE posted <> 1 AND id = " + res["id"].toStdString();
 
-				ServiceHelper().WriteToCustomLog("Updating skipped query with id: " + res["id"].toStdString(), timeStamp[0] + "-queries");
+				ServiceHelper().WriteToCustomLog("Updating skipped query with id: " + res["id"].toStdString() + " with posted status " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1"), timeStamp[0] + "-queries");
 				if (skipQuery && !retryingQuery)
 					ServiceHelper().WriteToCustomLog("Skipping query to try again later:\n\tid: " + res["id"].toStdString() + "\n\t query: " + res["query"].toStdString(), timeStamp[0] + "-queries-skipped");
 				vector queryResult = ExecuteTargetSql(sqlQuery);
@@ -1904,8 +1962,8 @@ int DatabaseManager::connectToRemoteDB()
 				targetTable = data.value("table").toString();
 				data.remove("table");
 			}
-
-			if (!targetTable.contains("kabtrak")) {
+			QStringList tablesNotToDebug = { "kabtrak", "kabtrak/tools", "kabtrak/drawers", "kabtrak/transactions", "users"};
+			if (!tablesNotToDebug.contains(targetTable)) {
 				qDebug() << targetTable;
 				qDebug() << data;
 				int tempVal = 0;
@@ -2039,6 +2097,12 @@ int DatabaseManager::connectToRemoteDB()
 		
 		db.close();
 		//performCleanup();
+
+		if (restManager) {
+			restManager->deleteLater();
+			restManager = nullptr;
+		}
+
 		result = true;
 
 	}
@@ -2179,8 +2243,10 @@ int DatabaseManager::connectToLocalDB()
 	catch (exception& e)
 	{
 
-		if (db.isOpen())
+		if (db.isOpen()) {
+			db.rollback();
 			db.close();
+		}
 
 		ServiceHelper().WriteToError(e.what());
 		return 0;
@@ -2248,8 +2314,8 @@ int DatabaseManager::ExecuteTargetSqlScript(std::string& filepath)
 		if (file.isOpen())
 			file.close();
 		if (db.isOpen()) {
-			if (!db.commit())
-				db.rollback();
+			db.rollback();
+			//if (!db.commit())
 			db.close();
 		}
 		ServiceHelper().WriteToError(e.what());
@@ -2329,8 +2395,8 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(std::string sqlQuery)
 	catch (exception& e)
 	{
 		if (db.isOpen()) {
-			if (!db.commit())
-				db.rollback();
+			db.rollback();
+			//if (!db.commit())
 			db.close();
 		}
 		ServiceHelper().WriteToError(e.what());
@@ -3288,8 +3354,11 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			ConditionPairs["custId"] = custId;
 		if(!hadTrakId)
 			ConditionPairs[trakId.data()] = trakIdNum;
-		if (!hadId)
+
+		if (SetPairs.contains("toolNumber")) {
+			skipQuery = true;
 			break;
+		}
 
 		QString itemDrawerQuery = "SELECT i.*, t.id as toolId FROM itemkabdrawerbins as i LEFT JOIN tools as t ON i.itemId LIKE t.PartNo OR i.itemId LIKE t.stockcode WHERE ";
 		for (auto it = ConditionPairs.constBegin(); it != ConditionPairs.constEnd(); ++it) {
@@ -3309,13 +3378,19 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			skipQuery = true;
 			break;
 		}
-
+		qDebug() << itemDrawerRes;
+		QStringList allowedKeyList = { "custId", "kabId", "drawerNum", "toolNumber", "itemId", "toolId" };
 		for (auto it = itemDrawerRes[1].cbegin(); it != itemDrawerRes[1].cend(); ++it) {
-			if (SetPairs.contains(it.key()) || ConditionPairs.contains(it.key()) || it.value().isEmpty())
+			if (!allowedKeyList.contains(it.key()) || ConditionPairs.contains(it.key()) || it.value().isEmpty())
 				continue;
-			QStringList allowedKeyList = { "custId", "kabId", "drawerNum", "toolNumber", "itemId", "toolId" };
-			if(allowedKeyList.contains(it.key()))
-				ConditionPairs[it.key()] = it.value();
+
+			qDebug() << it.key() << ": " << SetPairs.value(it.key()).toString() << " | " << it.value();
+			if (SetPairs.contains(it.key()) && SetPairs.value(it.key()).toString() == it.value()) {
+				skipQuery = true;
+				break;
+			}
+			ConditionPairs[it.key()] = it.value();
+			
 		}
 
 		break;
