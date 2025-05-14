@@ -602,6 +602,9 @@ private:
 	void processInsertStatement(QString& query, QJsonObject& data, bool& skipQuery);
 
 	void processUpdateStatement(QString& query, QJsonObject& data, bool& skipQuery);
+
+	void processDeleteStatement(QString& query, QJsonObject& data, bool& skipQuery);
+
 };
 
 std::string getValidDrivers();
