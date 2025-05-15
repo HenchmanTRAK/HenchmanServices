@@ -266,6 +266,7 @@ std::string DatabaseManager::parseData(QJsonObject object)
 	return dataRes.str();
 }
 
+int retryCount = 0;
 
 int DatabaseManager::makeGetRequest(const QString& url, QJsonDocument* results)
 {
@@ -387,16 +388,18 @@ int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body
 	QJsonDocument doc(body);
 
 	ServiceHelper().WriteToCustomLog(
-		"Making query to: " + url.toStdString() +
+		"Making Post request to: " + url.toStdString() +
 		"\nRunning query number : " + body["number"].toString().toStdString() +
 		"\nquery : " + doc.toJson().toStdString(),
 		timeStamp[0] + "-queries");
 
-
-	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results, &url, &body](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
+			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
+				throw HenchmanServiceException(reply.errorString().toStdString());
+			}
 			if (reply.error() != QNetworkReply::NoError) {
 				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
 			}
@@ -454,7 +457,15 @@ int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body
 			reply.networkReply()->close();
 		}
 		catch (exception& e) {
-			ServiceHelper().WriteToError(e.what());
+			std::string error(e.what());
+			if (error == "QNetworkReply::OperationCanceledError" && retryCount < 3) {
+				result = makePostRequest(url, body, results);
+				if (result) {
+					reply.networkReply()->close();
+					return;
+				}
+			}
+			ServiceHelper().WriteToError(error);
 			reply.networkReply()->abort();
 			result = 0;
 
@@ -471,6 +482,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body
 	qDebug() << "Reply post is finished? " << reply->isFinished();
 
 	reply->deleteLater();
+	retryCount = 0;
 
 	return result;
 }
@@ -2090,11 +2102,14 @@ int DatabaseManager::connectToRemoteDB()
 				targetTable = data.value("table").toString();
 				data.remove("table");
 			}
+
 			QStringList tablesNotToDebug = { "kabtrak", "kabtrak/tools", "kabtrak/drawers", "kabtrak/transactions", "users", "employees"};
+			
+			qDebug() << targetTable;
+			qDebug() << queryType;
+			qDebug() << data;
+			
 			if (!tablesNotToDebug.contains(targetTable)) {
-				qDebug() << targetTable;
-				qDebug() << queryType;
-				qDebug() << data;
 				int tempVal = 0;
 			}
 
