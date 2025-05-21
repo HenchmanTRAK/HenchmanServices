@@ -213,6 +213,7 @@ private:
 		{"cribtools", 0},
 		{"tooltransfer", 0},
 		// Portatracks
+		{"scales", 0},
 		{"itemkits", 0},
 		{"kitCategory", 0},
 		{"kitLocation", 0},
@@ -480,6 +481,18 @@ public:
 	int addCribToolTransferIfNotExists();
 
 	/**
+	 * @brief Adds portaTRAKs to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of portaTRAKs from the local database and checks if each portaTRAK already exists on the remote database.
+	 * If a portaTRAK does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of cribTRAKs in the database is lesser than or equal to the number of portaTRAKs checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addPortasIfNotExists();
+
+	/**
 	 * @brief Adds missing tool transactions to the database if they do not already exist.
 	 *
 	 * This function retrieves a list of tool transactions from the local database and checks if each transaction already exists on the remote database.
@@ -577,13 +590,13 @@ private:
 
 	int authenticateSession(const QString& url = "");
 	
-	int makeGetRequest(const QString& url, QJsonDocument* results = nullptr);
+	int makeGetRequest(const QString& url, const QStringMap &queryMap = QStringMap(), QJsonDocument* results = nullptr);
 
-	int makePostRequest(const QString& url, const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+	int makePostRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
 
-	int makePatchRequest(const QString& url, const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+	int makePatchRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
 
-	int makeDeleteRequest(const QString& url, const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+	int makeDeleteRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
 
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.

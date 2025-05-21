@@ -268,7 +268,7 @@ std::string DatabaseManager::parseData(QJsonObject object)
 
 int retryCount = 0;
 
-int DatabaseManager::makeGetRequest(const QString& url, QJsonDocument* results)
+int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryMap, QJsonDocument* results)
 {
 	int result = 0;
 	QEventLoop loop(this);
@@ -293,17 +293,8 @@ int DatabaseManager::makeGetRequest(const QString& url, QJsonDocument* results)
 			if (reply.error() != QNetworkReply::NoError) {
 				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
 			}
-			int status = reply.httpStatus();
-			LOG << status;
-			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 
-			if (!reply.isHttpStatusSuccess()) {
-				ServiceHelper().WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
-			}
-
-			if (reply.isHttpStatusSuccess()) {
-				ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
-			}
+			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
 			ServiceHelper().WriteToLog((string)"Parsing Response");
 
 			QByteArray jsonRes = reply.readBody();
@@ -364,7 +355,7 @@ int DatabaseManager::makeGetRequest(const QString& url, QJsonDocument* results)
 	return result;
 }
 
-int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body, QJsonDocument* results)
+int DatabaseManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {		
 	int result = 0;
 	QEventLoop loop(this);
@@ -389,11 +380,11 @@ int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body
 
 	ServiceHelper().WriteToCustomLog(
 		"Making Post request to: " + url.toStdString() +
-		"\nRunning query number : " + body["number"].toString().toStdString() +
+		"\nRunning query number : " + queryMap["number"].toStdString() +
 		"\nquery : " + doc.toJson().toStdString(),
 		timeStamp[0] + "-queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results, &url, &body](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -403,17 +394,8 @@ int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body
 			if (reply.error() != QNetworkReply::NoError) {
 				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
 			}
-			int status = reply.httpStatus();
-			LOG << status;
-			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-
-			if (!reply.isHttpStatusSuccess()) {
-				ServiceHelper().WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
-			}
-
-			if (reply.isHttpStatusSuccess()) {
-				ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
-			}
+			
+			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
 			ServiceHelper().WriteToLog((string)"Parsing Response");
 
 			QByteArray jsonRes = reply.readBody();
@@ -458,13 +440,13 @@ int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body
 		}
 		catch (exception& e) {
 			std::string error(e.what());
-			if (error == "QNetworkReply::OperationCanceledError" && retryCount < 3) {
-				result = makePostRequest(url, body, results);
+			/*if (error == "QNetworkReply::OperationCanceledError" && retryCount < 3) {
+				result = makePostRequest(url, queryMap, body, results);
 				if (result) {
 					reply.networkReply()->close();
 					return;
 				}
-			}
+			}*/
 			ServiceHelper().WriteToError(error);
 			reply.networkReply()->abort();
 			result = 0;
@@ -487,7 +469,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QJsonObject& body
 	return result;
 }
 
-int DatabaseManager::makePatchRequest(const QString& url, const QJsonObject& body, QJsonDocument* results)
+int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
 	int result = 0;
 	QEventLoop loop(this);
@@ -510,7 +492,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QJsonObject& bod
 
 	ServiceHelper().WriteToCustomLog(
 		"Making query to: " + url.toStdString() +
-		"\nRunning query number : " + body["number"].toString().toStdString() +
+		"\nRunning query number : " + queryMap["number"].toStdString() +
 		"\nquery : " + doc.toJson().toStdString(),
 		timeStamp[0] + "-queries");
 
@@ -522,17 +504,8 @@ int DatabaseManager::makePatchRequest(const QString& url, const QJsonObject& bod
 			if (reply.error() != QNetworkReply::NoError) {
 				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
 			}
-			int status = reply.httpStatus();
-			LOG << status;
-			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 
-			if (!reply.isHttpStatusSuccess()) {
-				ServiceHelper().WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
-			}
-
-			if (reply.isHttpStatusSuccess()) {
-				ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
-			}
+			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
 			ServiceHelper().WriteToLog((string)"Parsing Response");
 
 			QByteArray jsonRes = reply.readBody();
@@ -595,7 +568,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QJsonObject& bod
 	return result;
 }
 
-int DatabaseManager::makeDeleteRequest(const QString& url, const QJsonObject& body, QJsonDocument* results)
+int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
 	int result = 0;
 	QEventLoop loop(this);
@@ -625,7 +598,7 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QJsonObject& bo
 
 	ServiceHelper().WriteToCustomLog(
 		("Making query to: " + targetUrl.toString() +
-		"\nRunning query number : " + body["number"].toString() +
+		"\nRunning query number : " + queryMap["number"] +
 		"\nquery : " + doc.toJson()).toStdString(),
 		timeStamp[0] + "-queries");
 
@@ -637,17 +610,8 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QJsonObject& bo
 			if (reply.error() != QNetworkReply::NoError) {
 				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
 			}
-			int status = reply.httpStatus();
-			LOG << status;
-			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 
-			if (!reply.isHttpStatusSuccess()) {
-				ServiceHelper().WriteToLog("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
-			}
-
-			if (reply.isHttpStatusSuccess()) {
-				ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
-			}
+			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
 			ServiceHelper().WriteToLog((string)"Parsing Response");
 
 			QByteArray jsonRes = reply.readBody();
@@ -868,7 +832,7 @@ int DatabaseManager::addToolsIfNotExists()
 		
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/tools", body, &reply)) {
+		if (makePostRequest(apiUrl + "/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -968,7 +932,7 @@ int DatabaseManager::addUsersIfNotExists()
 
 		QJsonDocument reply;
 		
-		if (makePostRequest(apiUrl + "/users", body, &reply)) {
+		if (makePostRequest(apiUrl + "/users", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1044,7 +1008,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/employees", body, &reply)) {
+		if (makePostRequest(apiUrl + "/employees", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1123,7 +1087,7 @@ int DatabaseManager::addJobsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/jobs", body, &reply)) {
+		if (makePostRequest(apiUrl + "/jobs", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1234,7 +1198,7 @@ int DatabaseManager::addKabsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak", body, &reply)) {
+		if (makePostRequest(apiUrl + "/kabtrak", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1295,7 +1259,7 @@ int DatabaseManager::addDrawersIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak/drawers", body, &reply)) {
+		if (makePostRequest(apiUrl + "/kabtrak/drawers", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1365,7 +1329,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 			qDebug() << "forced breakout";
 		}
 
-		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+		if (makePostRequest(apiUrl + "/kabtrak/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1427,7 +1391,7 @@ int DatabaseManager::addCribsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/cribtrak", body, &reply)) {
+		if (makePostRequest(apiUrl + "/cribtrak", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1496,7 +1460,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+		if (makePostRequest(apiUrl + "/cribtrak/tools/locations", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1567,7 +1531,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+		if (makePostRequest(apiUrl + "/cribtrak/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1625,7 +1589,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+		if (makePostRequest(apiUrl + "/cribtrak/tools/transfer", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1658,6 +1622,64 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 */
 
 // PortaTRAK Syncs
+int DatabaseManager::addPortasIfNotExists()
+{
+	LOG << "Adding Portas to Webportal";
+	QString targetKey = "scales";
+	timeStamp = ServiceHelper().timestamp();
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemscales");
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		return 0;
+	}
+	ServiceHelper().WriteToLog("Exporting PortaTRAKS from itemscales");
+	string query =
+		"SELECT * from itemscales ORDER BY id DESC LIMIT " +
+		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
+	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	for (auto& result : sqlQueryResults) {
+		if (result.firstKey() == "success")
+			continue;
+		QStringMap res;
+		res["id"] = result["id"];
+
+		QJsonObject data;
+		for (auto it = result.cbegin(); it != result.cend(); ++it)
+		{
+			data[it.key()] = it.value();
+		}
+
+		QJsonObject body;
+		body["data"] = data;
+
+		QJsonDocument reply;
+
+		if (makePostRequest(apiUrl + "/portatrak", result, body, &reply)) {
+			if (!reply.isObject()) {
+				LOG << "Reply was not an Object";
+				continue;
+			}
+			LOG << reply.toJson().toStdString();
+			QJsonObject result = reply.object();
+			if (result["status"].toDouble() == 200) {
+				databaseTablesChecked[targetKey]++;
+				continue;
+			}
+			LOG << "No rows were altered on db";
+			databaseTablesChecked[targetKey]++;
+			continue;
+			//break;
+		}
+
+	}
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
+	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
+	netManager->finished(NULL);
+	return 1;
+}
 int DatabaseManager::addItemKitsIfNotExists()
 {
 	LOG << "Adding Kits to Webportal";
@@ -1691,7 +1713,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+		if (makePostRequest(apiUrl + "/portatrak/kits", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1752,7 +1774,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+		if (makePostRequest(apiUrl + "/portatrak/kits/categories", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -1812,7 +1834,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak/tools", body, &reply)) {
+		if (makePostRequest(apiUrl + "/portatrak/kits/locations", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				continue;
@@ -2121,10 +2143,13 @@ int DatabaseManager::connectToRemoteDB()
 			
 			switch (query_types[queryType]) {
 			case INSERT: {
-				if (!makePostRequest(apiUrl + "/" + targetTable, body, &reply)) {
+				if (!makePostRequest(apiUrl + "/" + targetTable, res, body, &reply)) {
+					LOG << "reply: " << reply.isEmpty();
+					if(reply.isEmpty())
+						throw HenchmanServiceException("Failed to make post request");
 					LOG << "request failed";
 					QString sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-					ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"), timeStamp[0] + "-queries");
+					ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for (auto result : queryResult)
@@ -2135,10 +2160,13 @@ int DatabaseManager::connectToRemoteDB()
 				break;
 			}
 			case UPDATE: {
-				if (!makePatchRequest(apiUrl + "/" + targetTable, body, &reply)) {
+				if (!makePatchRequest(apiUrl + "/" + targetTable, res, body, &reply)) {
+					LOG << "reply: " << reply.isEmpty();
+					if (reply.isEmpty())
+						throw HenchmanServiceException("Failed to make patch request");
 					LOG << "request failed";
 					QString sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-					ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"), timeStamp[0] + "-queries");
+					ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for (auto result : queryResult)
@@ -2149,10 +2177,13 @@ int DatabaseManager::connectToRemoteDB()
 				break;
 			}
 			case REMOVE: {
-				if (!makeDeleteRequest(apiUrl + "/" + targetTable, body, &reply)) {
+				if (!makeDeleteRequest(apiUrl + "/" + targetTable, res, body, &reply)) {
+					LOG << "reply: " << reply.isEmpty();
+					if (reply.isEmpty())
+						throw HenchmanServiceException("Failed to make patch request");
 					LOG << "request failed";
 					QString sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-					ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"), timeStamp[0] + "-queries");
+					ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for (auto result : queryResult)
@@ -2166,6 +2197,7 @@ int DatabaseManager::connectToRemoteDB()
 				if (!makeNetworkRequest(apiUrl, res, &reply))
 				{	
 					LOG << "request failed";
+					LOG << "reply: " << reply.isEmpty();
 					/*res["query"] = queryMap.value("rollback");
 					makeNetworkRequest(apiUrl, res);*/
 					QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
@@ -2256,11 +2288,6 @@ int DatabaseManager::connectToRemoteDB()
 		db.close();
 		//performCleanup();
 
-		if (restManager) {
-			restManager->deleteLater();
-			restManager = nullptr;
-		}
-
 		result = true;
 
 	}
@@ -2269,6 +2296,11 @@ int DatabaseManager::connectToRemoteDB()
 		if(db.isOpen())
 			db.close();
 		ServiceHelper().WriteToError(e.what());
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	
