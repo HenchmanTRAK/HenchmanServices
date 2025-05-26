@@ -238,7 +238,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error running the application.
 	 */
-	int MainFunction();
+	int MainFunction(QCoreApplication* a);
 };
 
 

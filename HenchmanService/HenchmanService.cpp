@@ -408,8 +408,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	while (testing || WaitForSingleObject(svcController->mServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		
-		hsService.MainFunction();
-
+		hsService.MainFunction(a);
 #if false
 		service.sqliteManager->UpdateEntry(
 			"Test",
@@ -430,13 +429,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 			{"updatedAt <= datetime('now', 'localtime')"}
 			);
 #endif
-		ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
-		a->exec();
-		ServiceHelper().WriteToLog("Service sleeping for 30000 ms...");
-		if (!testing)
-			Sleep(30*1000);
-		else
-			Sleep(10*1000);
+		
 	
 	}
 	
@@ -630,56 +623,68 @@ int HenchmanService::SetRequiredParameters()
 	return 0;
 }
 
-int HenchmanService::MainFunction()
+int HenchmanService::MainFunction(QCoreApplication* a)
 {
 	update = TRUE;
 
 	checkStateOfMySQL();
 	checkStateOfApache();
-	
-	if (!dbManager.isInternetConnected())
-	{
-		ServiceHelper().WriteToLog("Failed to confirm network connection");
-		//QTimer::singleShot(100, a, &QCoreApplication::quit);
-		QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
-		return 0;
-	}
 
-	//ConnectWithSMTP();
+	try {
 
-	//dbManager = new DatabaseManager(a);
-
-	TRAKManager TrakM(&dbManager);
-
-	TrakM.CreateDataModule();
-	dbManager.loadTrakDetailsFromRegistry();
-
-	ServiceHelper().WriteToLog("Checking if TRAK is Running");
-	if (!ProcessExists(TrakM.appName)) {
-		ServiceHelper().WriteToError("TRAK process is not running");
-		string targetExe = TrakM.appDir + TrakM.appName;
-		ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
-		//if (!CreateTargetProcess(targetExe))
-		if (!LaunchProcess(targetExe.data()))
+		if (!dbManager.isInternetConnected())
 		{
-			ServiceHelper().WriteToError("Failed to start " + targetExe);
+			//ServiceHelper().WriteToLog("Failed to confirm network connection");
+			throw HenchmanServiceException("Failed to confirm network connection");
+			//QTimer::singleShot(100, a, &QCoreApplication::quit);
 		}
-	}
-	dbManager.targetApp = TrakM.appType;
+		//ConnectWithSMTP();
 
-	if (!dbManager.connectToLocalDB()) {
-		ServiceHelper().WriteToError("Failed to establish connection to local database");
-		QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
-		return 0;
-	}
+		//dbManager = new DatabaseManager(a);
 
-	if (!TrakM.UploadCurrentStateToRemote())
-	{
-		dbManager.connectToRemoteDB();
+		TRAKManager TrakM(&dbManager);
+
+		TrakM.CreateDataModule();
+		dbManager.loadTrakDetailsFromRegistry();
+
+		ServiceHelper().WriteToLog("Checking if TRAK is Running");
+		if (!ProcessExists(TrakM.appName)) {
+			ServiceHelper().WriteToError("TRAK process is not running");
+			string targetExe = TrakM.appDir + TrakM.appName;
+			ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
+			//if (!CreateTargetProcess(targetExe))
+			if (!LaunchProcess(targetExe.data()))
+			{
+				ServiceHelper().WriteToError("Failed to start " + targetExe);
+			}
+		}
+
+		dbManager.targetApp = TrakM.appType;
+
+		if (!dbManager.connectToLocalDB()) {
+			throw HenchmanServiceException("Failed to establish connection to local database");
+			//ServiceHelper().WriteToError("Failed to establish connection to local database");
+			//QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
+			//return 0;
+		}
+
+		if (!TrakM.UploadCurrentStateToRemote())
+		{
+			dbManager.connectToRemoteDB();
+			if (!testing)
+				Sleep(30 * 1000);
+			else
+				Sleep(10 * 1000);
+		}
+	} catch (exception& e) {
+		ServiceHelper().WriteToError(e.what());
 	}
 	
 	QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
 
+	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
+	a->exec();
+	ServiceHelper().WriteToLog("Service sleeping for 30000 ms...");
 	/*if (!(dbManager->AddKabsIfNotExists() ||
 		dbManager->AddDrawersIfNotExists() ||
 		dbManager->AddToolsIfNotExists() ||
