@@ -242,6 +242,7 @@ public:
 	ServiceHelper& operator<<(const char* s);
 	ServiceHelper& operator<<(const std::string& s);
 	ServiceHelper& operator<<(const QString& s);
+	ServiceHelper& operator<<(const QByteArray& s);
 	ServiceHelper& operator<<(const int& s);
 	ServiceHelper& operator<<(const std::vector<std::string>& s);
 

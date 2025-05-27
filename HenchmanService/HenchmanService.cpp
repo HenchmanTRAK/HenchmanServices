@@ -626,6 +626,7 @@ int HenchmanService::SetRequiredParameters()
 int HenchmanService::MainFunction(QCoreApplication* a)
 {
 	update = TRUE;
+	int timer = 0;
 
 	checkStateOfMySQL();
 	checkStateOfApache();
@@ -672,19 +673,20 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 		{
 			dbManager.connectToRemoteDB();
 			if (!testing)
-				Sleep(30 * 1000);
+				timer = 30000;
 			else
-				Sleep(10 * 1000);
+				timer = 10000;
 		}
 	} catch (exception& e) {
+		timer = 30000;
 		ServiceHelper().WriteToError(e.what());
 	}
 	
-	QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
+	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer) + " ms...");
+	QTimer::singleShot(timer, this->parent(), &QCoreApplication::quit);
 
 	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
 	a->exec();
-	ServiceHelper().WriteToLog("Service sleeping for 30000 ms...");
 	/*if (!(dbManager->AddKabsIfNotExists() ||
 		dbManager->AddDrawersIfNotExists() ||
 		dbManager->AddToolsIfNotExists() ||

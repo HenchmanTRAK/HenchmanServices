@@ -248,8 +248,10 @@ int TRAKManager::UploadCurrentStateToRemote()
 	case cribtrak: {
 		return (databaseManager->addCribsIfNotExists() |
 			databaseManager->addCribToolLocationIfNotExists() |
-			databaseManager->addCribToolsIfNotExists() /* |
-			databaseManager->addCribToolTransferIfNotExists()*/);
+			databaseManager->addCribToolsIfNotExists() |
+			databaseManager->addCribConsumablesIfNotExists() |
+			databaseManager->addCribToolTransferIfNotExists() | 
+			databaseManager->addCribKitsIfNotExists());
 	}
 	case portatrak: {
 		return (databaseManager->addPortasIfNotExists() |

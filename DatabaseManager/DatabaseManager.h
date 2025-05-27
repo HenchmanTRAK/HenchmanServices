@@ -212,6 +212,8 @@ private:
 		{"toolLocation", 0},
 		{"cribtools", 0},
 		{"tooltransfer", 0},
+		{"cribconsumables", 0},
+		{"kittools", 0},
 		// Portatracks
 		{"scales", 0},
 		{"itemkits", 0},
@@ -479,6 +481,30 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
 	int addCribToolTransferIfNotExists();
+
+	/**
+	 * @brief Adds missing cribtrak consumables to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of cribtrak consumables from the local database and checks if each consumable already exists on the remote database.
+	 * If a cribtrak consumable does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of cribtrak consumable in the database is lesser than or equal to the number of cribtrak consumables checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addCribConsumablesIfNotExists();
+
+	/**
+	 * @brief Adds missing cribtrak kits to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of cribtrak kits from the local database and checks if each consumable already exists on the remote database.
+	 * If a cribtrak kit does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of cribtrak kits in the database is lesser than or equal to the number of cribtrak kits checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addCribKitsIfNotExists();
 
 	/**
 	 * @brief Adds portaTRAKs to the database if they do not already exist.
