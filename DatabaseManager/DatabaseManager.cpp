@@ -804,10 +804,8 @@ int DatabaseManager::addToolsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 1 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Tools");
@@ -832,7 +830,7 @@ int DatabaseManager::addToolsIfNotExists()
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			data[it.key()] = it.value().trimmed().simplified();
 		}
 
 		QJsonObject body;
@@ -882,6 +880,16 @@ int DatabaseManager::addToolsIfNotExists()
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
 	//performCleanup();
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
 	return 1;
 }
 int DatabaseManager::addUsersIfNotExists()
@@ -897,10 +905,8 @@ int DatabaseManager::addUsersIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Users");
@@ -985,9 +991,21 @@ int DatabaseManager::addUsersIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addEmployeesIfNotExists()
@@ -1003,10 +1021,8 @@ int DatabaseManager::addEmployeesIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Employees");
@@ -1071,9 +1087,19 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
 	return 1;
 }
 int DatabaseManager::addJobsIfNotExists()
@@ -1090,10 +1116,8 @@ int DatabaseManager::addJobsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	QString indexingCol = colsCheck[1].value("Column_name");
@@ -1160,9 +1184,19 @@ int DatabaseManager::addJobsIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey] || colsCheck.size() <= 1 || !colsCheck[0].value("success").toInt())
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
 	return 1;
 }
 
@@ -1176,33 +1210,80 @@ int DatabaseManager::addKabsIfNotExists()
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
+
+	std::string trakDir;
+	std::string iniFile;
+	QString trakModelNumber;
+	if (rowCheck.size() > 1 && rowCheck[1][rowCheck[1].firstKey()].toInt() < 1) {
+
+		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
+		trakDir = buffer;
+		size = 1024;
+
+		rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
+		iniFile = buffer;
+		size = 1024;
+
+		QSettings ini((trakDir + "\\" + iniFile).data(), QSettings::IniFormat, this);
+		ini.sync();
+		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
+		std::string kabId = ini.value("Customer/kabID", trakIdNum).toString().toStdString();
+		std::string description = ini.value("Unit/Description", "KT-" + trakIdNum.last(3)).toString().toStdString();
+		std::string serialNo = ini.value("Unit/SerialNo", "KT-" + trakIdNum.last(3)).toString().toStdString();
+		std::string cols = "custId";
+		std::string vals = "'" + std::to_string(custId) + "'";
+		if (!kabId.empty()) {
+			cols += ", kabId";
+			vals += ", '" + kabId + "'";
+		}
+		if (!description.empty()) {
+			cols += ", description";
+			vals += ", '" + description + "'";
+		}
+		if (!serialNo.empty()) {
+			cols += ", serialNumber";
+			vals += ", '" + serialNo + "'";
+		}
+		if (!trakModelNumber.isEmpty()) {
+			cols += ", modelNumber";
+			vals += ", '" + trakModelNumber.toStdString() + "'";
+		}
+		ExecuteTargetSql("INSERT INTO itemkabs (" + cols + ") VALUES (" + vals + ")");
+
+		databaseTablesChecked[targetKey]--;
+	}
+
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
+
+	if (databaseTablesChecked[targetKey] < 0)
+		databaseTablesChecked[targetKey]++;
+
 	ServiceHelper().WriteToLog("Exporting Kabs");
 	string query =
 		"SELECT * from itemkabs ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
-	rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
-	std::string trakDir(buffer);
-	size = 1024;
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() > 0) {
+		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
+		trakDir = buffer;
+		size = 1024;
 
-	rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
-	std::string iniFile(buffer);
-	//size = 1024;
+		rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
+		iniFile = buffer;
+		//size = 1024;
 
-	QSettings ini((trakDir + "\\" + iniFile).data(), QSettings::IniFormat, this);
-	ini.sync();
-	QString trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
+		QSettings ini((trakDir + "\\" + iniFile).data(), QSettings::IniFormat, this);
+		ini.sync();
+		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
+	}
 
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
@@ -1215,7 +1296,7 @@ int DatabaseManager::addKabsIfNotExists()
 		QJsonObject data;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			QString val = it.value();
+			QString val = it.value().trimmed();
 			if (ensureValForTargetCols.contains(it.key()) && (val.isEmpty() || val== "''")) {
 				if (it.key() == "description") {
 					val = "KT-" + trakIdNum.last(3);
@@ -1227,7 +1308,7 @@ int DatabaseManager::addKabsIfNotExists()
 					val = trakModelNumber;
 				}
 			}
-			data[it.key()] = val.trimmed();
+			data[it.key()] = val;
 		}
 
 		QJsonObject body;
@@ -1256,9 +1337,21 @@ int DatabaseManager::addKabsIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addDrawersIfNotExists()
@@ -1274,10 +1367,8 @@ int DatabaseManager::addDrawersIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kab Drawers");
@@ -1328,9 +1419,21 @@ int DatabaseManager::addDrawersIfNotExists()
 	RegistryManager::SetVal(hKey, "numDrawersChecked", databaseTablesChecked[targetKey], REG_DWORD);
 	RegCloseKey(hKey);*/
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addToolsInDrawersIfNotExists()
@@ -1342,14 +1445,11 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
-	{
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey]) {
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kab tools in bins");
@@ -1404,9 +1504,20 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 
 	}
 	
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey]) {
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 
@@ -1420,22 +1531,83 @@ int DatabaseManager::addCribsIfNotExists()
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
+
+	std::string trakDir;
+	std::string iniFile;
+	QString trakModelNumber;
+	if (rowCheck.size() > 1 && rowCheck[1][rowCheck[1].firstKey()].toInt() < 1) {
+
+		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
+		trakDir = buffer;
+		size = 1024;
+
+		rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
+		iniFile = buffer;
+		size = 1024;
+
+		QSettings ini((trakDir + "\\" + iniFile).data(), QSettings::IniFormat, this);
+		ini.sync();
+		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
+		std::string cribId = ini.value("Customer/cribID", trakIdNum).toString().toStdString();
+		std::string description = ini.value("Unit/Description", "CT-" + trakIdNum.last(3)).toString().toStdString();
+		std::string serialNo = ini.value("Customer/cribSerial", "CT-" + trakIdNum.last(3)).toString().toStdString();
+		std::string cols = "custId";
+		std::string vals = "'" + std::to_string(custId) + "'";
+		if (!cribId.empty()) {
+			cols += ", cribId";
+			vals += ", '" + cribId + "'";
+		}
+		if (!description.empty()) {
+			cols += ", description";
+			vals += ", '" + description + "'";
+		}
+		if (!serialNo.empty()) {
+			cols += ", serialNumber";
+			vals += ", '" + serialNo + "'";
+		}
+		if (!trakModelNumber.isEmpty()) {
+			cols += ", modelNumber";
+			vals += ", '" + trakModelNumber.toStdString() + "'";
+		}
+		ExecuteTargetSql("INSERT INTO cribs (" + cols + ") VALUES (" + vals + ")");
+
+		databaseTablesChecked[targetKey]--;
+	}
+
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
+
+	if (databaseTablesChecked[targetKey] < 0)
+		databaseTablesChecked[targetKey]++;
+
 	ServiceHelper().WriteToLog("Exporting CribTRAKS from crib");
 	string query =
 		"SELECT * from cribs ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() > 0) {
+		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
+		trakDir = buffer;
+		size = 1024;
+
+		rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
+		iniFile = buffer;
+		//size = 1024;
+
+		QSettings ini((trakDir + "\\" + iniFile).data(), QSettings::IniFormat, this);
+		ini.sync();
+		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
+	}
+
+	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
+	
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1445,7 +1617,19 @@ int DatabaseManager::addCribsIfNotExists()
 		QJsonObject data;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString val = it.value().trimmed();
+			if (ensureValForTargetCols.contains(it.key()) && (val.isEmpty() || val == "''")) {
+				if (it.key() == "description") {
+					val = "CT-" + trakIdNum.last(3);
+				}
+				if (it.key() == "serialNumber") {
+					val = "CT-" + trakIdNum.last(3);
+				}
+				if (it.key() == "modelNumber" && !trakModelNumber.isEmpty()) {
+					val = trakModelNumber;
+				}
+			}
+			data[it.key()] = val;
 		}
 
 		QJsonObject body;
@@ -1474,9 +1658,21 @@ int DatabaseManager::addCribsIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addCribToolLocationIfNotExists()
@@ -1501,10 +1697,8 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Tool Location from CribTRAK");
@@ -1553,9 +1747,21 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addCribToolsIfNotExists()
@@ -1571,10 +1777,8 @@ int DatabaseManager::addCribToolsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Tools from crib");
@@ -1639,9 +1843,21 @@ int DatabaseManager::addCribToolsIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addCribToolTransferIfNotExists()
@@ -1657,10 +1873,8 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Tool Transfers from crib");
@@ -1712,9 +1926,20 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey]) {
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addCribConsumablesIfNotExists()
@@ -1730,10 +1955,9 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Consumables from crib");
@@ -1802,6 +2026,18 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addCribKitsIfNotExists()
@@ -1817,10 +2053,8 @@ int DatabaseManager::addCribKitsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kits from crib");
@@ -1881,16 +2115,26 @@ int DatabaseManager::addCribKitsIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 
 /* TODO
- - upload cribconsumables
  - upload cribtoollockers
- - upload kittools
 */
 
 // PortaTRAK Syncs
@@ -1899,25 +2143,86 @@ int DatabaseManager::addPortasIfNotExists()
 	LOG << "Adding Portas to Webportal";
 	QString targetKey = "scales";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemscales");
+	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemscale");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
+	std::string trakDir;
+	std::string iniFile;
+	QString trakModelNumber;
+	if (rowCheck.size() > 1 && rowCheck[1][rowCheck[1].firstKey()].toInt() < 1) {
+		
+		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
+		trakDir = buffer;
+		size = 1024;
+
+		rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
+		iniFile = buffer;
+		size = 1024;
+
+		QSettings ini((trakDir + "\\" + iniFile).data(), QSettings::IniFormat, this);
+		ini.sync();
+		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
+		std::string scaleId = ini.value("Customer/scaleID", trakIdNum).toString().toStdString();
+		std::string description = ini.value("Unit/Description", "PT-" + trakIdNum.last(3)).toString().toStdString();
+		std::string serialNo = ini.value("Unit/SerialNo", "PT-" + trakIdNum.last(3)).toString().toStdString();
+		std::string cols = "custId";
+		std::string vals = "'"+std::to_string(custId)+"'";
+		if (!scaleId.empty()) {
+			cols += ", scaleId";
+			vals += ", '" + scaleId+"'";
+		}
+		if (!description.empty()) {
+			cols += ", description";
+			vals += ", '" + description + "'";
+		}
+		if (!serialNo.empty()) {
+			cols += ", serialNumber";
+				vals += ", '" + serialNo + "'";
+		}
+		if (!trakModelNumber.isEmpty()) {
+			cols += ", modelNumber";
+				vals += ", '" + trakModelNumber.toStdString() + "'";
+		}
+		ExecuteTargetSql("INSERT INTO itemscale (" + cols + ") VALUES (" + vals + ")");
+
+		databaseTablesChecked[targetKey]--;
+	}
+
+
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemscale%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% itemscales%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
-	ServiceHelper().WriteToLog("Exporting PortaTRAKS from itemscales");
+
+	if (databaseTablesChecked[targetKey] < 0)
+		databaseTablesChecked[targetKey]++;
+	
+	ServiceHelper().WriteToLog("Exporting PortaTRAKS from itemscale");
 	string query =
-		"SELECT * from itemscales ORDER BY id DESC LIMIT " +
+		"SELECT * from itemscale ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() > 0) {
+		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
+		trakDir = buffer;
+		size = 1024;
+
+		rtManager.GetVal("INI_FILE", REG_SZ, (char*)buffer, size);
+		iniFile = buffer;
+		//size = 1024;
+
+		QSettings ini((trakDir + "\\" + iniFile).data(), QSettings::IniFormat, this);
+		ini.sync();
+		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
+	}
+
+	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1928,7 +2233,19 @@ int DatabaseManager::addPortasIfNotExists()
 		QJsonObject data;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString val = it.value().trimmed();
+			if (ensureValForTargetCols.contains(it.key()) && (val.isEmpty() || val == "''")) {
+				if (it.key() == "description") {
+					val = "PT-" + trakIdNum.last(3);
+				}
+				if (it.key() == "serialNumber") {
+					val = "PT-" + trakIdNum.last(3);
+				}
+				if (it.key() == "modelNumber" && !trakModelNumber.isEmpty()) {
+					val = trakModelNumber;
+				}
+			}
+			data[it.key()] = val;
 		}
 
 		QJsonObject body;
@@ -1957,9 +2274,21 @@ int DatabaseManager::addPortasIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemscale%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addItemKitsIfNotExists()
@@ -1975,10 +2304,8 @@ int DatabaseManager::addItemKitsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Itemkits from PortaTRAK");
@@ -1992,6 +2319,12 @@ int DatabaseManager::addItemKitsIfNotExists()
 			continue;
 		QStringMap res;
 		res["id"] = result["id"];
+
+		if (!result.contains("kitId") || result.value("kitId").isEmpty()) {
+			result["kitId"] = QString("000").slice(custId) + QString::number(custId) + QString("000").slice(result["id"].toInt()) + result["id"];
+		}
+
+		qDebug() << result;
 
 		QJsonObject data;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
@@ -2025,9 +2358,21 @@ int DatabaseManager::addItemKitsIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addKitCategoryIfNotExists()
@@ -2043,10 +2388,8 @@ int DatabaseManager::addKitCategoryIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kit Categories from PortaTRAK");
@@ -2096,9 +2439,21 @@ int DatabaseManager::addKitCategoryIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 int DatabaseManager::addKitLocationIfNotExists()
@@ -2114,10 +2469,8 @@ int DatabaseManager::addKitLocationIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
 		}
-		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 3 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timestamp + "' AND posted = 0");
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kit Location from PortaTRAK");
@@ -2166,9 +2519,21 @@ int DatabaseManager::addKitLocationIfNotExists()
 
 	}
 
-	rtManager.SetVal(targetKey.append("Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	netManager->finished(NULL);
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	{
+		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
+			size = 1024;
+			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
+		}
+		std::string timestamp(buffer);
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+	}
+
 	return 1;
 }
 
