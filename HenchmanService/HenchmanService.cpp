@@ -652,12 +652,14 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 		if (!ProcessExists(TrakM.appName)) {
 			ServiceHelper().WriteToError("TRAK process is not running");
 			string targetExe = TrakM.appDir + TrakM.appName;
+#if false
 			ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
 			//if (!CreateTargetProcess(targetExe))
 			if (!LaunchProcess(targetExe.data()))
 			{
 				ServiceHelper().WriteToError("Failed to start " + targetExe);
 			}
+#endif
 		}
 
 		dbManager.targetApp = TrakM.appType;
