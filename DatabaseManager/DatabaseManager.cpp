@@ -2752,11 +2752,18 @@ int DatabaseManager::connectToRemoteDB()
 			case INSERT: {
 				if (!makePostRequest(apiUrl + "/" + targetTable, res, body, &reply)) {
 					LOG << "reply: " << reply.isEmpty();
-					if(reply.isEmpty())
+					if (reply.isEmpty() || !reply.isObject())
 						throw HenchmanServiceException("Failed to make post request");
 					LOG << "request failed";
-					QString sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-					ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+					QJsonObject response = reply.object();
+					QString sqlQuery;
+					if (response.contains("message") && response.value("message").toString() == "Route has not been defined") {
+						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
+						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
+					} else {
+						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
+						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+					}
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for (auto result : queryResult)
@@ -2769,11 +2776,18 @@ int DatabaseManager::connectToRemoteDB()
 			case UPDATE: {
 				if (!makePatchRequest(apiUrl + "/" + targetTable, res, body, &reply)) {
 					LOG << "reply: " << reply.isEmpty();
-					if (reply.isEmpty())
+					if (reply.isEmpty() || !reply.isObject())
 						throw HenchmanServiceException("Failed to make patch request");
 					LOG << "request failed";
-					QString sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-					ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+					QJsonObject response = reply.object();
+					QString sqlQuery;
+					if (response.contains("message") && response.value("message").toString() == "Route has not been defined") {
+						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
+						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
+					} else {
+						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
+						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+					}
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for (auto result : queryResult)
@@ -2786,11 +2800,19 @@ int DatabaseManager::connectToRemoteDB()
 			case REMOVE: {
 				if (!makeDeleteRequest(apiUrl + "/" + targetTable, res, body, &reply)) {
 					LOG << "reply: " << reply.isEmpty();
-					if (reply.isEmpty())
+					if (reply.isEmpty() || !reply.isObject())
 						throw HenchmanServiceException("Failed to make patch request");
 					LOG << "request failed";
-					QString sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-					ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+					QJsonObject response = reply.object();
+					QString sqlQuery;
+					if (response.contains("message") && response.value("message").toString() == "Route has not been defined") {
+						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
+						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
+					}
+					else {
+						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
+						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+					}
 					vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0) {
 						for (auto result : queryResult)
@@ -3669,7 +3691,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			break;
 
 		QString categoryQuery = "SELECT id as categoryId FROM kitcategory WHERE ";
-		QStringList targetKeys = { "custId", "scaleId", "description" };
+		QStringList targetKeys = { "custId", "description" };
 		QStringList queryConditions;
 		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 			QString value = it.value().toString().simplified();
@@ -4049,7 +4071,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		else {
 			val = colAndVal.at(1);
 		}
-		val.trimmed();
+		val = val.trimmed();
 		if (val.startsWith("'") && val.endsWith("'")) {
 			val.slice(1, val.length() - 2);
 		}
