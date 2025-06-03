@@ -38,6 +38,7 @@
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
+#include "SQLiteManager2.h"
 
 
 #define QT_NO_DEBUG_OUTPUT

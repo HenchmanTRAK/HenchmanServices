@@ -8,8 +8,6 @@ target_link_libraries(
 	SQLiteManager2 PRIVATE
 	Qt6::Core
 	Qt6::Sql
-	Qt6::Network
-	DatabaseManager
 	HenchmanServiceException
 	EventManager
 	ServiceHelper

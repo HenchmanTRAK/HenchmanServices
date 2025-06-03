@@ -222,9 +222,9 @@ int TRAKManager::exportGeneralTables()
 {
 	return (
 		databaseManager->addToolsIfNotExists() 
-		|| databaseManager->addUsersIfNotExists() 
-		|| databaseManager->addEmployeesIfNotExists()
-		|| databaseManager->addJobsIfNotExists()
+		| databaseManager->addUsersIfNotExists() 
+		| databaseManager->addEmployeesIfNotExists()
+		| databaseManager->addJobsIfNotExists()
 		? 1
 		: 0
 		);

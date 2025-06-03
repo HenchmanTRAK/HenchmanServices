@@ -152,7 +152,8 @@ void SQLiteManager2::ExecQuery(
 	{
 		db.rollback();
 		db.close();
-		throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
+		ServiceHelper().WriteToError("An exception was thrown: " + (std::string)e.what());
+		//throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
 	}
 	if (results)
 		resultVector.swap(*results);
@@ -255,14 +256,14 @@ int SQLiteManager2::AddEntry(
 	queryText << "INSERT INTO " << tableName;
 
 	columnsAndValuesThread.join();
-	queryText << " (" << columns << ") SELECT " << values;
-
-	queryText << "WHERE NOT EXISTS (SELECT * FROM " << tableName << " WHERE ";
+	queryText << " (" << columns << ") VALUES (" << values << ")";
 
 	conditionalsThread.join();
+	/*queryText << "WHERE NOT EXISTS (SELECT * FROM " << tableName << " WHERE ";
+
 	queryText << conditionals;
 		
-	queryText << "ORDER BY id DESC LIMIT 1);";
+	queryText << "ORDER BY id DESC LIMIT 1);";*/
 
 	LOG << queryText.str();
 

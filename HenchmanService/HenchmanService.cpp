@@ -541,6 +541,10 @@ HenchmanService::HenchmanService(QObject *parent)
 		columns
 	);
 
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery("CREATE UNIQUE INDEX unique_username_password ON " + tableName + "(username,password)", &result);
+
 	columns.clear();
 
 	string username = ini.GetValue("EMAIL", "Username", "");

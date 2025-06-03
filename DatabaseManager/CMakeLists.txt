@@ -18,6 +18,7 @@ target_link_libraries(
 	EventManager
 	ServiceHelper
 	RegistryManager
+	SQLiteManager2
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

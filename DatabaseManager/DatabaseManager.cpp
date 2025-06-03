@@ -804,7 +804,7 @@ int DatabaseManager::addToolsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -813,6 +813,49 @@ int DatabaseManager::addToolsIfNotExists()
 		"SELECT * from tools ORDER BY id DESC LIMIT " + 
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+
+	std::string colQuery =
+		"SHOW COLUMNS from tools";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "tools";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year"};
+	QStringList uniqueIndexCols = { "custId", "toolId", "stockcode", "PartNo" };
+
+	columns.push_back("toolId INT NOT NULL DEFAULT 0");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_custid_toolid_stockcode_partno ON " + tableName + " (custId, toolId, stockcode, PartNo)",
+		&result
+	);
+
+	columns.clear();
 	
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -827,11 +870,27 @@ int DatabaseManager::addToolsIfNotExists()
 		//processKeysAndValues(result, results);
 
 		QJsonObject data;
+		map<string, string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed().simplified();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 
@@ -888,7 +947,7 @@ int DatabaseManager::addToolsIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 	return 1;
 }
@@ -905,7 +964,7 @@ int DatabaseManager::addUsersIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -914,6 +973,47 @@ int DatabaseManager::addUsersIfNotExists()
 		"SELECT * from users ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from users";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "users";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "userId", "kabId", "cribId", "scaleId"};
+
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_"+ uniqueIndexCols.join("_").toStdString() +" ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -943,11 +1043,27 @@ int DatabaseManager::addUsersIfNotExists()
 
 
 		QJsonObject data;
+		map<string, string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 
@@ -1003,7 +1119,7 @@ int DatabaseManager::addUsersIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -1021,7 +1137,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1031,6 +1147,47 @@ int DatabaseManager::addEmployeesIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
+	std::string colQuery =
+		"SHOW COLUMNS from employees";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "employees";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "userId"};
+
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1039,10 +1196,27 @@ int DatabaseManager::addEmployeesIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -1098,7 +1272,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 	return 1;
 }
@@ -1116,7 +1290,7 @@ int DatabaseManager::addJobsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1127,6 +1301,46 @@ int DatabaseManager::addJobsIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
+	std::string colQuery =
+		"SHOW COLUMNS from jobs";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "jobs";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt"};
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "trailId", "description", "remark"};
+
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1135,10 +1349,27 @@ int DatabaseManager::addJobsIfNotExists()
 		res["id"] = result[indexingCol];
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -1195,7 +1426,7 @@ int DatabaseManager::addJobsIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 	return 1;
 }
@@ -1257,7 +1488,7 @@ int DatabaseManager::addKabsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1285,6 +1516,47 @@ int DatabaseManager::addKabsIfNotExists()
 		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
 	}
 
+	std::string colQuery =
+		"SHOW COLUMNS from itemkabs";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "itemkabs";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "kabId" };
+
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
+
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
 	for (auto &result : sqlQueryResults) {
@@ -1294,22 +1566,35 @@ int DatabaseManager::addKabsIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			QString val = it.value().trimmed();
-			if (ensureValForTargetCols.contains(it.key()) && (val.isEmpty() || val== "''")) {
-				if (it.key() == "description") {
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (ensureValForTargetCols.contains(key) && (val.isEmpty() || val== "''")) {
+				if (key == "description") {
 					val = "KT-" + trakIdNum.last(3);
 				}
-				if (it.key() == "serialNumber") {
+				if (key == "serialNumber") {
 					val = "KT-" + trakIdNum.last(3);
 				}
-				if (it.key() == "modelNumber" && !trakModelNumber.isEmpty()) {
+				if (key == "modelNumber" && !trakModelNumber.isEmpty()) {
 					val = trakModelNumber;
 				}
 			}
-			data[it.key()] = val;
+			data[key] = val;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -1349,7 +1634,7 @@ int DatabaseManager::addKabsIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -1367,7 +1652,7 @@ int DatabaseManager::addDrawersIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1377,6 +1662,46 @@ int DatabaseManager::addDrawersIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
+	std::string colQuery =
+		"SHOW COLUMNS from itemkabdrawers";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "itemkabdrawers";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "kabId", "drawerCode"};
+
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1385,10 +1710,27 @@ int DatabaseManager::addDrawersIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -1431,7 +1773,7 @@ int DatabaseManager::addDrawersIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -1448,7 +1790,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey]) {
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1458,6 +1800,48 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
 
+	std::string colQuery =
+		"SHOW COLUMNS from itemkabdrawerbins";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "itemkabdrawerbins";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "kabId", "toolId", "itemId", "drawerNum", "toolNumber"};
+
+	columns.push_back("toolId INT NOT NULL DEFAULT 0");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
+
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1465,12 +1849,27 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			if (it.value().isEmpty() || it.value() == "''")
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
 				continue;
-			data[it.key()] = it.value().trimmed();
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -1515,7 +1914,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -1578,7 +1977,7 @@ int DatabaseManager::addCribsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1606,6 +2005,47 @@ int DatabaseManager::addCribsIfNotExists()
 		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
 	}
 
+	std::string colQuery =
+		"SHOW COLUMNS from cribs";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "cribs";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "cribId"};
+
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
+
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 	
 	for (auto& result : sqlQueryResults) {
@@ -1615,22 +2055,35 @@ int DatabaseManager::addCribsIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			QString val = it.value().trimmed();
-			if (ensureValForTargetCols.contains(it.key()) && (val.isEmpty() || val == "''")) {
-				if (it.key() == "description") {
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (ensureValForTargetCols.contains(key) && (val.isEmpty() || val == "''")) {
+				if (key == "description") {
 					val = "CT-" + trakIdNum.last(3);
 				}
-				if (it.key() == "serialNumber") {
+				if (key == "serialNumber") {
 					val = "CT-" + trakIdNum.last(3);
 				}
-				if (it.key() == "modelNumber" && !trakModelNumber.isEmpty()) {
+				if (key == "modelNumber" && !trakModelNumber.isEmpty()) {
 					val = trakModelNumber;
 				}
 			}
-			data[it.key()] = val;
+			data[key] = val;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -1670,7 +2123,7 @@ int DatabaseManager::addCribsIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -1697,7 +2150,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1706,6 +2159,48 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		"SELECT * from "+ cribtoollocationTable.toStdString() +" ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from " + cribtoollocationTable.toStdString();
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = cribtoollocationTable.toStdString();
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "cribId", "locationId" };
+	
+	columns.push_back("locationId INT NOT NULL DEFAULT 0");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1716,10 +2211,27 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		result["locationId"] = result["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -1759,7 +2271,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -1777,7 +2289,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1786,6 +2298,49 @@ int DatabaseManager::addCribToolsIfNotExists()
 		"SELECT * from cribtools ORDER BY toolId DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from cribtools";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "cribtools";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "cribId", "toolId", "barcodeTAG", "itemId"};
+
+	if (!sqlQueryResults[1].contains("toolId"))
+		columns.push_back("toolId INT NOT NULL DEFAULT 0");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -1807,20 +2362,32 @@ int DatabaseManager::addCribToolsIfNotExists()
 			result.remove("nextcalibrationdate");
 		}
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
 
 		QJsonDocument reply;
-
-		LOG << QJsonDocument(body).toJson();
-		if (data.value("barcodeTAG").toString() == "29600526") {
-			LOG << "";
-		}
 
 		if (makePostRequest(apiUrl + "/cribtrak/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
@@ -1855,7 +2422,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -1873,7 +2440,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -1882,6 +2449,48 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 		"SELECT * from tooltransfer ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from tooltransfer";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "tooltransfer";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "cribId", "transferId", "barcodeTAG", "userId", "transfer_userId", "tailId", "transfer_tailId"};
+
+	columns.push_back("transferId INT NULL");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -1893,10 +2502,27 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 			result["transferId"] = result["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -1937,7 +2563,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -1955,7 +2581,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 
 		}
 		return 0;
@@ -1965,6 +2591,49 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 		"SELECT * from cribconsumables ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from cribconsumables";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "cribconsumables";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "cribId", "toolId", "barcode", "userId", "tailId"};
+
+	if(!sqlQueryResults[1].contains("toolId"))
+		columns.push_back("toolId INT NULL");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId")) {
@@ -1987,10 +2656,27 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 			result["toolId"] = fetchTool[1]["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -2035,7 +2721,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -2053,7 +2739,7 @@ int DatabaseManager::addCribKitsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -2062,6 +2748,49 @@ int DatabaseManager::addCribKitsIfNotExists()
 		"SELECT * from kittools ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from kittools";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "kittools";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "cribId", "kitBarcode", "toolId", "itemId", "barcodeTAG"};
+
+	if (!sqlQueryResults[1].contains("toolId"))
+		columns.push_back("toolId INT NOT NULL DEFAULT 0");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -2082,10 +2811,27 @@ int DatabaseManager::addCribKitsIfNotExists()
 
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -2127,7 +2873,7 @@ int DatabaseManager::addCribKitsIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -2194,7 +2940,7 @@ int DatabaseManager::addPortasIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemscale%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemscale%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -2222,6 +2968,47 @@ int DatabaseManager::addPortasIfNotExists()
 		trakModelNumber = ini.value("Customer/ModelNumber", "").toString();
 	}
 
+	std::string colQuery =
+		"SHOW COLUMNS from itemscale";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "itemscale";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "scaleId" };
+
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
+
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
 	for (auto& result : sqlQueryResults) {
@@ -2231,22 +3018,37 @@ int DatabaseManager::addPortasIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
+		map<string, string> toolData;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			QString val = it.value().trimmed();
-			if (ensureValForTargetCols.contains(it.key()) && (val.isEmpty() || val == "''")) {
-				if (it.key() == "description") {
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (ensureValForTargetCols.contains(key) && (val.isEmpty() || val == "''")) {
+				if (key == "description") {
 					val = "PT-" + trakIdNum.last(3);
 				}
-				if (it.key() == "serialNumber") {
+				if (key == "serialNumber") {
 					val = "PT-" + trakIdNum.last(3);
 				}
-				if (it.key() == "modelNumber" && !trakModelNumber.isEmpty()) {
+				if (key == "modelNumber" && !trakModelNumber.isEmpty()) {
 					val = trakModelNumber;
 				}
 			}
-			data[it.key()] = val;
+			if (val.isEmpty() || val == "''")
+				continue;
+			data[key] = val;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -2286,7 +3088,7 @@ int DatabaseManager::addPortasIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemscale%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemscale%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -2304,7 +3106,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -2313,6 +3115,49 @@ int DatabaseManager::addItemKitsIfNotExists()
 		"SELECT * from itemkits ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from itemkits";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "itemkits";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year"};
+	QStringList uniqueIndexCols = { "custId", "scaleId", "kitTAG", "kitId"};
+
+	if (!sqlQueryResults[1].contains("kitId"))
+		columns.push_back("kitId TEXT NOT NULL DEFAULT ''");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()) || column.value("Field") == "userId")
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -2324,13 +3169,38 @@ int DatabaseManager::addItemKitsIfNotExists()
 			result["kitId"] = QString("000").slice(QString::number(custId).length()) + QString::number(custId) + QString("000").slice(result["id"].length()) + result["id"];
 		}
 
+		if (!result.contains("userId") || result.value("userId").isEmpty() || result.value("userId") == "0") {
+			std::string userIdQuery = "SELECT userId FROM portaemployeeitemtransactions WHERE kitTAG = '" + result.value("kitTAG").toStdString() + "' AND transType = '3' ORDER BY id DESC LIMIT 1";
+			vector queryRes = ExecuteTargetSql(userIdQuery);
+			if (queryRes.size() > 1 && queryRes[1].contains("userId") && (!queryRes[1].value("userId").isEmpty() || queryRes[1].value("userId") != "0")) {
+				result["userId"] = queryRes[1].value("userId");
+			}
+		}
+
 		qDebug() << result;
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -2370,7 +3240,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -2388,7 +3258,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -2397,6 +3267,50 @@ int DatabaseManager::addKitCategoryIfNotExists()
 		"SELECT * from kitcategory ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from kitcategory";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "kitcategory";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "scaleId", "categoryId"};
+	
+	columns.push_back("categoryId INT NOT NULL DEFAULT 0");
+	if(!sqlQueryResults[1].contains("scaleId"))	
+		columns.push_back("scaleId TEXT NOT NULL DEFAULT ''");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -2411,10 +3325,27 @@ int DatabaseManager::addKitCategoryIfNotExists()
 			result["scaleId"] = trakIdNum;
 		
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -2454,7 +3385,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -2472,7 +3403,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timeStamp[0] + "' AND posted = 0");
+			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -2481,6 +3412,48 @@ int DatabaseManager::addKitLocationIfNotExists()
 		"SELECT * from kitlocation ORDER BY id DESC LIMIT " +
 		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
 	vector sqlQueryResults = ExecuteTargetSql(query);
+
+	std::string colQuery =
+		"SHOW COLUMNS from kitlocation";
+	vector colQueryResults = ExecuteTargetSql(colQuery);
+
+	qDebug() << colQueryResults;
+
+	SQLiteManager2 sqliteManager(this->parent());
+
+	string tableName = "kitlocation";
+	vector<string> columns;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+	QStringList uniqueIndexCols = { "custId", "scaleId", "locationId"};
+
+	columns.push_back("locationId INT NOT NULL DEFAULT 0");
+	for (auto& column : colQueryResults) {
+		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+			continue;
+
+		if (dates.contains(column.value("Type").toLower()))
+			column["Type"] = "TEXT";
+
+		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field"))
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+	}
+
+	sqliteManager.CreateTable(
+		tableName,
+		columns
+	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery(
+		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		&result
+	);
+
+	columns.clear();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -2494,10 +3467,27 @@ int DatabaseManager::addKitLocationIfNotExists()
 			result["scaleId"] = trakIdNum;
 
 		QJsonObject data;
+		map<string, string> toolData;
+
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
-			data[it.key()] = it.value().trimmed();
+			QString key = it.key();
+			QString val = it.value().trimmed().simplified();
+			if (val.isEmpty() || val == "''")
+				continue;
+			if (!skipTargetCols.contains(key))
+				toolData[key.toStdString()] = val.toStdString();
+			data[key] = val;
 		}
+
+#if false
+		sqliteManager.AddEntry(
+			tableName,
+			toolData
+		);
+#endif
+
+		toolData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
@@ -2537,7 +3527,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
 		}
 		std::string timestamp(buffer);
-		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timestamp + "' AND posted = 0");
+		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
 	return 1;
@@ -3357,6 +4347,11 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	}
 	qDebug() << entry;
 
+	if (entry.contains("custid")) {
+		entry["custId"] = entry.value("custid");
+		entry.remove("custid");
+	}
+
 	hasCustId = entry.contains("custId");
 	hasTrakId = entry.contains(trakId.data());
 	if (entry.keys().contains("id", Qt::CaseInsensitive) || entry.keys().contains("toolId", Qt::CaseInsensitive)) {
@@ -3364,6 +4359,8 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		idColumn = entry.keys().contains("id", Qt::CaseInsensitive) ? "id" : "toolId";
 	}
 
+	SQLiteManager2 sqliteManager(this->parent());
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt", "table"};
 
 
 	QMap<QString, QString> map;
@@ -3378,11 +4375,11 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	{
 	case tools:
 	{
+
 		if (!hasCustId)
 			entry["custId"] = custId;
 		if(hasId && idColumn == "id" && (!entry.contains("toolId") || entry.value("toolId").toString().isEmpty()))
 			entry["toolId"] = entry.value("id").toString();
-
 
 		break;
 	}
@@ -3392,12 +4389,14 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			entry["custId"] = custId;
 		if (!hasTrakId)
 			entry[trakId.data()] = trakIdNum;
+
 		break;
 	}
 	case employees:
 	{
 		if (!hasCustId)
 			entry["custId"] = custId;
+
 		break;
 	}
 	case jobs:
@@ -3405,34 +4404,35 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!hasCustId)
 			entry["custId"] = custId;
 		
-		if (entry.contains("trailId"))
-			break;
+		if (!entry.contains("trailId")) {
 
-		QString jobQuery = "SELECT * FROM jobs WHERE ";
-		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
-			QString value = it.value().toString();
-			if (value.isEmpty())
-				continue;
-			if(value.startsWith("'"))
-				jobQuery.append(it.key() + " = " + value);
-			else
-				jobQuery.append(it.key() + " = '" + value + "'");
-			if ((it + 1) != entry.constEnd())
-				jobQuery.append(" AND ");
-		}
-		qDebug() << jobQuery;
-		vector fetchedJob = ExecuteTargetSql(jobQuery);
-	
-		if (fetchedJob.size() <= 1) {
-			skipQuery = true;
-			break;
-		}
+			QString jobQuery = "SELECT * FROM jobs WHERE ";
+			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
+				QString value = it.value().toString();
+				if (value.isEmpty())
+					continue;
+				if (value.startsWith("'"))
+					jobQuery.append(it.key() + " = " + value);
+				else
+					jobQuery.append(it.key() + " = '" + value + "'");
+				if ((it + 1) != entry.constEnd())
+					jobQuery.append(" AND ");
+			}
+			qDebug() << jobQuery;
+			vector fetchedJob = ExecuteTargetSql(jobQuery);
 
-		for (auto it = fetchedJob[1].cbegin(); it != fetchedJob[1].cend(); ++it) {
-			if (entry.contains(it.key()) || it.value().isEmpty())
-				continue;
-			entry[it.key()] = it.value();
+			if (fetchedJob.size() <= 1) {
+				skipQuery = true;
+				break;
+			}
+
+			for (auto it = fetchedJob[1].cbegin(); it != fetchedJob[1].cend(); ++it) {
+				if (entry.contains(it.key()) || it.value().isEmpty())
+					continue;
+				entry[it.key()] = it.value();
+			}
 		}
+		
 
 		break;
 	}
@@ -3604,7 +4604,6 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			entry[it.key()] = it.value();
 		}
 
-
 		break;
 	}
 	case kittools: {
@@ -3640,42 +4639,43 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!hasTrakId)
 			entry[trakId.data()] = trakIdNum;
 
-		if (entry.contains("kitId") && !entry.value("kitId").toString().isEmpty())
-			break;
+		if (!entry.contains("kitId") || entry.value("kitId").toString().isEmpty()) {
 
-		QString kitQuery = "SELECT id as kitId FROM itemkits WHERE ";
-		QStringList targetKeys = { "custId", "scaleId", "kitTAG" };
-		QStringList queryConditions;
-		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
-			QString value = it.value().toString();
-			QString key = it.key();
-			if (value.isEmpty() || !targetKeys.contains(key))
-				continue;
-			if (value.startsWith("'"))
-				queryConditions.append(key + " = " + value);
-			else
-				queryConditions.append(key + " = '" + value + "'");
-		}
-		kitQuery.append(queryConditions.join(" AND "));
-		qDebug() << kitQuery;
-		vector fetchedRes = ExecuteTargetSql(kitQuery);
-
-		if (fetchedRes.size() <= 1) {
-			skipQuery = true;
-			break;
-		}
-		QStringList targerResponseKeys = { "kitId" };
-		for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
-			if (!targerResponseKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
-				continue;
-			if (it.key() == "kitId") {
-				entry[it.key()] = QString("000").slice(QString::number(custId).length()) + QString::number(custId) + QString("000").slice(it.value().length()) + it.value();
+			QString kitQuery = "SELECT id as kitId FROM itemkits WHERE ";
+			QStringList targetKeys = { "custId", "scaleId", "kitTAG" };
+			QStringList queryConditions;
+			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
+				QString value = it.value().toString();
+				QString key = it.key();
+				if (value.isEmpty() || !targetKeys.contains(key))
+					continue;
+				if (value.startsWith("'"))
+					queryConditions.append(key + " = " + value);
+				else
+					queryConditions.append(key + " = '" + value + "'");
 			}
-			else {
-				entry[it.key()] = it.value();
+			kitQuery.append(queryConditions.join(" AND "));
+			qDebug() << kitQuery;
+			vector fetchedRes = ExecuteTargetSql(kitQuery);
+
+			if (fetchedRes.size() <= 1) {
+				skipQuery = true;
+				break;
+			}
+			QStringList targerResponseKeys = { "kitId" };
+			for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
+				if (!targerResponseKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
+					continue;
+				if (it.key() == "kitId") {
+					entry[it.key()] = QString("000").slice(QString::number(custId).length()) + QString::number(custId) + QString("000").slice(it.value().length()) + it.value();
+				}
+				else {
+					entry[it.key()] = it.value();
+				}
 			}
 		}
 
+		
 		break;
 	}
 	case kitcategory:
@@ -3687,35 +4687,35 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!hasTrakId)
 			entry[trakId.data()] = trakIdNum;
 
-		if (entry.contains("categoryId") && !entry.value("categoryId").toString().isEmpty())
-			break;
+		if (!entry.contains("categoryId") || entry.value("categoryId").toString().isEmpty()) {
 
-		QString categoryQuery = "SELECT id as categoryId FROM kitcategory WHERE ";
-		QStringList targetKeys = { "custId", "description" };
-		QStringList queryConditions;
-		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
-			QString value = it.value().toString().simplified();
-			if (value.isEmpty() || !targetKeys.contains(it.key()))
-				continue;
-			QString key = it.key();
-			if (value.startsWith("'") && value.endsWith("'"))
-				queryConditions.append(key + " = " + value);
-			else
-				queryConditions.append(key + " = '" + value + "'");
-		}
-		categoryQuery.append(queryConditions.join(" AND "));
-		qDebug() << categoryQuery;
-		vector fetchedRes = ExecuteTargetSql(categoryQuery);
+			QString categoryQuery = "SELECT id as categoryId FROM kitcategory WHERE ";
+			QStringList targetKeys = { "custId", "description" };
+			QStringList queryConditions;
+			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
+				QString value = it.value().toString().simplified();
+				if (value.isEmpty() || !targetKeys.contains(it.key()))
+					continue;
+				QString key = it.key();
+				if (value.startsWith("'") && value.endsWith("'"))
+					queryConditions.append(key + " = " + value);
+				else
+					queryConditions.append(key + " = '" + value + "'");
+			}
+			categoryQuery.append(queryConditions.join(" AND "));
+			qDebug() << categoryQuery;
+			vector fetchedRes = ExecuteTargetSql(categoryQuery);
 
-		if (fetchedRes.size() <= 1) {
-			skipQuery = true;
-			break;
-		}
-		QStringList targerResponseKeys = { "categoryId" };
-		for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
-			if (!targerResponseKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
-				continue;
-			entry[it.key()] = it.value();
+			if (fetchedRes.size() <= 1) {
+				skipQuery = true;
+				break;
+			}
+			QStringList targerResponseKeys = { "categoryId" };
+			for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
+				if (!targerResponseKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
+					continue;
+				entry[it.key()] = it.value();
+			}
 		}
 
 		break;
@@ -3729,35 +4729,35 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!hasTrakId)
 			entry[trakId.data()] = trakIdNum;
 
-		if (entry.contains("locationId") || !entry.value("locationId").toString().isEmpty())
-			break;
+		if (!entry.contains("locationId") || entry.value("locationId").toString().isEmpty()) {
 
-		QString locationQuery = "SELECT id as locationId FROM kitlocation WHERE ";
-		QStringList targetKeys = { "custId", "scaleId", "description" };
-		QStringList queryConditions;
-		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
-			QString value = it.value().toString().simplified();
-			if (value.isEmpty() || !targetKeys.contains(it.key()))
-				continue;
-			QString key = it.key();
-			if (value.startsWith("'") && value.endsWith("'"))
-				queryConditions.append(key + " = " + value);
-			else
-				queryConditions.append(key + " = '" + value + "'");
-		}
-		locationQuery.append(queryConditions.join(" AND "));
-		qDebug() << locationQuery;
-		vector fetchedRes = ExecuteTargetSql(locationQuery);
+			QString locationQuery = "SELECT id as locationId FROM kitlocation WHERE ";
+			QStringList targetKeys = { "custId", "scaleId", "description" };
+			QStringList queryConditions;
+			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
+				QString value = it.value().toString().simplified();
+				if (value.isEmpty() || !targetKeys.contains(it.key()))
+					continue;
+				QString key = it.key();
+				if (value.startsWith("'") && value.endsWith("'"))
+					queryConditions.append(key + " = " + value);
+				else
+					queryConditions.append(key + " = '" + value + "'");
+			}
+			locationQuery.append(queryConditions.join(" AND "));
+			qDebug() << locationQuery;
+			vector fetchedRes = ExecuteTargetSql(locationQuery);
 
-		if (fetchedRes.size() <= 1) {
-			skipQuery = true;
-			break;
-		}
-		QStringList targerResponseKeys = { "locationId" };
-		for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
-			if (!targerResponseKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
-				continue;
-			entry[it.key()] = it.value();
+			if (fetchedRes.size() <= 1) {
+				skipQuery = true;
+				break;
+			}
+			QStringList targerResponseKeys = { "locationId" };
+			for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
+				if (!targerResponseKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
+					continue;
+				entry[it.key()] = it.value();
+			}
 		}
 
 		break;
@@ -3770,39 +4770,39 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!hasTrakId)
 			entry[trakId.data()] = trakIdNum;
 
-		if (entry.contains("itemId") && !entry.value("itemId").toString().isEmpty())
-			break;
+		if (!entry.contains("itemId") || entry.value("itemId").toString().isEmpty()) {
 
-		QString kabToolQuery = "SELECT itemId FROM itemkabdrawerbins WHERE ";
-		QStringList targetKeys = { "custId", "kabId", "drawerNum", "toolNum", "itemId"};
-		QStringList queryConditions;
-		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
-			QString value = it.value().toString();
-			if (value.isEmpty() || !targetKeys.contains(it.key()))
-				continue;
-			QString key = it.key();
-			if (key == "toolNum")
-				key = "toolNumber";
-			if (value.startsWith("'"))
-				//queryConditions[key] = value;
-				queryConditions.append(key + " = " + value);
-			else
-				//queryConditions[key] = "'"+value+"'";
-				queryConditions.append(key + " = '" + value + "'");
-		}
-		kabToolQuery.append(queryConditions.join(" AND "));
-		qDebug() << kabToolQuery;
-		vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
+			QString kabToolQuery = "SELECT itemId FROM itemkabdrawerbins WHERE ";
+			QStringList targetKeys = { "custId", "kabId", "drawerNum", "toolNum", "itemId" };
+			QStringList queryConditions;
+			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
+				QString value = it.value().toString();
+				if (value.isEmpty() || !targetKeys.contains(it.key()))
+					continue;
+				QString key = it.key();
+				if (key == "toolNum")
+					key = "toolNumber";
+				if (value.startsWith("'"))
+					//queryConditions[key] = value;
+					queryConditions.append(key + " = " + value);
+				else
+					//queryConditions[key] = "'"+value+"'";
+					queryConditions.append(key + " = '" + value + "'");
+			}
+			kabToolQuery.append(queryConditions.join(" AND "));
+			qDebug() << kabToolQuery;
+			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
 
-		if (fetchedKabTool.size() <= 1) {
-			skipQuery = true;
-			break;
-		}
+			if (fetchedKabTool.size() <= 1) {
+				skipQuery = true;
+				break;
+			}
 
-		for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
-			if (!targetKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
-				continue;
-			entry[it.key()] = it.value();
+			for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
+				if (!targetKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
+					continue;
+				entry[it.key()] = it.value();
+			}
 		}
 
 		break;
@@ -3815,37 +4815,37 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!hasTrakId)
 			entry[trakId.data()] = trakIdNum;
 
-		if (entry.contains("toolId") && !entry.value("toolId").toString().isEmpty())
-			break;
+		if (!entry.contains("toolId") || entry.value("toolId").toString().isEmpty()) {
 
-		QString kabToolQuery = "SELECT t.id as toolId FROM cribtools as ct INNER JOIN tools AS t ON t.custId = ct.custId AND (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo) WHERE ";
-		QStringList targetKeys = { "custId", "cribId", "barcode" };
-		QStringList queryConditions;
-		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
-			QString value = it.value().toString();
-			if (value.isEmpty() || !targetKeys.contains(it.key()))
-				continue;
-			QString key = it.key();
-			if (key == "barcode")
-				key = "barcodeTAG";
-			if (value.startsWith("'"))
-				queryConditions.append("ct."+key + " = " + value);
-			else
-				queryConditions.append("ct." + key + " = '" + value + "'");
-		}
-		kabToolQuery.append(queryConditions.join(" AND "));
-		qDebug() << kabToolQuery;
-		vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
+			QString kabToolQuery = "SELECT t.id as toolId FROM cribtools as ct INNER JOIN tools AS t ON t.custId = ct.custId AND (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo) WHERE ";
+			QStringList targetKeys = { "custId", "cribId", "barcode" };
+			QStringList queryConditions;
+			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
+				QString value = it.value().toString();
+				if (value.isEmpty() || !targetKeys.contains(it.key()))
+					continue;
+				QString key = it.key();
+				if (key == "barcode")
+					key = "barcodeTAG";
+				if (value.startsWith("'"))
+					queryConditions.append("ct." + key + " = " + value);
+				else
+					queryConditions.append("ct." + key + " = '" + value + "'");
+			}
+			kabToolQuery.append(queryConditions.join(" AND "));
+			qDebug() << kabToolQuery;
+			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
 
-		if (fetchedKabTool.size() <= 1) {
-			skipQuery = true;
-			break;
-		}
+			if (fetchedKabTool.size() <= 1) {
+				skipQuery = true;
+				break;
+			}
 
-		for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
-			if (!targetKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
-				continue;
-			entry[it.key()] = it.value();
+			for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
+				if (!targetKeys.contains(it.key()) && (entry.contains(it.key()) || it.value().isEmpty()))
+					continue;
+				entry[it.key()] = it.value();
+			}
 		}
 
 		break;
@@ -3932,7 +4932,6 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 		}
 
-
 		break;
 	}
 	//case lokkaemployeeitemtransactions:
@@ -3943,6 +4942,26 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 	if(entry.value("table").toString().isEmpty())
 		entry["table"] = splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed();
+
+	std::map<std::string, std::string> toolData;
+
+	for (auto it = entry.constBegin(); it != entry.constEnd(); ++it)
+	{
+		QString key = it.key();
+		QString val = it.value().toString().trimmed().simplified();
+		if (val.isEmpty() || val == "''")
+			continue;
+		if (!skipTargetCols.contains(key))
+			toolData[key.toStdString()] = val.toStdString();
+	}
+
+	if(entry["table"] != "kabemployeeitemtransactions" || entry["table"] != "cribemployeeitemtransactions" || entry["table"] != "portaemployeeitemtransactions")
+		sqliteManager.AddEntry(
+			splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed().toStdString(),
+			toolData
+		);
+
+	toolData.clear();
 
 	data.swap(entry);
 
@@ -4050,7 +5069,6 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		QStringList listOfSplittableOperators = { "<>", "<=", ">=", "<", ">", "!=", "=" };
 		QString splitOpUsed;
 		for (const auto& splitOperator : listOfSplittableOperators) {
-			qDebug() << splitOperator;
 
 			if (!conditionTrimmed.contains(splitOperator))
 				continue;
@@ -4083,6 +5101,11 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 	if (skipQuery)
 		return;
+
+	if (conditionPairs.contains("custid")) {
+		conditionPairs["custId"] = conditionPairs.value("custid");
+		conditionPairs.remove("custid");
+	}
 	
 	hadCustId = conditionPairs.contains("custId");
 	hadTrakId = conditionPairs.contains(trakId.data());
@@ -4093,6 +5116,10 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 	qDebug() << conditionPairs;
 	qDebug() << data;
 	qDebug() << querySections[0].split(" ").at(1) << " | " << table_map[querySections[0].split(" ").at(1)];
+
+	SQLiteManager2 sqliteManager(this->parent());
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt", "table" };
+
 	switch (table_map[querySections[0].split(" ").at(1)])
 	{
 	case tools:
@@ -4102,6 +5129,39 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs["custId"] = custId;
 		if (hadId && (!conditionPairs.contains("toolId") || conditionPairs.value("toolId").toString().isEmpty()))
 			conditionPairs["toolId"] = conditionPairs.value("id").toString();
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case users:
@@ -4112,17 +5172,114 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
 
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+		QStringList incrimentingCols = { "accessCountKab", "accessCountCrib", "accessCountPorta" };
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'") || incrimentingCols.contains(key))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case employees: {
 		if (!hadCustId)
 			conditionPairs["custId"] = custId;
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case jobs:
 	{
 		if (!hadCustId)
 			conditionPairs["custId"] = custId;
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
 
 		break;
 	}
@@ -4139,6 +5296,40 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs["custId"] = custId;
 		if(!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
+
 		break;
 	}
 	case drawers: {
@@ -4147,6 +5338,39 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs["custId"] = custId;
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case toolbins: 
@@ -4183,7 +5407,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			break;
 		}
 		qDebug() << itemDrawerRes;
-		QStringList allowedKeyList = { "custId", "kabId", "drawerNum", "toolNumber", "itemId", "toolId" };
+		QStringList allowedKeyList = { "drawerNum", "toolNumber", "itemId", "toolId" };
 		for (auto it = itemDrawerRes[1].cbegin(); it != itemDrawerRes[1].cend(); ++it) {
 			if (!allowedKeyList.contains(it.key()) || conditionPairs.contains(it.key()) || it.value().isEmpty())
 				continue;
@@ -4197,6 +5421,38 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			
 		}
 
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case cribs: 
@@ -4206,9 +5462,83 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs["custId"] = custId;
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
-	//case cribconsumables:
+	case cribconsumables: {
+		data["table"] = "cribtrak/consumables";
+
+		if (!hadCustId)
+			conditionPairs["custId"] = custId;
+		if (!hadTrakId)
+			conditionPairs[trakId.data()] = trakIdNum;
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
+		break;
+	}
 	//case cribtoollocation:
 	//case cribtoollockers:
 	case cribtools: 
@@ -4220,6 +5550,38 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
 
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case kittools: {
@@ -4229,6 +5591,38 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs["custId"] = custId;
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
 
 		break;
 	}
@@ -4240,6 +5634,38 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
 
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case itemscale: {
@@ -4249,6 +5675,38 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
 
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case itemkits: {
@@ -4257,6 +5715,38 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs["custId"] = custId;
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
 
 		break;
 	}
@@ -4301,6 +5791,38 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs[it.key()] = it.value();
 		}
 
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
+		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+			if (value.startsWith("'"))
+				conditionals.push_back((key + " = " + value).toStdString());
+			else
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
+		}
+
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
+
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
+		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
+
 		break;
 	}
 	case kitlocation: {
@@ -4310,39 +5832,71 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		if (!hadTrakId)
 			conditionPairs[trakId.data()] = trakIdNum;
 
-		if (conditionPairs.contains("locationId") && !conditionPairs.value("locationId").toString().isEmpty())
-			break;
+		if (!conditionPairs.contains("locationId") || conditionPairs.value("locationId").toString().isEmpty()) {
 
-		QString categoryQuery = "SELECT id as locationId FROM kitlocation WHERE ";
-		QStringList targetKeys = { "location" };
-		QStringList queryConditions;
+			QString categoryQuery = "SELECT id as locationId FROM kitlocation WHERE ";
+			QStringList targetKeys = { "location" };
+			QStringList queryConditions;
+			for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
+				QString value = it.value().toString();
+				if (value.isEmpty() || !targetKeys.contains(it.key()))
+					continue;
+				QString key = it.key();
+				if (key == "location")
+					key = "id";
+				if (value.startsWith("'"))
+					queryConditions.append(key + " = " + value);
+				else
+					queryConditions.append(key + " = '" + value + "'");
+			}
+			categoryQuery.append(queryConditions.join(" AND "));
+			qDebug() << categoryQuery;
+			vector fetchedRes = ExecuteTargetSql(categoryQuery);
+
+			if (fetchedRes.size() <= 1) {
+				skipQuery = true;
+				break;
+			}
+			QStringList targerResponseKeys = { "locationId" };
+			for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
+				if (!targerResponseKeys.contains(it.key()) && (conditionPairs.contains(it.key()) || it.value().isEmpty()))
+					continue;
+
+				conditionPairs[it.key()] = it.value();
+			}
+		}
+
+		std::vector<std::string> conditionals;
+		stringmap setMap;
+
 		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
-			QString value = it.value().toString();
-			if (value.isEmpty() || !targetKeys.contains(it.key()))
-				continue;
 			QString key = it.key();
-			if (key == "location")
-				key = "id";
+			QString value = it.value().toString();
+			if (value.isEmpty())
+				continue;
 			if (value.startsWith("'"))
-				queryConditions.append(key + " = " + value);
+				conditionals.push_back((key + " = " + value).toStdString());
 			else
-				queryConditions.append(key + " = '" + value + "'");
+				conditionals.push_back((key + " = '" + value + "'").toStdString());
 		}
-		categoryQuery.append(queryConditions.join(" AND "));
-		qDebug() << categoryQuery;
-		vector fetchedRes = ExecuteTargetSql(categoryQuery);
 
-		if (fetchedRes.size() <= 1) {
-			skipQuery = true;
-			break;
-		}
-		QStringList targerResponseKeys = { "locationId" };
-		for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
-			if (!targerResponseKeys.contains(it.key()) && (conditionPairs.contains(it.key()) || it.value().isEmpty()))
+		for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
+			QString key = it.key();
+			QString value = it.value().toString();
+			if (value.isEmpty())
 				continue;
 
-			conditionPairs[it.key()] = it.value();
+			if (value.startsWith("'"))
+				setMap[key.toStdString()] = value.toStdString();
+			else
+				setMap[key.toStdString()] = "'" + value.toStdString() + "'";
 		}
+
+		sqliteManager.UpdateEntry(
+			querySections[0].split(" ").at(1).toStdString(),
+			conditionals,
+			setMap
+		);
 
 		break;
 	}
@@ -4462,19 +6016,25 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 
 		QString key = colAndVal.at(0);
 		QString val = conditionTrimmed.slice(colAndVal.at(0).length() + colAndVal.at(1).length() + 2);
-		val.trimmed();
+		val = val.trimmed();
 		if(key.startsWith("("))
 			key.slice(1);
 		if (val.endsWith(")"))
 			val.slice(0, val.length() - 1);
-
-		if (val.startsWith("'") && val.endsWith("'")) {
-			val.slice(1, val.length() - 2);
-		}
-
+		val = val.trimmed();
+		if (val.startsWith("'"))
+			val.slice(1);
+		if (val.endsWith("'"))
+			val.slice(0, val.length() - 1);
+		val = val.trimmed();
 		qDebug() << key << ": " << val;
 		//conditionPairs.insert(key, val);
 		data[key] = val;
+	}
+
+	if (data.contains("custid")) {
+		data["custId"] = data.value("custid");
+		data.remove("custid");
 	}
 
 	hasCustId = data.contains("custId");
@@ -4585,9 +6145,30 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 	//case cribtools:
 	//case kittools:
 	//case tooltransfer:
-	//case itemkits:
-	//case kitcategory:
-	//case kitlocation:
+	case itemkits: {
+		data["table"] = "portatrak/kit";
+		if (!hasCustId)
+			data["custId"] = custId;
+		if (!hasTrakId)
+			data[trakId.data()] = trakIdNum;
+		break;
+	}
+	case kitcategory: {
+		data["table"] = "portatrak/kit/category";
+		if (!hasCustId)
+			data["custId"] = custId;
+		if (!hasTrakId)
+			data[trakId.data()] = trakIdNum;
+		break;
+	}
+	case kitlocation: {
+		data["table"] = "portatrak/kit/location";
+		if (!hasCustId)
+			data["custId"] = custId;
+		if (!hasTrakId)
+			data[trakId.data()] = trakIdNum;
+		break;
+	}
 	//case kabemployeeitemtransactions:
 	//case cribemployeeitemtransactions:
 	//case portaemployeeitemtransactions:

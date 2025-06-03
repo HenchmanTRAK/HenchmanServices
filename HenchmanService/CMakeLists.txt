@@ -46,8 +46,8 @@ target_link_libraries(
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
-	DatabaseManager
 	RegistryManager
+	DatabaseManager
 	SQLiteManager2
 	TRAKManager
 	ServiceController
