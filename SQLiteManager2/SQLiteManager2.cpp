@@ -88,9 +88,16 @@ SQLiteManager2::~SQLiteManager2()
 
 }
 
+
+void SQLiteManager2::ExecQuery(const std::string& queryText)
+{
+	std::vector<stringmap> results;
+	return ExecQuery(queryText, results);
+}
+
 void SQLiteManager2::ExecQuery(
 	const std::string& queryText, 
-	std::vector<stringmap>* results
+	std::vector<stringmap>& results
 )
 {
 	std::vector<stringmap> resultVector;
@@ -127,10 +134,11 @@ void SQLiteManager2::ExecQuery(
 				query.lastError().text().toStdString()
 			);
 		}
+		qDebug() << "Query Successful";
 		while (query.next())
 		{
 			queryResult.clear();
-
+			qDebug() << query.result();
 			for (int i = 0; i <= query.record().count() - 1; i++)
 			{
 				std::string key = query.record().fieldName(i).toStdString();
@@ -140,6 +148,7 @@ void SQLiteManager2::ExecQuery(
 
 			resultVector.push_back(queryResult);
 		}
+		qDebug() << resultVector;
 		query.clear();
 		query.finish();
 		if (!db.commit())
@@ -155,8 +164,8 @@ void SQLiteManager2::ExecQuery(
 		ServiceHelper().WriteToError("An exception was thrown: " + (std::string)e.what());
 		//throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
 	}
-	if (results)
-		resultVector.swap(*results);
+	//if (results)
+	resultVector.swap(results);
 }
 
 int SQLiteManager2::CreateTable(
@@ -384,6 +393,10 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 	const std::vector<std::string>& conditions
 )
 {
+	qDebug() << tableName;
+	qDebug() << selections;
+	qDebug() << conditions;
+
 	std::vector<stringmap> results;
 	std::stringstream queryText;
 	std::string selectionsMade;
@@ -397,7 +410,7 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 				selectionsMade.append( selection);
 				selectionsMade.append(selections.back() != selection
 					? ", " 
-					: " "
+					: ""
 					);
 			}
 		});
@@ -405,6 +418,8 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 	std::thread conditionsThread(
 		[&conditions, &conditionsForGetting]()
 		{
+			if (conditions.size() <= 0)
+				return;
 			for (const auto& condition : conditions)
 			{
 				conditionsForGetting.append(condition);
@@ -416,15 +431,17 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 		});
 
 	selectionsThread.join();
-	queryText << "SELECT " << selectionsMade;
+	queryText << "SELECT\n" << selectionsMade << "\n";
+	queryText << "FROM " << tableName << "\n";
 	conditionsThread.join();
-	queryText << "FROM " << tableName << " WHERE " << conditionsForGetting;
+	if(conditions.size() > 0)
+		queryText << "WHERE " << conditionsForGetting;
 
 	LOG << queryText.str();
 
 	try {
 
-		ExecQuery(queryText.str(), &results);
+		ExecQuery(queryText.str(), results);
 
 		for(const auto& result : results){
 			for (const auto& [key, value] : result) {

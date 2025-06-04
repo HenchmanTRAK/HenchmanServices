@@ -25,8 +25,6 @@
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
 
-typedef std::map<std::string, std::string> stringmap;
-
 /**
  * @class SQLiteManager2
  *
@@ -154,7 +152,7 @@ public:
 	std::vector<stringmap> GetEntry(
 		const std::string& tableName,
 		const std::vector<std::string>& selections,
-		const std::vector<std::string>& conditions
+		const std::vector<std::string>& conditions = std::vector<std::string>()
 	);
 
 	/**
@@ -169,7 +167,10 @@ public:
 	 */
 	void ExecQuery(
 		const std::string& query,
-		std::vector<stringmap>* results = nullptr
+		std::vector<stringmap> &results
+	);
+	void ExecQuery(
+		const std::string& query
 	);
 
 private:

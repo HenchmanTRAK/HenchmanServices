@@ -231,6 +231,8 @@ private:
 
 	QNetworkRequest request;
 
+	SQLiteManager2 sqliteManager;
+
 public:
 	/**
 	 * @var bool requestRunning

@@ -31,6 +31,8 @@
 
 #define LOG ServiceHelper()
 
+typedef std::map<std::string, std::string> stringmap;
+
 
 /**
  * @class ServiceHelper
