@@ -355,6 +355,8 @@ public:
 	 */
 	void performCleanup();
 
+	//General Table Upload
+
 	/**
 	 * @brief Adds tools to the database if they do not already exist.
 	 *
@@ -366,6 +368,44 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	*/
 	int addToolsIfNotExists();
+
+	/**
+	 * @brief Adds users to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of users from the local database and checks if each user already exists on the remote database.
+	 * If an user does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of users in the database is lesser than or equal to the number of users checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addUsersIfNotExists();
+
+	/**
+	 * @brief Adds employees to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of employees from the local database and checks if each employee already exists on the remote database.
+	 * If an employee does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of employees in the database is lesser than or equal to the number of employees checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addEmployeesIfNotExists();
+
+	/**
+	 * @brief Adds jobs to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of jobs from the local database and checks if each job already exists on the remote database.
+	 * If a job does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of jobs in the database is lesser than or equal to the number of jobs checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addJobsIfNotExists();
+
+	// Upload Kabtrak Tables
 
 	/**
 	 * @brief Adds missing itemkabs to the database if they do not already exist.
@@ -403,41 +443,9 @@ public:
 	 */
 	int addToolsInDrawersIfNotExists();
 
-	/**
-	 * @brief Adds users to the database if they do not already exist.
-	 *
-	 * This function retrieves a list of users from the local database and checks if each user already exists on the remote database.
-	 * If an user does not exist, it is inserted into the remote database using an SQL query.
-	 *
-	 * @return Returns 0 if the number of users in the database is lesser than or equal to the number of users checked, otherwise returns 1.
-	 *
-	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
-	 */
-	int addUsersIfNotExists();
+	int createKabtrakTransactionsTable();
 
-	/**
-	 * @brief Adds employees to the database if they do not already exist.
-	 *
-	 * This function retrieves a list of employees from the local database and checks if each employee already exists on the remote database.
-	 * If an employee does not exist, it is inserted into the remote database using an SQL query.
-	 *
-	 * @return Returns 0 if the number of employees in the database is lesser than or equal to the number of employees checked, otherwise returns 1.
-	 *
-	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
-	 */
-	int addEmployeesIfNotExists();
-
-	/**
-	 * @brief Adds jobs to the database if they do not already exist.
-	 *
-	 * This function retrieves a list of jobs from the local database and checks if each job already exists on the remote database.
-	 * If a job does not exist, it is inserted into the remote database using an SQL query.
-	 *
-	 * @return Returns 0 if the number of jobs in the database is lesser than or equal to the number of jobs checked, otherwise returns 1.
-	 *
-	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
-	 */
-	int addJobsIfNotExists();
+	// Upload Cribtrak Tables
 
 	/**
 	 * @brief Adds cribTRAKs to the database if they do not already exist.
@@ -511,6 +519,10 @@ public:
 	 */
 	int addCribKitsIfNotExists();
 
+	int createCribtrakTransactionsTable();
+
+	// Upload Portatrak Tables
+
 	/**
 	 * @brief Adds portaTRAKs to the database if they do not already exist.
 	 *
@@ -558,6 +570,8 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
 	int addKitLocationIfNotExists();
+
+	int createPortatrakTransactionsTable();
 
 	/**
 	 * @brief Parses a QJsonArray into a string representation.
