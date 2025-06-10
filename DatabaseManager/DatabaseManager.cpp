@@ -863,6 +863,12 @@ int DatabaseManager::addToolsIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 	
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -956,6 +962,12 @@ int DatabaseManager::addToolsIfNotExists()
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 int DatabaseManager::addUsersIfNotExists()
@@ -1020,6 +1032,12 @@ int DatabaseManager::addUsersIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1128,6 +1146,11 @@ int DatabaseManager::addUsersIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 int DatabaseManager::addEmployeesIfNotExists()
@@ -1191,6 +1214,12 @@ int DatabaseManager::addEmployeesIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1278,6 +1307,12 @@ int DatabaseManager::addEmployeesIfNotExists()
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 int DatabaseManager::addJobsIfNotExists()
@@ -1343,6 +1378,12 @@ int DatabaseManager::addJobsIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1430,6 +1471,12 @@ int DatabaseManager::addJobsIfNotExists()
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 
@@ -1557,6 +1604,12 @@ int DatabaseManager::addKabsIfNotExists()
 
 	columns.clear();
 
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
+
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
 	for (auto &result : sqlQueryResults) {
@@ -1637,6 +1690,11 @@ int DatabaseManager::addKabsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 int DatabaseManager::addDrawersIfNotExists()
@@ -1700,6 +1758,12 @@ int DatabaseManager::addDrawersIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1772,6 +1836,11 @@ int DatabaseManager::addDrawersIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 
 	return 1;
@@ -1847,6 +1916,12 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 
 	columns.clear();
 
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
+
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1920,6 +1995,11 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 
 	return 1;
@@ -2111,6 +2191,12 @@ int DatabaseManager::addCribsIfNotExists()
 
 	columns.clear();
 
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
+
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 	
 	for (auto& result : sqlQueryResults) {
@@ -2189,6 +2275,11 @@ int DatabaseManager::addCribsIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 
 	return 1;
@@ -2274,6 +2365,12 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 
 	columns.clear();
 
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -2344,6 +2441,11 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 
 	return 1;
@@ -2421,6 +2523,12 @@ int DatabaseManager::addCribToolsIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -2524,6 +2632,11 @@ int DatabaseManager::addCribToolsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 int DatabaseManager::addCribToolTransferIfNotExists()
@@ -2598,6 +2711,12 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 
 	columns.clear();
 
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
 			continue;
@@ -2670,6 +2789,11 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 
 	return 1;
@@ -2746,6 +2870,12 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId")) {
@@ -2836,6 +2966,11 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 int DatabaseManager::addCribKitsIfNotExists()
@@ -2909,6 +3044,12 @@ int DatabaseManager::addCribKitsIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -2992,6 +3133,11 @@ int DatabaseManager::addCribKitsIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 
 	return 1;
@@ -3189,6 +3335,12 @@ int DatabaseManager::addPortasIfNotExists()
 
 	columns.clear();
 
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
+
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
 	for (auto& result : sqlQueryResults) {
@@ -3271,6 +3423,11 @@ int DatabaseManager::addPortasIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemscale%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 int DatabaseManager::addItemKitsIfNotExists()
@@ -3344,6 +3501,12 @@ int DatabaseManager::addItemKitsIfNotExists()
 	);
 
 	columns.clear();
+
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -3429,6 +3592,11 @@ int DatabaseManager::addItemKitsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
 	return 1;
 }
 int DatabaseManager::addKitCategoryIfNotExists()
@@ -3512,6 +3680,12 @@ int DatabaseManager::addKitCategoryIfNotExists()
 
 	columns.clear();
 
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -3586,6 +3760,11 @@ int DatabaseManager::addKitCategoryIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 
 	return 1;
@@ -3671,6 +3850,12 @@ int DatabaseManager::addKitLocationIfNotExists()
 
 	columns.clear();
 
+	if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);
+
+	if (isInternetConnected())
+		authenticateSession();
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -3744,6 +3929,11 @@ int DatabaseManager::addKitLocationIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
+	}
+
+	if (restManager) {
+		restManager->deleteLater();
+		restManager = nullptr;
 	}
 
 	return 1;
@@ -4004,7 +4194,7 @@ int DatabaseManager::connectToRemoteDB()
 			
 			qDebug() << targetTable;
 			qDebug() << queryType;
-			qDebug() << data;
+			LOG << QJsonDocument(data).toJson();
 			
 			if (!tablesNotToDebug.contains(targetTable)) {
 				int tempVal = 0;
@@ -4545,7 +4735,13 @@ void DatabaseManager::processKeysAndValues(QStringMap &map, QString (&results)[]
 }
 
 QString parseTimeValue(const QString& time) {
-	QStringList splitTime = time.split(":");
+	QStringList splitTime;
+
+	if (time.contains(" "))
+		splitTime = time.split(" ").last().split(":");
+	else
+		splitTime = time.split(":");
+
 	QStringList secondsSplit = splitTime.last().split(".");
 	int hours = splitTime.first().toInt();
 	int minutes = splitTime.at(1).toInt();
@@ -4637,7 +4833,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			targetVal.slice(1, targetVal.length() - 2);
 		}
 
-		if (targetVal.contains("NULL") || targetVal.isEmpty())
+		if (targetVal.contains("NULL"))
 			continue;
 
 		if (!tempVal.isEmpty())
@@ -5246,11 +5442,6 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	case kabemployeeitemtransactions: {
 		entry["table"] = "kabtrak/transactions";
 
-		if (!hasCustId)
-			entry["custId"] = custId;
-		if (!hasTrakId)
-			entry[trakId.data()] = trakIdNum;
-
 		if (!entry.contains("itemId") || entry.value("itemId").toString().isEmpty()) {
 
 			QString kabToolQuery = "SELECT itemId FROM itemkabdrawerbins WHERE ";
@@ -5284,6 +5475,27 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 
 		}
+
+		if (!entry.contains("toolId") || !entry.value("itemId").toString().isEmpty()) {
+
+			QString kabToolQuery = "SELECT id AS toolId FROM tools WHERE PartNo LIKE '" + entry.value("itemId").toString() + "' OR stockcode LIKE '" + entry.value("itemId").toString() + "'";
+			qDebug() << kabToolQuery;
+			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
+
+			if (fetchedKabTool.size() > 1) {
+				for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
+					if ((entry.contains(it.key()) || it.value().isEmpty()))
+						continue;
+					entry[it.key()] = it.value();
+				}
+			}
+
+		}
+
+		if (!hasCustId)
+			entry["custId"] = custId;
+		if (!hasTrakId)
+			entry[trakId.data()] = trakIdNum;
 
 		break;
 	}
@@ -5545,11 +5757,6 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 {
 	QStringList splitQueryForParsing = ServiceHelper::ExplodeString(query, " ");
 	//qDebug() << splitQueryForParsing;
-	string splitBy;
-	if (query.contains("SET"))
-		splitBy = " SET ";
-	else
-		splitBy = " set ";
 	QStringList querySections = query.split(" SET ", Qt::SkipEmptyParts, Qt::CaseInsensitive);
 	//QStringList querySections = ServiceHelper::ExplodeString(query, splitBy.data());
 	qDebug() << querySections;
@@ -5560,10 +5767,6 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		querySections.remove(2, querySections.size() - 2);
 	}
 	qDebug() << querySections;
-	if (query.contains("WHERE"))
-		splitBy = " WHERE ";
-	else
-		splitBy = " where ";
 
 	querySections.append(querySections[1].split(" WHERE ", Qt::SkipEmptyParts, Qt::CaseInsensitive));
 	querySections.removeAt(1);
