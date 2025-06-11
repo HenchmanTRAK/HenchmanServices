@@ -6013,23 +6013,21 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 
 		vector itemDrawerRes = ExecuteTargetSql(itemDrawerQuery);
-		if (itemDrawerRes.size() <= 1) {
-			skipQuery = true;
-			break;
-		}
 		qDebug() << itemDrawerRes;
-		QStringList allowedKeyList = { "drawerNum", "toolNumber", "itemId", "toolId" };
-		for (auto it = itemDrawerRes[1].cbegin(); it != itemDrawerRes[1].cend(); ++it) {
-			if (!allowedKeyList.contains(it.key()) || conditionPairs.contains(it.key()) || it.value().isEmpty())
-				continue;
+		if (itemDrawerRes.size() > 1) {	
+			QStringList allowedKeyList = { "drawerNum", "toolNumber", "itemId", "toolId" };
+			for (auto it = itemDrawerRes[1].cbegin(); it != itemDrawerRes[1].cend(); ++it) {
+				if (!allowedKeyList.contains(it.key()) || conditionPairs.contains(it.key()) || it.value().isEmpty())
+					continue;
 
-			qDebug() << it.key() << ": " << setPairs.value(it.key()).toString() << " | " << it.value();
-			if (setPairs.contains(it.key()) && setPairs.value(it.key()).toString() == it.value()) {
-				skipQuery = true;
-				break;
-			}
-			conditionPairs[it.key()] = it.value();
+				qDebug() << it.key() << ": " << setPairs.value(it.key()).toString() << " | " << it.value();
+				if (setPairs.contains(it.key()) && setPairs.value(it.key()).toString() == it.value()) {
+					skipQuery = true;
+					break;
+				}
+				conditionPairs[it.key()] = it.value();
 			
+			}
 		}
 
 		if (!hadCustId)
