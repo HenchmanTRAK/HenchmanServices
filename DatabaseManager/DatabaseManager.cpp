@@ -351,7 +351,7 @@ int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryM
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
-
+	Sleep(1);
 	return result;
 }
 
@@ -384,7 +384,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 		"\nquery : " + doc.toJson().toStdString(),
 		timeStamp[0] + "-queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results, &loop](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -453,7 +453,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 
 		}
 		//reply.networkReply()->finished();
-
+		//QTimer::singleShot(1, reply.networkReply(), &QNetworkReply::finished);
 		});
 
 	qDebug() << "Reply post is finished? " << reply->isFinished();
@@ -465,7 +465,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 
 	reply->deleteLater();
 	retryCount = 0;
-
+	Sleep(1);
 	return result;
 }
 
@@ -564,7 +564,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& quer
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply patch is finished? " << reply->isFinished();
-
+	Sleep(1);
 	return result;
 }
 
@@ -670,7 +670,7 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply patch is finished? " << reply->isFinished();
-
+	Sleep(1);
 	return result;
 }
 
