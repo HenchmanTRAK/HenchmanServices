@@ -351,7 +351,7 @@ int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryM
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
-	Sleep(1);
+	QThread::sleep(1);
 	return result;
 }
 
@@ -465,7 +465,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 
 	reply->deleteLater();
 	retryCount = 0;
-	Sleep(1);
+	QThread::sleep(1);
 	return result;
 }
 
@@ -564,7 +564,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& quer
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply patch is finished? " << reply->isFinished();
-	Sleep(1);
+	QThread::sleep(1);
 	return result;
 }
 
@@ -670,7 +670,7 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply patch is finished? " << reply->isFinished();
-	Sleep(1);
+	QThread::sleep(1);
 	return result;
 }
 
@@ -781,7 +781,7 @@ int DatabaseManager::makeNetworkRequest(const QString &url, QStringMap &query, Q
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	//connect(&loop, &QEventLoop::quit, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
 	loop.exec();
-
+	QThread::sleep(1);
 	return result;
 }
 

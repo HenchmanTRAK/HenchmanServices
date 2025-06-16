@@ -34,6 +34,7 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QList>
+#include <QThread>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
