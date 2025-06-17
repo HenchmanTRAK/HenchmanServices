@@ -681,15 +681,17 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 			if (!testing)
 				timer = 30000;
 			else
-				timer = 10000;
+				timer = 30000;
 		}
 	} catch (exception& e) {
 		timer = 30000;
 		ServiceHelper().WriteToError(e.what());
 	}
 	
-	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer) + " ms...");
-	QTimer::singleShot(timer, this->parent(), &QCoreApplication::quit);
+	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer+1) + " ms...");
+	QTimer::singleShot(1, this->parent(), &QCoreApplication::quit);
+	
+	Sleep(timer);
 
 	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
 	a->exec();

@@ -105,14 +105,14 @@ DatabaseManager::DatabaseManager(QObject* parent)
 		}
 	}
 
-	netManager = new QNetworkAccessManager(this);
+	netManager = new QNetworkAccessManager(this->parent());
 	if (!testingDBManager)
 		netManager->setStrictTransportSecurityEnabled(true);
 	netManager->setAutoDeleteReplies(true);
 	netManager->setTransferTimeout(30000);
-	connect(netManager, &QNetworkAccessManager::finished, this, &QCoreApplication::quit);
+	//connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
 
-	restManager = new QRestAccessManager(netManager, this);
+	restManager = new QRestAccessManager(netManager, this->parent());
 	
 	if (isInternetConnected())
 		authenticateSession();
@@ -170,7 +170,7 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 
 bool DatabaseManager::isInternetConnected()
 {
-	QTcpSocket* sock = new QTcpSocket(this);
+	QTcpSocket* sock = new QTcpSocket(this->parent());
 	sock->connectToHost("www.google.com", 80);
 	bool connected = sock->waitForConnected(30000);//ms
 	sock->disconnectFromHost();
@@ -271,7 +271,7 @@ int retryCount = 0;
 int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryMap, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop(this->parent());
 
 	// Generate auth header for request.
 	LOG << url;
@@ -347,18 +347,18 @@ int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryM
 
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
 
-	netManager->finished(reply);
+	//netManager->finished(reply);
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
-	QThread::sleep(1);
+	//QThread::sleep(1);
 	return result;
 }
 
 int DatabaseManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {		
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop(this->parent());
 
 	// Generate auth header for request.
 	LOG << url;
@@ -458,21 +458,21 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 
 	qDebug() << "Reply post is finished? " << reply->isFinished();
 
-	netManager->finished(reply);
+	//netManager->finished(reply);
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply post is finished? " << reply->isFinished();
 
-	reply->deleteLater();
+	//reply->deleteLater();
 	retryCount = 0;
-	QThread::sleep(1);
+	//QThread::sleep(1);
 	return result;
 }
 
 int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop(this->parent());
 
 	// Generate auth header for request.
 	LOG << url;
@@ -560,18 +560,18 @@ int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& quer
 
 	qDebug() << "Reply patch is finished? " << reply->isFinished();
 
-	netManager->finished(reply);
+	//netManager->finished(reply);
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply patch is finished? " << reply->isFinished();
-	QThread::sleep(1);
+	//QThread::sleep(1);
 	return result;
 }
 
 int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop(this->parent());
 
 	// Generate auth header for request.
 	LOG << url;
@@ -666,18 +666,18 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 
 	qDebug() << "Reply patch is finished? " << reply->isFinished();
 
-	netManager->finished(reply);
+	//netManager->finished(reply);
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply patch is finished? " << reply->isFinished();
-	QThread::sleep(1);
+	//QThread::sleep(1);
 	return result;
 }
 
 int DatabaseManager::makeNetworkRequest(const QString &url, QStringMap &query, QJsonDocument *results)
 {
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop(this->parent());
 
 	// Generate auth header for request.
 	//QString concatenated = apiUsername+":"+apiPassword;
@@ -781,7 +781,7 @@ int DatabaseManager::makeNetworkRequest(const QString &url, QStringMap &query, Q
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	//connect(&loop, &QEventLoop::quit, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
 	loop.exec();
-	QThread::sleep(1);
+	//QThread::sleep(1);
 	return result;
 }
 
@@ -4055,7 +4055,7 @@ int DatabaseManager::connectToRemoteDB()
 			ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
 
 		if (restManager == nullptr)
-			restManager = new QRestAccessManager(netManager, this);
+			restManager = new QRestAccessManager(netManager, this->parent());
 
 		if (isInternetConnected())
 			authenticateSession();
@@ -4333,7 +4333,7 @@ int DatabaseManager::connectToRemoteDB()
 		ServiceHelper().WriteToError(e.what());
 	}
 
-	netManager->finished(NULL);
+	//netManager->finished(nullptr);
 	
 	if (restManager) {
 		restManager->deleteLater();
@@ -4774,8 +4774,6 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	QStringList splitQuery;
 	splitQuery.append(targetQuery.slice(0, query.indexOf("(")).trimmed());
 	splitQuery.append(query.slice(query.indexOf("(")).trimmed().split("VALUES", Qt::SkipEmptyParts, Qt::CaseInsensitive));
-	
-	qDebug() << splitQuery;
 
 	bool hasCustId = 0;
 	bool hasTrakId = 0;
@@ -4797,13 +4795,11 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 		cols.append(targetCol);
 	}
-	qDebug() << cols;
 
 	QStringList insertValues = splitQuery.at(2).trimmed().split(",", Qt::SkipEmptyParts);
 	QString tempVal;
 	for (auto it = insertValues.cbegin(); it != insertValues.cend(); ++it) {
 		QString targetVal = it->trimmed();
-		qDebug() << targetVal;
 		if (targetVal.startsWith("("))
 			targetVal.slice(1);
 		if (targetVal.endsWith(")"))
@@ -4843,8 +4839,6 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 	}
 
-	qDebug() << vals;
-
 	QJsonObject entry;
 
 	int limit = cols.count();
@@ -4858,7 +4852,6 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			continue;
 		entry[key] = val;
 	}
-	qDebug() << entry;
 
 	if (entry.contains("custid")) {
 		entry["custId"] = entry.value("custid");
@@ -4889,156 +4882,6 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	QString values;
 	QString newQuery;
 	std::string targetTable = splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed().toStdString();
-
-#if false
-	if (targetTable == "kitcategory") {
-		std::vector<std::string> conditions;
-		for (auto& [key, value] : toolData) {
-			conditions.push_back(key + "='" + value + "'");
-		}
-		std::vector<stringmap> results = sqliteManager.GetEntry(
-			targetTable,
-			{"last_insert_rowid() + 1 AS categoryId"},
-			conditions
-		);
-			
-		if (results.empty()) {
-			toolData["categoryId"] = "1";
-		}
-		else {
-			for (auto& result : results) {
-				qDebug() << result;
-				for (const auto& [key, value] : result) {
-					toolData["categoryId"] = value;
-					LOG << key << " = " << value;
-					if (key == "id" || value == "" || value == "0")
-					{
-						continue;
-					}
-				}
-			}
-		}
-	}
-
-	if (targetTable == "kitlocation") {
-		std::vector<std::string> conditions;
-		for (auto& [key, value] : toolData) {
-			conditions.push_back(key + "='" + value + "'");
-		}
-		std::vector<stringmap> results = sqliteManager.GetEntry(
-			targetTable,
-			{ "last_insert_rowid() + 1 AS locationId" },
-			conditions
-		);
-
-		if (results.empty()) {
-			toolData["locationId"] = "1";
-		}
-		else {
-			for (auto& result : results) {
-				qDebug() << result;
-				for (const auto& [key, value] : result) {
-					toolData["locationId"] = value;
-					LOG << key << " = " << value;
-					if (key == "id" || value == "" || value == "0")
-					{
-						continue;
-					}
-				}
-			}
-		}
-	}
-
-	if (targetTable == "cribtoollocation") {
-		std::vector<std::string> conditions;
-		for (auto& [key, value] : toolData) {
-			conditions.push_back(key + "='" + value + "'");
-		}
-		std::vector<stringmap> results = sqliteManager.GetEntry(
-			targetTable,
-			{ "last_insert_rowid() + 1 AS locationId" },
-			conditions
-		);
-
-		if (results.empty()) {
-			toolData["locationId"] = "1";
-		}
-		else {
-			for (auto& result : results) {
-				qDebug() << result;
-				for (const auto& [key, value] : result) {
-					toolData["locationId"] = value;
-					LOG << key << " = " << value;
-					if (key == "id" || value == "" || value == "0")
-					{
-						continue;
-					}
-				}
-			}
-		}
-	}
-
-	if (targetTable == "tooltransfer") {
-		std::vector<std::string> conditions;
-		for (auto& [key, value] : toolData) {
-			conditions.push_back(key + "='" + value + "'");
-		}
-		std::vector<stringmap> results = sqliteManager.GetEntry(
-			targetTable,
-			{ "last_insert_rowid() + 1 AS transferId" },
-			conditions
-		);
-
-		if (results.empty()) {
-			toolData["transferId"] = "1";
-		}
-		else {
-			for (auto& result : results) {
-				qDebug() << result;
-				for (const auto& [key, value] : result) {
-					toolData["transferId"] = value;
-					LOG << key << " = " << value;
-					if (key == "id" || value == "" || value == "0")
-					{
-						continue;
-					}
-				}
-			}
-		}
-	}
-
-	if (targetTable == "itemkits") {
-		std::vector<std::string> conditions;
-		for (auto& [key, value] : toolData) {
-			conditions.push_back(key + "='" + value + "'");
-		}
-		std::vector<stringmap> results = sqliteManager.GetEntry(
-			targetTable,
-			{ "last_insert_rowid() + 1 AS targetId" },
-			conditions
-		);
-
-		if (results.empty()) {
-			toolData["kitId"] = (QString("000").slice(QString::number(custId).length()) + QString::number(custId) + QString("001")).toStdString();
-		}
-		else {
-			for (auto& result : results) {
-				qDebug() << result;
-				for (const auto& [key, value] : result) {
-					toolData["kitId"] = (QString("000").slice(QString::number(custId).length()) + QString::number(custId) + QString("000").slice(value.length()) + value.data()).toStdString();
-					LOG << key << " = " << value;
-					if (key == "id" || value == "" || value == "0")
-					{
-						continue;
-					}
-				}
-			}
-		}
-	}
-#endif
-
-	//QStringList columns = splitQuery.at(1).split(",", Qt::SkipEmptyParts);
-	
 
 	switch (table_map[splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed()])
 	{
@@ -5087,7 +4930,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				if ((it + 1) != entry.constEnd())
 					jobQuery.append(" AND ");
 			}
-			qDebug() << jobQuery;
+
 			vector fetchedJob = ExecuteTargetSql(jobQuery);
 
 			if (fetchedJob.size() <= 1) {
@@ -5148,7 +4991,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 					queryConditions.append("kt." + key + " = '" + value + "'");
 			}
 			kabToolQuery.append(queryConditions.join(" AND "));
-			qDebug() << kabToolQuery;
+			//qDebug() << kabToolQuery;
 			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
 
 			if (fetchedKabTool.size() <= 1) {
@@ -5200,7 +5043,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 			toolQuery.append(queryConditions.join(" AND "));
 			toolQuery.append(" ORDER BY barcodeTAG DESC LIMIT 1");
-			qDebug() << toolQuery;
+			//qDebug() << toolQuery;
 			vector fetchedTool = ExecuteTargetSql(toolQuery);
 
 			if (fetchedTool.size() <= 1) {
@@ -5262,7 +5105,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				queryConditions.append("ct." + key + " = '" + value + "'");
 		}
 		cribToolQuery.append(queryConditions.join(" AND "));
-		qDebug() << cribToolQuery;
+		//qDebug() << cribToolQuery;
 		vector fetchedKabTool = ExecuteTargetSql(cribToolQuery);
 
 		if (fetchedKabTool.size() <= 1) {
@@ -5333,7 +5176,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 					queryConditions.append(key + " = '" + value + "'");
 			}
 			kitQuery.append(queryConditions.join(" AND "));
-			qDebug() << kitQuery;
+			//qDebug() << kitQuery;
 			vector fetchedRes = ExecuteTargetSql(kitQuery);
 
 			if (fetchedRes.size() <= 1) {
@@ -5380,7 +5223,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 					queryConditions.append(key + " = '" + value + "'");
 			}
 			categoryQuery.append(queryConditions.join(" AND "));
-			qDebug() << categoryQuery;
+			//qDebug() << categoryQuery;
 			vector fetchedRes = ExecuteTargetSql(categoryQuery);
 
 			if (fetchedRes.size() <= 1) {
@@ -5422,7 +5265,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 					queryConditions.append(key + " = '" + value + "'");
 			}
 			locationQuery.append(queryConditions.join(" AND "));
-			qDebug() << locationQuery;
+			//qDebug() << locationQuery;
 			vector fetchedRes = ExecuteTargetSql(locationQuery);
 
 			if (fetchedRes.size() <= 1) {
@@ -5463,7 +5306,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 			kabToolQuery.append(queryConditions.join(" AND "));
 			kabToolQuery.append(" LIMIT 1");
-			qDebug() << kabToolQuery;
+			//qDebug() << kabToolQuery;
 			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
 
 			if (fetchedKabTool.size() > 1) {
@@ -5479,7 +5322,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!entry.contains("toolId") || !entry.value("itemId").toString().isEmpty()) {
 
 			QString kabToolQuery = "SELECT id AS toolId FROM tools WHERE PartNo LIKE '" + entry.value("itemId").toString() + "' OR stockcode LIKE '" + entry.value("itemId").toString() + "'";
-			qDebug() << kabToolQuery;
+			//qDebug() << kabToolQuery;
 			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
 
 			if (fetchedKabTool.size() > 1) {
@@ -5520,7 +5363,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				conditions
 			);
 
-			qDebug() << returnedData;
+			//qDebug() << returnedData;
 
 			if (!returnedData.empty()) {
 				QStringList transactionQueryList = { };
@@ -5552,7 +5395,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				}
 				kabToolQuery.append(queryConditions.join(" AND "));
 				kabToolQuery.append(" LIMIT 1");*/
-				qDebug() << transactionQuery;
+				//qDebug() << transactionQuery;
 				vector fetchedKabTool = ExecuteTargetSql(transactionQuery);
 
 				if (fetchedKabTool.size() > 1) {
@@ -5570,9 +5413,9 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			(entry.contains("toolId") && !entry.value("toolId").toString().isEmpty())) {
 			QString transactionQuery = "SELECT PartNo as itemId FROM tools WHERE id = '" + entry.value("toolId").toString() + "'";
 
-			LOG << transactionQuery;
+			//LOG << transactionQuery;
 			vector queryRes = ExecuteTargetSql(transactionQuery);
-			qDebug() << queryRes;
+			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 					QString key = it.key();
@@ -5593,9 +5436,9 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE " + indexingCol + " = '" + entry.value("trailId").toString() + "'";
 
-			LOG << transactionQuery;
+			//LOG << transactionQuery;
 			vector queryRes = ExecuteTargetSql(transactionQuery);
-			qDebug() << queryRes;
+			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 					QString key = it.key();
@@ -5613,9 +5456,9 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 			QString transactionQuery = "SELECT " + indexingCol + " FROM jobs WHERE description LIKE '" + entry.value("tailId").toString() + "'";
 
-			LOG << transactionQuery;
+			//LOG << transactionQuery;
 			vector queryRes = ExecuteTargetSql(transactionQuery);
-			qDebug() << queryRes;
+			//qDebug() << queryRes;
 			if (queryRes.size() <= 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 					QString key = it.key();
@@ -5655,9 +5498,9 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 					queryConditions.append(key + " = '" + value + "'");
 			}
 			kitQuery.append(queryConditions.join(" AND "));
-			qDebug() << kitQuery;
+			//qDebug() << kitQuery;
 			vector fetchedRes = ExecuteTargetSql(kitQuery);
-			qDebug() << fetchedRes;
+			//qDebug() << fetchedRes;
 			if (fetchedRes.size() > 1) {	
 				QStringList targerResponseKeys = { "kitId" };
 				for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
@@ -5696,9 +5539,9 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 					queryConditions.append(key + " = '" + value + "'");
 			}
 			jobQuery.append(queryConditions.join(" AND "));
-			qDebug() << jobQuery;
+			//qDebug() << jobQuery;
 			vector fetchedRes = ExecuteTargetSql(jobQuery);
-			qDebug() << fetchedRes;
+			//qDebug() << fetchedRes;
 			if (fetchedRes.size() > 1) {
 				QStringList targerResponseKeys = { "trailId" };
 				for (auto it = fetchedRes[1].cbegin(); it != fetchedRes[1].cend(); ++it) {
@@ -5738,7 +5581,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 	//QList<const char*> tablesToSkip = { "kabemployeeitemtransactions", "cribemployeeitemtransactions", "portaemployeeitemtransactions" };
 	//if (!tablesToSkip.contains(targetTable)) {
-	qDebug() << toolData;
+	//qDebug() << toolData;
 	sqliteManager.AddEntry(
 		splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed().toStdString(),
 		toolData
@@ -5749,7 +5592,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 	data.swap(entry);
 
-	LOG << query;
+	//LOG << query;
 	return;
 }
 
@@ -5759,25 +5602,25 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 	//qDebug() << splitQueryForParsing;
 	QStringList querySections = query.split(" SET ", Qt::SkipEmptyParts, Qt::CaseInsensitive);
 	//QStringList querySections = ServiceHelper::ExplodeString(query, splitBy.data());
-	qDebug() << querySections;
+	//qDebug() << querySections;
 	if (querySections.size() > 2) {
 		QStringList tempQuerySections = querySections;
 		tempQuerySections.removeAt(0);
 		querySections[1] = tempQuerySections.join(" SET ");
 		querySections.remove(2, querySections.size() - 2);
 	}
-	qDebug() << querySections;
+	//qDebug() << querySections;
 
 	querySections.append(querySections[1].split(" WHERE ", Qt::SkipEmptyParts, Qt::CaseInsensitive));
 	querySections.removeAt(1);
-	qDebug() << querySections;
+	//qDebug() << querySections;
 	if (querySections.size() > 3) {
 		QStringList tempQuerySections = querySections;
 		tempQuerySections.removeAt(2);
 		querySections[2] = tempQuerySections.join(" WHERE ");
 		querySections.remove(3, querySections.size() - 3);
 	}
-	qDebug() << querySections;
+	//qDebug() << querySections;
 	QStringList returnVal;
 	//QMap<QString, QString> setPairs;
 	QJsonObject setPairs;
@@ -5797,7 +5640,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 	{	
 		QString setTrimmed = it->trimmed();
 		if (priorVal.isEmpty()) {
-			qDebug() << "priorVal.isEmpty() " << setTrimmed;
+			//qDebug() << "priorVal.isEmpty() " << setTrimmed;
 			priorVal = setTrimmed;
 			continue;
 		}
@@ -5810,7 +5653,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			if (currVal.startsWith("'") && currVal.endsWith("'")) {
 				currVal.slice(1, currVal.length() - 2);
 			}
-			qDebug() << "currVal "<<currVal;
+			//qDebug() << "currVal "<<currVal;
 			if (currVal == "NULL") {
 				skipQuery = true;
 				break;
@@ -5818,7 +5661,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			setPairs[priorVal] = currVal;
 			QString nextVal = setTrimmed;
 			nextVal = nextVal.slice(setTrimmed.lastIndexOf(",")+1).trimmed();
-			qDebug() << "nextVal " <<nextVal;
+			//qDebug() << "nextVal " <<nextVal;
 			priorVal = nextVal;
 
 		}
@@ -5826,7 +5669,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			if (setTrimmed.startsWith("'") && setTrimmed.endsWith("'")) {
 				setTrimmed.slice(1, setTrimmed.length() - 2);
 			}
-			qDebug() << "setTrimmed " << setTrimmed;
+			//qDebug() << "setTrimmed " << setTrimmed;
 			setPairs[priorVal] = setTrimmed;
 		}
 
@@ -5914,10 +5757,10 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		conditionPairs["inTime"] = parseTimeValue(conditionPairs.value("inTime").toString());
 	}
 
-	qDebug() << setPairs;
+	/*qDebug() << setPairs;
 	qDebug() << conditionPairs;
 	qDebug() << data;
-	qDebug() << querySections[0].split(" ").at(1) << " | " << table_map[querySections[0].split(" ").at(1)];
+	qDebug() << querySections[0].split(" ").at(1) << " | " << table_map[querySections[0].split(" ").at(1)];*/
 
 	QString targetTable = querySections[0].split(" ").at(1);
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt", "table" };
@@ -6013,7 +5856,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 
 		vector itemDrawerRes = ExecuteTargetSql(itemDrawerQuery);
-		qDebug() << itemDrawerRes;
+		//qDebug() << itemDrawerRes;
 		if (itemDrawerRes.size() > 1) {	
 			QStringList allowedKeyList = { "drawerNum", "toolNumber", "itemId", "toolId" };
 			for (auto it = itemDrawerRes[1].cbegin(); it != itemDrawerRes[1].cend(); ++it) {
@@ -6171,7 +6014,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 			std::vector response = ExecuteTargetSql(targetQuery);
 
-			qDebug() << response;
+			//qDebug() << response;
 
 			if (response.size() > 1) {
 				conditionPairs["toolId"] = response[1].value("toolId");
@@ -6249,7 +6092,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				queryConditions.append(key + " = '" + value + "'");
 		}
 		categoryQuery.append(queryConditions.join(" AND "));
-		qDebug() << categoryQuery;
+		//qDebug() << categoryQuery;
 		vector fetchedRes = ExecuteTargetSql(categoryQuery);
 
 		if (fetchedRes.size() <= 1) {
@@ -6291,7 +6134,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 					queryConditions.append(key + " = '" + value + "'");
 			}
 			categoryQuery.append(queryConditions.join(" AND "));
-			qDebug() << categoryQuery;
+			//qDebug() << categoryQuery;
 			vector fetchedRes = ExecuteTargetSql(categoryQuery);
 
 			if (fetchedRes.size() <= 1) {
@@ -6356,10 +6199,10 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			transactionQuery.append(" ORDER BY id ASC LIMIT 1");
 		}
 
-		LOG << transactionQuery;
+		//LOG << transactionQuery;
 		vector queryRes = ExecuteTargetSql(transactionQuery);
-		qDebug() << conditionPairs;
-		qDebug() << queryRes;
+		//qDebug() << conditionPairs;
+		//qDebug() << queryRes;
 		if (queryRes.size() > 1) {
 			for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 				QString key = it.key();
@@ -6403,10 +6246,10 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			transactionQuery.append(conditionsList.join(" AND "));
 			transactionQuery.append(" ORDER BY id ASC LIMIT 1");
 
-			LOG << transactionQuery;
+			//LOG << transactionQuery;
 			vector queryRes = ExecuteTargetSql(transactionQuery);
-			qDebug() << conditionPairs;
-			qDebug() << queryRes;
+			//qDebug() << conditionPairs;
+			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 					QString key = it.key();
@@ -6426,8 +6269,8 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 					}
 					conditionPairs[key] = it.value();
 				}
-				qDebug() << conditionPairs;
-				LOG << "Breakpoint";
+				//qDebug() << conditionPairs;
+				//LOG << "Breakpoint";
 			}
 		}
 
@@ -6459,7 +6302,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				conditions
 			);
 
-			qDebug() << returnedData;
+			//qDebug() << returnedData;
 
 			if (!returnedData.empty()) {
 				QStringList transactionQueryList = { };
@@ -6473,9 +6316,9 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 				QString transactionQuery = "SELECT id as toolId FROM tools WHERE " + transactionQueryList.join(" OR ") + " LIMIT 1";
 
-				LOG << transactionQuery;
+				//LOG << transactionQuery;
 				vector queryRes = ExecuteTargetSql(transactionQuery);
-				qDebug() << queryRes;
+				//qDebug() << queryRes;
 				if (queryRes.size() > 1) {
 					for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 						QString key = it.key();
@@ -6502,7 +6345,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				conditions
 			);
 
-			qDebug() << returnedData;
+			//qDebug() << returnedData;
 
 			if (!returnedData.empty()) {
 				QStringList transactionQueryList = { };
@@ -6516,9 +6359,9 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 				QString transactionQuery = "SELECT PartNo as itemId FROM tools WHERE " + transactionQueryList.join(" OR ") + " LIMIT 1";
 
-				LOG << transactionQuery;
+				//LOG << transactionQuery;
 				vector queryRes = ExecuteTargetSql(transactionQuery);
-				qDebug() << queryRes;
+				//qDebug() << queryRes;
 				if (queryRes.size() > 1) {
 					for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 						QString key = it.key();
@@ -6565,9 +6408,9 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE "+ indexingCol +" = '" + conditionPairs.value("trailId").toString() + "'";
 
-			LOG << transactionQuery;
+			//LOG << transactionQuery;
 			vector queryRes = ExecuteTargetSql(transactionQuery);
-			qDebug() << queryRes;
+			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 					QString key = it.key();
@@ -6585,9 +6428,9 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 			QString transactionQuery = "SELECT "+ indexingCol +" FROM jobs WHERE description LIKE '" + conditionPairs.value("tailId").toString() + "'";
 
-			LOG << transactionQuery;
+			//LOG << transactionQuery;
 			vector queryRes = ExecuteTargetSql(transactionQuery);
-			qDebug() << queryRes;
+			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
 					QString key = it.key();
@@ -6639,7 +6482,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 		//QList<const char*> tablesToSkip = { "kabemployeeitemtransactions", "cribemployeeitemtransactions", "portaemployeeitemtransactions" };
 		//if (!tablesToSkip.contains(targetTable)) {
-		qDebug() << toolData;
+		//qDebug() << toolData;
 		sqliteManager.AddEntry(
 			targetTable.toStdString(),
 			toolData
@@ -6701,7 +6544,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 	data["update"] = setPairs;
 	data["where"] = conditionPairs;
 
-	qDebug() << data;
+	//qDebug() << data;
 
 	query = returnVal.join(" ");
 }
@@ -6711,14 +6554,14 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 	
 	QStringList splitQuery = query.split(" WHERE ", Qt::SkipEmptyParts, Qt::CaseInsensitive);
 	//QStringList querySections = ServiceHelper::ExplodeString(query, splitBy.data());
-	qDebug() << splitQuery;
+	//qDebug() << splitQuery;
 	if (splitQuery.size() > 2) {
 		QStringList tempQuerySections = splitQuery;
 		tempQuerySections.removeAt(0);
 		splitQuery[1] = tempQuerySections.join(" WHERE ");
 		splitQuery.remove(2, splitQuery.size() - 2);
 	}
-	qDebug() << splitQuery;
+	//qDebug() << splitQuery;
 
 	bool hasCustId = 0;
 	bool hasTrakId = 0;
@@ -6745,7 +6588,7 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 		if (val.endsWith("'"))
 			val.slice(0, val.length() - 1);
 		val = val.trimmed();
-		qDebug() << key << ": " << val;
+		//qDebug() << key << ": " << val;
 		//conditionPairs.insert(key, val);
 		data[key] = val;
 	}
@@ -6860,7 +6703,7 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 			if ((it + 1) != data.constEnd())
 				jobQuery.append(" AND ");
 		}
-		qDebug() << jobQuery;
+		//qDebug() << jobQuery;
 		vector fetchedJob = ExecuteTargetSql(jobQuery);
 
 		if (fetchedJob.size() <= 1) {
@@ -6957,7 +6800,7 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 	if (data.value("table").toString().isEmpty())
 		data["table"] = splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed();
 
-	qDebug() << data;
+	//qDebug() << data;
 	return;
 }
 
