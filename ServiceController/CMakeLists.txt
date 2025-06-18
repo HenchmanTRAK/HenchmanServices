@@ -2,7 +2,7 @@
 add_library(ServiceController SHARED "ServiceController.cpp")
 
 target_include_directories(
-	ServiceController PUBLIC 
+	ServiceController INTERFACE 
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 

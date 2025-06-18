@@ -37,9 +37,9 @@ target_link_libraries(
 )
 
 set_target_properties(
-	HenchmanServiceController PROPERTIES 
+	HenchmanServiceController PROPERTIES
 	LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator'\""
-#	AUTOMOC TRUE
+	AUTOMOC TRUE
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -47,7 +47,7 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 #if (CMAKE_VERSION VERSION_GREATER 2.21)
-#  install(FILES $<TARGET_RUNTIME_DLLS:HenchmanService> TYPE BIN)
+#  install(FILES $<TARGET_RUNTIME_DLLS:HenchmanServiceController> TYPE BIN)
 #endif()
 
 # TODO: Add tests and install targets if needed.

@@ -110,7 +110,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 		netManager->setStrictTransportSecurityEnabled(true);
 	netManager->setAutoDeleteReplies(true);
 	netManager->setTransferTimeout(30000);
-	//connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
+	connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
 
 	restManager = new QRestAccessManager(netManager, this->parent());
 	
@@ -4051,7 +4051,7 @@ int DatabaseManager::connectToRemoteDB()
 			throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
 		}
 		
-		if (query.numRowsAffected() > 0) {
+		if (query.size() > 0) {
 			ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
 
 			if (restManager == nullptr)
