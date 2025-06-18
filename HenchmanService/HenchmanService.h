@@ -154,14 +154,16 @@ public:
 	 *
 	 * This variable is used to manage the database connection.
 	 */
-	std::unique_ptr<DatabaseManager> dbManager;
+	//std::unique_ptr<DatabaseManager> dbManager;
+	DatabaseManager dbManager;
 
 	/**
 	 * @brief A unique pointer to a SQLiteManager2 object.
 	 *
 	 * This variable is used to manage the SQLite database connection.
 	 */
-	std::unique_ptr<SQLiteManager2> sqliteManager;
+	//std::unique_ptr<SQLiteManager2> sqliteManager;
+	SQLiteManager2 sqliteManager;
 
 private:
 	/**
@@ -236,7 +238,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error running the application.
 	 */
-	int MainFunction();
+	int MainFunction(QCoreApplication* a);
 };
 
 

@@ -13,7 +13,6 @@ generate_product_version(
    VERSION_MAJOR ${CMAKE_PROJECT_VERSION_MAJOR}
    VERSION_MINOR ${CMAKE_PROJECT_VERSION_MINOR}
    VERSION_PATCH ${CMAKE_PROJECT_VERSION_PATCH}
-   VERSION_REVISION ${BUILD_REVISION}
    COMPANY_NAME HenchmanTRAK
 )
 
@@ -47,8 +46,8 @@ target_link_libraries(
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
-	DatabaseManager
 	RegistryManager
+	DatabaseManager
 	SQLiteManager2
 	TRAKManager
 	ServiceController

@@ -357,6 +357,14 @@ ServiceHelper& ServiceHelper::operator<<(const QString& s)
 	return *this;
 }
 
+ServiceHelper& ServiceHelper::operator<<(const QByteArray& s)
+{
+#ifdef DEBUG
+	ConsoleLog(s.toStdString().data());
+#endif
+	return *this;
+}
+
 ServiceHelper& ServiceHelper::operator<<(const int& s)
 {
 #ifdef DEBUG

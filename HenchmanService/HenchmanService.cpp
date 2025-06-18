@@ -408,7 +408,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	while (testing || WaitForSingleObject(svcController->mServiceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		
-		hsService.MainFunction();
+		hsService.MainFunction(a);
 #if false
 		service.sqliteManager->UpdateEntry(
 			"Test",
@@ -429,14 +429,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 			{"updatedAt <= datetime('now', 'localtime')"}
 			);
 #endif
-		ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
 		
-		a->exec();
-		ServiceHelper().WriteToLog("Service sleeping for 30000 ms...");
-		if (!testing)
-			Sleep(30*1000);
-		else
-			Sleep(10*1000);
 	
 	}
 	
@@ -483,7 +476,7 @@ static void removeContextMenu()
 }
 
 HenchmanService::HenchmanService(QObject *parent)
-	: QObject(parent), sqliteManager(make_unique<SQLiteManager2>(parent)), dbManager(make_unique<DatabaseManager>(parent))
+	: QObject(parent), sqliteManager(parent), dbManager(parent)
 {
 	CSimpleIni ini;
 
@@ -492,7 +485,7 @@ HenchmanService::HenchmanService(QObject *parent)
 	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));*/
 	LOG << std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).data();
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).data());
-	TCHAR buffer[1024];
+	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
 	tstring installDir(buffer);
@@ -543,10 +536,14 @@ HenchmanService::HenchmanService(QObject *parent)
 	vector<string> columns;
 	columns.push_back("username TEXT NOT NULL");
 	columns.push_back("password TEXT NOT NULL");
-	sqliteManager->CreateTable(
+	sqliteManager.CreateTable(
 		tableName,
 		columns
 	);
+
+	std::vector<stringmap> result;
+
+	sqliteManager.ExecQuery("CREATE UNIQUE INDEX unique_username_password ON " + tableName + "(username,password)", result);
 
 	columns.clear();
 
@@ -561,7 +558,7 @@ HenchmanService::HenchmanService(QObject *parent)
 		data["username"] = username;
 		data["password"] = password;
 		
-		sqliteManager->AddEntry(
+		sqliteManager.AddEntry(
 			tableName,
 			data
 		);
@@ -630,58 +627,74 @@ int HenchmanService::SetRequiredParameters()
 	return 0;
 }
 
-int HenchmanService::MainFunction()
+int HenchmanService::MainFunction(QCoreApplication* a)
 {
 	update = TRUE;
+	int timer = 0;
 
 	checkStateOfMySQL();
 	checkStateOfApache();
-	
-	if (!dbManager->isInternetConnected())
-	{
-		ServiceHelper().WriteToLog("Failed to confirm network connection");
-		//QTimer::singleShot(100, a, &QCoreApplication::quit);
-		QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
-		return 0;
-	}
 
-	//ConnectWithSMTP();
+	try {
 
-	//dbManager = new DatabaseManager(a);
-
-	TRAKManager TrakM(dbManager.get());
-
-	TrakM.CreateDataModule();
-	dbManager->loadTrakDetailsFromRegistry();
-
-	ServiceHelper().WriteToLog("Checking if TRAK is Running");
-	if (!ProcessExists(TrakM.appName)) {
-		ServiceHelper().WriteToError("TRAK process is not running");
-		string targetExe = TrakM.appDir + TrakM.appName;
-		ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
-		//if (!CreateTargetProcess(targetExe))
-		if (!LaunchProcess(targetExe.data()))
+		if (!dbManager.isInternetConnected())
 		{
-			ServiceHelper().WriteToError("Failed to start " + targetExe);
+			//ServiceHelper().WriteToLog("Failed to confirm network connection");
+			throw HenchmanServiceException("Failed to confirm network connection");
+			//QTimer::singleShot(100, a, &QCoreApplication::quit);
 		}
-	}
-	dbManager->targetApp = TrakM.appType;
+		//ConnectWithSMTP();
 
-	if (!dbManager->connectToLocalDB()) {
-		ServiceHelper().WriteToError("Failed to establish connection to local database");
-		QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
-		return 0;
-	}
+		//dbManager = new DatabaseManager(a);
 
-	if (!TrakM.UploadCurrentStateToRemote())
-	{
-		dbManager->connectToRemoteDB();
-	}
-	else {
-		//QTimer::singleShot(1000, a, &QCoreApplication::quit);
-		QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
-	}
+		TRAKManager TrakM(&dbManager);
 
+		TrakM.CreateDataModule();
+		dbManager.loadTrakDetailsFromRegistry();
+
+		ServiceHelper().WriteToLog("Checking if TRAK is Running");
+		if (!ProcessExists(TrakM.appName)) {
+			ServiceHelper().WriteToError("TRAK process is not running");
+			string targetExe = TrakM.appDir + TrakM.appName;
+#if false
+			ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
+			//if (!CreateTargetProcess(targetExe))
+			if (!LaunchProcess(targetExe.data()))
+			{
+				ServiceHelper().WriteToError("Failed to start " + targetExe);
+			}
+#endif
+		}
+
+		dbManager.targetApp = TrakM.appType;
+
+		if (!dbManager.connectToLocalDB()) {
+			throw HenchmanServiceException("Failed to establish connection to local database");
+			//ServiceHelper().WriteToError("Failed to establish connection to local database");
+			//QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
+			//return 0;
+		}
+
+		if (!TrakM.UploadCurrentStateToRemote())
+		{
+			dbManager.connectToRemoteDB();
+			if (!testing)
+				timer = 30000;
+			else
+				timer = 30000;
+		}
+	} catch (exception& e) {
+		timer = 30000;
+		ServiceHelper().WriteToError(e.what());
+	}
+	
+	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer+1) + " ms...");
+	QTimer::singleShot(1, this->parent(), &QCoreApplication::quit);
+	
+	Sleep(timer);
+
+	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
+	a->exec();
 	/*if (!(dbManager->AddKabsIfNotExists() ||
 		dbManager->AddDrawersIfNotExists() ||
 		dbManager->AddToolsIfNotExists() ||
@@ -691,7 +704,7 @@ int HenchmanService::MainFunction()
 	}*/
 	
 	LOG << "Exiting Main Function";
-	
+
 	return 0;
 }
 

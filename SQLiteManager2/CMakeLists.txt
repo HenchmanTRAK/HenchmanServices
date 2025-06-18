@@ -1,5 +1,5 @@
 
-qt_add_library(SQLiteManager2 STATIC "SQLiteManager2.cpp")
+qt_add_library(SQLiteManager2 SHARED "SQLiteManager2.cpp")
 qt_disable_unicode_defines(SQLiteManager2)
 
 target_include_directories(SQLiteManager2 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -8,8 +8,6 @@ target_link_libraries(
 	SQLiteManager2 PRIVATE
 	Qt6::Core
 	Qt6::Sql
-	Qt6::Network
-	DatabaseManager
 	HenchmanServiceException
 	EventManager
 	ServiceHelper

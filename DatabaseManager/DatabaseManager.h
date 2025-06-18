@@ -34,10 +34,12 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QList>
+#include <QThread>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
+#include "SQLiteManager2.h"
 
 
 #define QT_NO_DEBUG_OUTPUT
@@ -60,6 +62,7 @@ enum table_enums{
 	cribtools,
 	kittools,
 	tooltransfer,
+	itemscale,
 	itemkits,
 	kitcategory,
 	kitlocation,
@@ -68,6 +71,20 @@ enum table_enums{
 	portaemployeeitemtransactions,
 	lokkaemployeeitemtransactions,
 	tblcounterid
+};
+
+enum query_types_enum {
+	SELECT,
+	INSERT,
+	UPDATE,
+	REMOVE
+};
+
+static QMap<QString, query_types_enum> query_types = {
+	{"insert", INSERT},
+	{"select", SELECT},
+	{"update", UPDATE},
+	{"delete", REMOVE},
 };
 
 static QMap<QString, table_enums> table_map = {
@@ -86,6 +103,7 @@ static QMap<QString, table_enums> table_map = {
 	{"cribtools", cribtools},
 	{"kittools", kittools},
 	{"tooltransfer", tooltransfer},
+	{"itemscale", itemscale},
 	{"itemkits", itemkits},
 	{"kitcategory", kitcategory},
 	{"kitlocation", kitlocation},
@@ -198,7 +216,10 @@ private:
 		{"toolLocation", 0},
 		{"cribtools", 0},
 		{"tooltransfer", 0},
+		{"cribconsumables", 0},
+		{"kittools", 0},
 		// Portatracks
+		{"scales", 0},
 		{"itemkits", 0},
 		{"kitCategory", 0},
 		{"kitLocation", 0},
@@ -210,6 +231,8 @@ private:
 	QString trakIdNum;
 
 	QNetworkRequest request;
+
+	SQLiteManager2 sqliteManager;
 
 public:
 	/**
@@ -333,6 +356,8 @@ public:
 	 */
 	void performCleanup();
 
+	//General Table Upload
+
 	/**
 	 * @brief Adds tools to the database if they do not already exist.
 	 *
@@ -344,6 +369,44 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	*/
 	int addToolsIfNotExists();
+
+	/**
+	 * @brief Adds users to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of users from the local database and checks if each user already exists on the remote database.
+	 * If an user does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of users in the database is lesser than or equal to the number of users checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addUsersIfNotExists();
+
+	/**
+	 * @brief Adds employees to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of employees from the local database and checks if each employee already exists on the remote database.
+	 * If an employee does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of employees in the database is lesser than or equal to the number of employees checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addEmployeesIfNotExists();
+
+	/**
+	 * @brief Adds jobs to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of jobs from the local database and checks if each job already exists on the remote database.
+	 * If a job does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of jobs in the database is lesser than or equal to the number of jobs checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addJobsIfNotExists();
+
+	// Upload Kabtrak Tables
 
 	/**
 	 * @brief Adds missing itemkabs to the database if they do not already exist.
@@ -381,41 +444,9 @@ public:
 	 */
 	int addToolsInDrawersIfNotExists();
 
-	/**
-	 * @brief Adds users to the database if they do not already exist.
-	 *
-	 * This function retrieves a list of users from the local database and checks if each user already exists on the remote database.
-	 * If an user does not exist, it is inserted into the remote database using an SQL query.
-	 *
-	 * @return Returns 0 if the number of users in the database is lesser than or equal to the number of users checked, otherwise returns 1.
-	 *
-	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
-	 */
-	int addUsersIfNotExists();
+	int createKabtrakTransactionsTable();
 
-	/**
-	 * @brief Adds employees to the database if they do not already exist.
-	 *
-	 * This function retrieves a list of employees from the local database and checks if each employee already exists on the remote database.
-	 * If an employee does not exist, it is inserted into the remote database using an SQL query.
-	 *
-	 * @return Returns 0 if the number of employees in the database is lesser than or equal to the number of employees checked, otherwise returns 1.
-	 *
-	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
-	 */
-	int addEmployeesIfNotExists();
-
-	/**
-	 * @brief Adds jobs to the database if they do not already exist.
-	 *
-	 * This function retrieves a list of jobs from the local database and checks if each job already exists on the remote database.
-	 * If a job does not exist, it is inserted into the remote database using an SQL query.
-	 *
-	 * @return Returns 0 if the number of jobs in the database is lesser than or equal to the number of jobs checked, otherwise returns 1.
-	 *
-	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
-	 */
-	int addJobsIfNotExists();
+	// Upload Cribtrak Tables
 
 	/**
 	 * @brief Adds cribTRAKs to the database if they do not already exist.
@@ -466,6 +497,46 @@ public:
 	int addCribToolTransferIfNotExists();
 
 	/**
+	 * @brief Adds missing cribtrak consumables to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of cribtrak consumables from the local database and checks if each consumable already exists on the remote database.
+	 * If a cribtrak consumable does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of cribtrak consumable in the database is lesser than or equal to the number of cribtrak consumables checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addCribConsumablesIfNotExists();
+
+	/**
+	 * @brief Adds missing cribtrak kits to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of cribtrak kits from the local database and checks if each consumable already exists on the remote database.
+	 * If a cribtrak kit does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of cribtrak kits in the database is lesser than or equal to the number of cribtrak kits checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addCribKitsIfNotExists();
+
+	int createCribtrakTransactionsTable();
+
+	// Upload Portatrak Tables
+
+	/**
+	 * @brief Adds portaTRAKs to the database if they do not already exist.
+	 *
+	 * This function retrieves a list of portaTRAKs from the local database and checks if each portaTRAK already exists on the remote database.
+	 * If a portaTRAK does not exist, it is inserted into the remote database using an SQL query.
+	 *
+	 * @return Returns 0 if the number of cribTRAKs in the database is lesser than or equal to the number of portaTRAKs checked, otherwise returns 1.
+	 *
+	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
+	 */
+	int addPortasIfNotExists();
+
+	/**
 	 * @brief Adds missing tool transactions to the database if they do not already exist.
 	 *
 	 * This function retrieves a list of tool transactions from the local database and checks if each transaction already exists on the remote database.
@@ -500,6 +571,8 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
 	int addKitLocationIfNotExists();
+
+	int createPortatrakTransactionsTable();
 
 	/**
 	 * @brief Parses a QJsonArray into a string representation.
@@ -561,6 +634,16 @@ private:
 	*/
 	int makeNetworkRequest(const QString &url, QStringMap &query, QJsonDocument* results = nullptr);
 
+	int authenticateSession(const QString& url = "");
+	
+	int makeGetRequest(const QString& url, const QStringMap &queryMap = QStringMap(), QJsonDocument* results = nullptr);
+
+	int makePostRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+
+	int makePatchRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+
+	int makeDeleteRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.
 	 *
@@ -575,9 +658,12 @@ private:
 	 */
 	void processKeysAndValues(QStringMap& map, QString(&results)[]);
 
-	void processInsertStatement(QString& query, bool& skipQuery);
+	void processInsertStatement(QString& query, QJsonObject& data, bool& skipQuery);
 
-	void processUpdateStatement(QString& query, bool& skipQuery);
+	void processUpdateStatement(QString& query, QJsonObject& data, bool& skipQuery);
+
+	void processDeleteStatement(QString& query, QJsonObject& data, bool& skipQuery);
+
 };
 
 std::string getValidDrivers();
