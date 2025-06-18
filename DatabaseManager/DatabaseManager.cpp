@@ -4051,14 +4051,16 @@ int DatabaseManager::connectToRemoteDB()
 			throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
 		}
 		
-		if(query.numRowsAffected() > 0)
+		if (query.numRowsAffected() > 0) {
 			ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
 
-		if (restManager == nullptr)
-			restManager = new QRestAccessManager(netManager, this->parent());
+			if (restManager == nullptr)
+				restManager = new QRestAccessManager(netManager, this->parent());
 
-		if (isInternetConnected())
-			authenticateSession();
+			if (isInternetConnected())
+				authenticateSession();
+		}
+
 
 		int count = 0;
 
