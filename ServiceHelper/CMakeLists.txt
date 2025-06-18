@@ -4,16 +4,16 @@ qt_disable_unicode_defines(ServiceHelper)
 
 message(STATUS "Checking for OpenSSL: " ${OPENSSL_VERSION})
 
-target_include_directories(
-	ServiceHelper PUBLIC 
-	${CMAKE_CURRENT_SOURCE_DIR} 
-	#${OPENSSL_INCLUDE_DIR}
-)
-
 target_link_libraries(
 	ServiceHelper PRIVATE
 	Qt6::Core
 	RegistryManager
+)
+
+target_include_directories(
+	ServiceHelper INTERFACE 
+	${CMAKE_CURRENT_SOURCE_DIR} 
+	#${OPENSSL_INCLUDE_DIR}
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
