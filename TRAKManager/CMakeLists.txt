@@ -14,6 +14,7 @@ target_link_libraries(
 	EventManager
 	ServiceHelper
 	RegistryManager
+	SQLiteManager2
 	DatabaseManager
 )
 
