@@ -48,6 +48,7 @@ target_link_libraries(
 	SQLiteManager2
 	TRAKManager
 	ServiceController
+	HenchmanServiceLibrary
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

@@ -24,7 +24,7 @@ target_link_libraries(
 )
 
 target_include_directories(
-	EventManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/resources
+	EventManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${CMAKE_SOURCE_DIR}/resources
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

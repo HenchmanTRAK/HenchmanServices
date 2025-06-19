@@ -15,10 +15,22 @@
 
 using namespace ServiceController;
 // This is the constructor of a class that has been exported.
+
+//SERVICE_STATUS gServiceStatus;
+//SERVICE_STATUS_HANDLE gSvcStatusHandle;
+//HANDLE gServiceStopEvent ;
+
+//SService gService;
+
 CServiceController::CServiceController(const SService& serviceDetails)
 	: mService(serviceDetails)
 {
 	std::cout << mService.serviceName << ":" << mService.displayName << std::endl;
+	
+	/*gService.serviceStatus = mService.serviceStatus;
+	gService.serviceStatusHandle = mService.serviceStatusHandle;
+	gService.serviceStopEvent = mService.serviceStopEvent;*/
+
 	return;
 }
 
@@ -689,23 +701,79 @@ void CServiceController::ReportSvcStatus(
 	static DWORD dwCheckPoint = 1;
 
 	// Fill in the SERVICE_STATUS structure.
+	//SERVICE_STATUS serviceStatus = pSvcStatus;
 
-	mServiceStatus.dwCurrentState = dwCurrentState;
-	mServiceStatus.dwWin32ExitCode = dwWin32ExitCode;
-	mServiceStatus.dwWaitHint = dwWaitHint;
+	mService.serviceStatus.dwCurrentState = dwCurrentState;
+	mService.serviceStatus.dwWin32ExitCode = dwWin32ExitCode;
+	mService.serviceStatus.dwWaitHint = dwWaitHint;
 
-	if (dwCurrentState == SERVICE_START_PENDING)
-		mServiceStatus.dwControlsAccepted = 0;
-	else mServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+	if (mService.serviceStatus.dwCurrentState == SERVICE_START_PENDING)
+		mService.serviceStatus.dwControlsAccepted = 0;
+	else mService.serviceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
 
-	if ((dwCurrentState == SERVICE_RUNNING) ||
-		(dwCurrentState == SERVICE_STOPPED))
-		mServiceStatus.dwCheckPoint = 0;
-	else mServiceStatus.dwCheckPoint = dwCheckPoint++;
+	if ((mService.serviceStatus.dwCurrentState == SERVICE_RUNNING) ||
+		(mService.serviceStatus.dwCurrentState == SERVICE_STOPPED))
+		mService.serviceStatus.dwCheckPoint = 0;
+	else mService.serviceStatus.dwCheckPoint = dwCheckPoint++;
 
 	// Report the status of the service to the SCM.
-	SetServiceStatus(mServiceStatusHandle, &mServiceStatus);
+	SetServiceStatus(mService.serviceStatusHandle, &mService.serviceStatus);
 }
+
+//void ReportSvcStatus(
+//	SERVICE_STATUS_HANDLE &svcStatusHandle,
+//	SERVICE_STATUS &svcStatus
+//)
+//{
+//	static DWORD dwCheckPoint = 1;
+//
+//	// Fill in the SERVICE_STATUS structure.
+//	//SERVICE_STATUS serviceStatus = pSvcStatus;
+//
+//	/*mService.serviceStatus.dwCurrentState = dwCurrentState;
+//	mService.serviceStatus.dwWin32ExitCode = dwWin32ExitCode;
+//	mService.serviceStatus.dwWaitHint = dwWaitHint;*/
+//
+//	if (svcStatus.dwCurrentState == SERVICE_START_PENDING)
+//		svcStatus.dwControlsAccepted = 0;
+//	else svcStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+//
+//	if ((svcStatus.dwCurrentState == SERVICE_RUNNING) ||
+//		(svcStatus.dwCurrentState == SERVICE_STOPPED))
+//		svcStatus.dwCheckPoint = 0;
+//	else svcStatus.dwCheckPoint = dwCheckPoint++;
+//
+//	// Report the status of the service to the SCM.
+//	SetServiceStatus(svcStatusHandle, &svcStatus);
+//}
+//
+//void ReportSvcStatus(
+//	DWORD dwCurrentState,
+//	DWORD dwWin32ExitCode,
+//	DWORD dwWaitHint
+//)
+//{
+//	static DWORD dwCheckPoint = 1;
+//
+//	// Fill in the SERVICE_STATUS structure.
+//	//SERVICE_STATUS serviceStatus = pSvcStatus;
+//
+//	gService.serviceStatus.dwCurrentState = dwCurrentState;
+//	gService.serviceStatus.dwWin32ExitCode = dwWin32ExitCode;
+//	gService.serviceStatus.dwWaitHint = dwWaitHint;
+//
+//	if (gService.serviceStatus.dwCurrentState == SERVICE_START_PENDING)
+//		gService.serviceStatus.dwControlsAccepted = 0;
+//	else gService.serviceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+//
+//	if ((gService.serviceStatus.dwCurrentState == SERVICE_RUNNING) ||
+//		(gService.serviceStatus.dwCurrentState == SERVICE_STOPPED))
+//		gService.serviceStatus.dwCheckPoint = 0;
+//	else gService.serviceStatus.dwCheckPoint = dwCheckPoint++;
+//
+//	// Report the status of the service to the SCM.
+//	SetServiceStatus(gService.serviceStatusHandle, &gService.serviceStatus);
+//}
 
 DWORD CServiceController::GetSvcStatus(const TCHAR* sService)
 {
@@ -756,7 +824,6 @@ DWORD CServiceController::GetSvcStatus(const TCHAR* sService)
 	return ssStatus.dwCurrentState;
 }
 
-
 void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
 {
 	switch (CtrlCode)
@@ -764,8 +831,8 @@ void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
 	case SERVICE_CONTROL_STOP:
 		ReportSvcStatus(CtrlCode, NO_ERROR, 0);
 
-		SetEvent(mServiceStopEvent);
-		ReportSvcStatus(mServiceStatus.dwCurrentState, NO_ERROR, 0);
+		SetEvent(mService.serviceStopEvent);
+		ReportSvcStatus(mService.serviceStatus.dwCurrentState, NO_ERROR, 0);
 		return;
 	case SERVICE_CONTROL_INTERROGATE:
 		break;

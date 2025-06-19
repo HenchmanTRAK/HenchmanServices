@@ -138,7 +138,7 @@ void SQLiteManager2::ExecQuery(
 		while (query.next())
 		{
 			queryResult.clear();
-			qDebug() << query.result();
+			qDebug() << query.record();
 			for (int i = 0; i <= query.record().count() - 1; i++)
 			{
 				std::string key = query.record().fieldName(i).toStdString();
