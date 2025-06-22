@@ -12,13 +12,26 @@
 
 namespace ServiceController
 {
-
+	/**
+	 * @brief Struct to define and organise the required handlers and data for the ServiceController.
+	 * 
+	 * @param serviceName The name of the service.
+	 * @param displayName The display name of the service.
+	 * @param localUser The local user of the service.
+	 * @param localPass The local password of the service.
+	 * @param serviceStatus The status of the service.
+	 * @param serviceStatusHandle The status handle of the service.
+	 * @param serviceStopEvent The stop event of the service.
+	 */
 	struct SService
 	{
 		const TCHAR* serviceName = nullptr;
 		const TCHAR* displayName = nullptr;
 		const TCHAR* localUser = nullptr;
 		const TCHAR* localPass = nullptr;
+		SERVICE_STATUS serviceStatus = { 0 };
+		SERVICE_STATUS_HANDLE serviceStatusHandle = NULL;
+		HANDLE serviceStopEvent = INVALID_HANDLE_VALUE;
 	};
 
 	// This class is exported from the dll
@@ -28,12 +41,12 @@ namespace ServiceController
 		SC_HANDLE schSCManager = nullptr;
 		SC_HANDLE schService = nullptr;
 
-		SService mService;
-
 	public:
-		SERVICE_STATUS			 mServiceStatus = { 0 };
+
+		SService mService;
+		/*SERVICE_STATUS			 mServiceStatus = { 0 };
 		SERVICE_STATUS_HANDLE	 mServiceStatusHandle = NULL;
-		HANDLE					 mServiceStopEvent = INVALID_HANDLE_VALUE;
+		HANDLE					 mServiceStopEvent = INVALID_HANDLE_VALUE;*/
 
 	private:
 		bool __stdcall StopDependentServices();
@@ -55,6 +68,22 @@ namespace ServiceController
 			DWORD dwWaitHint
 		);
 		DWORD __stdcall GetSvcStatus(const TCHAR* mService = nullptr);
-		void WINAPI SvcCtrlHandler(DWORD CtrlCode);
+		virtual void WINAPI SvcCtrlHandler(DWORD CtrlCode);
+
+		//virtual void WINAPI SvcMain();
+		//virtual void SvcInit();
 	};
+
+	//DWORD SvcWorkerThread(LPVOID lpParam);
 }
+
+//void ReportSvcStatus(
+//	SERVICE_STATUS_HANDLE& svcStatusHandle,
+//	SERVICE_STATUS& svcStatus
+//);
+//
+//void ReportSvcStatus(
+//	DWORD dwCurrentState,
+//	DWORD dwWin32ExitCode,
+//	DWORD dwWaitHint
+//);

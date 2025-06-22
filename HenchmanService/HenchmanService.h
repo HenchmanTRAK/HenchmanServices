@@ -24,12 +24,10 @@
 //#include <future>
 //#include <thread>
 
-#include "ServiceController.h"
-
-#include <QCoreApplication>
-#include <QObject>
-#include <QString>
-#include <QLibraryInfo>
+//#include <QCoreApplication>
+//#include <QObject>
+//#include <QString>
+//#include <QLibraryInfo>
 //#include <QByteArray>
 //#include <QString>
 //#include <QTimer>
@@ -38,12 +36,15 @@
 #include "SimpleIni.h"
 
 
-#include "DatabaseManager.h"
-#include "SQLiteManager2.h"
+//#include "DatabaseManager.h"
+//#include "SQLiteManager2.h"
 #include "ServiceHelper.h"
 #include "RegistryManager.h"
 #include "EventManager.h"
-#include "TRAKManager.h"
+//#include "TRAKManager.h"
+#include "ServiceController.h"
+#include "HenchmanServiceLibrary.h"
+
 //#include "ServiceException.h"
 
 #include <Windows.h>
@@ -107,141 +108,142 @@
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HenchmanService: public QObject
-{
-
-	Q_OBJECT
-
-private:
-	/**
-	 * @brief The username for sending emails.
-	 *
-	 * This variable stores the username used for sending emails using SMTP.
-	 */
-	tstring mail_username;
-	/**
-	 * @brief The username for sending emails.
-	 *
-	 * This variable stores the username used for sending emails using SMTP.
-	 */
-	tstring mail_password;
-
-	/**
-	 * @brief A flag indicating whether to update the service.
-	 *
-	 * This variable is used to determine whether the service should be updated or not.
-	 */
-	bool update = FALSE;
-
-public:
-
-	/**
-	 * @brief A string stream for logging purposes.
-	 *
-	 * This variable is used to store log messages.
-	 */
-	std::stringstream logx;
-
-	/**
-	 * @brief The path to the application.
-	 *
-	 * This variable stores the path to the application.
-	 */
-	tstring app_path;
-
-	/**
-	 * @brief A unique pointer to a DatabaseManager object.
-	 *
-	 * This variable is used to manage the database connection.
-	 */
-	std::unique_ptr<DatabaseManager> dbManager;
-
-	/**
-	 * @brief A unique pointer to a SQLiteManager2 object.
-	 *
-	 * This variable is used to manage the SQLite database connection.
-	 */
-	std::unique_ptr<SQLiteManager2> sqliteManager;
-
-private:
-	/**
-	 * @brief Sets the email login credentials for the HenchmanService application.
-	 *
-	 * This function sets the username and password for sending emails using SMTP.
-	 *
-	 * @param username The username for sending emails.
-	 * @param password The password for sending emails.
-	 *
-	 * @return Returns true if the email login credentials are set successfully, otherwise returns false.
-	 *
-	 * @throws Throws an exception if the username or password is invalid.
-	 */
-	bool setMailLogin(const tstring& username, const tstring& password);
-
-	/**
-	 * @brief Checks the state of the MySQL service.
-	 *
-	 * Uses the MySQL API to check the state of the MySQL service and logs any errors.
-	 *
-	 * @return Returns 0 if the MySQL service is running, otherwise returns an error code.
-	 *
-	 * @throws Throws an exception if there is an error checking the MySQL service state.
-	 */
-	void checkStateOfMySQL();
-
-	/**
-	 * @brief Checks the state of the Apache service.
-	 *
-	 * Uses the Apache API to check the state of the Apache service and logs any errors.
-	 *
-	 * @return Returns 0 if the Apache service is running, otherwise returns an error code.
-	 *
-	 * @throws Throws an exception if there is an error checking the Apache service state.
-	 */
-	void checkStateOfApache();
-
-	/**
-	 * @brief Sets up the application's configuration.
-	 *
-	 * Reads the configuration from a file and sets up the necessary data members.
-	 *
-	 * @return Returns 0 if the configuration is set up successfully, otherwise returns an error code.
-	 *
-	 * @throws Throws an exception if there is an error reading the configuration file.
-	 */
-	int SetRequiredParameters();
-
-public:
-	/**
-	 * @brief The default constructor for the HenchmanService class.
-	 *
-	 * Initializes the application's configuration and sets up the database connection.
-	 * 
-	 */
-	HenchmanService(QObject *parent);
-
-	/**
-	 * @brief The destructor for the HenchmanService class.
-	 *
-	 * Releases any system resources allocated by the application.
-	 */
-	~HenchmanService();
-
-	/**
-	 * @brief The main function for the HenchmanService application.
-	 *
-	 * Calls the necessary methods to set up the application's configuration, check the state of the MySQL and Apache services, and send emails using SMTP.
-	 *
-	 * @return Returns 0 if the application runs successfully, otherwise returns an error code.
-	 *
-	 * @throws Throws an exception if there is an error running the application.
-	 */
-	int MainFunction();
-};
+//class HenchmanService: public QObject
+//{
+//
+//	Q_OBJECT
+//
+//private:
+//	/**
+//	 * @brief The username for sending emails.
+//	 *
+//	 * This variable stores the username used for sending emails using SMTP.
+//	 */
+//	tstring mail_username;
+//	/**
+//	 * @brief The username for sending emails.
+//	 *
+//	 * This variable stores the username used for sending emails using SMTP.
+//	 */
+//	tstring mail_password;
+//
+//	/**
+//	 * @brief A flag indicating whether to update the service.
+//	 *
+//	 * This variable is used to determine whether the service should be updated or not.
+//	 */
+//	bool update = FALSE;
+//
+//public:
+//
+//	/**
+//	 * @brief A string stream for logging purposes.
+//	 *
+//	 * This variable is used to store log messages.
+//	 */
+//	std::stringstream logx;
+//
+//	/**
+//	 * @brief The path to the application.
+//	 *
+//	 * This variable stores the path to the application.
+//	 */
+//	tstring app_path;
+//
+//	/**
+//	 * @brief A unique pointer to a DatabaseManager object.
+//	 *
+//	 * This variable is used to manage the database connection.
+//	 */
+//	//std::unique_ptr<DatabaseManager> dbManager;
+//	DatabaseManager dbManager;
+//
+//	/**
+//	 * @brief A unique pointer to a SQLiteManager2 object.
+//	 *
+//	 * This variable is used to manage the SQLite database connection.
+//	 */
+//	//std::unique_ptr<SQLiteManager2> sqliteManager;
+//	SQLiteManager2 sqliteManager;
+//
+//private:
+//	/**
+//	 * @brief Sets the email login credentials for the HenchmanService application.
+//	 *
+//	 * This function sets the username and password for sending emails using SMTP.
+//	 *
+//	 * @param username The username for sending emails.
+//	 * @param password The password for sending emails.
+//	 *
+//	 * @return Returns true if the email login credentials are set successfully, otherwise returns false.
+//	 *
+//	 * @throws Throws an exception if the username or password is invalid.
+//	 */
+//	bool setMailLogin(const tstring& username, const tstring& password);
+//
+//	/**
+//	 * @brief Checks the state of the MySQL service.
+//	 *
+//	 * Uses the MySQL API to check the state of the MySQL service and logs any errors.
+//	 *
+//	 * @return Returns 0 if the MySQL service is running, otherwise returns an error code.
+//	 *
+//	 * @throws Throws an exception if there is an error checking the MySQL service state.
+//	 */
+//	void checkStateOfMySQL();
+//
+//	/**
+//	 * @brief Checks the state of the Apache service.
+//	 *
+//	 * Uses the Apache API to check the state of the Apache service and logs any errors.
+//	 *
+//	 * @return Returns 0 if the Apache service is running, otherwise returns an error code.
+//	 *
+//	 * @throws Throws an exception if there is an error checking the Apache service state.
+//	 */
+//	void checkStateOfApache();
+//
+//	/**
+//	 * @brief Sets up the application's configuration.
+//	 *
+//	 * Reads the configuration from a file and sets up the necessary data members.
+//	 *
+//	 * @return Returns 0 if the configuration is set up successfully, otherwise returns an error code.
+//	 *
+//	 * @throws Throws an exception if there is an error reading the configuration file.
+//	 */
+//	int SetRequiredParameters();
+//
+//public:
+//	/**
+//	 * @brief The default constructor for the HenchmanService class.
+//	 *
+//	 * Initializes the application's configuration and sets up the database connection.
+//	 * 
+//	 */
+//	HenchmanService(QObject *parent);
+//
+//	/**
+//	 * @brief The destructor for the HenchmanService class.
+//	 *
+//	 * Releases any system resources allocated by the application.
+//	 */
+//	~HenchmanService();
+//
+//	/**
+//	 * @brief The main function for the HenchmanService application.
+//	 *
+//	 * Calls the necessary methods to set up the application's configuration, check the state of the MySQL and Apache services, and send emails using SMTP.
+//	 *
+//	 * @return Returns 0 if the application runs successfully, otherwise returns an error code.
+//	 *
+//	 * @throws Throws an exception if there is an error running the application.
+//	 */
+//	int MainFunction(QCoreApplication* a);
+//};
 
 
 void WINAPI SvcMain();
 void SvcInit();
-DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
 
 #endif

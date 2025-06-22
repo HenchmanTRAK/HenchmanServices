@@ -13,7 +13,6 @@ generate_product_version(
    VERSION_MAJOR ${CMAKE_PROJECT_VERSION_MAJOR}
    VERSION_MINOR ${CMAKE_PROJECT_VERSION_MINOR}
    VERSION_PATCH ${CMAKE_PROJECT_VERSION_PATCH}
-   VERSION_REVISION ${BUILD_REVISION}
    COMPANY_NAME HenchmanTRAK
 )
 
@@ -22,7 +21,7 @@ qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" ${Ve
 qt_disable_unicode_defines(HenchmanService)
 
 target_include_directories(
-	HenchmanService BEFORE PRIVATE 
+	HenchmanService PRIVATE 
 	${CMAKE_CURRENT_SOURCE_DIR}
 #	${ServiceController_DIR}
 #	${OPENSSL_INCLUDE_DIR}
@@ -40,22 +39,23 @@ message(STATUS "OpenSSL crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
 
 target_link_libraries(
 	HenchmanService PRIVATE 
-	Qt6::Core
-	Qt6::Network
-	Qt6::Sql
 	SimpleIni
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
-	DatabaseManager
 	RegistryManager
+	DatabaseManager
 	SQLiteManager2
 	TRAKManager
 	ServiceController
+	HenchmanServiceLibrary
+	Qt6::Network
+	Qt6::Sql
+	Qt6::Core
 )
 
 set_target_properties(
-	HenchmanService PROPERTIES 
+	HenchmanService PROPERTIES
 	LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator'\""
 	AUTOMOC TRUE
 )

@@ -13,23 +13,18 @@
 #	PATTERN bin EXCLUDE
 #)
 
-add_library(EventManager SHARED "EventManager.cpp")
+qt_add_library(EventManager SHARED "EventManager.cpp")
 qt_disable_unicode_defines(EventManager)
-
-
-target_include_directories(
-	EventManager PUBLIC 
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_SOURCE_DIR}/resources
-
-)
 
 target_link_libraries(
 	EventManager PRIVATE
-	Qt6::Core
 	RegistryManager
 	ServiceHelper
+	Qt6::Core
+)
 
+target_include_directories(
+	EventManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${CMAKE_SOURCE_DIR}/resources
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
