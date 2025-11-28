@@ -333,6 +333,32 @@ int ServiceHelper::ShellExecuteApp(std::string appName, std::string params)
 	return 0;
 }
 
+std::wstring ServiceHelper::s2ws(const std::wstring& str)
+{
+	return str;
+}
+
+std::wstring ServiceHelper::s2ws(const std::string& str)
+{
+	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+	return converterX.from_bytes(str);
+}
+
+std::string ServiceHelper::ws2s(const std::string& wstr)
+{
+	return wstr;
+}
+
+std::string ServiceHelper::ws2s(const std::wstring& wstr)
+{
+	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+	return converterX.to_bytes(wstr);
+}
+
 ServiceHelper& ServiceHelper::operator<<(const char* s) 
 {
 #ifdef DEBUG

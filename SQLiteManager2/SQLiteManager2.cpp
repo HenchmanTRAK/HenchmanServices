@@ -9,7 +9,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 
 	LOG << "Fetching values from registry";
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, t2tstr("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
@@ -265,7 +265,7 @@ int SQLiteManager2::AddEntry(
 	queryText << "INSERT INTO " << tableName;
 
 	columnsAndValuesThread.join();
-	queryText << " (" << columns << ") VALUES (" << values << ")";
+	queryText << " (" << columns << ") VALUES (" << values << ") ON CONFLICT DO NOTHING";
 
 	conditionalsThread.join();
 	/*queryText << "WHERE NOT EXISTS (SELECT * FROM " << tableName << " WHERE ";

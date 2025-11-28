@@ -638,6 +638,8 @@ private:
 	
 	int makeGetRequest(const QString& url, const QStringMap &queryMap = QStringMap(), QJsonDocument* results = nullptr);
 
+	QNetworkReply* postRequest(QRestAccessManager* restManager, QNetworkRequest& request, QJsonDocument& doc, int& result, QJsonDocument* results, QEventLoop& loop);
+
 	int makePostRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
 
 	int makePatchRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);

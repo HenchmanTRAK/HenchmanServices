@@ -9,6 +9,8 @@
 #include <vector>
 #include <filesystem>
 #include <fstream>
+#include <locale>
+#include <codecvt>
 
 #include <QString>
 #include <QList>
@@ -25,14 +27,35 @@
 	#define DEBUG 1
 #endif // _DEBUG
 
+#ifdef UNICODE
+#define tstring			std::wstring
+#define tstringstream	std::wstringstream
+#define SetWindowText	SetWindowTextW
+#define _tcslen			wcslen
+#define to_tstring		std::to_wstring
+#define t2tstr			ServiceHelper::s2ws
+//std::wstring installDir(buffer);
+#else
+#define tstring			std::string
+#define tstringstream	std::stringstream
+#define SetWindowText	SetWindowTextA
+#define _tcslen			strlen
+#define to_tstring		std::to_string
+#define t2tstr			ServiceHelper::ws2s
+//std::string installDir(buffer);
+#endif
+
 //#ifdef QT_DEBUG
 //	#define DEBUG 1
 //#endif
 
 #define LOG ServiceHelper()
 
-typedef std::map<std::string, std::string> stringmap;
-
+#ifdef UNICODE
+	typedef std::map<std::wstring, std::wstring> stringmap;
+#else
+	typedef std::map<std::string, std::string> stringmap;
+#endif
 
 /**
  * @class ServiceHelper
@@ -90,7 +113,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	std::string GetExportsPath(std::string app_path = "");
+	tstring GetExportsPath(std::string app_path = "");
 
 	/**
 	 * @brief Returns the logs path for the given application path.
@@ -104,10 +127,10 @@ public:
 	 *
 	 * @throws None.
 	 */
-	std::string GetLogsPath(std::string app_path = "");
+	tstring GetLogsPath(std::string app_path = "");
 
 
-	std::string GetServicePath(std::string app_path = "");
+	tstring GetServicePath(std::string app_path = "");
 
 	/**
 	 * @brief Writes the given log message to the log file.
@@ -173,7 +196,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static std::string fileBasename(const std::string& path);
+	static tstring fileBasename(const std::string& path);
 
 	/**
 	 * @brief Reads the contents of a file and returns them as a C-style string.
@@ -241,6 +264,12 @@ public:
 
 	static int ShellExecuteApp(std::string appName, std::string params);
 
+	static std::wstring s2ws(const std::string& str);
+	static std::wstring s2ws(const std::wstring& str);
+
+	static std::string ws2s(const std::wstring& wstr);
+	static std::string ws2s(const std::string& wstr);
+
 	ServiceHelper& operator<<(const char* s);
 	ServiceHelper& operator<<(const std::string& s);
 	ServiceHelper& operator<<(const QString& s);
@@ -254,5 +283,7 @@ private:
 	//operator std::ostream();
 
 };
+
+
 
 #endif

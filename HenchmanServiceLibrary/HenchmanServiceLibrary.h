@@ -69,13 +69,6 @@
 #define SERVICE_PASSWORD        NULL
 #define CRLF L"\r\n"
 
-#ifdef UNICODE
-#define tstring std::wstring
-//std::wstring installDir(buffer);
-#else
-#define tstring std::string
-//std::string installDir(buffer);
-#endif
 
 //std::unique_ptr<ServiceController::CServiceController> svcController = nullptr;
 //std::unique_ptr<ServiceController::SService> service;
