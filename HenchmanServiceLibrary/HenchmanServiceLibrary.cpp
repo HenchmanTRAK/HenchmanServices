@@ -623,6 +623,11 @@ HenchmanService::HenchmanService(QObject *parent)
 HenchmanService::~HenchmanService()
 {
 	LOG << "Deconstructing HenchmanService";
+
+	this->parent()->deleteLater();
+	sqliteManager.deleteLater();
+	dbManager.deleteLater();
+
 	//delete SQLiteM;
 	//delete TrakM;
 	//delete dbManager;
@@ -671,12 +676,13 @@ int HenchmanService::SetRequiredParameters()
 int HenchmanService::MainFunction(QCoreApplication* a)
 {
 	update = TRUE;
-	int timer = 0;
+	int timer = 30000;
 
 	checkStateOfMySQL();
 	checkStateOfApache();
 
-	try {
+	try
+	{
 
 		if (!dbManager.isInternetConnected())
 		{
@@ -722,18 +728,24 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 			if (!testing)
 				timer = 30000;
 			else
-				timer = 30000;
+				timer = 5000;
 		}
-	} catch (exception& e) {
-		timer = 30000;
+	} 
+	catch (exception& e) 
+	{
+		if (!testing)
+			timer = 30000;
+		else
+			timer = 5000;
 		ServiceHelper().WriteToError(e.what());
 	}
-	QTimer::singleShot(1, this->parent(), &QCoreApplication::quit);
+		
 	
+	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer) + " ms...");
+	QTimer::singleShot(timer, this->parent(), &QCoreApplication::quit);
 	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
 	a->exec();
-	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer) + " ms...");
-	Sleep(timer-1);
+	//Sleep(timer - 1);
 
 	/*if (!(dbManager->AddKabsIfNotExists() ||
 		dbManager->AddDrawersIfNotExists() ||

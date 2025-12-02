@@ -1,5 +1,5 @@
 
-qt_add_library(SQLiteManager2 SHARED "SQLiteManager2.cpp")
+qt_add_library(SQLiteManager2 SHARED "SQLiteManager2.cpp" "SQLiteManager2.h")
 qt_disable_unicode_defines(SQLiteManager2)
 
 target_link_libraries(

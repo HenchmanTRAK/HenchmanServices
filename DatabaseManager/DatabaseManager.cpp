@@ -81,9 +81,9 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	ini.endGroup();
 
 	if (testingDBManager)
-		apiUrl = ini.value("DEVELOPMENT/URL", "http://localhost/webapi/public/api/portals/exec_query").toString();
+		apiUrl = ini.value("DEVELOPMENT/URL", "http://localhost:3000/api/service").toString();
 	else
-		apiUrl = ini.value("API/URL", "http://localhost/webapi/public/api/portals/exec_query").toString();
+		apiUrl = ini.value("API/URL", "https://webportal.henchmantrak.com/api/service").toString();
 
 	LOG << apiUrl;
 
@@ -104,8 +104,9 @@ DatabaseManager::DatabaseManager(QObject* parent)
 
 		}
 	}
-
+	cookieJar = new QNetworkCookieJar(this->parent());
 	netManager = new QNetworkAccessManager(this->parent());
+	netManager->setCookieJar(cookieJar);
 	if (!testingDBManager)
 		netManager->setStrictTransportSecurityEnabled(true);
 	netManager->setAutoDeleteReplies(true);
@@ -125,18 +126,31 @@ DatabaseManager::~DatabaseManager()
 	performCleanup();
 }
 
-int DatabaseManager::authenticateSession(const QString& url) {
-	
-	if (request.header(QNetworkRequest::CookieHeader).toJsonObject().keys().contains("api-session"))
-		return 1;
+int DatabaseManager::authenticateSession(const QString& url)
+{
+
+	/*if (request.header(QNetworkRequest::CookieHeader).toJsonObject().keys().contains("api-session"))
+		return 1;*/
 	
 	QString placeholder;
-	if (url.isEmpty()) {
+	if (url.isEmpty())
+	{
 		placeholder = apiUrl;
 		placeholder = placeholder.slice(0, apiUrl.lastIndexOf("/")) + "/auth/key";
 	}
 	else
 		placeholder = url;
+	
+	
+	for (const auto & cookie : cookieJar->cookiesForUrl(QUrl(placeholder))) 
+	{
+		qDebug() << cookie.name().toStdString() << ":" << cookie.value().toStdString();
+		if(cookie.name().toStdString() == "api-session")
+		{
+			return 1;
+		}
+	}
+
 	QStringMap temp;
 	QJsonObject temp2;
 	QJsonDocument reply;
@@ -292,6 +306,7 @@ int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryM
 	// Generate auth header for request.
 	LOG << url;
 	// Create network request object.
+	QNetworkRequest request;
 	request.setUrl(QUrl(url));
 	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
 	request.setRawHeader("Content-Type", "application/json");
@@ -302,7 +317,7 @@ int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryM
 		timeStamp[0] + "-queries");
 
 
-	QNetworkReply* reply = restManager->get(request, this, [this, &result, &results](QRestReply& reply) {
+	QNetworkReply* reply = restManager->get(request, &loop, [&result, &results](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -379,6 +394,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 	// Generate auth header for request.
 	LOG << url;
 	// Create network request object.
+	QNetworkRequest request;
 	request.setUrl(QUrl(url));
 	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
 	request.setRawHeader("Content-Type", "application/json");
@@ -403,7 +419,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 	ServiceHelper().WriteToCustomLog(log,
 		timeStamp[0] + "-queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results, &loop](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, &loop, [&result, &results, &loop](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -481,7 +497,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply post is finished? " << reply->isFinished();
-
+	reply->deleteLater();
 	//reply->deleteLater();
 	retryCount = 0;
 	//QThread::sleep(1);
@@ -496,6 +512,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& quer
 	// Generate auth header for request.
 	LOG << url;
 	// Create network request object.
+	QNetworkRequest request;
 	request.setUrl(QUrl(url));
 	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
 	request.setRawHeader("Content-Type", "application/json");
@@ -516,7 +533,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& quer
 		timeStamp[0] + "-queries");
 
 
-	QNetworkReply* reply = restManager->patch(request, doc, this, [this, &result, &results](QRestReply& reply) {
+	QNetworkReply* reply = restManager->patch(request, doc, &loop, [&result, &results](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -596,6 +613,7 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 	LOG << url;
 	// Create network request object.
 	QUrl targetUrl(url);
+	QNetworkRequest request;
 	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
 	request.setRawHeader("Content-Type", "application/json");
 
@@ -614,7 +632,6 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 
 	request.setUrl(targetUrl);
 
-
 	ServiceHelper().WriteToCustomLog(
 		("Making query to: " + targetUrl.toString() +
 		"\nRunning query number : " + queryMap["number"] +
@@ -622,7 +639,7 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 		timeStamp[0] + "-queries");
 
 
-	QNetworkReply* reply = restManager->deleteResource(request, this, [this, &result, &results](QRestReply& reply) {
+	QNetworkReply* reply = restManager->deleteResource(request, &loop, [&result, &results](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -693,7 +710,7 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 	return result;
 }
 
-int DatabaseManager::makeNetworkRequest(const QString &url, QStringMap &query, QJsonDocument *results)
+int DatabaseManager::makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument *results)
 {
 	int result = 0;
 	QEventLoop loop(this->parent());
@@ -704,8 +721,9 @@ int DatabaseManager::makeNetworkRequest(const QString &url, QStringMap &query, Q
 	//QString headerData = "Basic " + credentials;
 	LOG << url;
 	// Create network request object.
+	QNetworkRequest request;
 	request.setUrl(QUrl(url));
-	request.setRawHeader("Authorization", "Bearer "+apiKey.toLocal8Bit());
+	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
 	request.setRawHeader("Content-Type", "application/json");
 	
 	//QJsonObject data;
@@ -724,7 +742,7 @@ int DatabaseManager::makeNetworkRequest(const QString &url, QStringMap &query, Q
 		"\nquery : " + doc.toJson().toStdString(), 
 		timeStamp[0]+ "-queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, this, [this, &result, &results](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, &loop, [&result, &results](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.networkReply()->request().headers().toMultiMap();
@@ -877,7 +895,7 @@ int DatabaseManager::addToolsIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_"+ uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(", ").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_"+ uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(", ").toStdString() + ")",
 		result
 	);
 
@@ -1046,7 +1064,7 @@ int DatabaseManager::addUsersIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_"+ uniqueIndexCols.join("_").toStdString() +" ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_"+ uniqueIndexCols.join("_").toStdString() +" ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -1228,7 +1246,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -1392,7 +1410,7 @@ int DatabaseManager::addJobsIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -1617,7 +1635,7 @@ int DatabaseManager::addKabsIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -1772,7 +1790,7 @@ int DatabaseManager::addDrawersIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -1929,7 +1947,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -2079,7 +2097,7 @@ int DatabaseManager::createKabtrakTransactionsTable() {
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -2205,7 +2223,7 @@ int DatabaseManager::addCribsIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -2379,7 +2397,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -2538,7 +2556,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -2725,7 +2743,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -2885,7 +2903,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -3059,7 +3077,7 @@ int DatabaseManager::addCribKitsIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -3218,7 +3236,7 @@ int DatabaseManager::createCribtrakTransactionsTable() {
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -3349,7 +3367,7 @@ int DatabaseManager::addPortasIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -3516,7 +3534,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -3694,7 +3712,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -3864,7 +3882,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -4014,7 +4032,7 @@ int DatabaseManager::createPortatrakTransactionsTable() {
 	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
 		result
 	);
 
@@ -4375,12 +4393,11 @@ int DatabaseManager::connectToRemoteDB()
 		ServiceHelper().WriteToError(e.what());
 	}
 
-	
-	if (restManager)
+	/*if (restManager)
 	{
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 	
 	return result;
 }
@@ -4522,7 +4539,7 @@ int DatabaseManager::connectToLocalDB()
 	return 1;
 }
 
-int DatabaseManager::ExecuteTargetSqlScript(std::string& filepath)
+int DatabaseManager::ExecuteTargetSqlScript(const std::string& filepath)
 {
 	int successCount = 0;
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
@@ -4591,7 +4608,7 @@ int DatabaseManager::ExecuteTargetSqlScript(std::string& filepath)
 	return successCount;
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(std::string sqlQuery)
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string &sqlQuery)
 {
 	int successCount = 0;
 	vector<QStringMap> resultVector;
@@ -4599,7 +4616,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(std::string sqlQuery)
 	queryResult["success"] = "0";
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").c_str());
-	TCHAR buffer[1024] = "\0";
+	char buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
 	//QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
 	rtManager.GetVal("Schema", REG_SZ, (char*)buffer, size);
@@ -4675,7 +4692,92 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(std::string sqlQuery)
 	return resultVector;
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(QString sqlQuery)
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sqlQuery)
+{
+	int successCount = 0;
+	vector<QStringMap> resultVector;
+	QStringMap queryResult;
+	queryResult["success"] = "0";
+	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").c_str());
+	TCHAR buffer[1024] = "\0";
+	DWORD size = sizeof(buffer);
+	//QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
+	rtManager.GetVal("Schema", REG_SZ, (TCHAR*)buffer, size);
+	QString schema(buffer);
+	//RegCloseKey(hKey);
+	QSqlDatabase db = QSqlDatabase::database(schema);
+
+	try {
+
+		if (!db.open())
+		{
+			// HenchmanServiceException
+			throw HenchmanServiceException("Failed to open DB Connection");
+		}
+		db.transaction();
+
+		QSqlQuery query(db);
+
+		QString sql = QString::fromStdWString(sqlQuery);
+			//sqlQuery.data();
+
+		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
+
+		if (!query.exec("USE " + schema + ";"))
+			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
+			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + schema.toStdString() + ";");
+
+		for (QString& statement : sqlStatements)
+		{
+			if (statement.trimmed() == "")
+				continue;
+			LOG << "Executing: " << statement.toStdString();
+			if (query.exec(statement))
+			{
+				successCount++;
+				QSqlRecord record(query.record());
+
+				queryResult["success"] = QString::number(successCount);
+				resultVector.push_back(queryResult);
+
+				while (query.next())
+				{
+					queryResult.clear();
+					for (int i = 0; i <= record.count() - 1; i++)
+					{
+						queryResult[record.fieldName(i)] = query.value(i).toString();
+					}
+
+					resultVector.push_back(queryResult);
+				}
+			}
+			else {
+				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+			}
+			query.clear();
+		}
+		query.finish();
+		if (!db.commit())
+			db.rollback();
+		db.close();
+	}
+	catch (exception& e)
+	{
+		if (db.isOpen()) {
+			db.rollback();
+			//if (!db.commit())
+			db.close();
+		}
+		ServiceHelper().WriteToError(e.what());
+		resultVector[0] = queryResult;
+
+	}
+
+	return resultVector;
+}
+
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString &sqlQuery)
 {
 	return ExecuteTargetSql(sqlQuery.toStdString());
 }
@@ -4748,27 +4850,27 @@ exit:
 	return;
 }
 
-void DatabaseManager::processKeysAndValues(QStringMap &map, QString (&results)[])
+void DatabaseManager::processKeysAndValues(const QStringMap &map, QString (&results)[])
 {
 	QString queryKeys = "";
 	QString queryValues = "";
 	//QString conditionals = "";
 	int count = map.size();
-	QStringList keys = map.keys();
 	
 	for (auto& key : map.keys()) {
 		count--;
-		if (key == "id" || map.value(key).isEmpty() || map.value(key) == "0" || map.value(key) == "'0'")
+		QString value = map.value(key);
+		if (key == "id" || value.isEmpty() || value == "0" || value == "'0'")
 			continue;
-		if (QRegularExpression("\\d\\d\\d\\d-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d.\\d\\d\\dZ").match(map.value(key)).hasMatch())
-			map[key] = 
-			"'" + QRegularExpression("\\d\\d\\d\\d-\\d\\d-\\d\\d").match(map.value(key)).captured(0) + 
+		if (QRegularExpression("\\d\\d\\d\\d-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d.\\d\\d\\dZ").match(value).hasMatch())
+			value =
+			"'" + QRegularExpression("\\d\\d\\d\\d-\\d\\d-\\d\\d").match(value).captured(0) +
 			" " + 
-			QRegularExpression("\\d\\d:\\d\\d:\\d\\d").match(map.value(key)).captured(0) + "'";
+			QRegularExpression("\\d\\d:\\d\\d:\\d\\d").match(value).captured(0) + "'";
 		else
-			map[key] = "'" + map.value(key) + "'";
+			value = "'" + value + "'";
 		queryKeys.append((queryKeys.size() > 0 ? ", " : "") + ("`" + key + "`"));
-		queryValues.append((queryValues.size() > 0 ? ", " : "") + map.value(key));
+		queryValues.append((queryValues.size() > 0 ? ", " : "") + value);
 	}
 	
 	results[0] = queryKeys;

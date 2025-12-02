@@ -1,5 +1,5 @@
 
-add_library(ServiceController SHARED "ServiceController.cpp")
+add_library(ServiceController SHARED "ServiceController.cpp" "ServiceController.h")
 
 target_include_directories(
 	ServiceController INTERFACE 

@@ -1,5 +1,5 @@
 
-qt_add_library(TRAKManager STATIC "TRAKManager.cpp")
+qt_add_library(TRAKManager STATIC "TRAKManager.cpp" "TRAKManager.h")
 qt_disable_unicode_defines(TRAKManager)
 
 target_link_libraries(

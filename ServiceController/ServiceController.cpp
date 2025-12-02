@@ -343,8 +343,24 @@ int CServiceController::StartTargetSvc(const TCHAR* sService)
 		NULL,					// Service Account Name
 		NULL,					// Service Account Password
 		NULL					// Service Display Name
-	)) {
+	))
+	{
 		printf("Failed to change target service settings (%d)\n", GetLastError());
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return 0;
+	}
+
+	SERVICE_DELAYED_AUTO_START_INFO DelayedStartInfo;
+	DelayedStartInfo.fDelayedAutostart = true;
+
+	if (!ChangeServiceConfig2(
+		schService,
+		SERVICE_CONFIG_DELAYED_AUTO_START_INFO,
+		&DelayedStartInfo
+	))
+	{
+		printf("Failed to update target service to delayed auto start (%d)\n", GetLastError());
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return 0;

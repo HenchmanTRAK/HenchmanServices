@@ -2,7 +2,7 @@
 # project specific logic here.
 #
 
-QT_ADD_LIBRARY(HenchmanServiceLibrary SHARED "HenchmanServiceLibrary.cpp")
+QT_ADD_LIBRARY(HenchmanServiceLibrary SHARED "HenchmanServiceLibrary.cpp" "HenchmanServiceLibrary.h")
 QT_DISABLE_UNICODE_DEFINES(HenchmanServiceLibrary)
 
 message(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")

@@ -17,7 +17,7 @@ generate_product_version(
 )
 
 #add_executable(HenchmanServices "HenchmanServices.cpp")
-qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" ${VersionFilesOutputVariable})
+qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" "${CMAKE_SOURCE_DIR}/version" ${VersionFilesOutputVariable})
 qt_disable_unicode_defines(HenchmanService)
 
 target_include_directories(

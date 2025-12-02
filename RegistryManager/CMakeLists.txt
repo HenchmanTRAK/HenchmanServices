@@ -1,5 +1,5 @@
 
-add_library(RegistryManager SHARED "RegistryManager.cpp")
+add_library(RegistryManager SHARED "RegistryManager.cpp" "RegistryManager.h")
 
 target_include_directories(
 	RegistryManager INTERFACE

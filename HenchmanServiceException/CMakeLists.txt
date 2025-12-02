@@ -1,5 +1,5 @@
 
-qt_add_library(HenchmanServiceException STATIC "HenchmanServiceException.cpp")
+qt_add_library(HenchmanServiceException STATIC "HenchmanServiceException.cpp" "HenchmanServiceException.h")
 qt_disable_unicode_defines(HenchmanServiceException)
 
 target_link_libraries(

@@ -2,6 +2,12 @@
 #define DATABASE_MANAGER_H
 #pragma once
 
+#ifdef DATABASEMANAGER_EXPORTS
+#define DATABASEMANAGER_ __declspec(dllexport)
+#else
+#define DATABASEMANAGER_ __declspec(dllimport)
+#endif
+
 #include <iostream>
 #include <map>
 #include <optional>
@@ -17,6 +23,8 @@
 #include <QJsonObject>
 #include <QMap>
 #include <QNetworkAccessManager>
+#include <QNetworkCookieJar>
+#include <QNetworkCookie>
 #include <QNetworkReply>
 #include <QObject>
 #include <QRegularExpression>
@@ -159,6 +167,8 @@ private:
 	 */
 	QRestAccessManager* restManager = nullptr;
 
+	QNetworkCookieJar* cookieJar = nullptr;
+
 	/**
 	 * @var testingDBManager
 	 *
@@ -230,7 +240,7 @@ private:
 	int custId;
 	QString trakIdNum;
 
-	QNetworkRequest request;
+	//QNetworkRequest request;
 
 	SQLiteManager2 sqliteManager;
 
@@ -316,7 +326,7 @@ public:
 	*
 	* @throws None
 	*/
-	int ExecuteTargetSqlScript(std::string& filepath);
+	int ExecuteTargetSqlScript(const std::string& filepath);
 
 	/**
 	 * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
@@ -330,9 +340,11 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
 	*/
-	std::vector<QStringMap> ExecuteTargetSql(std::string sqlQuery);
+	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery);
+
+	std::vector<QStringMap> ExecuteTargetSql(const std::wstring &sqlQuery);
 	
-	std::vector<QStringMap> ExecuteTargetSql(QString sqlQuery);
+	std::vector<QStringMap> ExecuteTargetSql(const QString &sqlQuery);
 
 	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery);
 
@@ -632,13 +644,11 @@ private:
 	 *
 	 * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
 	*/
-	int makeNetworkRequest(const QString &url, QStringMap &query, QJsonDocument* results = nullptr);
+	int makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument* results = nullptr);
 
 	int authenticateSession(const QString& url = "");
 	
 	int makeGetRequest(const QString& url, const QStringMap &queryMap = QStringMap(), QJsonDocument* results = nullptr);
-
-	QNetworkReply* postRequest(QRestAccessManager* restManager, QNetworkRequest& request, QJsonDocument& doc, int& result, QJsonDocument* results, QEventLoop& loop);
 
 	int makePostRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
 
@@ -658,13 +668,13 @@ private:
 	 * @param map The map containing the keys and values to process.
 	 * @param results The array to store the processed queryKeys and queryValues strings.
 	 */
-	void processKeysAndValues(QStringMap& map, QString(&results)[]);
+	void processKeysAndValues(const QStringMap& map, QString(&results)[]);
 
-	void processInsertStatement(QString& query, QJsonObject& data, bool& skipQuery);
+	void processInsertStatement( QString& query,  QJsonObject& data, bool& skipQuery);
 
-	void processUpdateStatement(QString& query, QJsonObject& data, bool& skipQuery);
+	void processUpdateStatement( QString& query,  QJsonObject& data, bool& skipQuery);
 
-	void processDeleteStatement(QString& query, QJsonObject& data, bool& skipQuery);
+	void processDeleteStatement( QString& query, QJsonObject& data, bool& skipQuery);
 
 };
 
