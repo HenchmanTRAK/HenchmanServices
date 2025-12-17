@@ -2,10 +2,10 @@
 #define DATABASE_MANAGER_H
 #pragma once
 
-#ifdef DATABASEMANAGER_EXPORTS
-#define DATABASEMANAGER_ __declspec(dllexport)
+#ifdef DATABASE_MANAGER_EXPORTS
+#define DATABASE_MANAGER_ __declspec(dllexport)
 #else
-#define DATABASEMANAGER_ __declspec(dllimport)
+#define DATABASE_MANAGER_ __declspec(dllimport)
 #endif
 
 #include <iostream>
@@ -157,6 +157,8 @@ private:
 	 * This object is used to make network requests to the database server.
 	 */
 	QNetworkAccessManager* netManager = nullptr;
+
+	QTcpSocket* sock = nullptr;
 
 	/**
 	 * @var restManager
@@ -644,17 +646,17 @@ private:
 	 *
 	 * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
 	*/
-	int makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument* results = nullptr);
+	int makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument* results);
 
 	int authenticateSession(const QString& url = "");
 	
-	int makeGetRequest(const QString& url, const QStringMap &queryMap = QStringMap(), QJsonDocument* results = nullptr);
+	int makeGetRequest(const QString& url, const QStringMap &queryMap, QJsonDocument* results);
+	
+	int makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
 
-	int makePostRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+	int makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
 
-	int makePatchRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
-
-	int makeDeleteRequest(const QString& url, const QStringMap& queryMap = QStringMap(), const QJsonObject& body = QJsonObject(), QJsonDocument* results = nullptr);
+	int makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
 
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.

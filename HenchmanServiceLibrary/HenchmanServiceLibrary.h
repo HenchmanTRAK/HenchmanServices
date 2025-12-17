@@ -5,6 +5,12 @@
 #define HENCHMAN_SERVICE_LIBRARY_H
 #pragma once
 
+#ifdef HENCHMAN_SERVICE_EXPORTS
+#define HENCHMAN_SERVICE_ __declspec(dllexport)
+#else
+#define HENCHMAN_SERVICE_ __declspec(dllimport)
+#endif
+
 
 //#include "openssl/crypto.h"
 //#include "openssl/err.h"

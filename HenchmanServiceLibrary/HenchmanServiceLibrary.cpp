@@ -497,16 +497,16 @@ HenchmanService::HenchmanService(QObject *parent)
 			if (appType.empty()) {
 				std::filesystem::directory_iterator dir("C:\\Program Files (x86)\\HenchmanTRAK");
 				for (const auto& entry : dir) {
-					std::string file(t2tstr(entry.path().filename().c_str()));
-					if (file.compare("kabTRAK")) {
+					std::string file(t2tstr(entry.path().filename().string()));
+					if (file.ends_with("kabTRAK")) {
 						appType = "kabTRAK";
 						break;
 					}
-					if (file.compare("cribTRAK")) {
+					if (file.ends_with("cribTRAK")) {
 						appType = "cribTRAK";
 						break;
 					}
-					if (file.compare("portaTRAK")) {
+					if (file.ends_with("portaTRAK")) {
 						appType = "portaTRAK";
 						break;
 					}
@@ -519,7 +519,7 @@ HenchmanService::HenchmanService(QObject *parent)
 			{
 			case TRAK_DIR:
 			{
-				value = t2tstr("C:\\Program Files(x86)\\HenchmanTRAK\\" + appType);
+				value = t2tstr("C:\\Program Files (x86)\\HenchmanTRAK\\" + appType);
 				break;
 			}
 			case INI_FILE:
@@ -623,10 +623,11 @@ HenchmanService::HenchmanService(QObject *parent)
 HenchmanService::~HenchmanService()
 {
 	LOG << "Deconstructing HenchmanService";
+	ServiceHelper().WriteToLog("HenchmanService has been closed");
 
-	this->parent()->deleteLater();
 	sqliteManager.deleteLater();
 	dbManager.deleteLater();
+	this->parent()->deleteLater();
 
 	//delete SQLiteM;
 	//delete TrakM;
