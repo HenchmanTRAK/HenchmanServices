@@ -362,83 +362,6 @@ void SvcInit()
 
 }
 
-//DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
-//{
-//	int argc = 0;
-//	char* argv[1];
-//
-//	//EventManager::CEventManager::Init(service->serviceName);
-//
-//	EventManager::CEventManager evntManager(service->serviceName);
-//
-//	// add registering registering application in event log and removing on exit.
-//	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
-//
-//	/*RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, std::wstring(L"SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME).data());
-//	RegistryManager::CRegistryManager rmSource(HKEY_LOCAL_MACHINE, std::wstring(L"SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME).data());
-//
-//	TCHAR eventBuff[MAX_PATH] = L"\0";
-//	DWORD eventBuffSize = MAX_PATH;
-//	rmEvent.GetVal(L"EventMessageFile", REG_SZ, (TCHAR *)eventBuff, eventBuffSize);
-//	string eventMessageFile(eventBuff);
-//
-//	TCHAR sourceBuff[MAX_PATH] = L"\0";
-//	DWORD sourceBuffSize = MAX_PATH;
-//	rmSource.GetVal(L"INSTALL_DIR", REG_SZ, (TCHAR *)sourceBuff, sourceBuffSize);
-//	string installDir(sourceBuff);
-//
-//	if (!installDir.empty() && (eventMessageFile.empty()  || eventMessageFile != installDir))
-//	{
-//		installDir.append((TCHAR *)"\\event_messages.dll");
-//		rmEvent.SetVal(L"EventMessageFile", REG_SZ, (TCHAR *)installDir.data(), installDir.length());
-//		DWORD typesSupported = 7;
-//		rmEvent.SetVal(L"TypesSupported", REG_DWORD, (DWORD*)&typesSupported, sizeof(DWORD));
-//	}
-//	eventMessageFile.clear();
-//	installDir.clear();*/
-//
-//	//EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
-//
-//	evntManager.ReportCustomEvent(service->serviceName, "Service is running", 0);
-//
-//	
-//	QCoreApplication* a = new QCoreApplication(argc, argv);
-//	HenchmanService hsService(a);
-//	
-//	while (testing || WaitForSingleObject(svcController->mServiceStopEvent, 0) != WAIT_OBJECT_0)
-//	{
-//		
-//		hsService.MainFunction(a);
-//#if false
-//		service.sqliteManager->UpdateEntry(
-//			"Test",
-//			{"id = 1"},
-//			{ 
-//				{"string", "string + " + to_string(counter++)} 
-//			}
-//		);
-//
-//		service.sqliteManager->RemoveEntry(
-//			"Test",
-//			{"updatedAt <= datetime('now', 'localtime')"}
-//		);
-//
-//		service.sqliteManager->GetEntry(
-//			"TestTable",
-//			{"*", "COUNT(*) count"},
-//			{"updatedAt <= datetime('now', 'localtime')"}
-//			);
-//#endif
-//		
-//	
-//	}
-//	
-//	evntManager.ReportCustomEvent(service->serviceName, "Service has exited", 0);
-//
-//	a->deleteLater();
-//	return ERROR_SUCCESS;
-//}
-
 static void setContextMenuCommands(const tstring& verb, const tstring& command)
 {
 	std::string verbName = verb;
@@ -475,348 +398,6 @@ static void removeContextMenu()
 	RegistryManager::CRegistryManager::RemoveTargetKey(HKEY_CLASSES_ROOT, std::string(service->serviceName).c_str());
 }
 
-//HenchmanService::HenchmanService(QObject *parent)
-//	: QObject(parent), sqliteManager(parent), dbManager(parent)
-//{
-//	CSimpleIni ini;
-//
-//	//ini.SetUnicode();
-//
-//	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));*/
-//	LOG << std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).data();
-//	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).data());
-//	TCHAR buffer[1024] = "\0";
-//	DWORD size = sizeof(buffer);
-//	rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
-//	tstring installDir(buffer);
-//	// HenchmanServiceException
-//	LOG << "Install dir: " << installDir;
-//	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
-//	if (rc < 0) {
-//		cerr << "Failed to Load INI File" << endl;
-//	}
-//
-//	CSimpleIniA::TNamesDepend keys;
-//	ini.GetAllKeys("WAMP", keys);
-//	for (auto& val : keys)
-//	{
-//		string key = val.pItem;
-//		string value = ini.GetValue("WAMP", val.pItem, "");
-//		ServiceHelper().removeQuotes(value);
-//
-//		/*RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);*/
-//		//RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
-//		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR *)value.data(), (value.length() + 1)))
-//			throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
-//
-//		key.clear();
-//		value.clear();
-//	}
-//
-//	ini.GetAllKeys("TRAK", keys);
-//	for (auto& val : keys)
-//	{
-//		string key = val.pItem;
-//		string value = ini.GetValue("TRAK", val.pItem, "");
-//		ServiceHelper().removeQuotes(value);
-//
-//		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR*)value.data(), (value.length() + 1)))
-//			throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
-//
-//		key.clear();
-//		value.clear();
-//
-//	}
-//
-//	//RegCloseKey(hKey);
-//	//sqliteManager = make_unique<SQLiteManager2>(a);
-//
-//
-//	string tableName = "TestTable";
-//	vector<string> columns;
-//	columns.push_back("username TEXT NOT NULL");
-//	columns.push_back("password TEXT NOT NULL");
-//	sqliteManager.CreateTable(
-//		tableName,
-//		columns
-//	);
-//
-//	std::vector<stringmap> result;
-//
-//	sqliteManager.ExecQuery("CREATE UNIQUE INDEX unique_username_password ON " + tableName + "(username,password)", result);
-//
-//	columns.clear();
-//
-//	string username = ini.GetValue("EMAIL", "Username", "");
-//	string password = ini.GetValue("EMAIL", "Password", "");
-//	if (password != "")
-//		password = QByteArray(password.data()).toBase64();
-//	//string encodedPass = base64(password);
-//	if (setMailLogin(username, password))
-//	{
-//		map<string, string> data;
-//		data["username"] = username;
-//		data["password"] = password;
-//		
-//		sqliteManager.AddEntry(
-//			tableName,
-//			data
-//		);
-//
-//		data.clear();
-//	}
-//	//dbManager = make_unique<DatabaseManager>(a);
-//
-//	/*currDir.clear();
-//	installDir.clear();
-//	keys.clear();
-//	databaseName.clear();
-//	dbName.clear();
-//	username.clear();
-//	password.clear();
-//	tableName.clear();
-//	columns.clear();*/
-//
-//}
-//
-//HenchmanService::~HenchmanService()
-//{
-//	LOG << "Deconstructing HenchmanService";
-//	//delete SQLiteM;
-//	//delete TrakM;
-//	//delete dbManager;
-//	//dbManager->deleteLater();
-//
-//	//logx.clear();
-//}
-//
-//bool HenchmanService::setMailLogin(const string& username, const string& password) 
-//{
-//	try {
-//		if (username.length() <= 1 || password.length() <= 1) {
-//			throw HenchmanServiceException("No SMTP email or password provided.");
-//		}
-//		mail_username = username;
-//		mail_password = password;
-//	}
-//	catch (exception& e)
-//	{
-//		ServiceHelper().WriteToError(e.what());
-//		return false;
-//	}
-//	return true;
-//}
-//
-//int HenchmanService::SetRequiredParameters()
-//{
-//
-//#if false
-//	string tableName = "Test";
-//	sqliteManager->CreateTable(
-//		tableName,
-//		{"string TEXT"}
-//	);
-//
-//	sqliteManager->AddEntry(
-//		tableName,
-//		{
-//			{"string", "Hello World!"}
-//		}
-//	);
-//#endif
-//	return 0;
-//}
-//
-//int HenchmanService::MainFunction(QCoreApplication* a)
-//{
-//	update = TRUE;
-//	int timer = 0;
-//
-//	checkStateOfMySQL();
-//	checkStateOfApache();
-//
-//	try {
-//
-//		if (!dbManager.isInternetConnected())
-//		{
-//			//ServiceHelper().WriteToLog("Failed to confirm network connection");
-//			throw HenchmanServiceException("Failed to confirm network connection");
-//			//QTimer::singleShot(100, a, &QCoreApplication::quit);
-//		}
-//		//ConnectWithSMTP();
-//
-//		//dbManager = new DatabaseManager(a);
-//
-//		TRAKManager TrakM(&dbManager);
-//
-//		TrakM.CreateDataModule();
-//		dbManager.loadTrakDetailsFromRegistry();
-//
-//		ServiceHelper().WriteToLog("Checking if TRAK is Running");
-//		if (!ProcessExists(TrakM.appName)) {
-//			ServiceHelper().WriteToError("TRAK process is not running");
-//			string targetExe = TrakM.appDir + TrakM.appName;
-//#if false
-//			ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
-//			//if (!CreateTargetProcess(targetExe))
-//			if (!LaunchProcess(targetExe.data()))
-//			{
-//				ServiceHelper().WriteToError("Failed to start " + targetExe);
-//			}
-//#endif
-//		}
-//
-//		dbManager.targetApp = TrakM.appType;
-//
-//		if (!dbManager.connectToLocalDB()) {
-//			throw HenchmanServiceException("Failed to establish connection to local database");
-//			//ServiceHelper().WriteToError("Failed to establish connection to local database");
-//			//QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
-//			//return 0;
-//		}
-//
-//		if (!TrakM.UploadCurrentStateToRemote())
-//		{
-//			dbManager.connectToRemoteDB();
-//			if (!testing)
-//				timer = 30000;
-//			else
-//				timer = 30000;
-//		}
-//	} catch (exception& e) {
-//		timer = 30000;
-//		ServiceHelper().WriteToError(e.what());
-//	}
-//	
-//	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer+1) + " ms...");
-//	QTimer::singleShot(1, this->parent(), &QCoreApplication::quit);
-//	
-//	Sleep(timer);
-//
-//	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
-//	a->exec();
-//	/*if (!(dbManager->AddKabsIfNotExists() ||
-//		dbManager->AddDrawersIfNotExists() ||
-//		dbManager->AddToolsIfNotExists() ||
-//		dbManager->AddToolsInDrawersIfNotExists())
-//		) {
-//		dbManager->connectToRemoteDB();
-//	}*/
-//	
-//	LOG << "Exiting Main Function";
-//
-//	return 0;
-//}
-//
-//void HenchmanService::checkStateOfMySQL()
-//{
-//	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-//	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
-//	TCHAR buffer[1024] = "\0";
-//	DWORD size = sizeof(buffer);
-//	rtManager.GetVal("MySQL_DIR", REG_SZ, (TCHAR *)buffer, size);
-//	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
-//	string mysql_dir(buffer);
-//	//RegCloseKey(hKey);
-//	ServiceHelper().WriteToLog("Checking for Local MYSQL service...");
-//	int wampMySQLSvcStatus = svcController->GetSvcStatus("wampmysqld64");
-//	// HenchmanServiceException
-//	try {
-//		switch (wampMySQLSvcStatus) {
-//		case -1: {
-//			ServiceHelper().WriteToError("MySQL Service errored with unknown error");
-//			if (!ServiceHelper::ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install-manual wampmysqld64"))
-//				throw HenchmanServiceException("Failed to install Local MYSQL service");
-//			ServiceHelper().WriteToLog("Local MYSQL service installed...");
-//			if (!svcController->StartTargetSvc("wampmysqld64"))
-//				throw HenchmanServiceException("Failed to start Local MYSQL service");
-//			ServiceHelper().WriteToLog("Local MYSQL Service Started");
-//			break;
-//
-//		}
-//		case 1: {
-//			ServiceHelper().WriteToLog("Local MYSQL Service has stopped...");
-//			if (svcController->StartTargetSvc("wampmysqld64"))
-//				ServiceHelper().WriteToLog("Successfully Restarted Local MYSQL Service");
-//			else {
-//				throw HenchmanServiceException("Failed to start Local MYSQL service");
-//			}
-//			break;
-//		}
-//		default: {
-//			ServiceHelper().WriteToLog("Local MYSQL Service has not stopped or errored \nIt returned with status code: " + to_string(wampMySQLSvcStatus));
-//			break;
-//		}
-//		}
-//	}
-//	catch (exception& e)
-//	{
-//		ServiceHelper().WriteToError(e.what());
-//		if (ServiceHelper::ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
-//			ServiceHelper().WriteToLog("Removed Local MYSQL service...");
-//	}
-//
-//}
-//
-//void HenchmanService::checkStateOfApache()
-//{
-//	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-//	string apache_dir = RegistryManager::GetStrVal(hKey, "Apache_DIR", REG_SZ);
-//	RegCloseKey(hKey);*/
-//
-//	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
-//	TCHAR buffer[1024] = "\0";
-//	DWORD size = sizeof(buffer);
-//	rtManager.GetVal("Apache_DIR", REG_SZ, (TCHAR*)buffer, size);
-//	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
-//	string apache_dir(buffer);
-//
-//	ServiceHelper().WriteToLog("Checking for Local Apache service...");
-//	int wampApacheSvcStatus = svcController->GetSvcStatus("wampapache64");
-//	// HenchmanServiceException
-//	try {
-//		switch (wampApacheSvcStatus) {
-//		case -1: {
-//			ServiceHelper().WriteToError("Apache Service errored with unknown error");
-//			if (!ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k install -n wampapache64"))
-//				throw HenchmanServiceException("Failed to install Apache service");
-//			ServiceHelper().WriteToLog("Apache Service installed...");
-//			if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k start -n wampapache64"))
-//				ServiceHelper().WriteToLog("Apache Services started...");
-//			else {
-//				throw HenchmanServiceException("Failed to start Apache service");
-//			}
-//			break;
-//
-//		}
-//		case 1: {
-//			ServiceHelper().WriteToLog("Apache Service has stopped...");
-//			if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k start -n wampapache64"))
-//				ServiceHelper().WriteToLog("Successfully Restarted Apache Service");
-//			else {
-//				throw HenchmanServiceException("Failed to start Apache Service");
-//			}
-//			break;
-//		}
-//		default: {
-//			ServiceHelper().WriteToLog("Apache Service has not stopped or errored \nIt returned with status code: " + to_string(wampApacheSvcStatus));
-//			break;
-//		}
-//		}
-//	}
-//	catch (exception& e) {
-//		ServiceHelper().WriteToError(e.what());
-//		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
-//			ServiceHelper().WriteToLog("Apache Service stopped...");
-//		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache"))
-//			ServiceHelper().WriteToLog("Apache Service stopped...");
-//		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache64"))
-//			ServiceHelper().WriteToLog("Apache Service uninstalled...");
-//		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k uninstall -n wampapache"))
-//			ServiceHelper().WriteToLog("Apache Service uninstalled...");
-//	}
-//}
-
 int main(int argc, char* argv[])
 {
 #ifdef DEBUG
@@ -849,26 +430,39 @@ int main(int argc, char* argv[])
 	if (testing && argc <= 1)
 		argv[1] = (char *)"--install";
 	
+		
+
 	//svcController = make_unique<CServiceController>(*service);
-	createUniqueServiceController(*service);
+	createUniqueServiceController(*service, testing);
+		
 	if (lstrcmpiA(argv[1], "--install") == 0)
-	{
+	{	
 		try {
 			RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
 			//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 			TCHAR buffer[MAX_PATH] = "\0";
 			DWORD size = MAX_PATH;
-			rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR *)buffer, size);
+			rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
 			tstring installDir(buffer);
-
+			std::cout << installDir << "\n";
+			std::string currDir = std::filesystem::current_path().string();
 			//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-			if (installDir.empty() || installDir != std::filesystem::current_path().string())
+			if (installDir.empty() || installDir != currDir)
 			{
-				installDir = filesystem::current_path().string();
+				installDir = currDir;
+				std::cout << installDir << "\n";
 				//RegistryManager::SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
-				if (rtManager.SetVal("INSTALL_DIR", REG_SZ, (TCHAR *)installDir.c_str(), (installDir.length() + 1)))
+				if (rtManager.SetVal("INSTALL_DIR", REG_SZ, (TCHAR*)installDir.c_str(), (installDir.length() + 1)))
 					throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
 			}
+			//std::cout << installDir << "\n";
+			//std::cout << (installDir + "\\" + SERVICE_NAME + ".exe").c_str() << "\n";
+
+			//service->servicePath = (installDir + "\\" + SERVICE_NAME + ".exe");
+			//std::cout << service->servicePath << "\n";
+
+			getServiceController()->mService.servicePath = (installDir + "\\" + SERVICE_NAME + ".exe");
+
 			if (logEvent)
 			{
 
@@ -888,20 +482,19 @@ int main(int argc, char* argv[])
 				}
 			}
 
-			if(contextMenu)
+			if (contextMenu)
 				setContextMenu(installDir);
 		}
-		catch (const std::exception& e)
-		{
+		catch (const std::exception& e) {
 			ServiceHelper().WriteToError(e.what());
 			std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;
 			int c = getchar();
 			if (c == '\n' || c == EOF)
-			return 0;
+				return 0;
 		}
 
+		getServiceController()->DoInstallSvc();
 		if (!testing) {
-			getServiceController()->DoInstallSvc();
 			Sleep(1000);
 			ServiceHelper::ShellExecuteApp(argv[0], " --start");
 			return 0;
@@ -937,9 +530,6 @@ int main(int argc, char* argv[])
 	{
 		if (!testing){
 			getServiceController()->DoStartSvc();
-			/*int c = getchar();
-			if (c == '\n' || c == EOF)
-				std::cout << "Press enter to start service or hit CTRL+C to exit..." << std::endl;*/
 			return 0;
 		}
 		LOG << "starting...";
@@ -978,6 +568,8 @@ int main(int argc, char* argv[])
 			ServiceHelper::ShellExecuteApp(argv[0], " --install");
 		//std::cout << "Press any key to exit..." << endl;
 	}
+
+
 	//delete svcController;
 	//svcController = nullptr;
 	return 0;

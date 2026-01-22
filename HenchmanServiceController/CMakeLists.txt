@@ -29,11 +29,11 @@ target_include_directories(
 
 target_link_libraries(
 	HenchmanServiceController PRIVATE 
-	Qt6::Core
-	ServiceHelper
-	RegistryManager
 	HenchmanServiceException
 	EventManager
+	ServiceHelper
+	RegistryManager
+	Qt6::Core
 )
 
 set_target_properties(

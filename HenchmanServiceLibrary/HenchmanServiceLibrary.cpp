@@ -21,8 +21,8 @@ std::unique_ptr<CServiceController> svcController = nullptr;
 //std::unique_ptr<SService> service = nullptr;
 
 
-void createUniqueServiceController(const SService& pService) {
-	svcController = make_unique<CServiceController>(pService);
+void createUniqueServiceController(const SService& pService, bool isTesting) {
+	svcController = make_unique<CServiceController>(pService, isTesting || testing);
 }
 
 CServiceController* getServiceController() {
@@ -726,20 +726,17 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 		if (!TrakM.UploadCurrentStateToRemote())
 		{
 			dbManager.connectToRemoteDB();
-			if (!testing)
-				timer = 30000;
-			else
-				timer = 5000;
 		}
 	} 
 	catch (exception& e) 
 	{
-		if (!testing)
-			timer = 30000;
-		else
-			timer = 5000;
 		ServiceHelper().WriteToError(e.what());
 	}
+
+	if (!testing)
+		timer = 30000;
+	else
+		timer = 5000;
 		
 	
 	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer) + " ms...");

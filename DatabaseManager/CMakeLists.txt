@@ -8,11 +8,11 @@ message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
 
 target_link_libraries(
 	DatabaseManager PRIVATE
+	SQLiteManager2
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
 	RegistryManager
-	SQLiteManager2
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

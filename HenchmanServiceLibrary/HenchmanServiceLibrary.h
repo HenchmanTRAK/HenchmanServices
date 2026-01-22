@@ -245,7 +245,7 @@ public:
 
 DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
 
-void createUniqueServiceController(const ServiceController::SService& service);
+void createUniqueServiceController(const ServiceController::SService& service, bool isTesting = false);
 ServiceController::CServiceController* getServiceController();
 
 #endif

@@ -107,6 +107,7 @@ static QMap<QString, table_enums> table_map = {
 	{"cribs", cribs},
 	{"cribconsumables", cribconsumables},
 	{"cribtoollocation", cribtoollocation},
+	{"cribtoollocations", cribtoollocation},
 	{"cribtoollockers", cribtoollockers},
 	{"cribtools", cribtools},
 	{"kittools", kittools},

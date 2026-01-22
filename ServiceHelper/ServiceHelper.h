@@ -2,6 +2,13 @@
 #define SERVICE_HELPER_H
 #pragma once
 
+
+#ifdef SERVICE_HELPER_EXPORTS
+#define SERVICE_HELPER_ __declspec(dllexport)
+#else
+#define SERVICE_HELPER_ __declspec(dllimport)
+#endif
+
 #include <iostream>
 #include <array>
 #include <source_location>
@@ -263,6 +270,8 @@ public:
 	void ConsoleLog(const char* log);
 
 	static int ShellExecuteApp(std::string appName, std::string params);
+
+	static std::string GetLastErrorAsString();
 
 	static std::wstring s2ws(const std::string& str);
 	static std::wstring s2ws(const std::wstring& str);

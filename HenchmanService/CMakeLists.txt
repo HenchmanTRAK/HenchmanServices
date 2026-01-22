@@ -39,16 +39,16 @@ message(STATUS "OpenSSL crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
 
 target_link_libraries(
 	HenchmanService PRIVATE 
-	SimpleIni
+	HenchmanServiceLibrary
+	ServiceController
+	TRAKManager
+	DatabaseManager
+	SQLiteManager2
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
 	RegistryManager
-	DatabaseManager
-	SQLiteManager2
-	TRAKManager
-	ServiceController
-	HenchmanServiceLibrary
+	SimpleIni
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

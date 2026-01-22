@@ -18,8 +18,8 @@ qt_disable_unicode_defines(EventManager)
 
 target_link_libraries(
 	EventManager PRIVATE
-	RegistryManager
 	ServiceHelper
+	RegistryManager
 	Qt6::Core
 )
 

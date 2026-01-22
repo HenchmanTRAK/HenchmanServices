@@ -4,12 +4,12 @@ qt_disable_unicode_defines(SQLiteManager2)
 
 target_link_libraries(
 	SQLiteManager2 PRIVATE
-	Qt6::Core
-	Qt6::Sql
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
 	RegistryManager
+	Qt6::Sql
+	Qt6::Core
 )
 
 target_include_directories(SQLiteManager2 INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

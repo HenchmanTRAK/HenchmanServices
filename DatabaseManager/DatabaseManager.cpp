@@ -118,7 +118,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 		this->performCleanup();
 	});*/
 
-	connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
+	//connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
 		
 	if (isInternetConnected())
 		authenticateSession();
@@ -187,6 +187,11 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 	rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
 	//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
 	trakId = buffer;
+	if (trakId.ends_with("ID")) {
+		trakId.pop_back();
+		trakId.pop_back();
+		trakId += "Id";
+	}
 
 	size = 1024;
 	rtManagerCustomer.GetVal("ID", REG_SZ, (TCHAR*)buffer, size);
@@ -322,7 +327,7 @@ int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryM
 		timeStamp[0] + "-queries");
 
 
-	QNetworkReply* reply = restManager->get(request, &loop, [&result, &results, &loop](QRestReply& reply) {
+	QNetworkReply* reply = restManager->get(request, this, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -403,7 +408,7 @@ int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryM
 int DatabaseManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {		
 	int result = 0;
-	QEventLoop loop(this->parent());
+	QEventLoop loop(this);
 
 	// Generate auth header for request.
 	LOG << url;
@@ -431,7 +436,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 	ServiceHelper().WriteToCustomLog(log,
 		timeStamp[0] + "-queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, &loop, [&result, &results, &loop](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -518,7 +523,7 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop(this->parent());
+	QEventLoop loop(this);
 
 	// Generate auth header for request.
 	LOG << url;
@@ -546,7 +551,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& quer
 	ServiceHelper().WriteToCustomLog(log,
 		timeStamp[0] + "-queries");
 
-	QNetworkReply* reply = restManager->patch(request, doc, &loop, [&result, &results, &loop](QRestReply& reply) {
+	QNetworkReply* reply = restManager->patch(request, doc, this, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -628,7 +633,7 @@ int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& quer
 int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop(this->parent());
+	QEventLoop loop(this);
 
 	// Generate auth header for request.
 	LOG << url;
@@ -664,7 +669,7 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 		timeStamp[0] + "-queries");
 
 
-	QNetworkReply* reply = restManager->deleteResource(request, &loop, [&result, &results, &loop](QRestReply& reply) {
+	QNetworkReply* reply = restManager->deleteResource(request, this, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -746,7 +751,7 @@ int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& que
 int DatabaseManager::makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument *results)
 {
 	int result = 0;
-	QEventLoop loop(this->parent());
+	QEventLoop loop(this);
 
 	// Generate auth header for request.
 	//QString concatenated = apiUsername+":"+apiPassword;
@@ -779,7 +784,7 @@ int DatabaseManager::makeNetworkRequest(const QString &url, const QStringMap &qu
 	ServiceHelper().WriteToCustomLog(log,
 		timeStamp[0] + "-queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, &loop, [&result, &results, &loop](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.networkReply()->request().headers().toMultiMap();
@@ -4110,7 +4115,11 @@ int DatabaseManager::connectToRemoteDB()
 	QString targetSchema;
 	QSqlDatabase db;
 	bool result = false;
+
 	try {
+
+		if (!isInternetConnected() || !authenticateSession())
+			throw HenchmanServiceException("Failed to establish connection to remote server");
 
 		RegistryManager::CRegistryManager rtManagerAddDB(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\"+ targetApp + "\\Database").c_str());
 
@@ -4138,326 +4147,333 @@ int DatabaseManager::connectToRemoteDB()
 
 		vector<QStringMap> queries;
 		QSqlQuery query(db);
-		QString queryText = testingDBManager && doNotRunCloudUpdate ? "SHOW TABLES" : "SELECT * FROM cloudupdate WHERE posted = 0 OR posted = 2 ORDER BY DatePosted ASC, id ASC LIMIT " + QString::number(queryLimit);
-		LOG << queryText;
-		query.prepare(queryText);
-		if (!query.exec())
-		{
-			query.finish();
-			ServiceHelper().WriteToLog(string("Closing DB Session"));
-			throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
-		}
-		
-		if (query.numRowsAffected() > 0)
-		{
-			ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
 
-			if (restManager == nullptr)
-				restManager = new QRestAccessManager(netManager, this->parent());
+		try {
 
-			if (!isInternetConnected() || !authenticateSession())
-				throw HenchmanServiceException("Failed to establish connection to remote server");
-		}
-
-
-		int count = 0;
-
-		while (query.next())
-		{
-			if (!isInternetConnected() || !authenticateSession())
-				throw HenchmanServiceException("Internet connection dropped, retrying when connection returns");
-
-			count++;
-			bool skipQuery = false;
-			bool retryingQuery = false;
-			QStringMap res;
-			res["number"] = QString::number(count);
-
-			QString queryType;
-			QJsonObject data;
-			
-			if (parseCloudUpdate)
+			QString queryText = testingDBManager && doNotRunCloudUpdate ? "SHOW TABLES" : "SELECT * FROM cloudupdate WHERE posted = 0 OR posted = 2 ORDER BY DatePosted ASC, id ASC LIMIT " + QString::number(queryLimit);
+			LOG << queryText;
+			query.prepare(queryText);
+			if (!query.exec())
 			{
-				res["id"] = query.value(0).toString();
-				res["query"] = query
-					.value(2)
-					.toString()
-					.replace(
-						QRegularExpression(
-							"(NOW|CURDATE|CURTIME)+",
-							QRegularExpression::ExtendedPatternSyntaxOption
-						),
-						"\'" + query
-						.value(3)
+				query.finish();
+				ServiceHelper().WriteToLog(string("Closing DB Session"));
+				throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
+			}
+
+			if (query.numRowsAffected() > 0)
+			{
+				ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
+
+				if (restManager == nullptr)
+					restManager = new QRestAccessManager(netManager, this->parent());
+			}
+
+
+			int count = 0;
+
+			while (query.next())
+			{
+				if (!isInternetConnected() || !authenticateSession())
+					throw HenchmanServiceException("Internet connection dropped, retrying when connection returns");
+
+				count++;
+				bool skipQuery = false;
+				bool retryingQuery = false;
+				QStringMap res;
+				res["number"] = QString::number(count);
+
+				QString queryType;
+				QJsonObject data;
+
+				if (parseCloudUpdate)
+				{
+					res["id"] = query.value(0).toString();
+					res["query"] = query
+						.value(2)
 						.toString()
-						.replace("T", " ")
-						//".000Z"
-						.replace(QRegularExpression(
-							"\....Z",
-							QRegularExpression::ExtendedPatternSyntaxOption
-						),"") + "\'"
-					).replace("()", "").simplified();
-				retryingQuery = query.value(4).toInt() == 2;
-				ServiceHelper().WriteToCustomLog("Query fetched from database: " + res["query"].toStdString(), timeStamp[0] + "-queries");
+						.replace(
+							QRegularExpression(
+								"(NOW|CURDATE|CURTIME)+",
+								QRegularExpression::ExtendedPatternSyntaxOption
+							),
+							"\'" + query
+							.value(3)
+							.toString()
+							.replace("T", " ")
+							//".000Z"
+							.replace(QRegularExpression(
+								"\....Z",
+								QRegularExpression::ExtendedPatternSyntaxOption
+							), "") + "\'"
+						).replace("()", "").simplified();
+					retryingQuery = query.value(4).toInt() == 2;
+					ServiceHelper().WriteToCustomLog("Query fetched from database: " + res["query"].toStdString(), timeStamp[0] + "-queries");
 
 #if false
-				if (res["query"].contains(";") && res["query"].split(";").size() > 2 && !res["query"].split(";")[1].isEmpty() && !skipQuery) {
-					LOG << res["query"].split(";").size();
-					res["query"] = res["query"].split(";")[0];
-					LOG << res["query"];
-					/*skipQuery = true;
-					goto parsedQuery;*/
-				}
+					if (res["query"].contains(";") && res["query"].split(";").size() > 2 && !res["query"].split(";")[1].isEmpty() && !skipQuery) {
+						LOG << res["query"].split(";").size();
+						res["query"] = res["query"].split(";")[0];
+						LOG << res["query"];
+						/*skipQuery = true;
+						goto parsedQuery;*/
+					}
 #endif				
-				// Check if query contains customer id for verification. Containing custId that is not assigned to trak renders query unsafe.
+					// Check if query contains customer id for verification. Containing custId that is not assigned to trak renders query unsafe.
 
-				LOG << res["query"];
-				//if (res["query"].contains("insert", Qt::CaseInsensitive))
-				if (res["query"].startsWith("i", Qt::CaseInsensitive))
-				{
-					queryType = "insert";
-				}
-				//else if (res["query"].contains("update", Qt::CaseInsensitive))
-				else if (res["query"].startsWith("u", Qt::CaseInsensitive))
-				{
-					queryType = "update";
-				}
-				//else if (res["query"].contains("delete", Qt::CaseInsensitive))
-				else if (res["query"].startsWith("d", Qt::CaseInsensitive))
-				{
-					queryType = "delete";
+					LOG << res["query"];
+					//if (res["query"].contains("insert", Qt::CaseInsensitive))
+					if (res["query"].startsWith("i", Qt::CaseInsensitive))
+					{
+						queryType = "insert";
+					}
+					//else if (res["query"].contains("update", Qt::CaseInsensitive))
+					else if (res["query"].startsWith("u", Qt::CaseInsensitive))
+					{
+						queryType = "update";
+					}
+					//else if (res["query"].contains("delete", Qt::CaseInsensitive))
+					else if (res["query"].startsWith("d", Qt::CaseInsensitive))
+					{
+						queryType = "delete";
+					}
+					else
+					{
+						queryType = "select";
+					}
+
+					// Handle queries that aren't skipped and are inserting into the Database
+					if (queryType == "insert" && !skipQuery)
+					{
+						ServiceHelper().WriteToLog("Parsing insert to prevent duplication creation");
+						processInsertStatement(res["query"], data, skipQuery);
+						LOG << res["query"];
+
+						QJsonDocument doc(data);
+						ServiceHelper().WriteToLog("Insert parse results: " + doc.toJson().toStdString());
+
+						if (skipQuery)
+							goto parsedQuery;
+					}
+
+					// handles queries that aren't skipped and are attempting to update existing enteries in the database
+					if (queryType == "update" && !skipQuery)
+					{
+						ServiceHelper().WriteToLog("Parsing update to prevent altering entries not for current device");
+						LOG << res["query"];
+						processUpdateStatement(res["query"], data, skipQuery);
+						LOG << res["query"];
+
+						QJsonDocument doc(data);
+						ServiceHelper().WriteToLog("Update parse results: " + doc.toJson().toStdString());
+
+						if (data.value("table").toString() == "cribtrak/transactions")
+						{
+							queryType = "insert";
+							data.remove("update");
+							data.remove("where");
+						}
+
+						if (skipQuery)
+							goto parsedQuery;
+					}
+
+					// handles queries that aren't skipped and are attempting to delete existing enteries in the database
+					if (queryType == "delete" && !skipQuery)
+					{
+						ServiceHelper().WriteToLog("Parsing delete to prevent removing entries not for current device");
+						LOG << res["query"];
+						processDeleteStatement(res["query"], data, skipQuery);
+						LOG << res["query"];
+
+						QJsonDocument doc(data);
+						ServiceHelper().WriteToLog("Delete parse results: " + doc.toJson().toStdString());
+
+						if (skipQuery)
+							goto parsedQuery;
+					}
 				}
 				else
 				{
-					queryType = "select";
+					res["id"] = "0";
+					res["query"] = "SHOW TABLES";
 				}
-				
-				// Handle queries that aren't skipped and are inserting into the Database
-				if (queryType == "insert" && !skipQuery)
-				{
-					ServiceHelper().WriteToLog("Parsing insert to prevent duplication creation");
-					processInsertStatement(res["query"], data, skipQuery);
-					LOG << res["query"];
 
-					QJsonDocument doc(data);
-					ServiceHelper().WriteToLog("Insert parse results: " + doc.toJson().toStdString());
-					
-					if(skipQuery)
-						goto parsedQuery;
+
+			parsedQuery:
+				LOG << res["query"];
+				qDebug() << data;
+				ServiceHelper().WriteToCustomLog("Query parsed. " + std::string(skipQuery ? "Query is getting skipped" : "Query is being run"), timeStamp[0] + "-queries");
+				ServiceHelper().WriteToCustomLog("Query after being parsed: \n" + QJsonDocument(data).toJson().toStdString(), timeStamp[0] + "-queries");
+
+				if (!pushCloudUpdate || skipQuery)
+				{
+					string sqlQuery = "UPDATE cloudupdate SET posted = " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1") + " WHERE posted <> 1 AND id = " + res["id"].toStdString();
+
+					ServiceHelper().WriteToCustomLog("Updating skipped query with id: " + res["id"].toStdString() + " with posted status " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1"), timeStamp[0] + "-queries");
+					if (skipQuery && !retryingQuery)
+						ServiceHelper().WriteToCustomLog("Skipping query to try again later:\n\tid: " + res["id"].toStdString() + "\n\t query: " + res["query"].toStdString(), timeStamp[0] + "-queries-skipped");
+					vector queryResult = ExecuteTargetSql(sqlQuery);
+					if (queryResult.size() > 0)
+						for (auto result : queryResult)
+							LOG << result["success"];
+
+					continue;
 				}
-				
-				// handles queries that aren't skipped and are attempting to update existing enteries in the database
-				if (queryType == "update" && !skipQuery)
+
+				QString targetTable = "";
+				if (data.contains("table"))
 				{
-					ServiceHelper().WriteToLog("Parsing update to prevent altering entries not for current device");
-					LOG << res["query"];
-					processUpdateStatement(res["query"], data, skipQuery);
-					LOG << res["query"];
+					targetTable = data.value("table").toString();
+					data.remove("table");
+				}
 
-					QJsonDocument doc(data);
-					ServiceHelper().WriteToLog("Update parse results: " + doc.toJson().toStdString());
+				QStringList tablesNotToDebug = { "kabtrak", "kabtrak/tools", "kabtrak/drawers", "kabtrak/transactions", "users", "employees", "cribtrak/transactions", "portatrak/transaction", "cribtrak/tools", "tools", "cribtrak/consumables", "jobs" };
 
-					if (data.value("table").toString() == "cribtrak/transactions")
+				qDebug() << targetTable;
+				qDebug() << queryType;
+				LOG << QJsonDocument(data).toJson();
+
+				if (!tablesNotToDebug.contains(targetTable))
+					int tempVal = 0;
+
+				QJsonObject body;
+				body["data"] = data;
+
+
+				QJsonDocument reply;
+
+				switch (query_types[queryType]) {
+				case INSERT: {
+					if (!makePostRequest(apiUrl + "/" + targetTable, res, body, &reply))
 					{
-						queryType = "insert";
-						data.remove("update");
-						data.remove("where");
+						LOG << "reply: " << reply.isEmpty();
+						if (reply.isEmpty() || !reply.isObject())
+							throw HenchmanServiceException("Failed to make post request");
+						LOG << "request failed";
+						QJsonObject response = reply.object();
+						QString sqlQuery;
+						if (response.contains("message") && response.value("message").toString() == "Route has not been defined")
+						{
+							sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
+							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
+						}
+						else
+						{
+							sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
+							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+						}
+						vector queryResult = ExecuteTargetSql(sqlQuery);
+						if (queryResult.size() > 0)
+							for (auto result : queryResult)
+								LOG << result["success"];
+
+						continue;
 					}
+					break;
+				}
+				case UPDATE: {
+					if (!makePatchRequest(apiUrl + "/" + targetTable, res, body, &reply))
+					{
+						LOG << "reply: " << reply.isEmpty();
+						if (reply.isEmpty() || !reply.isObject())
+							throw HenchmanServiceException("Failed to make patch request");
+						LOG << "request failed";
+						QJsonObject response = reply.object();
+						QString sqlQuery;
+						if (response.contains("message") && response.value("message").toString() == "Route has not been defined")
+						{
+							sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
+							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
+						}
+						else
+						{
+							sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
+							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+						}
 
-					if (skipQuery)
-						goto parsedQuery;
+						vector queryResult = ExecuteTargetSql(sqlQuery);
+						if (queryResult.size() > 0)
+							for (auto result : queryResult)
+								LOG << result["success"];
+
+						continue;
+					}
+					break;
+				}
+				case REMOVE: {
+					if (!makeDeleteRequest(apiUrl + "/" + targetTable, res, body, &reply))
+					{
+						LOG << "reply: " << reply.isEmpty();
+						if (reply.isEmpty() || !reply.isObject())
+							throw HenchmanServiceException("Failed to make patch request");
+						LOG << "request failed";
+						QJsonObject response = reply.object();
+						QString sqlQuery;
+						if (response.contains("message") && response.value("message").toString() == "Route has not been defined")
+						{
+							sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
+							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
+						}
+						else
+						{
+							sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
+							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
+						}
+						vector queryResult = ExecuteTargetSql(sqlQuery);
+						if (queryResult.size() > 0)
+							for (auto result : queryResult)
+								LOG << result["success"];
+						continue;
+					}
+					break;
+				}
+				default: {
+					if (!makeNetworkRequest(apiUrl, res, &reply))
+					{
+						LOG << "request failed";
+						LOG << "reply: " << reply.isEmpty();
+
+						QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
+
+						ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status 3", timeStamp[0] + "-queries");
+						vector queryResult = ExecuteTargetSql(sqlQuery);
+						if (queryResult.size() > 0)
+						{
+							for (auto result : queryResult)
+								LOG << result["success"];
+						}
+						continue;
+
+					}
+					break;
+				}
 				}
 
-				// handles queries that aren't skipped and are attempting to delete existing enteries in the database
-				if (queryType == "delete" && !skipQuery)
-				{
-					ServiceHelper().WriteToLog("Parsing delete to prevent removing entries not for current device");
-					LOG << res["query"];
-					processDeleteStatement(res["query"], data, skipQuery);
-					LOG << res["query"];
+				QString sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted <> 1 AND id = " + res["id"];
 
-					QJsonDocument doc(data);
-					ServiceHelper().WriteToLog("Delete parse results: " + doc.toJson().toStdString());
-
-					if (skipQuery)
-						goto parsedQuery;
-				}
-			}
-			else 
-			{
-				res["id"] = "0";
-				res["query"] = "SHOW TABLES";
-			}
-
-
-		parsedQuery:
-			LOG << res["query"];
-			qDebug() << data;
-			ServiceHelper().WriteToCustomLog("Query parsed. " + std::string(skipQuery ? "Query is getting skipped" : "Query is being run"), timeStamp[0] + "-queries");
-			ServiceHelper().WriteToCustomLog("Query after being parsed: \n" + QJsonDocument(data).toJson().toStdString(), timeStamp[0] + "-queries");
-			
-			if (!pushCloudUpdate || skipQuery)
-			{
-				string sqlQuery = "UPDATE cloudupdate SET posted = " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1") + " WHERE posted <> 1 AND id = " + res["id"].toStdString();
-
-				ServiceHelper().WriteToCustomLog("Updating skipped query with id: " + res["id"].toStdString() + " with posted status " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1"), timeStamp[0] + "-queries");
-				if (skipQuery && !retryingQuery)
-					ServiceHelper().WriteToCustomLog("Skipping query to try again later:\n\tid: " + res["id"].toStdString() + "\n\t query: " + res["query"].toStdString(), timeStamp[0] + "-queries-skipped");
+				ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status 1", timeStamp[0] + "-queries");
 				vector queryResult = ExecuteTargetSql(sqlQuery);
 				if (queryResult.size() > 0)
+				{
 					for (auto result : queryResult)
 						LOG << result["success"];
-
-				continue;
-			}
-			
-			QString targetTable = "";
-			if (data.contains("table"))
-			{
-				targetTable = data.value("table").toString();
-				data.remove("table");
-			}
-
-			QStringList tablesNotToDebug = { "kabtrak", "kabtrak/tools", "kabtrak/drawers", "kabtrak/transactions", "users", "employees", "cribtrak/transactions", "portatrak/transaction", "cribtrak/tools", "tools", "cribtrak/consumables", "jobs"};
-			
-			qDebug() << targetTable;
-			qDebug() << queryType;
-			LOG << QJsonDocument(data).toJson();
-			
-			if (!tablesNotToDebug.contains(targetTable))
-				int tempVal = 0;
-
-			QJsonObject body;
-			body["data"] = data;
-
-
-			QJsonDocument reply;
-			
-			switch (query_types[queryType]) {
-			case INSERT: {
-				if (!makePostRequest(apiUrl + "/" + targetTable, res, body, &reply))
-				{
-					LOG << "reply: " << reply.isEmpty();
-					if (reply.isEmpty() || !reply.isObject())
-						throw HenchmanServiceException("Failed to make post request");
-					LOG << "request failed";
-					QJsonObject response = reply.object();
-					QString sqlQuery;
-					if (response.contains("message") && response.value("message").toString() == "Route has not been defined")
-					{
-						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
-						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
-					} 
-					else
-					{
-						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
-					}
-					vector queryResult = ExecuteTargetSql(sqlQuery);
-					if (queryResult.size() > 0)
-						for (auto result : queryResult)
-							LOG << result["success"];
-
-					continue;
 				}
-				break;
 			}
-			case UPDATE: {
-				if (!makePatchRequest(apiUrl + "/" + targetTable, res, body, &reply))
-				{
-					LOG << "reply: " << reply.isEmpty();
-					if (reply.isEmpty() || !reply.isObject())
-						throw HenchmanServiceException("Failed to make patch request");
-					LOG << "request failed";
-					QJsonObject response = reply.object();
-					QString sqlQuery;
-					if (response.contains("message") && response.value("message").toString() == "Route has not been defined")
-					{
-						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
-						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
-					} 
-					else 
-					{
-						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
-					}
 
-					vector queryResult = ExecuteTargetSql(sqlQuery);
-					if (queryResult.size() > 0)
-						for (auto result : queryResult)
-							LOG << result["success"];
-
-					continue;
-				}
-				break;
-			}
-			case REMOVE: {
-				if (!makeDeleteRequest(apiUrl + "/" + targetTable, res, body, &reply))
-				{
-					LOG << "reply: " << reply.isEmpty();
-					if (reply.isEmpty() || !reply.isObject())
-						throw HenchmanServiceException("Failed to make patch request");
-					LOG << "request failed";
-					QJsonObject response = reply.object();
-					QString sqlQuery;
-					if (response.contains("message") && response.value("message").toString() == "Route has not been defined")
-					{
-						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(2) + " WHERE posted <> 1 AND id = " + res["id"];
-						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status 2");
-					}
-					else 
-					{
-						sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
-						ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
-					}
-					vector queryResult = ExecuteTargetSql(sqlQuery);
-					if (queryResult.size() > 0)
-						for (auto result : queryResult)
-							LOG << result["success"];
-					continue;
-				}
-				break;
-			}
-			default: {
-				if (!makeNetworkRequest(apiUrl, res, &reply))
-				{	
-					LOG << "request failed";
-					LOG << "reply: " << reply.isEmpty();
-
-					QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
-
-					ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status 3", timeStamp[0] + "-queries");
-					vector queryResult = ExecuteTargetSql(sqlQuery);
-					if (queryResult.size() > 0)
-					{
-						for (auto result : queryResult)
-							LOG << result["success"];
-					}
-					continue;
-				
-				}
-				break;
-			}
-			}
-		
-			QString sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted <> 1 AND id = " + res["id"];
-
-			ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status 1", timeStamp[0] + "-queries");
-			vector queryResult = ExecuteTargetSql(sqlQuery);
-			if (queryResult.size() > 0)
-			{
-				for (auto result : queryResult)
-					LOG << result["success"];
-			}
+			if (query.numRowsAffected() > 0)
+				ServiceHelper().WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
 		}
-		
-		if (query.numRowsAffected() > 0)
-			ServiceHelper().WriteToCustomLog("Finished network requests", timeStamp[0] + "-queries");
+		catch (std::exception& e) {		
+			ServiceHelper().WriteToError(e.what());
+		}
 
 		query.clear();
 		query.finish();
-		
-		db.close();
+
+
+		if (db.isOpen())
+			db.close();
+
 
 		result = true;
 
@@ -5104,8 +5120,8 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 	QString values;
 	QString newQuery;
 	std::string targetTable = splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed().toStdString();
-
-	switch (table_map[splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed()])
+	QString table = splitQuery.at(0).split(" ", Qt::SkipEmptyParts).last().trimmed();
+	switch (table_map[table])
 	{
 	case tools:
 	{
@@ -5295,7 +5311,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!entry.contains("locationId") && entry.contains("id"))
 			entry["locationId"] = entry.value("id");
 		else if (!entry.contains("locationId") && !entry.contains("id")) {
-			std::vector locationId = ExecuteTargetSql(QString("SELECT id FROM cribtoollocation WHERE description = '").append(entry.value("description").toString() + "'").toStdString());
+			std::vector locationId = ExecuteTargetSql(QString("SELECT id FROM "+ table +" WHERE description = '").append(entry.value("description").toString() + "'").toStdString());
 			entry["locationId"] = locationId.at(1).value("id");
 		}
 
@@ -6219,7 +6235,11 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		if ((indexingCol == "toolId" || !conditionPairs.contains("toolId")) && (conditionPairs.contains("barcodeTAG") && !conditionPairs.value("barcodeTAG").toString().isEmpty())) {
 			/*if (conditionPairs.contains("toolId"))
 				conditionPairs.remove("toolId");*/
-			QString targetQuery = "SELECT t.id as toolId FROM cribtools AS ct LEFT JOIN tools AS t ON ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo " + QString(indexingCol == "toolId" ? "" : "AND ct.toolId = t.id ") + "WHERE ";
+			QString targetQuery = "SELECT t.id as toolId FROM cribtools AS ct LEFT JOIN tools AS t ON (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo)";
+			
+			if (indexingCol != "toolId")
+				targetQuery += " AND ct.toolId = t.id";
+			
 			QStringList conditionals;
 
 			for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
@@ -6253,6 +6273,10 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				/*if ((it + 1) != conditionPairs.constEnd())
 					targetQuery.append(" AND ");*/
 			}
+
+			if(conditionals.length() > 0)
+				targetQuery.append(" WHERE ");
+
 			targetQuery.append(conditionals.join(" AND "));
 			targetQuery += " ORDER BY ct.createdDate DESC LIMIT 1";
 
