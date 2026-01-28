@@ -2650,6 +2650,13 @@ int DatabaseManager::addCribToolsIfNotExists()
 		if ((fetchTool.size() > 1 && !fetchTool[1].value("PartNo").isEmpty()) && (result.contains("itemId") && result.value("itemId").isEmpty() || result.value("itemId") == "''")) {
 			result["itemId"] = fetchTool[1].value("PartNo");
 		}
+
+		if (!result.contains("userId") || result.value("userId").isEmpty() || result.value("userId") == "''" || result.value("userId") == "0") {
+			std::vector<QStringMap> fetchUser = ExecuteTargetSql(("SELECT userId FROM cribemployeeitemtransactions WHERE barcode LIKE "+result["barcodeTAG"] + " ORDER BY id DESC LIMIT 1;").toStdString());
+			result["userId"] = fetchUser[1].value("userId");
+		}
+
+
 		QJsonObject data;
 		map<string, string> toolData;
 
