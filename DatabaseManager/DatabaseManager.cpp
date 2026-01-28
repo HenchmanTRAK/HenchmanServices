@@ -85,6 +85,9 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	else
 		apiUrl = ini.value("API/URL", "https://webportal.henchmantrak.com/api/service").toString();
 
+	shouldIgnoreDatabaseCustId = ini.value("SYSTEM/IgnoreCustId", 0).toBool();
+	shouldIgnoreDatabaseTrakId = ini.value("SYSTEM/IgnoreTrakId", 0).toBool();
+
 	LOG << apiUrl;
 
 	LOG << "init db manager";
@@ -866,11 +869,6 @@ int DatabaseManager::makeNetworkRequest(const QString &url, const QStringMap &qu
 	//QThread::sleep(1);
 	return result;
 }
-
-//int queryRemoteDatabase(string url, string query)
-//{
-//
-//}
 
 // Misc Syncs
 int DatabaseManager::addToolsIfNotExists()
@@ -5093,8 +5091,14 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		entry.remove("custid");
 	}
 
+	if(shouldIgnoreDatabaseCustId)
+		entry["custId"] = custId;
+	if(shouldIgnoreDatabaseTrakId)
+		entry[trakId.data()] = trakIdNum;
+
 	hasCustId = entry.contains("custId");
 	hasTrakId = entry.contains(trakId.data());
+
 	if (entry.keys().contains("id", Qt::CaseInsensitive) || entry.keys().contains("toolId", Qt::CaseInsensitive)) {
 		hasId = 1;
 		idColumn = entry.keys().contains("id", Qt::CaseInsensitive) ? "id" : "toolId";
@@ -5991,8 +5995,14 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		conditionPairs.remove("custid");
 	}
 	
+	if (shouldIgnoreDatabaseCustId)
+		conditionPairs["custId"] = custId;
+	if (shouldIgnoreDatabaseTrakId)
+		conditionPairs[trakId.data()] = trakIdNum;
+
 	hadCustId = conditionPairs.contains("custId");
 	hadTrakId = conditionPairs.contains(trakId.data());
+
 	if (conditionPairs.keys().contains("id", Qt::CaseInsensitive))
 		hadId = 1;
 
@@ -6866,8 +6876,14 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 		data.remove("custid");
 	}
 
+	if (shouldIgnoreDatabaseCustId)
+		data["custId"] = custId;
+	if (shouldIgnoreDatabaseTrakId)
+		data[trakId.data()] = trakIdNum;
+
 	hasCustId = data.contains("custId");
 	hasTrakId = data.contains(trakId.data());
+
 	if (data.keys().contains("id", Qt::CaseInsensitive) || data.keys().contains("toolId", Qt::CaseInsensitive)) {
 		hasId = 1;
 		idColumn = data.keys().contains("id", Qt::CaseInsensitive) ? "id" : "toolId";

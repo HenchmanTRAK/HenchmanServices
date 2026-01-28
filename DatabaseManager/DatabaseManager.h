@@ -181,6 +181,9 @@ private:
 	 */
 	bool testingDBManager = false;
 
+	bool shouldIgnoreDatabaseCustId = false;
+	bool shouldIgnoreDatabaseTrakId = false;
+
 	/**
 	 * @brief The API username.
 	 *
