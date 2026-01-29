@@ -39,11 +39,7 @@
     {
       "name": "x64-release",
       "displayName": "x64 Release",
-      "inherits": "mscv-windows-base",
-      "architecture": {
-        "value": "x64",
-        "strategy": "external"
-      },
+      "inherits": "x64-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
@@ -123,7 +119,7 @@
   ],
   "vendor": {
     "qt-project.org/Presets": {
-      "checksum": "wmz3Fxh8J/yXR3zn+HY9aBXha3w="
+      "checksum": "zHk3Q6BbfdEDILrpbEMvgHgtec0="
     }
   }
 }

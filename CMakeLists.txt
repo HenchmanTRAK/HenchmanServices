@@ -114,6 +114,9 @@ endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
 MESSAGE(${CMAKE_BUILD_TYPE})
 
+find_package(ZLIB REQUIRED)
+#find_package(OpenSSL REQUIRED)
+
 #set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
 #set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR};${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/quazip)
@@ -129,7 +132,6 @@ endif(WIN32)
 
 set(QUAZIP_QT_MAJOR_VERSION 6)
 
-find_package(ZLIB REQUIRED)
 # find_package(QuaZip-Qt5 REQUIRED)
 
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
