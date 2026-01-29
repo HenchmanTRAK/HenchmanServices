@@ -159,7 +159,7 @@ jobs:
       shell: powershell
       run: |
         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-        vcpkg install openssl
+        vcpkg install
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v4
