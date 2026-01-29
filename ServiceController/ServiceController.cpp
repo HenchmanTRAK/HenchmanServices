@@ -15,10 +15,25 @@
 
 using namespace ServiceController;
 // This is the constructor of a class that has been exported.
-CServiceController::CServiceController(const SService& serviceDetails)
-	: mService(serviceDetails)
+
+//SERVICE_STATUS gServiceStatus;
+//SERVICE_STATUS_HANDLE gSvcStatusHandle;
+//HANDLE gServiceStopEvent ;
+
+//SService gService;
+
+CServiceController::CServiceController(const SService& serviceDetails, bool testing)
+	: mService(serviceDetails), mTaskScheduler()
 {
-	std::cout << mService.serviceName << ":" << mService.displayName << std::endl;
+	//std::cout << mService.serviceName << ":" << mService.displayName << std::endl;
+	
+	if (testing)
+		pTesting = !pTesting;
+
+	/*gService.serviceStatus = mService.serviceStatus;
+	gService.serviceStatusHandle = mService.serviceStatusHandle;
+	gService.serviceStopEvent = mService.serviceStopEvent;*/
+
 	return;
 }
 
@@ -28,26 +43,37 @@ CServiceController::~CServiceController()
 	schService = nullptr;
 }
 
-void CServiceController::DoInstallSvc()
+void CServiceController::DoInstallSvc(bool disableTask)
 {
-	std::cout << "Installing: " << mService.serviceName << ":" << mService.displayName << std::endl;
-
+	if (disableTask)
+		disableTaskCreation = true;
+	//std::cout << "Installing: " << mService.serviceName << ":" << mService.displayName << std::endl;
+	
 	TCHAR szUnquotedPath[MAX_PATH];
 
 	if (!GetModuleFileName(NULL, szUnquotedPath, MAX_PATH))
 	{
 		printf("Cannot install service (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("Cannot install service ("+ std::to_string(GetLastError()) +")\n");
 		return;
 	}
 
 	TCHAR szPath[MAX_PATH];
 	StringCbPrintf(szPath, MAX_PATH, TEXT("\"%s\""), szUnquotedPath);
+	
+	//tstring wPath(&szPath[0]);
 #ifdef UNICODE
 	std::wstring wPath(&szPath[0]);
 #else
 	std::string wPath(&szPath[0]);
 #endif
+	
 	//std::string sSZPath(wPath.begin(), wPath.end());
+
+	if (pTesting) 
+	{
+		goto add_new_task;
+	}
 
 	schSCManager = OpenSCManager(
 		NULL,					// local computer
@@ -57,16 +83,19 @@ void CServiceController::DoInstallSvc()
 
 	if (schSCManager == NULL) {
 		printf("OpenSCManager failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("OpenSCManager failed (" + std::to_string(GetLastError()) + ")\n");
+
 		return;
 	}
 
 	if (OpenService(
-		schSCManager,		// SCM database
-		"ServiceHenchman",	// Name of Service
-		SERVICE_ALL_ACCESS	// Level of access
+		schSCManager,				// SCM database
+		TEXT("ServiceHenchman"),	// Name of Service
+		SERVICE_ALL_ACCESS			// Level of access
 	))
 	{
-		DoDeleteSvc("ServiceHenchman");
+		DoStopSvc(TEXT("ServiceHenchman"));
+		DoDeleteSvc(TEXT("ServiceHenchman"));
 	}
 
 	// SERVICE_NAME
@@ -90,12 +119,25 @@ void CServiceController::DoInstallSvc()
 
 	if (schService == NULL) {
 		printf("CreateService failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("CreateService failed (" + std::to_string(GetLastError()) + ")\n");
+
 	}
 	else {
 		printf("Service installed successfully\n");
+		ServiceHelper().WriteToLog("Service installed successfully\n");
 		CloseServiceHandle(schService);
 	}
 	CloseServiceHandle(schSCManager);
+	
+add_new_task:
+	try {
+		if (disableTaskCreation)
+			return;
+		mTaskScheduler.addNewTask(ServiceHelper().s2ws(mService.serviceName).c_str(), ServiceHelper().s2ws(mService.servicePath));
+	}
+	catch (const std::exception& e) {
+		ServiceHelper().WriteToError(e.what());
+	}
 }
 
 void CServiceController::DoStartSvc(const TCHAR* sService)
@@ -118,6 +160,7 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 	if (schSCManager == NULL)
 	{
 		printf("OpenSCManager failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("OpenSCManager failed (" + std::to_string(GetLastError()) + ")\n");
 		return;
 	}
 
@@ -130,6 +173,7 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 	if (schService == NULL)
 	{
 		printf("OpenService failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("OpenService failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schSCManager);
 		return;
 	}
@@ -144,6 +188,7 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 	))
 	{
 		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("QueryServiceStatusEx failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return;
@@ -153,6 +198,7 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 	if (ssStatus.dwCurrentState != SERVICE_STOPPED && ssStatus.dwCurrentState != SERVICE_STOP_PENDING)
 	{
 		printf("Cannot start the service because it is already running\n");
+		ServiceHelper().WriteToLog("Cannot start the service because it is already running\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return;
@@ -185,6 +231,7 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 		))
 		{
 			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+			ServiceHelper().WriteToLog("QueryServiceStatusEx failed (" + std::to_string(GetLastError()) + ")\n");
 			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
 			return;
@@ -198,6 +245,7 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 		if (GetTickCount64() - dwStartTickCount > ssStatus.dwWaitHint)
 		{
 			printf("Timeout: Waiting for service to stop\n");
+			ServiceHelper().WriteToLog("Timeout: Waiting for service to stop\n");
 			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
 			return;
@@ -211,11 +259,13 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 	))
 	{
 		printf("StartService failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("StartService failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return;
 	}
 	printf("Service start pending...\n");
+	ServiceHelper().WriteToLog("Service start pending...\n");
 
 	// Check the status until the service is no longer start pending. 
 	if (!QueryServiceStatusEx(
@@ -226,6 +276,7 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 		&dwBytesNeeded))				// if buffer too small
 	{
 		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("QueryServiceStatusEx failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return;
@@ -253,6 +304,7 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 		))
 		{
 			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+			ServiceHelper().WriteToLog("QueryServiceStatusEx failed (" + std::to_string(GetLastError()) + ")\n");
 			break;
 		}
 
@@ -276,14 +328,28 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 		printf("  Exit Code: %d\n", ssStatus.dwWin32ExitCode);
 		printf("  Check Point: %d\n", ssStatus.dwCheckPoint);
 		printf("  Wait Hint: %d\n", ssStatus.dwWaitHint);
+		ServiceHelper().WriteToLog("Service not started. \n  Current State: "+ std::to_string(ssStatus.dwCurrentState) + "\n  Exit State: " + std::to_string(ssStatus.dwWin32ExitCode) + "\n  Check Point: " + std::to_string(ssStatus.dwCheckPoint) + "\n  Wait Hint: " + std::to_string(ssStatus.dwWaitHint) + "\n");
 	}
 	else
 	{
 		printf("Service started successfully.\n");
+		ServiceHelper().WriteToLog("Service started successfully.\n");
+
 	}
 
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
+
+add_new_task:
+	try {
+		if (disableTaskCreation || pTesting);
+			return;
+		mTaskScheduler.addNewTask(ServiceHelper().s2ws(mService.serviceName).c_str(), ServiceHelper().s2ws(mService.servicePath));
+	}
+	catch (const std::exception& e) {
+		ServiceHelper().WriteToError(e.what());
+	}
+
 	return;
 }
 
@@ -302,6 +368,7 @@ int CServiceController::StartTargetSvc(const TCHAR* sService)
 	if (schSCManager == NULL)
 	{
 		printf("OpenSCManager failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("OpenSCManager failed (" + std::to_string(GetLastError()) + ")\n");
 		return 0;
 	}
 
@@ -315,6 +382,7 @@ int CServiceController::StartTargetSvc(const TCHAR* sService)
 	if (schService == NULL)
 	{
 		printf("OpenService failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("OpenService failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schSCManager);
 		return 0;
 	}
@@ -322,7 +390,7 @@ int CServiceController::StartTargetSvc(const TCHAR* sService)
 	if (!ChangeServiceConfig(
 		schService,				// Service Handle
 		SERVICE_NO_CHANGE,		// Service Type
-		SERVICE_AUTO_START,		// Service Start Condition
+		SERVICE_NO_CHANGE,		// Service Start Condition
 		SERVICE_NO_CHANGE,		// Service Error Response
 		NULL,					// Target Service Path
 		NULL,					// Load Order Group
@@ -331,8 +399,26 @@ int CServiceController::StartTargetSvc(const TCHAR* sService)
 		NULL,					// Service Account Name
 		NULL,					// Service Account Password
 		NULL					// Service Display Name
-	)) {
+	))
+	{
 		printf("Failed to change target service settings (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("Failed to change target service settings (" + std::to_string(GetLastError()) + ")\n");
+		CloseServiceHandle(schService);
+		CloseServiceHandle(schSCManager);
+		return 0;
+	}
+
+	SERVICE_DELAYED_AUTO_START_INFO DelayedStartInfo;
+	DelayedStartInfo.fDelayedAutostart = true;
+
+	if (!ChangeServiceConfig2(
+		schService,
+		SERVICE_CONFIG_DELAYED_AUTO_START_INFO,
+		&DelayedStartInfo
+	))
+	{
+		printf("Failed to update target service to delayed auto start (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("Failed to update target service to delayed auto start (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return 0;
@@ -345,6 +431,7 @@ int CServiceController::StartTargetSvc(const TCHAR* sService)
 	))
 	{
 		printf("StartService failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("StartService failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return 0;
@@ -352,6 +439,7 @@ int CServiceController::StartTargetSvc(const TCHAR* sService)
 		DoDeleteSvc();*/
 	}
 	printf("Service start pending...\n");
+	ServiceHelper().WriteToLog("Service start pending...\n");
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
 	return 1;
@@ -379,6 +467,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 	if (NULL == schSCManager)
 	{
 		printf("OpenSCManager failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("OpenSCManager failed (" + std::to_string(GetLastError()) + ")\n");
 		return;
 	}
 
@@ -394,6 +483,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 	if (schService == NULL)
 	{
 		printf("OpenService failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("OpenService failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schSCManager);
 		return;
 	}
@@ -408,6 +498,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 	))
 	{
 		printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("QueryServiceStatusEx failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return;
@@ -416,6 +507,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 	if (ssp.dwCurrentState == SERVICE_STOPPED)
 	{
 		printf("Service is already stopped.\n");
+		ServiceHelper().WriteToLog("Service is already stopped.\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return;
@@ -425,6 +517,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 	while (ssp.dwCurrentState == SERVICE_STOP_PENDING)
 	{
 		printf("Service stop pending...\n");
+		ServiceHelper().WriteToLog("Service stop pending...\n");
 
 		dwWaitTime = ssp.dwWaitHint / 10;
 		if (dwWaitTime < 1000)
@@ -442,6 +535,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 		))
 		{
 			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+			ServiceHelper().WriteToLog("QueryServiceStatusEx failed (" + std::to_string(GetLastError()) + ")\n");
 			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
 			return;
@@ -450,6 +544,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 		if (ssp.dwCurrentState == SERVICE_STOPPED)
 		{
 			printf("Service stopped successfully.\n");
+			ServiceHelper().WriteToLog("Service stopped successfully.\n");
 			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
 			return;
@@ -458,6 +553,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 		if (GetTickCount64() - dwStartTime > dwTimeout)
 		{
 			printf("Service stop timed out.\n");
+			ServiceHelper().WriteToLog("Service stop timed out\n");
 			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
 			return;
@@ -475,6 +571,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 	))
 	{
 		printf("ControlService failed (%d)\n", GetLastError());
+		ServiceHelper().WriteToLog("ControlService failed (" + std::to_string(GetLastError()) + ")\n");
 		CloseServiceHandle(schService);
 		CloseServiceHandle(schSCManager);
 		return;
@@ -493,6 +590,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 		))
 		{
 			printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+			ServiceHelper().WriteToLog("ControlService failed (" + std::to_string(GetLastError()) + ")\n");
 			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
 			return;
@@ -504,6 +602,7 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 		if (GetTickCount64() - dwStartTime > dwTimeout)
 		{
 			printf("Wait timed out\n");
+			ServiceHelper().WriteToLog("Wait timed out\n");
 			CloseServiceHandle(schService);
 			CloseServiceHandle(schSCManager);
 			return;
@@ -511,9 +610,11 @@ void CServiceController::DoStopSvc(const TCHAR* sService)
 	}
 
 	printf("Service stopped successfully\n");
+	ServiceHelper().WriteToLog("Service stopped successfully\n");
 
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
+
 	return;
 }
 
@@ -678,6 +779,9 @@ void CServiceController::DoDeleteSvc(const TCHAR* sService)
 
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
+
+	mTaskScheduler.removeTask(std::string(mService.serviceName));
+
 }
 
 void CServiceController::ReportSvcStatus(
@@ -689,23 +793,79 @@ void CServiceController::ReportSvcStatus(
 	static DWORD dwCheckPoint = 1;
 
 	// Fill in the SERVICE_STATUS structure.
+	//SERVICE_STATUS serviceStatus = pSvcStatus;
 
-	mServiceStatus.dwCurrentState = dwCurrentState;
-	mServiceStatus.dwWin32ExitCode = dwWin32ExitCode;
-	mServiceStatus.dwWaitHint = dwWaitHint;
+	mService.serviceStatus.dwCurrentState = dwCurrentState;
+	mService.serviceStatus.dwWin32ExitCode = dwWin32ExitCode;
+	mService.serviceStatus.dwWaitHint = dwWaitHint;
 
-	if (dwCurrentState == SERVICE_START_PENDING)
-		mServiceStatus.dwControlsAccepted = 0;
-	else mServiceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+	if (mService.serviceStatus.dwCurrentState == SERVICE_START_PENDING)
+		mService.serviceStatus.dwControlsAccepted = 0;
+	else mService.serviceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
 
-	if ((dwCurrentState == SERVICE_RUNNING) ||
-		(dwCurrentState == SERVICE_STOPPED))
-		mServiceStatus.dwCheckPoint = 0;
-	else mServiceStatus.dwCheckPoint = dwCheckPoint++;
+	if ((mService.serviceStatus.dwCurrentState == SERVICE_RUNNING) ||
+		(mService.serviceStatus.dwCurrentState == SERVICE_STOPPED))
+		mService.serviceStatus.dwCheckPoint = 0;
+	else mService.serviceStatus.dwCheckPoint = dwCheckPoint++;
 
 	// Report the status of the service to the SCM.
-	SetServiceStatus(mServiceStatusHandle, &mServiceStatus);
+	SetServiceStatus(mService.serviceStatusHandle, &mService.serviceStatus);
 }
+
+//void ReportSvcStatus(
+//	SERVICE_STATUS_HANDLE &svcStatusHandle,
+//	SERVICE_STATUS &svcStatus
+//)
+//{
+//	static DWORD dwCheckPoint = 1;
+//
+//	// Fill in the SERVICE_STATUS structure.
+//	//SERVICE_STATUS serviceStatus = pSvcStatus;
+//
+//	/*mService.serviceStatus.dwCurrentState = dwCurrentState;
+//	mService.serviceStatus.dwWin32ExitCode = dwWin32ExitCode;
+//	mService.serviceStatus.dwWaitHint = dwWaitHint;*/
+//
+//	if (svcStatus.dwCurrentState == SERVICE_START_PENDING)
+//		svcStatus.dwControlsAccepted = 0;
+//	else svcStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+//
+//	if ((svcStatus.dwCurrentState == SERVICE_RUNNING) ||
+//		(svcStatus.dwCurrentState == SERVICE_STOPPED))
+//		svcStatus.dwCheckPoint = 0;
+//	else svcStatus.dwCheckPoint = dwCheckPoint++;
+//
+//	// Report the status of the service to the SCM.
+//	SetServiceStatus(svcStatusHandle, &svcStatus);
+//}
+//
+//void ReportSvcStatus(
+//	DWORD dwCurrentState,
+//	DWORD dwWin32ExitCode,
+//	DWORD dwWaitHint
+//)
+//{
+//	static DWORD dwCheckPoint = 1;
+//
+//	// Fill in the SERVICE_STATUS structure.
+//	//SERVICE_STATUS serviceStatus = pSvcStatus;
+//
+//	gService.serviceStatus.dwCurrentState = dwCurrentState;
+//	gService.serviceStatus.dwWin32ExitCode = dwWin32ExitCode;
+//	gService.serviceStatus.dwWaitHint = dwWaitHint;
+//
+//	if (gService.serviceStatus.dwCurrentState == SERVICE_START_PENDING)
+//		gService.serviceStatus.dwControlsAccepted = 0;
+//	else gService.serviceStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
+//
+//	if ((gService.serviceStatus.dwCurrentState == SERVICE_RUNNING) ||
+//		(gService.serviceStatus.dwCurrentState == SERVICE_STOPPED))
+//		gService.serviceStatus.dwCheckPoint = 0;
+//	else gService.serviceStatus.dwCheckPoint = dwCheckPoint++;
+//
+//	// Report the status of the service to the SCM.
+//	SetServiceStatus(gService.serviceStatusHandle, &gService.serviceStatus);
+//}
 
 DWORD CServiceController::GetSvcStatus(const TCHAR* sService)
 {
@@ -756,7 +916,6 @@ DWORD CServiceController::GetSvcStatus(const TCHAR* sService)
 	return ssStatus.dwCurrentState;
 }
 
-
 void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
 {
 	switch (CtrlCode)
@@ -764,8 +923,8 @@ void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
 	case SERVICE_CONTROL_STOP:
 		ReportSvcStatus(CtrlCode, NO_ERROR, 0);
 
-		SetEvent(mServiceStopEvent);
-		ReportSvcStatus(mServiceStatus.dwCurrentState, NO_ERROR, 0);
+		SetEvent(mService.serviceStopEvent);
+		ReportSvcStatus(mService.serviceStatus.dwCurrentState, NO_ERROR, 0);
 		return;
 	case SERVICE_CONTROL_INTERROGATE:
 		break;

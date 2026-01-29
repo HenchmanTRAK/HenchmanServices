@@ -1,8 +1,8 @@
 
-add_library(RegistryManager SHARED "RegistryManager.cpp")
+add_library(RegistryManager SHARED "RegistryManager.cpp" "RegistryManager.h")
 
 target_include_directories(
-	RegistryManager PUBLIC 
+	RegistryManager INTERFACE
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 

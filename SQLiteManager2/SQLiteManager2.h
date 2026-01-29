@@ -10,20 +10,20 @@
 #include <vector>
 
 #include <QObject>
+#include <QSqlError>
+
 #include <QSettings>
 #include <QSqlDatabase>
 #include <QSqlDriver>
 #include <QSqlQuery>
+#include <QSqlRecord>
 #include <QString>
 
 //#include <Windows.h>
 
-#include "DatabaseManager.h"
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
-
-typedef std::map<std::string, std::string> stringmap;
 
 /**
  * @class SQLiteManager2
@@ -152,7 +152,25 @@ public:
 	std::vector<stringmap> GetEntry(
 		const std::string& tableName,
 		const std::vector<std::string>& selections,
-		const std::vector<std::string>& conditions
+		const std::vector<std::string>& conditions = std::vector<std::string>()
+	);
+
+	/**
+	 * @brief Executes a SQL query on the SQLite database.
+	 *
+	 * This function executes the specified SQL query on the SQLite database and returns the results as a QSqlQuery object.
+	 *
+	 * @param query The SQL query to execute.
+	 * @param results A pointer to a vector of string maps to store the query results.
+	 *
+	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the SQLite database.
+	 */
+	void ExecQuery(
+		const std::string& query,
+		std::vector<stringmap> &results
+	);
+	void ExecQuery(
+		const std::string& query
 	);
 
 private:
@@ -177,20 +195,6 @@ private:
 	 */
 	QString databaseLocation;
 
-	/**
-	 * @brief Executes a SQL query on the SQLite database.
-	 *
-	 * This function executes the specified SQL query on the SQLite database and returns the results as a QSqlQuery object.
-	 *
-	 * @param query The SQL query to execute.
-	 * @param results A pointer to a vector of string maps to store the query results.
-	 *
-	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the SQLite database.
-	 */
-	void ExecQuery(
-		const std::string& query,
-		std::vector<stringmap>* results = nullptr
-	);
 };
 
 #endif

@@ -333,6 +333,57 @@ int ServiceHelper::ShellExecuteApp(std::string appName, std::string params)
 	return 0;
 }
 
+//Returns the last Win32 error, in string format. Returns an empty string if there is no error.
+std::string ServiceHelper::GetLastErrorAsString()
+{
+	//Get the error message ID, if any.
+	DWORD errorMessageID = ::GetLastError();
+	if (errorMessageID == 0) {
+		return std::string(); //No error message has been recorded
+	}
+
+	LPSTR messageBuffer = nullptr;
+
+	//Ask Win32 to give us the string version of that message ID.
+	//The parameters we pass in, tell Win32 to create the buffer that holds the message for us (because we don't yet know how long the message string will be).
+	size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+
+	//Copy the error message into a std::string.
+	std::string message(messageBuffer, size);
+
+	//Free the Win32's string's buffer.
+	LocalFree(messageBuffer);
+
+	return message;
+}
+
+std::wstring ServiceHelper::s2ws(const std::wstring& str)
+{
+	return str;
+}
+
+std::wstring ServiceHelper::s2ws(const std::string& str)
+{
+	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+	return converterX.from_bytes(str);
+}
+
+std::string ServiceHelper::ws2s(const std::string& wstr)
+{
+	return wstr;
+}
+
+std::string ServiceHelper::ws2s(const std::wstring& wstr)
+{
+	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+	return converterX.to_bytes(wstr);
+}
+
 ServiceHelper& ServiceHelper::operator<<(const char* s) 
 {
 #ifdef DEBUG
@@ -350,6 +401,14 @@ ServiceHelper& ServiceHelper::operator<<(const std::string& s)
 }
 
 ServiceHelper& ServiceHelper::operator<<(const QString& s)
+{
+#ifdef DEBUG
+	ConsoleLog(s.toStdString().data());
+#endif
+	return *this;
+}
+
+ServiceHelper& ServiceHelper::operator<<(const QByteArray& s)
 {
 #ifdef DEBUG
 	ConsoleLog(s.toStdString().data());
