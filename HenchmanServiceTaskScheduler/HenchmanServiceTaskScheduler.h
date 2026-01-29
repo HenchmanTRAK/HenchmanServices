@@ -58,6 +58,17 @@ private:
 	int __cdecl releaseService();
 	int __cdecl releaseTask();
 	int __cdecl releaseFolder();
+
+	HRESULT __cdecl registerTaskRegInfo();
+	HRESULT __cdecl createTaskTrigger(ITrigger* pTrigger, TASK_TRIGGER_TYPE2 type);
+	HRESULT __cdecl createDailyTask(ITrigger* pTrigger, IDailyTrigger* pDailyTrigger);
+	HRESULT __cdecl addRepititionToTask(IDailyTrigger* pDailyTrigger);
+	HRESULT __cdecl createTaskAction(IAction* pAction, TASK_ACTION_TYPE type);
+	HRESULT __cdecl addActionDetails(IAction* pAction, const LPCTSTR& strExecutablePath = TEXT(""));
+	HRESULT __cdecl createTaskPrincipal();
+	HRESULT __cdecl createTaskSettings(ITaskSettings* pSettings);
+	HRESULT __cdecl createTaskIdleSettings(ITaskSettings* pSettings);
+	HRESULT __cdecl registerTask(IRegisteredTask* pRegisteredTask);
 };
 
 #endif

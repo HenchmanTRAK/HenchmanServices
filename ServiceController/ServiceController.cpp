@@ -43,8 +43,10 @@ CServiceController::~CServiceController()
 	schService = nullptr;
 }
 
-void CServiceController::DoInstallSvc()
+void CServiceController::DoInstallSvc(bool disableTask)
 {
+	if (disableTask)
+		disableTaskCreation = true;
 	//std::cout << "Installing: " << mService.serviceName << ":" << mService.displayName << std::endl;
 	
 	TCHAR szUnquotedPath[MAX_PATH];
@@ -68,8 +70,10 @@ void CServiceController::DoInstallSvc()
 	
 	//std::string sSZPath(wPath.begin(), wPath.end());
 
-	if (pTesting)
+	if (pTesting) 
+	{
 		goto add_new_task;
+	}
 
 	schSCManager = OpenSCManager(
 		NULL,					// local computer
@@ -127,6 +131,8 @@ void CServiceController::DoInstallSvc()
 	
 add_new_task:
 	try {
+		if (disableTaskCreation)
+			return;
 		mTaskScheduler.addNewTask(ServiceHelper().s2ws(mService.serviceName).c_str(), ServiceHelper().s2ws(mService.servicePath));
 	}
 	catch (const std::exception& e) {
@@ -333,6 +339,16 @@ void CServiceController::DoStartSvc(const TCHAR* sService)
 
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
+
+add_new_task:
+	try {
+		if (disableTaskCreation || pTesting);
+			return;
+		mTaskScheduler.addNewTask(ServiceHelper().s2ws(mService.serviceName).c_str(), ServiceHelper().s2ws(mService.servicePath));
+	}
+	catch (const std::exception& e) {
+		ServiceHelper().WriteToError(e.what());
+	}
 
 	return;
 }

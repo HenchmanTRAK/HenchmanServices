@@ -493,7 +493,7 @@ int main(int argc, char* argv[])
 				return 0;
 		}
 
-		getServiceController()->DoInstallSvc();
+		getServiceController()->DoInstallSvc(ini.GetBoolValue("SYSTEM", "disableTaskCreation", 0));
 		if (!testing) {
 			Sleep(1000);
 			ServiceHelper::ShellExecuteApp(argv[0], " --start");

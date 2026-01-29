@@ -346,13 +346,13 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
 	*/
-	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery);
+	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery, const stringmap& params = stringmap());
 
 	std::vector<QStringMap> ExecuteTargetSql(const std::wstring &sqlQuery);
 	
-	std::vector<QStringMap> ExecuteTargetSql(const QString &sqlQuery);
+	std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params = QStringMap());
 
-	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery);
+	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params = std::map<const TCHAR*, const TCHAR*>());
 
 	/**
 	 * @brief Checks if the internet connection is available by attempting to connect to www.google.com on port 80.

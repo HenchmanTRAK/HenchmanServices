@@ -55,6 +55,7 @@ namespace ServiceController
 		SC_HANDLE schService = nullptr;
 		TaskScheduler mTaskScheduler;
 		bool pTesting = false;
+		bool disableTaskCreation = false;
 
 	public:
 
@@ -71,7 +72,7 @@ namespace ServiceController
 
 		~CServiceController();
 
-		void DoInstallSvc();
+		void DoInstallSvc(bool disableTask = false);
 
 		void __stdcall DoStartSvc(const TCHAR* mService = nullptr);
 		int __stdcall StartTargetSvc(const TCHAR* sService = nullptr);

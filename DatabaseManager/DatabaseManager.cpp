@@ -121,7 +121,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 		this->performCleanup();
 	});*/
 
-	//connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
+	connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
 		
 	if (isInternetConnected())
 		authenticateSession();
@@ -488,12 +488,13 @@ int DatabaseManager::makePostRequest(const QString& url, const QStringMap& query
 			{
 				ServiceHelper().WriteToCustomLog("network request success",
 					timeStamp[0] + "-queries");
+				reply.networkReply()->close();
 			}
 			else {
 				ServiceHelper().WriteToCustomLog("network request failed",
 					timeStamp[0] + "-queries");
+				reply.networkReply()->abort();
 			}
-			reply.networkReply()->close();
 		}
 		catch (exception& e) {
 			std::string error(e.what());
@@ -4705,7 +4706,7 @@ int DatabaseManager::ExecuteTargetSqlScript(const std::string& filepath)
 	return successCount;
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string &sqlQuery)
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sqlQuery, const stringmap& params)
 {
 	int successCount = 0;
 	vector<QStringMap> resultVector;
@@ -4732,10 +4733,11 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string &sqlQuery
 
 		QSqlQuery query(db);
 
-		QString sql = sqlQuery.data();
+		QString sql = QString::fromStdString(sqlQuery);
 
 		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
-
+		qDebug() << sqlStatements;
+		qDebug() << params;
 		if (!query.exec("USE " + schema + ";"))
 			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
 			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + schema.toStdString() + ";");
@@ -4745,7 +4747,17 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string &sqlQuery
 			if (statement.trimmed() == "")
 				continue;
 			LOG << "Executing: " << statement.toStdString();
-			if (query.exec(statement))
+			if (params.size() > 0) {
+				query.prepare(statement);
+				for (auto it = params.cbegin(); it != params.cend(); ++it) {
+					std::string key = it->first;
+					std::string value = it->second;
+					LOG << key << ": " << value;
+					query.bindValue(QString::fromStdString(":" + key), QString::fromStdString(value));
+				}
+			}
+
+			if (params.size() <= 0 ? query.exec(statement) : query.exec())
 			{
 				successCount++;
 				QSqlRecord record(query.record());
@@ -4767,9 +4779,9 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string &sqlQuery
 			else {
 				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
 			}
-			query.clear();
+			//query.clear();
 		}
-		query.finish();
+		//query.finish();
 		if (!db.commit())
 			db.rollback();
 		db.close();
@@ -4874,14 +4886,27 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sqlQuer
 	return resultVector;
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString &sqlQuery)
-{
-	return ExecuteTargetSql(sqlQuery.toStdString());
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params)
+{	
+	stringmap paramsMap;
+	if(params.size() > 0)
+		for (auto it = params.cbegin(); it != params.cend(); ++it) {
+			paramsMap[it.key().toStdString()] = it.value().toStdString();
+		}
+	
+	return ExecuteTargetSql(sqlQuery.toStdString(), paramsMap);
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(const TCHAR* sqlQuery)
+vector<QStringMap> DatabaseManager::ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params)
 {
-	return ExecuteTargetSql((std::string)sqlQuery);
+	stringmap paramsMap;
+
+	if(params.size() > 0)
+	for (auto it = params.cbegin(); it != params.cend(); ++it) {
+		paramsMap[std::string(it->first)] = std::string(it->second);
+	}
+
+	return ExecuteTargetSql((std::string)sqlQuery, paramsMap);
 }
 
 void DatabaseManager::parseData(QNetworkReply *netReply)
@@ -5168,19 +5193,22 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!entry.contains("trailId")) {
 
 			QString jobQuery = "SELECT * FROM jobs WHERE ";
+			QStringMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty())
 					continue;
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					jobQuery.append(it.key() + " = " + value);
 				else
-					jobQuery.append(it.key() + " = '" + value + "'");
+					jobQuery.append(it.key() + " = '" + value + "'");*/
+				jobQuery.append(it.key() + " = :" + it.key());
+				keyValue[it.key()] = value;
 				if ((it + 1) != entry.constEnd())
 					jobQuery.append(" AND ");
 			}
 
-			vector fetchedJob = ExecuteTargetSql(jobQuery);
+			vector fetchedJob = ExecuteTargetSql(jobQuery, keyValue);
 
 			if (fetchedJob.size() <= 1) {
 				skipQuery = true;
@@ -5229,19 +5257,25 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString kabToolQuery = "SELECT t.id as toolId FROM itemkabdrawerbins AS kt INNER JOIN tools AS t ON t.custId = kt.custId AND (kt.itemId LIKE t.PartNo OR kt.itemId LIKE t.stockcode) WHERE ";
 			QStringList targetKeys = { "custId", "kabId", "drawerNum", "toolNumber", "itemId" };
 			QStringList queryConditions;
+			QStringMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
 					continue;
 				QString key = it.key();
-				if (value.startsWith("'"))
-					queryConditions.append("kt." + key + " = " + value);
-				else
-					queryConditions.append("kt." + key + " = '" + value + "'");
+				//if (value.startsWith("'"))
+				//	value = value.slice(1);
+				//	//queryConditions.append("kt." + key + " = " + value);
+				//if (value.endsWith("'"))
+				//	value.chop(1);
+
+				//else
+				queryConditions.append("kt." + key + " = :"+key);
+				keyValue[key] = value;
 			}
 			kabToolQuery.append(queryConditions.join(" AND "));
 			//qDebug() << kabToolQuery;
-			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
+			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
 
 			if (fetchedKabTool.size() <= 1) {
 				skipQuery = true;
@@ -5278,6 +5312,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString toolQuery = "SELECT t.id as toolId FROM cribtools AS ct INNER JOIN tools AS t ON t.custId = ct.custId AND (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo) WHERE ";
 			QStringList targetKeys = { "custId", "cribId", "barcode"};
 			QStringList queryConditions;
+			QStringMap keyValueMap;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5285,15 +5320,17 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				QString key = it.key();
 				if (key == "barcode")
 					key = "barcodeTAG";
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					queryConditions.append("ct." + key + " = " + value);
 				else
-					queryConditions.append("ct." + key + " = '" + value + "'");
+					queryConditions.append("ct." + key + " = '" + value + "'");*/
+				queryConditions.append("ct." + key + " = :" + key);
+				keyValueMap[key] = value;
 			}
 			toolQuery.append(queryConditions.join(" AND "));
 			toolQuery.append(" ORDER BY barcodeTAG DESC LIMIT 1");
 			//qDebug() << toolQuery;
-			vector fetchedTool = ExecuteTargetSql(toolQuery);
+			vector fetchedTool = ExecuteTargetSql(toolQuery, keyValueMap);
 
 			if (fetchedTool.size() <= 1) {
 				skipQuery = true;
@@ -5322,7 +5359,9 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!entry.contains("locationId") && entry.contains("id"))
 			entry["locationId"] = entry.value("id");
 		else if (!entry.contains("locationId") && !entry.contains("id")) {
-			std::vector locationId = ExecuteTargetSql(QString("SELECT id FROM "+ table +" WHERE description = '").append(entry.value("description").toString() + "'").toStdString());
+			QStringMap keyValue;
+			keyValue["description"] = entry.value("description").toString();
+			std::vector locationId = ExecuteTargetSql("SELECT id FROM " + table + " WHERE description = :description", keyValue);
 			entry["locationId"] = locationId.at(1).value("id");
 		}
 
@@ -5343,19 +5382,22 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		QString cribToolQuery = "SELECT ct."+ indexingCol +" AS id, t.id as toolId FROM cribtools AS ct INNER JOIN tools AS t ON t.custId = ct.custId AND (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo) WHERE ";
 		QStringList targetKeys = { "custId", "cribId", "barcodeTAG" };
 		QStringList queryConditions;
+		QStringMap keyValueMap;
 		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 			QString value = it.value().toString();
 			if (value.isEmpty() || !targetKeys.contains(it.key()))
 				continue;
 			QString key = it.key();
-			if (value.startsWith("'"))
+			/*if (value.startsWith("'"))
 				queryConditions.append("ct." + key + " = " + value);
 			else
-				queryConditions.append("ct." + key + " = '" + value + "'");
+				queryConditions.append("ct." + key + " = '" + value + "'");*/
+			queryConditions.append("ct." + key + " = :" + key);
+			keyValueMap[key] = value;
 		}
 		cribToolQuery.append(queryConditions.join(" AND "));
 		//qDebug() << cribToolQuery;
-		vector fetchedKabTool = ExecuteTargetSql(cribToolQuery);
+		vector fetchedKabTool = ExecuteTargetSql(cribToolQuery, keyValueMap);
 
 		if (fetchedKabTool.size() <= 1) {
 			skipQuery = true;
@@ -5391,7 +5433,9 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if(!entry.contains("transferId") && entry.contains("id"))
 			entry["transferId"] = entry.value("id");
 		else if (!entry.contains("transferId") && !entry.contains("id")) {
-			std::vector locationId = ExecuteTargetSql(QString("SELECT id FROM tooltransfer WHERE barcodeTAG = '").append(entry.value("barcodeTAG").toString()).toStdString() + "'");
+			QStringMap keyValue;
+			keyValue["barcodeTAG"] = entry.value("barcodeTAG").toString();
+			std::vector locationId = ExecuteTargetSql("SELECT id FROM tooltransfer WHERE barcodeTAG = :barcodeTAG", keyValue);
 			if (locationId.size() <= 1) {
 				skipQuery = true;
 				break;
@@ -5414,19 +5458,23 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString kitQuery = "SELECT id as kitId FROM itemkits WHERE ";
 			QStringList targetKeys = { "custId", "scaleId", "kitTAG" };
 			QStringList queryConditions;
+			QStringMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				QString key = it.key();
 				if (value.isEmpty() || !targetKeys.contains(key))
 					continue;
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					queryConditions.append(key + " = " + value);
 				else
-					queryConditions.append(key + " = '" + value + "'");
+					queryConditions.append(key + " = '" + value + "'");*/
+
+				queryConditions.append(key + " = :" + key);
+				keyValue[key] = value;
 			}
 			kitQuery.append(queryConditions.join(" AND "));
 			//qDebug() << kitQuery;
-			vector fetchedRes = ExecuteTargetSql(kitQuery);
+			vector fetchedRes = ExecuteTargetSql(kitQuery, keyValue);
 
 			if (fetchedRes.size() <= 1) {
 				skipQuery = true;
@@ -5461,19 +5509,23 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString categoryQuery = "SELECT id as categoryId FROM kitcategory WHERE ";
 			QStringList targetKeys = { "custId", "description" };
 			QStringList queryConditions;
+			QStringMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString().simplified();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
 					continue;
 				QString key = it.key();
-				if (value.startsWith("'") && value.endsWith("'"))
+				/*if (value.startsWith("'") && value.endsWith("'"))
 					queryConditions.append(key + " = " + value);
 				else
-					queryConditions.append(key + " = '" + value + "'");
+					queryConditions.append(key + " = '" + value + "'");*/
+
+				queryConditions.append(key + " = :" + key);
+				keyValue[key] = value;
 			}
 			categoryQuery.append(queryConditions.join(" AND "));
 			//qDebug() << categoryQuery;
-			vector fetchedRes = ExecuteTargetSql(categoryQuery);
+			vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
 
 			if (fetchedRes.size() <= 1) {
 				skipQuery = true;
@@ -5503,19 +5555,23 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString locationQuery = "SELECT id as locationId FROM kitlocation WHERE ";
 			QStringList targetKeys = { "custId", "scaleId", "description" };
 			QStringList queryConditions;
+			QStringMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString().simplified();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
 					continue;
 				QString key = it.key();
-				if (value.startsWith("'") && value.endsWith("'"))
+				/*if (value.startsWith("'") && value.endsWith("'"))
 					queryConditions.append(key + " = " + value);
 				else
-					queryConditions.append(key + " = '" + value + "'");
+					queryConditions.append(key + " = '" + value + "'");*/
+
+				queryConditions.append(key + " = :" + key);
+				keyValue[key] = value;
 			}
 			locationQuery.append(queryConditions.join(" AND "));
 			//qDebug() << locationQuery;
-			vector fetchedRes = ExecuteTargetSql(locationQuery);
+			vector fetchedRes = ExecuteTargetSql(locationQuery, keyValue);
 
 			if (fetchedRes.size() <= 1) {
 				skipQuery = true;
@@ -5539,6 +5595,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString kabToolQuery = "SELECT itemId FROM itemkabdrawerbins WHERE ";
 			QStringList targetKeys = { "custId", "kabId", "drawerNum", "toolNum", "itemId" };
 			QStringList queryConditions;
+			QStringMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5546,17 +5603,19 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				QString key = it.key();
 				if (key == "toolNum")
 					key = "toolNumber";
-				if (value.startsWith("'"))
-					//queryConditions[key] = value;
-					queryConditions.append(key + " = " + value);
-				else
-					//queryConditions[key] = "'"+value+"'";
-					queryConditions.append(key + " = '" + value + "'");
+				//if (value.startsWith("'"))
+				//	//queryConditions[key] = value;
+				//	queryConditions.append(key + " = " + value);
+				//else
+				//	//queryConditions[key] = "'"+value+"'";
+				//	queryConditions.append(key + " = '" + value + "'");
+				queryConditions.append(key + " = :" + key);
+				keyValue[key] = value;
 			}
 			kabToolQuery.append(queryConditions.join(" AND "));
 			kabToolQuery.append(" LIMIT 1");
 			//qDebug() << kabToolQuery;
-			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
+			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
 
 			if (fetchedKabTool.size() > 1) {
 				for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
@@ -5570,9 +5629,11 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 		if (!entry.contains("toolId") || !entry.value("itemId").toString().isEmpty()) {
 
-			QString kabToolQuery = "SELECT id AS toolId FROM tools WHERE PartNo LIKE '" + entry.value("itemId").toString() + "' OR stockcode LIKE '" + entry.value("itemId").toString() + "'";
+			QString kabToolQuery = "SELECT id AS toolId FROM tools WHERE PartNo LIKE :itemId OR stockcode LIKE :itemId";
 			//qDebug() << kabToolQuery;
-			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery);
+			QStringMap keyValue;
+			keyValue["itemId"] = entry.value("itemId").toString();
+			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
 
 			if (fetchedKabTool.size() > 1) {
 				for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
@@ -5616,13 +5677,20 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 			if (!returnedData.empty()) {
 				QStringList transactionQueryList = { };
+				QStringMap keyValue;
 
-				if(returnedData[0].contains("itemId"))
-					transactionQueryList.append(QString::fromStdString("PartNo LIKE '" + returnedData[0].at("itemId") + "'"));
-				if (returnedData[0].contains("serialNo"))
-					transactionQueryList.append(QString::fromStdString("serialNo LIKE '" + returnedData[0].at("serialNo") + "'"));
-				if (returnedData[0].contains("toolId"))
-					transactionQueryList.append(QString::fromStdString("id = '" + returnedData[0].at("toolId") + "'"));
+				if (returnedData[0].contains("itemId")) {
+					transactionQueryList.append(QString::fromStdString("PartNo LIKE :itemId"));
+					keyValue["itemId"] = QString::fromStdString(returnedData[0].at("itemId"));
+				}
+				if (returnedData[0].contains("serialNo")) {
+					transactionQueryList.append(QString::fromStdString("serialNo LIKE :serialNo"));
+					keyValue["serialNo"] = QString::fromStdString(returnedData[0].at("serialNo"));
+				}
+				if (returnedData[0].contains("toolId")) {
+					transactionQueryList.append(QString::fromStdString("id = :toolId"));
+					keyValue["toolId"] = QString::fromStdString(returnedData[0].at("toolId"));
+				}
 
 				/*QString transactionQuery = "SELECT t.id as toolId FROM cribtools AS ct LEFT JOIN tools AS t ON t.custId = ct.custId AND (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo OR ct.toolId = t.id) WHERE ct.barcodeTAG = '" + conditionPairs.value("barcode").toString() + "' LIMIT 1";*/
 				QString transactionQuery = "SELECT id as toolId FROM tools WHERE " + transactionQueryList.join(" OR ") + " LIMIT 1";
@@ -5645,7 +5713,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				kabToolQuery.append(queryConditions.join(" AND "));
 				kabToolQuery.append(" LIMIT 1");*/
 				//qDebug() << transactionQuery;
-				vector fetchedKabTool = ExecuteTargetSql(transactionQuery);
+				vector fetchedKabTool = ExecuteTargetSql(transactionQuery, keyValue);
 
 				if (fetchedKabTool.size() > 1) {
 					for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
@@ -5663,10 +5731,12 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (
 			(!entry.contains("itemId") || entry.value("itemId").toString().isEmpty()) && 
 			(entry.contains("toolId") && !entry.value("toolId").toString().isEmpty())) {
-			QString transactionQuery = "SELECT PartNo as itemId FROM tools WHERE id = '" + entry.value("toolId").toString() + "'";
+			QString transactionQuery = "SELECT PartNo as itemId FROM tools WHERE id = :toolId'";
 
 			//LOG << transactionQuery;
-			vector queryRes = ExecuteTargetSql(transactionQuery);
+			QStringMap keyValue;
+			keyValue["toolId"] = entry.value("toolId").toString();
+			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -5693,10 +5763,12 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 
-			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE " + indexingCol + " = '" + entry.value("trailId").toString() + "'";
+			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE " + indexingCol + " = :trailId";
 
 			//LOG << transactionQuery;
-			vector queryRes = ExecuteTargetSql(transactionQuery);
+			QStringMap keyValue;
+			keyValue["trailId"] = entry.value("trailId").toString();
+			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -5716,10 +5788,12 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 
-			QString transactionQuery = "SELECT " + indexingCol + " FROM jobs WHERE description LIKE '" + entry.value("tailId").toString() + "'";
+			QString transactionQuery = "SELECT " + indexingCol + " FROM jobs WHERE description LIKE :tailId";
 
 			//LOG << transactionQuery;
-			vector queryRes = ExecuteTargetSql(transactionQuery);
+			QStringMap keyValue;
+			keyValue["tailId"] = entry.value("tailId").toString();
+			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -5752,19 +5826,22 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString kitQuery = "SELECT id as kitId FROM itemkits WHERE ";
 			QStringList targetKeys = { "custId", "scaleId", "kitTAG" };
 			QStringList queryConditions;
+			QStringMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
 					continue;
 				QString key = it.key();
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					queryConditions.append(key + " = " + value);
 				else
-					queryConditions.append(key + " = '" + value + "'");
+					queryConditions.append(key + " = '" + value + "'");*/
+				queryConditions.append(key + " = :" + key);
+				keyValue[key] = value;
 			}
 			kitQuery.append(queryConditions.join(" AND "));
 			//qDebug() << kitQuery;
-			vector fetchedRes = ExecuteTargetSql(kitQuery);
+			vector fetchedRes = ExecuteTargetSql(kitQuery, keyValue);
 			//qDebug() << fetchedRes;
 			if (fetchedRes.size() > 1) {	
 				QStringList targerResponseKeys = { "kitId" };
@@ -5791,6 +5868,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString jobQuery = "SELECT "+ indexingCol +" as trailId FROM jobs WHERE ";
 			QStringList targetKeys = { "custId", "tailId" };
 			QStringList queryConditions;
+			QStringMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5798,14 +5876,16 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				QString key = it.key();
 				if (key == "tailId")
 					key = "description";
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					queryConditions.append(key + " = " + value);
 				else
-					queryConditions.append(key + " = '" + value + "'");
+					queryConditions.append(key + " = '" + value + "'");*/
+				queryConditions.append(key + " = :" + key);
+				keyValue[key] = value;
 			}
 			jobQuery.append(queryConditions.join(" AND "));
 			//qDebug() << jobQuery;
-			vector fetchedRes = ExecuteTargetSql(jobQuery);
+			vector fetchedRes = ExecuteTargetSql(jobQuery, keyValue);
 			//qDebug() << fetchedRes;
 			if (fetchedRes.size() > 1) {
 				QStringList targerResponseKeys = { "trailId" };
@@ -6052,7 +6132,9 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs["toolId"] = conditionPairs.value("id").toString();
 
 		if (!hadId && !conditionPairs.contains("toolId") && conditionPairs.contains("stockcode") && !conditionPairs.value("stockcode").toString().isEmpty()) {
-			std::vector response = ExecuteTargetSql("SELECT id as toolId FROM tools WHERE stockcode = '" + conditionPairs.value("stockcode").toString() + "'");
+			QStringMap keyValue;
+			keyValue["stockcode"] = conditionPairs.value("stockcode").toString();
+			std::vector response = ExecuteTargetSql("SELECT id as toolId FROM tools WHERE stockcode = :stockcode", keyValue);
 			if (response.size() > 1)
 				conditionPairs["toolId"] = response[1].value("toolId");
 		}
@@ -6119,20 +6201,23 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 
 		QString itemDrawerQuery = "SELECT i.*, t.id as toolId FROM itemkabdrawerbins as i LEFT JOIN tools as t ON i.itemId LIKE t.PartNo OR i.itemId LIKE t.stockcode WHERE ";
+		QStringMap keyValue;
 		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
 			QString value = it.value().toString();
 			if (value.isEmpty())
 				continue;
-			if (value.startsWith("'"))
+			/*if (value.startsWith("'"))
 				itemDrawerQuery.append("i." + it.key() + " = " + value);
 			else
-				itemDrawerQuery.append("i." + it.key() + " = '" + value + "'");
+				itemDrawerQuery.append("i." + it.key() + " = '" + value + "'");*/
+			itemDrawerQuery.append("i." + it.key() + " = :" + it.key());
+			keyValue[it.key()] = value;
 			if ((it + 1) != conditionPairs.constEnd())
 				itemDrawerQuery.append(" AND ");
 		}
 		ServiceHelper().WriteToLog("itemkabdrawerbins search query: " + itemDrawerQuery.toStdString());
 
-		vector itemDrawerRes = ExecuteTargetSql(itemDrawerQuery);
+		vector itemDrawerRes = ExecuteTargetSql(itemDrawerQuery, keyValue);
 		//qDebug() << itemDrawerRes;
 		if (itemDrawerRes.size() > 1) {	
 			QStringList allowedKeyList = { "drawerNum", "toolNumber", "itemId", "toolId" };
@@ -6187,9 +6272,10 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		QString indexingCol = colsCheck[1].value("Column_name");
 
 		if (indexingCol == "toolId" && conditionPairs.contains("toolId")) {
-			QString targetQuery = "SELECT ct.itemId, ct.barcodeTAG, t.id as toolId FROM cribtools AS ct LEFT JOIN tools AS t ON ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo WHERE ct.toolId = '" + conditionPairs.value("toolId").toString() + "'";
-
-			vector response = ExecuteTargetSql(targetQuery);
+			QString targetQuery = "SELECT ct.itemId, ct.barcodeTAG, t.id as toolId FROM cribtools AS ct LEFT JOIN tools AS t ON ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo WHERE ct.toolId = :toolId";
+			QStringMap keyValue;
+			keyValue["toolId"] = conditionPairs.value("toolId").toString();
+			vector response = ExecuteTargetSql(targetQuery, keyValue);
 			if (response.size() > 1) {
 				if(!conditionPairs.contains("barcodeTAG"))
 					conditionPairs["barcodeTAG"] = response[1].value("barcodeTAG");
@@ -6205,19 +6291,21 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				conditionPairs.remove("toolId");*/
 			QString targetQuery = "SELECT ct.barcodeTAG FROM cribtools AS ct WHERE ";
 			QStringList conditionals;
-
+			QStringMap keyValue;
 			for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
 				QString key = it.key();
 				QString value = it.value().toString();
 				if (value.isEmpty() || key == "toolId" || key == "currentcalibrationdate")
 					continue;
 
-				if (value.contains("NULL"))
+				/*if (value.contains("NULL"))
 					conditionals.append("ct." + key + " " + value);
 				else if (value.startsWith("'"))
 					conditionals.append("ct." + key + " = " + value);
 				else
-					conditionals.append("ct." + key + " = '" + value + "'");
+					conditionals.append("ct." + key + " = '" + value + "'");*/
+				conditionals.append("ct." + key + "= :" + key);
+				keyValue[key] = value;
 				/*if ((it + 1) != conditionPairs.constEnd())
 					targetQuery.append(" AND ");*/
 			}
@@ -6228,19 +6316,21 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				if (setPairs.contains(key) || value.isEmpty() || key == "toolId" || key == "currentcalibrationdate")
 					continue;
 
-				if (value.contains("NULL"))
+				/*if (value.contains("NULL"))
 					conditionals.append("ct." + key + " " + value);
 				else if (value.startsWith("'"))
 					conditionals.append("ct." + key + " = " + value);
 				else
-					conditionals.append("ct." + key + " = '" + value + "'");
+					conditionals.append("ct." + key + " = '" + value + "'");*/
+				conditionals.append("ct." + key + "= :" + key);
+				keyValue[key] = value;
 				/*if ((it + 1) != conditionPairs.constEnd())
 					targetQuery.append(" AND ");*/
 			}
 			targetQuery.append(conditionals.join(" AND "));
 			targetQuery += " ORDER BY ct.createdDate DESC LIMIT 1";
 
-			std::vector response = ExecuteTargetSql(targetQuery);
+			std::vector response = ExecuteTargetSql(targetQuery, keyValue);
 
 			qDebug() << response;
 
@@ -6258,6 +6348,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				targetQuery += " AND ct.toolId = t.id";
 			
 			QStringList conditionals;
+			QStringMap keyValue;
 
 			for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
 				QString key = it.key();
@@ -6265,12 +6356,14 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				if (value.isEmpty() || key == "toolId" || key == "currentcalibrationdate")
 					continue;
 
-				if (value.contains("NULL"))
+				/*if (value.contains("NULL"))
 					conditionals.append("ct." + key + " " + value);
 				else if (value.startsWith("'"))
 					conditionals.append("ct." + key + " = " + value);
 				else
-					conditionals.append("ct." + key + " = '" + value + "'");
+					conditionals.append("ct." + key + " = '" + value + "'");*/
+				conditionals.append("ct." + key + "= :" + key);
+				keyValue[key] = value;
 				/*if ((it + 1) != conditionPairs.constEnd())
 					targetQuery.append(" AND ");*/
 			}
@@ -6281,12 +6374,14 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				if (setPairs.contains(key) || value.isEmpty() || key == "toolId" || key == "currentcalibrationdate")
 					continue;
 
-				if(value.contains("NULL"))
+				/*if(value.contains("NULL"))
 					conditionals.append("ct." + key + " " + value);
 				else if (value.startsWith("'"))
 					conditionals.append("ct." + key + " = " + value);
 				else
-					conditionals.append("ct." + key + " = '" + value + "'");
+					conditionals.append("ct." + key + " = '" + value + "'");*/
+				conditionals.append("ct." + key + "= :" + key);
+				keyValue[key] = value;
 				/*if ((it + 1) != conditionPairs.constEnd())
 					targetQuery.append(" AND ");*/
 			}
@@ -6297,7 +6392,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			targetQuery.append(conditionals.join(" AND "));
 			targetQuery += " ORDER BY ct.createdDate DESC LIMIT 1";
 
-			std::vector response = ExecuteTargetSql(targetQuery);
+			std::vector response = ExecuteTargetSql(targetQuery, keyValue);
 
 			//qDebug() << response;
 
@@ -6364,6 +6459,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		QString categoryQuery = "SELECT id as categoryId FROM kitcategory WHERE ";
 		QStringList targetKeys = { "category" };
 		QStringList queryConditions;
+		QStringMap keyValue;
 		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
 			QString value = it.value().toString();
 			if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -6371,14 +6467,16 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			QString key = it.key();
 			if (key == "category")
 				key = "id";
-			if (value.startsWith("'"))
+			/*if (value.startsWith("'"))
 				queryConditions.append(key + " = " + value);
 			else
-				queryConditions.append(key + " = '" + value + "'");
+				queryConditions.append(key + " = '" + value + "'");*/
+			queryConditions.append(key + "= :" + key);
+			keyValue[key] = value;
 		}
 		categoryQuery.append(queryConditions.join(" AND "));
 		//qDebug() << categoryQuery;
-		vector fetchedRes = ExecuteTargetSql(categoryQuery);
+		vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
 
 		if (fetchedRes.size() <= 1) {
 			skipQuery = true;
@@ -6406,6 +6504,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			QString categoryQuery = "SELECT id as locationId FROM kitlocation WHERE ";
 			QStringList targetKeys = { "location" };
 			QStringList queryConditions;
+			QStringMap keyValue;
 			for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -6413,14 +6512,16 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				QString key = it.key();
 				if (key == "location")
 					key = "id";
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					queryConditions.append(key + " = " + value);
 				else
-					queryConditions.append(key + " = '" + value + "'");
+					queryConditions.append(key + " = '" + value + "'");*/
+				queryConditions.append(key + "=:" + key);
+				keyValue[key] = value;
 			}
 			categoryQuery.append(queryConditions.join(" AND "));
 			//qDebug() << categoryQuery;
-			vector fetchedRes = ExecuteTargetSql(categoryQuery);
+			vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
 
 			if (fetchedRes.size() <= 1) {
 				skipQuery = true;
@@ -6448,9 +6549,11 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs[trakId.data()] = trakIdNum;
 		
 		QString transactionQuery = "SELECT * FROM cribemployeeitemtransactions WHERE ";
-
-		if (hadId)
-			transactionQuery += "id = " + conditionPairs.value("id").toString();
+		QStringMap keyValue;
+		if (hadId) {
+			transactionQuery += "id = :id";
+			keyValue["id"] = conditionPairs.value("id").toString();
+		}
 		else {
 
 			QStringList conditionsList;
@@ -6459,10 +6562,12 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				QString value = it.value().toString();
 				if (value.isEmpty())
 					continue;
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					conditionsList.append(it.key() + " = " + value);
 				else
-					conditionsList.append(it.key() + " = '" + value + "'");
+					conditionsList.append(it.key() + " = '" + value + "'");*/
+				conditionsList.append(it.key() + "= :" + it.key());
+				keyValue[it.key()] = value;
 				/*if ((it + 1) != setPairs.constEnd())
 					transactionQuery.append(" AND ");*/
 			}
@@ -6473,10 +6578,12 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				QString value = it.value().toString();
 				if (value.isEmpty() || setPairs.contains(it.key()))
 					continue;
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					conditionsList.append(it.key() + " = " + value);
 				else
-					conditionsList.append(it.key() + " = '" + value + "'");
+					conditionsList.append(it.key() + " = '" + value + "'");*/
+				conditionsList.append(it.key() + "= :" + it.key());
+				keyValue[it.key()] = value;
 				/*if ((it + 1) != conditionPairs.constEnd())
 					transactionQuery.append(" AND ");*/
 			}
@@ -6485,7 +6592,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 
 		//LOG << transactionQuery;
-		vector queryRes = ExecuteTargetSql(transactionQuery);
+		vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 		//qDebug() << conditionPairs;
 		//qDebug() << queryRes;
 		if (queryRes.size() > 1) {
@@ -6520,10 +6627,12 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				QString value = it.value().toString();
 				if (value.isEmpty())
 					continue;
-				if (value.startsWith("'"))
+				/*if (value.startsWith("'"))
 					conditionsList.append(it.key() + " = " + value);
 				else
-					conditionsList.append(it.key() + " = '" + value + "'");
+					conditionsList.append(it.key() + " = '" + value + "'");*/
+				conditionsList.append(it.key() + "= :" + it.key());
+				keyValue[it.key()] = value;
 				/*if ((it + 1) != setPairs.constEnd())
 					transactionQuery.append(" AND ");*/
 			}
@@ -6532,7 +6641,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			transactionQuery.append(" ORDER BY id ASC LIMIT 1");
 
 			//LOG << transactionQuery;
-			vector queryRes = ExecuteTargetSql(transactionQuery);
+			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << conditionPairs;
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
@@ -6592,17 +6701,23 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			if (!returnedData.empty()) {
 				QStringList transactionQueryList = { };
 
-				if (returnedData[0].contains("itemId"))
-					transactionQueryList.append(QString::fromStdString("PartNo LIKE '" + returnedData[0].at("itemId") + "'"));
-				if (returnedData[0].contains("serialNo"))
-					transactionQueryList.append(QString::fromStdString("serialNo LIKE '" + returnedData[0].at("serialNo") + "'"));
-				if (returnedData[0].contains("toolId"))
-					transactionQueryList.append(QString::fromStdString("id = '" + returnedData[0].at("toolId") + "'"));
+				if (returnedData[0].contains("itemId")) {
+					transactionQueryList.append(QString::fromStdString("PartNo LIKE :itemId"));
+					keyValue["itemId"] = QString::fromStdString(returnedData[0].at("itemId"));
+				}
+				if (returnedData[0].contains("serialNo")) {
+					transactionQueryList.append(QString::fromStdString("serialNo LIKE :serialNo"));
+					keyValue["serialNo"] = QString::fromStdString(returnedData[0].at("serialNo"));
+				}
+				if (returnedData[0].contains("toolId")) {
+					transactionQueryList.append(QString::fromStdString("id = :toolId"));
+					keyValue["toolId"] = QString::fromStdString(returnedData[0].at("toolId"));
+				}
 
 				QString transactionQuery = "SELECT id as toolId FROM tools WHERE " + transactionQueryList.join(" OR ") + " LIMIT 1";
 
 				//LOG << transactionQuery;
-				vector queryRes = ExecuteTargetSql(transactionQuery);
+				vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 				//qDebug() << queryRes;
 				if (queryRes.size() > 1) {
 					for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -6635,17 +6750,23 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			if (!returnedData.empty()) {
 				QStringList transactionQueryList = { };
 
-				if (returnedData[0].contains("itemId"))
-					transactionQueryList.append(QString::fromStdString("PartNo LIKE '" + returnedData[0].at("itemId") + "'"));
-				if (returnedData[0].contains("serialNo"))
-					transactionQueryList.append(QString::fromStdString("serialNo LIKE '" + returnedData[0].at("serialNo") + "'"));
-				if (returnedData[0].contains("toolId"))
-					transactionQueryList.append(QString::fromStdString("id = '" + returnedData[0].at("toolId") + "'"));
+				if (returnedData[0].contains("itemId")) {
+					transactionQueryList.append(QString::fromStdString("PartNo LIKE :itemId"));
+					keyValue["itemId"] = QString::fromStdString(returnedData[0].at("itemId"));
+				}
+				if (returnedData[0].contains("serialNo")) {
+					transactionQueryList.append(QString::fromStdString("serialNo LIKE :serialNo"));
+					keyValue["serialNo"] = QString::fromStdString(returnedData[0].at("serialNo"));
+				}
+				if (returnedData[0].contains("toolId")) {
+					transactionQueryList.append(QString::fromStdString("id = :toolId"));
+					keyValue["toolId"] = QString::fromStdString(returnedData[0].at("toolId"));
+				}
 
 				QString transactionQuery = "SELECT PartNo as itemId FROM tools WHERE " + transactionQueryList.join(" OR ") + " LIMIT 1";
 
 				//LOG << transactionQuery;
-				vector queryRes = ExecuteTargetSql(transactionQuery);
+				vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 				//qDebug() << queryRes;
 				if (queryRes.size() > 1) {
 					for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -6691,10 +6812,12 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 
-			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE "+ indexingCol +" = '" + conditionPairs.value("trailId").toString() + "'";
+			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE " + indexingCol + " = :trailId";
 
 			//LOG << transactionQuery;
-			vector queryRes = ExecuteTargetSql(transactionQuery);
+			QStringMap keyValue;
+			keyValue["trailId"] = conditionPairs.value("trailId").toString();
+			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -6711,10 +6834,12 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 
-			QString transactionQuery = "SELECT "+ indexingCol +" FROM jobs WHERE description LIKE '" + conditionPairs.value("tailId").toString() + "'";
+			QString transactionQuery = "SELECT " + indexingCol + " FROM jobs WHERE description LIKE :tailId";
 
 			//LOG << transactionQuery;
-			vector queryRes = ExecuteTargetSql(transactionQuery);
+			QStringMap keyValue;
+			keyValue["tailId"] = conditionPairs.value("tailId").toString();
+			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -6913,16 +7038,18 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 		if (!data.contains("userId")) {
 			QString targetQuery = "SELECT userId FROM users WHERE ";
 			QStringList conditionals;
+			QStringMap keyValue;
 			for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
 				QString key = it.key();
 				QString value = it.value().toString().trimmed();
 				if (value.isEmpty())
 					continue;
-				conditionals.append(key + " = " + value);
+				conditionals.append(key + " = :" + key);
+				keyValue[key] = value;
 			}
 			targetQuery.append(conditionals.join(" AND "));
 
-			std::vector results = ExecuteTargetSql(targetQuery);
+			std::vector results = ExecuteTargetSql(targetQuery, keyValue);
 			if (results.size() > 1) {
 				for (auto it = results[1].cbegin(); it != results[1].cend(); ++it) {
 					QString key = it.key();
@@ -6947,16 +7074,19 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 		if (!data.contains("userId")) {
 			QString targetQuery = "SELECT userId FROM employees WHERE ";
 			QStringList conditionals;
+			QStringMap keyValue;
 			for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
 				QString key = it.key();
 				QString value = it.value().toString().trimmed();
 				if (value.isEmpty())
 					continue;
-				conditionals.append(key + " = " + value);
+				//conditionals.append(key + " = " + value);
+				conditionals.append(key + " = :" + key);
+				keyValue[key] = value;
 			}
 			targetQuery.append(conditionals.join(" AND "));
 
-			std::vector results = ExecuteTargetSql(targetQuery);
+			std::vector results = ExecuteTargetSql(targetQuery, keyValue);
 			if (results.size() > 1) {
 				for (auto it = results[1].cbegin(); it != results[1].cend(); ++it) {
 					QString key = it.key();
@@ -6983,19 +7113,23 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 			break;
 
 		QString jobQuery = "SELECT * FROM jobs WHERE ";
+		QStringMap keyValue;
 		for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
 			QString value = it.value().toString();
 			if (value.isEmpty())
 				continue;
-			if (value.startsWith("'"))
+			/*if (value.startsWith("'"))
 				jobQuery.append(it.key() + " = " + value);
 			else
-				jobQuery.append(it.key() + " = '" + value + "'");
+				jobQuery.append(it.key() + " = '" + value + "'");*/
+			jobQuery.append(it.key() + " = :" + it.key());
+			keyValue[it.key()] = value;
+
 			if ((it + 1) != data.constEnd())
 				jobQuery.append(" AND ");
 		}
 		//qDebug() << jobQuery;
-		vector fetchedJob = ExecuteTargetSql(jobQuery);
+		vector fetchedJob = ExecuteTargetSql(jobQuery, keyValue);
 
 		if (fetchedJob.size() <= 1) {
 			skipQuery = true;
