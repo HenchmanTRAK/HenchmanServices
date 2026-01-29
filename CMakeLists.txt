@@ -114,6 +114,9 @@ endforeach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
 
 MESSAGE(${CMAKE_BUILD_TYPE})
 
+find_package(ZLIB REQUIRED)
+find_package(OpenSSL REQUIRED)
+
 #set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
 #set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR};${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/quazip)
@@ -129,7 +132,6 @@ endif(WIN32)
 
 set(QUAZIP_QT_MAJOR_VERSION 6)
 
-find_package(ZLIB REQUIRED)
 # find_package(QuaZip-Qt5 REQUIRED)
 
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
@@ -183,13 +185,13 @@ FetchContent_Declare(
 	GIT_REPOSITORY	https://github.com/SRombauts/SQLiteCpp.git
 	GIT_TAG			master
 )
-message(STATUS "Fetching content for OpenSSL")
-FetchContent_Declare(
-	OpenSSL
-	URL				https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.3.2.zip
-	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
-	FIND_PACKAGE_ARGS HINTS x64
-)
+#message(STATUS "Fetching content for OpenSSL")
+#FetchContent_Declare(
+#	OpenSSL
+#	URL				https://download.firedaemon.com/FireDaemon-OpenSSL/openssl-3.3.2.zip
+#	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
+#	FIND_PACKAGE_ARGS HINTS x64
+#)
 
 message(STATUS "Fetching content for QMYSQL version: ${Qt6_VERSION}")
 if(${Qt6_VERSION} EQUAL "6.7.2")
@@ -204,7 +206,7 @@ FetchContent_Declare(
 
 set(QMYSQL_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/_deps/qmysql-src)
 
-FetchContent_MakeAvailable(SimpleIni OpenSSL QMYSQL)
+FetchContent_MakeAvailable(SimpleIni QMYSQL)
 
 #set(mysql-concpp_DIR "C:/Program Files/MySQL/MySQL Connector C++ 9.0")
 

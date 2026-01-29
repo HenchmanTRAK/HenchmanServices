@@ -145,6 +145,11 @@ jobs:
       run: |
         cd ${{ github.workspace }} && echo $(cat example_service.ini) > service.ini
 
+    - name: Install NSIS for CPack installer generation.
+      uses: repolevedavaj/install-nsis@v1.1.0
+      with:
+        nsis-version: '3.10'
+
     # - uses: ilammy/msvc-dev-cmd@v1.4.1
     #   with:
     #     arch: ${{ matrix.arch }}
@@ -159,7 +164,7 @@ jobs:
       shell: powershell
       run: |
         echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-        vcpkg install openssl
+        vcpkg install
 
     - name: Install Qt
       uses: jurplel/install-qt-action@v4
