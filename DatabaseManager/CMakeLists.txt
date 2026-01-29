@@ -1,16 +1,18 @@
 
-qt_add_library(DatabaseManager SHARED "DatabaseManager.cpp")
+qt_add_library(DatabaseManager SHARED "DatabaseManager.cpp" "DatabaseManager.h")
 qt_disable_unicode_defines(DatabaseManager)
 
 message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
 
+# target_include_directories(DatabaseManager PRIVATE "DatabaseManager.h")
+
 target_link_libraries(
 	DatabaseManager PRIVATE
+	SQLiteManager2
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
 	RegistryManager
-	SQLiteManager2
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

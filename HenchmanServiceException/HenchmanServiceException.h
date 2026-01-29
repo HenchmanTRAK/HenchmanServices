@@ -30,14 +30,14 @@ private:
 	 *
 	 * @brief The error message associated with the exception.
 	 */
-	std::string errorMessage;
+	tstring errorMessage;
 
 	/**
 	 * @var functionName
 	 *
 	 * @brief The name of the function where the exception occurred.
 	 */
-	std::string functionName;
+	tstring functionName;
 
 	/**
 	 * @var caller
@@ -57,7 +57,12 @@ public:
 	 * @param location The source location of the exception.
 	 */
 	HenchmanServiceException(
-		std::string msg, 
+		std::string msg,
+		const std::source_location& location = std::source_location::current()
+	);
+
+	HenchmanServiceException(
+		std::wstring msg,
 		const std::source_location& location = std::source_location::current()
 	);
 
@@ -68,10 +73,10 @@ public:
 	 *
 	 * @return A string representation of the exception.
 	 */
-	const char* what() const override;
+	const char * what() const override;
 
 
-	const char * what(EventManager::CEventManager& evntManager) const;
+	const TCHAR *what(EventManager::CEventManager& evntManager) const;
 };
 
 #endif // !HENCHMAN_SERVICE_EXCEPTION_H

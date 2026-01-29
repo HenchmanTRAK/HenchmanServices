@@ -1,19 +1,19 @@
 
-qt_add_library(TRAKManager STATIC "TRAKManager.cpp")
+qt_add_library(TRAKManager STATIC "TRAKManager.cpp" "TRAKManager.h")
 qt_disable_unicode_defines(TRAKManager)
 
 target_link_libraries(
 	TRAKManager PRIVATE
-	Qt6::Core
-	Qt6::Network
-	Qt6::Sql
-	SimpleIni
+	DatabaseManager
+	SQLiteManager2
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
 	RegistryManager
-	SQLiteManager2
-	DatabaseManager
+	SimpleIni
+	Qt6::Network
+	Qt6::Sql
+	Qt6::Core
 )
 
 target_include_directories(TRAKManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

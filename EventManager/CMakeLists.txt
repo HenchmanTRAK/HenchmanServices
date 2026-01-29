@@ -13,13 +13,13 @@
 #	PATTERN bin EXCLUDE
 #)
 
-qt_add_library(EventManager SHARED "EventManager.cpp")
+qt_add_library(EventManager SHARED "EventManager.cpp" "EventManager.h" "${CMAKE_SOURCE_DIR}/resources/event_log.dll")
 qt_disable_unicode_defines(EventManager)
 
 target_link_libraries(
 	EventManager PRIVATE
-	RegistryManager
 	ServiceHelper
+	RegistryManager
 	Qt6::Core
 )
 

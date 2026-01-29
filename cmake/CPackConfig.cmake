@@ -1,4 +1,5 @@
-# installer rules. 
+# installer rules.
+set(CPACK_PACKAGE_NAME "HenchmanService")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Example cmake installation.")
 set(CPACK_PACKAGE_VENDOR "HenchmanTRAK")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
@@ -47,9 +48,9 @@ cpack_add_component(Documentation
 )
 
 set(CPACK_COMPONENTS_ALL Runtime Binaries DataFiles Documentation)
-if (CMAKE_CL_64)
+if (CMAKE_SIZEOF_VOID_P)
     set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
-else (CMAKE_CL_64)
+else (CMAKE_SIZEOF_VOID_P)
     set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES")
-endif (CMAKE_CL_64)
+endif (CMAKE_SIZEOF_VOID_P)
 include(CPack)

@@ -21,8 +21,8 @@ std::unique_ptr<CServiceController> svcController = nullptr;
 //std::unique_ptr<SService> service = nullptr;
 
 
-void createUniqueServiceController(const SService& pService) {
-	svcController = make_unique<CServiceController>(pService);
+void createUniqueServiceController(const SService& pService, bool isTesting) {
+	svcController = make_unique<CServiceController>(pService, isTesting || testing);
 }
 
 CServiceController* getServiceController() {
@@ -138,7 +138,7 @@ static bool ProcessExists(const tstring& exeFileName)
 	return result;
 }
 
-static bool FileInUse(string fileName) {
+static bool FileInUse(tstring fileName) {
 	HANDLE fileRes;
 	//struct stat buffer;
 	LOG << "Checking if: " << fileName << " is being used";
@@ -179,7 +179,7 @@ DWORD GetCurrentSessionId()
 	return SessionId;
 }
 
-static int CreateTargetProcess(string lpAppName)
+static int CreateTargetProcess(tstring lpAppName)
 {
 	STARTUPINFO startupInfo;
 	PROCESS_INFORMATION processInformation;
@@ -364,15 +364,36 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 HenchmanService::HenchmanService(QObject *parent)
 	: QObject(parent), sqliteManager(parent), dbManager(parent)
 {
+	enum ini_keys_enum {
+		Apache_DIR,
+		MySQL_DIR,
+		PHP_DIR,
+		TRAK_DIR,
+		INI_FILE,
+		EXE_FILE,
+		APP_NAME
+	};
+	std::map<tstring, ini_keys_enum> int_keys_map = {
+		{"Apache_DIR", Apache_DIR},
+		{"MySQL_DIR", MySQL_DIR},
+		{"PHP_DIR", PHP_DIR},
+		{"TRAK_DIR", TRAK_DIR},
+		{"INI_FILE", INI_FILE},
+		{"EXE_FILE", EXE_FILE},
+		{"APP_NAME", APP_NAME},
+	};
+	
 	CSimpleIni ini;
 
 	//ini.SetUnicode();
 
 	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));*/
 	LOG << std::string("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).data();
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).data());
+	
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).data());
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
+	
 	rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
 	tstring installDir(buffer);
 	// HenchmanServiceException
@@ -384,27 +405,158 @@ HenchmanService::HenchmanService(QObject *parent)
 
 	CSimpleIniA::TNamesDepend keys;
 	ini.GetAllKeys("WAMP", keys);
+
+	
+
 	for (auto& val : keys)
 	{
-		string key = val.pItem;
-		string value = ini.GetValue("WAMP", val.pItem, "");
+		tstring key = val.pItem;
+		tstring value = ini.GetValue("WAMP", val.pItem, "");
 		ServiceHelper().removeQuotes(value);
 
-		/*RegistryManager::GetStrVal(hKey, key.data(), REG_SZ);*/
-		//RegistryManager::SetVal(hKey, key.data(), value, REG_SZ);
-		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR *)value.data(), (value.length() + 1)))
-			throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
+		if (value.empty()) {
+			switch (int_keys_map.at(key))
+			{
+			case Apache_DIR:
+			{
+				std::filesystem::directory_iterator dir("C:\\wamp\\bin\\apache");
+				for (const auto& entry : dir) {
+					if (!QString(entry.path().filename().c_str()).contains("apache"))
+						continue;
+					value = t2tstr(entry.path().c_str());
+//#ifdef UNICODE
+//					value = entry.path().wstring();
+//#else
+//					value = entry.path().c_str();
+//#endif
+					
+				}
+				value += "\\bin";
+				//value =;
+				break;
+			}
+			case MySQL_DIR:
+			{
+				std::filesystem::directory_iterator dir("C:\\wamp\\bin\\mysql");
+				for (const auto& entry : dir) {
+					if (!QString(entry.path().filename().c_str()).contains("mysql"))
+						continue;
+					value = t2tstr(entry.path().c_str());
+//#ifdef UNICODE
+//					value = entry.path().wstring();
+//#else
+//					value = entry.path().string();
+//#endif
+
+				}
+				value += "\\bin";
+				break;
+			}
+			case PHP_DIR:
+			{
+				std::filesystem::directory_iterator dir("C:\\wamp\\bin\\php");
+				for (const auto& entry : dir) {
+					if (!QString(entry.path().filename().c_str()).contains("php"))
+						continue;
+					value = t2tstr(entry.path().c_str());
+//#ifdef UNICODE
+//					value = entry.path().wstring();
+//#else
+//					value = entry.path().string();
+//#endif
+				}
+				break;
+			}
+			default:
+			{
+				break;
+			}
+
+			}
+
+			ini.SetValue("WAMP", key.data(), value.data());
+		}
+
+
+		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR*)value.data(), (value.length() + 1)))
+			throw HenchmanServiceException("Failed to set "+ key +" to registry");
 
 		key.clear();
 		value.clear();
-	}
+	};
 
 	ini.GetAllKeys("TRAK", keys);
+	std::string appType;
 	for (auto& val : keys)
 	{
-		string key = val.pItem;
-		string value = ini.GetValue("TRAK", val.pItem, "");
+		tstring key = val.pItem;
+		tstring value = ini.GetValue("TRAK", val.pItem, "");
 		ServiceHelper().removeQuotes(value);
+
+		if (value.empty()) {
+			if (appType.empty()) {
+				std::filesystem::directory_iterator dir("C:\\Program Files (x86)\\HenchmanTRAK");
+				for (const auto& entry : dir) {
+					std::string file(t2tstr(entry.path().filename().string()));
+					if (file.ends_with("kabTRAK")) {
+						appType = "kabTRAK";
+						break;
+					}
+					if (file.ends_with("cribTRAK")) {
+						appType = "cribTRAK";
+						break;
+					}
+					if (file.ends_with("portaTRAK")) {
+						appType = "portaTRAK";
+						break;
+					}
+
+				}
+			}
+
+
+			switch (int_keys_map.at(key))
+			{
+			case TRAK_DIR:
+			{
+				value = t2tstr("C:\\Program Files (x86)\\HenchmanTRAK\\" + appType);
+				break;
+			}
+			case INI_FILE:
+			{
+				const char* iniFile = "";
+				if (appType == "kabTRAK")
+					iniFile = "trak.ini";
+				if (appType == "cribTRAK")
+					iniFile = "crib.ini";
+				if (appType == "portaTRAK")
+					iniFile = "porta.ini";
+				value = t2tstr(iniFile);
+				break;
+			}
+			case EXE_FILE:
+			{
+				std::string exe(appType);
+				for (int i = 0; i < exe.length(); ++i) {
+					exe[i] = tolower(exe.at(i));
+				}
+				value = t2tstr(exe + ".exe");
+				break;
+			}
+			case APP_NAME: 
+			{
+				value = t2tstr(appType);
+				break;
+			}
+			default:
+			{
+				break;
+			}
+
+			}
+
+			ini.SetValue("TRAK", key.data(), value.data());
+		}
 
 		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR*)value.data(), (value.length() + 1)))
 			throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
@@ -414,12 +566,15 @@ HenchmanService::HenchmanService(QObject *parent)
 
 	}
 
+	ini.SaveFile((installDir + "\\service.ini").data());
+
+
 	//RegCloseKey(hKey);
 	//sqliteManager = make_unique<SQLiteManager2>(a);
 
 
-	string tableName = "TestTable";
-	vector<string> columns;
+	tstring tableName = "TestTable";
+	vector<tstring> columns;
 	columns.push_back("username TEXT NOT NULL");
 	columns.push_back("password TEXT NOT NULL");
 	sqliteManager.CreateTable(
@@ -429,18 +584,18 @@ HenchmanService::HenchmanService(QObject *parent)
 
 	std::vector<stringmap> result;
 
-	sqliteManager.ExecQuery("CREATE UNIQUE INDEX unique_username_password ON " + tableName + "(username,password)", result);
+	sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_username_password ON " + tableName + "(username,password)", result);
 
 	columns.clear();
 
-	string username = ini.GetValue("EMAIL", "Username", "");
-	string password = ini.GetValue("EMAIL", "Password", "");
+	tstring username = ini.GetValue("EMAIL", "Username", "");
+	tstring password = ini.GetValue("EMAIL", "Password", "");
 	if (password != "")
 		password = QByteArray(password.data()).toBase64();
 	//string encodedPass = base64(password);
 	if (setMailLogin(username, password))
 	{
-		map<string, string> data;
+		stringmap data;
 		data["username"] = username;
 		data["password"] = password;
 		
@@ -468,6 +623,12 @@ HenchmanService::HenchmanService(QObject *parent)
 HenchmanService::~HenchmanService()
 {
 	LOG << "Deconstructing HenchmanService";
+	ServiceHelper().WriteToLog("HenchmanService has been closed");
+
+	sqliteManager.deleteLater();
+	dbManager.deleteLater();
+	this->parent()->deleteLater();
+
 	//delete SQLiteM;
 	//delete TrakM;
 	//delete dbManager;
@@ -476,7 +637,7 @@ HenchmanService::~HenchmanService()
 	//logx.clear();
 }
 
-bool HenchmanService::setMailLogin(const string& username, const string& password) 
+bool HenchmanService::setMailLogin(const tstring& username, const tstring& password)
 {
 	try {
 		if (username.length() <= 1 || password.length() <= 1) {
@@ -516,12 +677,13 @@ int HenchmanService::SetRequiredParameters()
 int HenchmanService::MainFunction(QCoreApplication* a)
 {
 	update = TRUE;
-	int timer = 0;
+	int timer = 30000;
 
 	checkStateOfMySQL();
 	checkStateOfApache();
 
-	try {
+	try
+	{
 
 		if (!dbManager.isInternetConnected())
 		{
@@ -564,23 +726,25 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 		if (!TrakM.UploadCurrentStateToRemote())
 		{
 			dbManager.connectToRemoteDB();
-			if (!testing)
-				timer = 30000;
-			else
-				timer = 30000;
 		}
-	} catch (exception& e) {
-		timer = 30000;
+	} 
+	catch (exception& e) 
+	{
 		ServiceHelper().WriteToError(e.what());
 	}
-	
-	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer+1) + " ms...");
-	QTimer::singleShot(1, this->parent(), &QCoreApplication::quit);
-	
-	Sleep(timer);
 
+	if (!testing)
+		timer = 30000;
+	else
+		timer = 5000;
+		
+	
+	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer) + " ms...");
+	QTimer::singleShot(timer, this->parent(), &QCoreApplication::quit);
 	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
 	a->exec();
+	//Sleep(timer - 1);
+
 	/*if (!(dbManager->AddKabsIfNotExists() ||
 		dbManager->AddDrawersIfNotExists() ||
 		dbManager->AddToolsIfNotExists() ||
@@ -597,7 +761,7 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 void HenchmanService::checkStateOfMySQL()
 {
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("MySQL_DIR", REG_SZ, (TCHAR *)buffer, size);
@@ -650,7 +814,7 @@ void HenchmanService::checkStateOfApache()
 	string apache_dir = RegistryManager::GetStrVal(hKey, "Apache_DIR", REG_SZ);
 	RegCloseKey(hKey);*/
 
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("Apache_DIR", REG_SZ, (TCHAR*)buffer, size);

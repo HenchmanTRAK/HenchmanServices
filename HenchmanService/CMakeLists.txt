@@ -17,7 +17,7 @@ generate_product_version(
 )
 
 #add_executable(HenchmanServices "HenchmanServices.cpp")
-qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" ${VersionFilesOutputVariable})
+qt_add_executable(HenchmanService "HenchmanService.cpp" "HenchmanService.h" "${CMAKE_SOURCE_DIR}/version" ${VersionFilesOutputVariable})
 qt_disable_unicode_defines(HenchmanService)
 
 target_include_directories(
@@ -39,16 +39,16 @@ message(STATUS "OpenSSL crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
 
 target_link_libraries(
 	HenchmanService PRIVATE 
-	SimpleIni
+	HenchmanServiceLibrary
+	ServiceController
+	TRAKManager
+	DatabaseManager
+	SQLiteManager2
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
 	RegistryManager
-	DatabaseManager
-	SQLiteManager2
-	TRAKManager
-	ServiceController
-	HenchmanServiceLibrary
+	SimpleIni
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

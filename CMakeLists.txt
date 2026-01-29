@@ -90,7 +90,7 @@ else()
 	set(CMAKE_INSTALL_DEBUG_LIBRARIES TRUE)
 endif(${CMAKE_BUILD_TYPE} STREQUAL "Release")
 set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
-set(CMAKE_INSTALL_UCRT_LIBRARIES FALSE)
+set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
 
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -116,7 +116,7 @@ MESSAGE(${CMAKE_BUILD_TYPE})
 
 #set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
 #set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR})
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR};${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/quazip)
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
 qt_standard_project_setup()
@@ -126,6 +126,11 @@ qt_standard_project_setup()
 if(WIN32)
 	find_package(Doxygen REQUIRED dot)
 endif(WIN32)
+
+set(QUAZIP_QT_MAJOR_VERSION 6)
+
+find_package(ZLIB REQUIRED)
+# find_package(QuaZip-Qt5 REQUIRED)
 
 #file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
 #message(WARNING "root: ${OPENSSL_ROOT_DIR}")
@@ -185,6 +190,7 @@ FetchContent_Declare(
 	URL_HASH		SHA256=B2C1902786FEF6FE600DD8AEB38E33BDCAF306929FDADF28170CCA71999C30AA
 	FIND_PACKAGE_ARGS HINTS x64
 )
+
 message(STATUS "Fetching content for QMYSQL version: ${Qt6_VERSION}")
 if(${Qt6_VERSION} EQUAL "6.7.2")
 	set(QMySQL_URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip)
@@ -218,7 +224,6 @@ FetchContent_MakeAvailable(SimpleIni OpenSSL QMYSQL)
 #add_subdirectory (thirdparty/SQLiteCpp-3.3.2)
 add_subdirectory (RegistryManager)
 add_subdirectory (ServiceHelper)
-add_subdirectory (ServiceController)
 add_subdirectory (EventManager)
 add_subdirectory (HenchmanServiceException)
 add_subdirectory (SQLiteManager2)
@@ -226,6 +231,10 @@ LIST(APPEND ADDITIONAL_LIBRARIES "SQLiteManager2")
 add_subdirectory (DatabaseManager)
 LIST(APPEND ADDITIONAL_LIBRARIES "DatabaseManager")
 add_subdirectory (TRAKManager)
+#LIST(APPEND ADDITIONAL_LIBRARIES "TRAKManager")
+add_subdirectory (HenchmanServiceTaskScheduler)
+add_subdirectory (ServiceController)
+#LIST(APPEND ADDITIONAL_LIBRARIES "ServiceController")
 add_subdirectory (HenchmanServiceLibrary)
 LIST(APPEND ADDITIONAL_LIBRARIES "HenchmanService")
 add_subdirectory (HenchmanServiceController)
@@ -301,6 +310,10 @@ endif()
 message(STATUS "Current Source: " ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(service.ini ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini COPYONLY)
+# if(NOT EXISTS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/service.ini)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/version")
+# endif(NOT EXISTS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/service.ini)
 
 file(
 	COPY ${CMAKE_SOURCE_DIR}/resources/ 

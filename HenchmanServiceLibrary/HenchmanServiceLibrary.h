@@ -5,6 +5,12 @@
 #define HENCHMAN_SERVICE_LIBRARY_H
 #pragma once
 
+#ifdef HENCHMAN_SERVICE_EXPORTS
+#define HENCHMAN_SERVICE_ __declspec(dllexport)
+#else
+#define HENCHMAN_SERVICE_ __declspec(dllimport)
+#endif
+
 
 //#include "openssl/crypto.h"
 //#include "openssl/err.h"
@@ -69,13 +75,6 @@
 #define SERVICE_PASSWORD        NULL
 #define CRLF L"\r\n"
 
-#ifdef UNICODE
-#define tstring std::wstring
-//std::wstring installDir(buffer);
-#else
-#define tstring std::string
-//std::string installDir(buffer);
-#endif
 
 //std::unique_ptr<ServiceController::CServiceController> svcController = nullptr;
 //std::unique_ptr<ServiceController::SService> service;
@@ -246,7 +245,7 @@ public:
 
 DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
 
-void createUniqueServiceController(const ServiceController::SService& service);
+void createUniqueServiceController(const ServiceController::SService& service, bool isTesting = false);
 ServiceController::CServiceController* getServiceController();
 
 #endif

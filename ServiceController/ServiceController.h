@@ -4,11 +4,23 @@
 // that uses this DLL. This way any other project whose source files include this file see
 // SERVICECONTROLLER_API functions as being imported from a DLL, whereas this DLL sees symbols
 // defined with this macro as being exported.
+
+#ifndef SERVICE_CONTROLLER_LIBRARY_H
+#define SERVICE_CONTROLLER_LIBRARY_H
 #pragma once
+
+#ifdef SERVICE_CONTROLLER_LIBRARY_EXPORTS
+#define SERVICE_CONTROLLER_LIBRARY_ __declspec(dllexport)
+#else
+#define SERVICE_CONTROLLER_LIBRARY_ __declspec(dllimport)
+#endif
 
 #include <iostream>
 #include <strsafe.h>
 #include <Windows.h>
+
+#include "ServiceHelper.h"
+#include "HenchmanServiceTaskScheduler.h"
 
 namespace ServiceController
 {
@@ -29,6 +41,7 @@ namespace ServiceController
 		const TCHAR* displayName = nullptr;
 		const TCHAR* localUser = nullptr;
 		const TCHAR* localPass = nullptr;
+		std::string servicePath = "";
 		SERVICE_STATUS serviceStatus = { 0 };
 		SERVICE_STATUS_HANDLE serviceStatusHandle = NULL;
 		HANDLE serviceStopEvent = INVALID_HANDLE_VALUE;
@@ -40,6 +53,9 @@ namespace ServiceController
 	private:
 		SC_HANDLE schSCManager = nullptr;
 		SC_HANDLE schService = nullptr;
+		TaskScheduler mTaskScheduler;
+		bool pTesting = false;
+		bool disableTaskCreation = false;
 
 	public:
 
@@ -52,11 +68,11 @@ namespace ServiceController
 		bool __stdcall StopDependentServices();
 
 	public:
-		CServiceController(const SService& serviceDetails);
+		CServiceController(const SService& serviceDetails, bool testing = false);
 
 		~CServiceController();
 
-		void DoInstallSvc();
+		void DoInstallSvc(bool disableTask = false);
 
 		void __stdcall DoStartSvc(const TCHAR* mService = nullptr);
 		int __stdcall StartTargetSvc(const TCHAR* sService = nullptr);
@@ -87,3 +103,4 @@ namespace ServiceController
 //	DWORD dwWin32ExitCode,
 //	DWORD dwWaitHint
 //);
+#endif
