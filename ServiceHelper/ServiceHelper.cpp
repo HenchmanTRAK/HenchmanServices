@@ -204,13 +204,129 @@ std::array<std::string, 2> ServiceHelper::timestamp()
 	return { date, time };
 }
 
-void ServiceHelper::WriteLog(char *targetFile, const std::string& log)
-{
-	std::fstream fs(targetFile, std::ios::out | std::ios_base::app);
-	if (fs) {
-		std::array<std::string, 2> dateTime = timestamp();
-		fs << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << functionName << ": " << log << std::endl;
-		fs.close();
+void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& context, const QString& msg) {
+#ifdef QT_NO_DEBUG_OUTPUT
+	if(type == QtDebugMsg)
+		return;
+#endif
+#ifdef QT_NO_INFO_OUTPUT
+	if (type == QtInfoMsg)
+		return;
+#endif
+#ifdef QT_NO_WARNING_OUTPUT
+	if (type == QtWarningMsg)
+		return;
+#endif
+	
+	QString filename("logs/");
+	QString message = msg;
+	switch (type)
+	{
+	case QtDebugMsg:
+	case QtInfoMsg:
+		if (msg.contains("custom-")) {
+			QString customLog = msg.sliced(msg.indexOf("-") + 2, msg.indexOf("|", msg.indexOf("-"))-msg.indexOf("-")-3);
+			message.slice(msg.indexOf("|", msg.indexOf("-"))+2);
+			if (customLog.contains("\\")) {
+				customLog.slice(customLog.lastIndexOf("\\") + 1, customLog.lastIndexOf("."));
+			}
+			if (customLog.contains(QDate::currentDate().toString("yyyy-MM-dd-"))) {
+				customLog.slice(customLog.lastIndexOf("-") + 1);
+			}
+			filename.append(QDate::currentDate().toString("yyyy_MM_dd")).append(".").append(customLog).append(".log");
+
+		}
+		else {
+			filename.append(QDate::currentDate().toString("yyyy_MM_dd.log"));
+		}
+		break;
+	case QtWarningMsg:
+	case QtCriticalMsg:
+	case QtFatalMsg:
+		filename.append(QDate::currentDate().toString("yyyy_MM_dd.error.log"));
+		break;
+	}
+
+	QFile file(filename);
+
+	if (!file.open(QIODevice::Append | QIODevice::Text)) return;
+
+	QTextStream out(&file);
+	out << "---| " << QTime::currentTime().toString("hh:mm:ss ") << " |--- <";
+#ifdef DEBUG
+	std::cout << "---| " << QTime::currentTime().toString("hh:mm:ss ").toStdString().data() << " |--- <";
+#endif
+	switch (type)
+	{
+	case QtDebugMsg:
+		out << "DBG";
+#ifdef DEBUG
+		std::cout << "DBG";
+#endif
+		break;
+	case QtInfoMsg:     
+		out << "INF";
+#ifdef DEBUG
+		std::cout << "INF";
+#endif
+		break;
+	case QtWarningMsg:  
+		out << "WRN";
+#ifdef DEBUG
+		std::cout << "WRN";
+#endif
+		break;
+	case QtCriticalMsg: 
+		out << "CRT";
+#ifdef DEBUG
+		std::cout << "CRT";
+#endif
+		break;
+	case QtFatalMsg:    
+		out << "FTL";
+#ifdef DEBUG
+		std::cout << "FTL";
+#endif
+		break;
+	}
+
+	out << "> " << message << '\n';
+#ifdef DEBUG
+	std::cout << "> " << message.toStdString().data() << std::endl;
+#endif
+	out.flush();
+	file.close();
+}
+
+void ServiceHelper::WriteLog(log_type type, char *targetFile, const std::string& log)
+{	
+	switch (type) {
+	case log_type::ERRORED:
+	{
+		qWarning() << functionName.data() << ": " << log.data();
+		break;
+	}
+	case log_type::CUSTOM:
+	{
+		qInfo() << "|custom-" << targetFile << "|" << functionName.data() << ": " << log.data();
+		break;
+	}
+	default:
+	{
+		qInfo() << functionName.data() << ": " << log.data();
+		break;
+	}
+	}
+	if (false)
+	{
+		std::string logDir = GetLogsPath();
+		logDir.append(targetFile).append(".txt");
+		std::fstream fs(logDir.c_str(), std::ios::out | std::ios_base::app);
+		if (fs) {
+			std::array<std::string, 2> dateTime = timestamp();
+			fs << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << functionName << ": " << log << std::endl;
+			fs.close();
+		}
 	}
 
 }
@@ -219,8 +335,7 @@ void ServiceHelper::WriteToLog(std::string log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-log.txt");
-	LOG << logDir << log.data();
-	WriteLog((char *)logDir.data(), log);
+	WriteLog(log_type::GENERAL, logDir.data(), log);
 	logDir.clear();
 	log.clear();
 }
@@ -229,9 +344,8 @@ void ServiceHelper::WriteToError(std::string log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-error.txt");
-	LOG << logDir << log.data();
-	WriteLog((char *)logDir.data(), log);
 	WriteToLog("Logged an error");
+	WriteLog(log_type::ERRORED, logDir.data(), log);
 	logDir.clear();
 	log.clear();
 }
@@ -240,17 +354,18 @@ void ServiceHelper::WriteToCustomLog(std::string log, std::string logName)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
-	LOG << logDir << log.data();
-	WriteLog((char *)logDir.data(), log);
 	WriteToLog("Logged to " + logName);
+	WriteLog(log_type::CUSTOM, logName.data(), log);
 	logDir.clear();
 	log.clear();
 }
 
 void ServiceHelper::ConsoleLog(const char* log)
 {
-	std::array<std::string, 2> dateTime = timestamp();
-	std::cout << "|-- " << dateTime[0] << " " << dateTime[1] << " --| <" << functionName << "> |" << log << std::endl;
+	qDebug() << functionName.data() << ": " << log;
+	//std::array<std::string, 2> dateTime = timestamp();
+	//std::cout << "|-- " << dateTime[0] << " " << dateTime[1] << " --| <" << functionName << "> |" << log << std::endl;
+	
 	//qDebug() << "|-- " << dateTime[0] << " " << dateTime[1] << " --| <" << functionName << "> |" << log << std::endl;
 }
 

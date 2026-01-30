@@ -53,7 +53,7 @@ static std::array<QString, 2> GetTrakDirAndIni(RegistryManager::CRegistryManager
 }
 
 DatabaseManager::DatabaseManager(QObject* parent) 
-: QObject(parent), sqliteManager(parent)
+: QObject(parent), sqliteManager(parent), networkManager(parent)
 {
 	timeStamp = ServiceHelper().timestamp();
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
@@ -107,24 +107,12 @@ DatabaseManager::DatabaseManager(QObject* parent)
 
 		}
 	}
-	sock = new QTcpSocket(this);
-	cookieJar = new QNetworkCookieJar(this);
-	netManager = new QNetworkAccessManager(this);
-	netManager->setCookieJar(cookieJar);
-	if (!testingDBManager)
-		netManager->setStrictTransportSecurityEnabled(true);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
-	restManager = new QRestAccessManager(netManager, this);
 
-	/*connect(netManager, &QNetworkAccessManager::finished, this, [this]() {
-		this->performCleanup();
-	});*/
+	networkManager.setApiKey(apiKey);
+	networkManager.setApiUrl(apiUrl);
+	networkManager.toggleSecureTransport(testingDBManager);
 
-	connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
-		
-	if (isInternetConnected())
-		authenticateSession();
+	networkManager.createManager();
 }
 
 DatabaseManager::~DatabaseManager() 
@@ -135,45 +123,45 @@ DatabaseManager::~DatabaseManager()
 	performCleanup();
 }
 
-int DatabaseManager::authenticateSession(const QString& url)
-{
-
-	/*if (request.header(QNetworkRequest::CookieHeader).toJsonObject().keys().contains("api-session"))
-		return 1;*/
-	
-	QString placeholder;
-	if (url.isEmpty())
-	{
-		placeholder = apiUrl;
-		placeholder = placeholder.slice(0, apiUrl.lastIndexOf("/")) + "/auth/key";
-	}
-	else
-		placeholder = url;
-	
-	
-	for (const auto & cookie : cookieJar->cookiesForUrl(QUrl(placeholder))) 
-	{
-		qDebug() << cookie.name().toStdString() << ":" << cookie.value().toStdString();
-		if(cookie.name().toStdString() == "api-session")
-		{
-			return 1;
-		}
-	}
-
-	QStringMap temp;
-	QJsonObject temp2;
-	QJsonDocument reply;
-
-	makePostRequest(placeholder, temp, temp2, &reply);
-
-	if (reply.isEmpty() || !reply.isObject()) return 0;
-
-	QJsonObject response = reply.object();
-	
-	if (response.keys().contains("error") || !response.keys().contains("data")) return 0;
-
-	return 1;
-}
+//int DatabaseManager::authenticateSession(const QString& url)
+//{
+//
+//	/*if (request.header(QNetworkRequest::CookieHeader).toJsonObject().keys().contains("api-session"))
+//		return 1;*/
+//	
+//	QString placeholder;
+//	if (url.isEmpty())
+//	{
+//		placeholder = apiUrl;
+//		placeholder = placeholder.slice(0, apiUrl.lastIndexOf("/")) + "/auth/key";
+//	}
+//	else
+//		placeholder = url;
+//	
+//	
+//	for (const auto & cookie : cookieJar->cookiesForUrl(QUrl(placeholder))) 
+//	{
+//		qDebug() << cookie.name().toStdString() << ":" << cookie.value().toStdString();
+//		if(cookie.name().toStdString() == "api-session")
+//		{
+//			return 1;
+//		}
+//	}
+//
+//	QStringMap temp;
+//	QJsonObject temp2;
+//	QJsonDocument reply;
+//
+//	makePostRequest(placeholder, temp, temp2, &reply);
+//
+//	if (reply.isEmpty() || !reply.isObject()) return 0;
+//
+//	QJsonObject response = reply.object();
+//	
+//	if (response.keys().contains("error") || !response.keys().contains("data")) return 0;
+//
+//	return 1;
+//}
 
 void DatabaseManager::loadTrakDetailsFromRegistry()
 {
@@ -212,664 +200,664 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 	trakId.append("Id");
 }
 
-bool DatabaseManager::isInternetConnected()
-{
-	sock->connectToHost("www.google.com", 80);
-	bool connected = sock->waitForConnected(30000);//ms
-	sock->disconnectFromHost();
-	/*if (!connected)
-	{
-		sock->abort();
-	}
-	else {
-		sock->close();
-	}*/
-	//sock->deleteLater();
-	//sock = nullptr;
-	return connected;
-}
-
-int indentCount = 0;
-std::string DatabaseManager::parseData(QJsonArray array)
-{
-	stringstream dataRes;
-	if (array.count() <= 0) {
-		return "";
-	}
-	for (const auto& result : array) {
-		QString res = "";
-		if (result.isString())
-		{
-			res += result.toString();
-		}
-		if (result.isObject())
-		{	
-			res += QString::fromStdString(parseData(result.toObject()));
-		}
-		if (result.isArray())
-		{
-			res += QString::fromStdString(parseData(result.toArray()));
-		}
-		dataRes << "[ " << res.toStdString() << "]" << endl;
-		continue;
-	}
-
-	return dataRes.str();
-}
-
-std::string DatabaseManager::parseData(QJsonObject object)
-{
-	
-	stringstream dataRes;
-	if (object.keys().count() <= 0) {
-		return "";
-	}
-	for (auto& key : object.keys()) {
-		QString res = "";
-		QJsonValue value = object.value(key);
-		/*if(indentCount)
-			res.append("\n");*/
-		for (int i = 0; i < indentCount; ++i) {
-			res.append("\t");
-			//res += "\t";
-		}
-		res.append(" - " + key + ": ");
-		if (value.isString())
-		{
-			res += value.toString();
-		}
-		else if (value.isDouble()) {
-			res += QString::number(value.toDouble());
-		}
-		else if (value.isObject())
-		{
-			//res = "\n";
-			//res.push_front("\n");
-			indentCount++;
-			res += "{";
-			res.append(parseData(value.toObject()));
-			indentCount--;
-			res += "}";
-		} 
-		else if (value.isArray())
-		{
-			indentCount++;
-			res += "\n\t";
-			res.append(parseData(value.toArray()));
-			indentCount--;
-		}
-		else {
-			res += value.toString();
-		}
-		
-		dataRes << res.toStdString() << "" << endl;
-
-		continue;
-	}
-	return dataRes.str();
-}
-
-int retryCount = 0;
-
-int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryMap, QJsonDocument* results)
-{
-	int result = 0;
-	QEventLoop loop(this);
-
-	// Generate auth header for request.
-	LOG << url;
-	// Create network request object.
-	QNetworkRequest request;
-	request.setUrl(QUrl(url));
-	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-	request.setRawHeader("Content-Type", "application/json");
-
-
-	ServiceHelper().WriteToCustomLog(
-		"Making query to: " + url.toStdString(),
-		timeStamp[0] + "-queries");
-
-
-	QNetworkReply* reply = restManager->get(request, this, [&result, &results, this](QRestReply& reply) {
-		LOG << "networkrequested";
-		try {
-			qDebug() << reply.error();
-			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-				throw HenchmanServiceException(reply.errorString().toStdString());
-			}
-			if (reply.error() != QNetworkReply::NoError) {
-				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-			}
-
-			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-			ServiceHelper().WriteToLog((string)"Parsing Response");
-
-			optional json = reply.readJson();
-
-			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-
-			//string parsedVal;
-			//if (json->isArray()) {
-			//	parsedVal = parseData(json->array());
-			//}
-			//else if (json->isObject()) {
-			//	QJsonObject retVal = json->object();
-			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-			//		result = 1;*/
-			//	parsedVal = parseData(json->object());
-			//}
-			if (!json || !json.has_value()) {
-				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-				return;
-			}
-			indentCount = 0;
-
-			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-			if (results)
-				json.value().swap(*results);
-
-			if (!result)
-				//result = reply.isSuccess();
-				result = reply.isSuccess();
-
-			if (reply.isSuccess())
-			{
-				ServiceHelper().WriteToCustomLog("network request success",
-					timeStamp[0] + "-queries");
-			}
-			else {
-				ServiceHelper().WriteToCustomLog("network request failed",
-					timeStamp[0] + "-queries");
-			}
-		}
-		catch (exception& e) {
-			std::string error(e.what());
-			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
-			result = 0;
-
-		}
-		//reply.networkReply()->finished();
-
-		});
-
-	qDebug() << "Reply Get is finished? " << reply->isFinished();
-
-	//netManager->finished(reply);
-	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-	loop.exec();
-	qDebug() << "Reply Get is finished? " << reply->isFinished();
-	reply->deleteLater();
-	retryCount = 0;
-	//QThread::sleep(1);
-	return result;
-}
-
-int DatabaseManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
-{		
-	int result = 0;
-	QEventLoop loop(this);
-
-	// Generate auth header for request.
-	LOG << url;
-	// Create network request object.
-	QNetworkRequest request;
-	request.setUrl(QUrl(url));
-	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-	request.setRawHeader("Content-Type", "application/json");
-
-	//data.fromVariantMap();
-
-	/*QJsonObject body;
-	body["data"] = body["data"];*/
-	/*data["values"] = */
-	//data["sql"] = query["query"];
-	
-	QJsonDocument doc(body);
-	std::string log = "";
-	log.append("Making Post request to: " + url.toStdString());
-	if (!queryMap.isEmpty())
-		log.append("\nRunning query number : " + queryMap["number"].toStdString());
-	if (!doc.isEmpty())
-		log.append("\nquery : " + doc.toJson().toStdString());
-	
-	ServiceHelper().WriteToCustomLog(log,
-		timeStamp[0] + "-queries");
-
-	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
-		LOG << "networkrequested";
-		try {
-			qDebug() << reply.error();
-			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-				throw HenchmanServiceException(reply.errorString().toStdString());
-			}
-			if (reply.error() != QNetworkReply::NoError) {
-				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-			}
-			
-			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-			ServiceHelper().WriteToLog((string)"Parsing Response");
-
-			optional json = reply.readJson();
-
-			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-			
-			//string parsedVal;
-			//if (json->isArray()) {
-			//	parsedVal = parseData(json->array());
-			//}
-			//else if (json->isObject()) {
-			//	QJsonObject retVal = json->object();
-			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-			//		result = 1;*/
-			//	parsedVal = parseData(json->object());
-			//}
-			if (!json || !json.has_value()) {
-				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-				return;
-			}
-			indentCount = 0;
-
-			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-			if (results)
-				json.value().swap(*results);
-
-			if (!result)
-				//result = reply.isSuccess();
-				result = reply.isSuccess();
-
-			if (reply.isSuccess())
-			{
-				ServiceHelper().WriteToCustomLog("network request success",
-					timeStamp[0] + "-queries");
-				reply.networkReply()->close();
-			}
-			else {
-				ServiceHelper().WriteToCustomLog("network request failed",
-					timeStamp[0] + "-queries");
-				reply.networkReply()->abort();
-			}
-		}
-		catch (exception& e) {
-			std::string error(e.what());
-			/*if (error == "QNetworkReply::OperationCanceledError" && retryCount < 3) {
-				result = makePostRequest(url, queryMap, body, results);
-				if (result) {
-					reply.networkReply()->close();
-					return;
-				}
-			}*/
-			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
-			result = 0;
-
-		}
-		//reply.networkReply()->finished();
-		//QTimer::singleShot(1, reply.networkReply(), &QNetworkReply::finished);
-		});
-
-	//netManager->finished(reply);
-	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-	loop.exec();
-	reply->deleteLater();
-	//reply->deleteLater();
-	retryCount = 0;
-	//QThread::sleep(1);
-	return result;
-}
-
-int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
-{
-	int result = 0;
-	QEventLoop loop(this);
-
-	// Generate auth header for request.
-	LOG << url;
-	// Create network request object.
-	QNetworkRequest request;
-	request.setUrl(QUrl(url));
-	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-	request.setRawHeader("Content-Type", "application/json");
-
-	//data.fromVariantMap();
-
-	/*QJsonObject body;
-	body["data"] = body["data"];*/
-	/*data["values"] = */
-	//data["sql"] = query["query"];
-
-	QJsonDocument doc(body);
-	std::string log = "";
-	log.append("Making Patch request to: " + url.toStdString());
-	if (!queryMap.isEmpty())
-		log.append("\nRunning query number : " + queryMap["number"].toStdString());
-	if (!doc.isEmpty())
-		log.append("\nquery : " + doc.toJson().toStdString());
-
-	ServiceHelper().WriteToCustomLog(log,
-		timeStamp[0] + "-queries");
-
-	QNetworkReply* reply = restManager->patch(request, doc, this, [&result, &results, this](QRestReply& reply) {
-		LOG << "networkrequested";
-		try {
-			qDebug() << reply.error();
-			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-				throw HenchmanServiceException(reply.errorString().toStdString());
-			}
-			if (reply.error() != QNetworkReply::NoError) {
-				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-			}
-
-			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-			ServiceHelper().WriteToLog((string)"Parsing Response");
-
-			optional json = reply.readJson();
-
-			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-
-			//string parsedVal;
-			//if (json->isArray()) {
-			//	parsedVal = parseData(json->array());
-			//}
-			//else if (json->isObject()) {
-			//	QJsonObject retVal = json->object();
-			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-			//		result = 1;*/
-			//	parsedVal = parseData(json->object());
-			//}
-			if (!json || !json.has_value()) {
-				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-				return;
-			}
-			indentCount = 0;
-
-			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-			if (results)
-				json.value().swap(*results);
-
-			if (!result)
-				//result = reply.isSuccess();
-				result = reply.isSuccess();
-
-			if (reply.isSuccess())
-			{
-				ServiceHelper().WriteToCustomLog("network request success",
-					timeStamp[0] + "-queries");
-			}
-			else {
-				ServiceHelper().WriteToCustomLog("network request failed",
-					timeStamp[0] + "-queries");
-			}
-		}
-		catch (exception& e) {
-			std::string error(e.what());
-			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
-			result = 0;
-
-		}
-		//reply.networkReply()->finished();
-
-		});
-
-	qDebug() << "Reply patch is finished? " << reply->isFinished();
-
-	//netManager->finished(reply);
-	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-	loop.exec();
-	qDebug() << "Reply patch is finished? " << reply->isFinished();
-	reply->deleteLater();
-	//QThread::sleep(1);
-	retryCount = 0;
-
-	return result;
-}
-
-int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
-{
-	int result = 0;
-	QEventLoop loop(this);
-
-	// Generate auth header for request.
-	LOG << url;
-	// Create network request object.
-	QUrl targetUrl(url);
-	QNetworkRequest request;
-	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-	request.setRawHeader("Content-Type", "application/json");
-
-	//data.fromVariantMap();
-
-	/*QJsonObject body;
-	body["data"] = body["data"];*/
-	/*data["values"] = */
-	//data["sql"] = query["query"];
-
-	QJsonDocument doc(body);
-	QUrlQuery query;
-	query.addQueryItem("target", doc.toJson().toBase64());
-
-	targetUrl.setQuery(query);
-
-	request.setUrl(targetUrl);
-
-	std::string log = "";
-	log.append("Making DELETE request to: " + url.toStdString());
-	if (!queryMap.isEmpty())
-		log.append("\nRunning query number : " + queryMap["number"].toStdString());
-	if (!doc.isEmpty())
-		log.append("\nquery : " + doc.toJson().toStdString());
-
-	ServiceHelper().WriteToCustomLog(log,
-		timeStamp[0] + "-queries");
-
-
-	QNetworkReply* reply = restManager->deleteResource(request, this, [&result, &results, this](QRestReply& reply) {
-		LOG << "networkrequested";
-		try {
-			qDebug() << reply.error();
-			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-				throw HenchmanServiceException(reply.errorString().toStdString());
-			}
-			if (reply.error() != QNetworkReply::NoError) {
-				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-			}
-
-			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-			ServiceHelper().WriteToLog((string)"Parsing Response");
-
-			optional json = reply.readJson();
-
-			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-
-			//string parsedVal;
-			//if (json->isArray()) {
-			//	parsedVal = parseData(json->array());
-			//}
-			//else if (json->isObject()) {
-			//	QJsonObject retVal = json->object();
-			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-			//		result = 1;*/
-			//	parsedVal = parseData(json->object());
-			//}
-			if (!json || !json.has_value()) {
-				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-				return;
-			}
-			indentCount = 0;
-
-			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-			if (results)
-				json.value().swap(*results);
-
-			if (!result)
-				//result = reply.isSuccess();
-				result = reply.isSuccess();
-
-			if (reply.isSuccess())
-			{
-				ServiceHelper().WriteToCustomLog("network request success",
-					timeStamp[0] + "-queries");
-			}
-			else {
-				ServiceHelper().WriteToCustomLog("network request failed",
-					timeStamp[0] + "-queries");
-			}
-		}
-		catch (exception& e) {
-			std::string error(e.what());
-			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
-			result = 0;
-
-		}
-		//reply.networkReply()->finished();
-
-		});
-
-	qDebug() << "Reply patch is finished? " << reply->isFinished();
-
-	//netManager->finished(reply);
-	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-	loop.exec();
-
-	qDebug() << "Reply patch is finished? " << reply->isFinished();
-	reply->deleteLater();
-	retryCount = 0;
-	//QThread::sleep(1);
-	return result;
-}
-
-int DatabaseManager::makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument *results)
-{
-	int result = 0;
-	QEventLoop loop(this);
-
-	// Generate auth header for request.
-	//QString concatenated = apiUsername+":"+apiPassword;
-	//QByteArray credentials = concatenated.toLocal8Bit().toBase64();
-	//QString headerData = "Basic " + credentials;
-	LOG << url;
-	// Create network request object.
-	QNetworkRequest request;
-	request.setUrl(QUrl(url));
-	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-	request.setRawHeader("Content-Type", "application/json");
-	
-	//QJsonObject data;
-	
-	//data.fromVariantMap();
-
-	QJsonObject body;
-	body["data"] = query["data"];
-	/*data["values"] = */
-	//data["sql"] = query["query"];
-	QJsonDocument doc(body);
-
-	std::string log = "";
-	log.append("Making Customer Network Post request to: " + url.toStdString());
-	if (!query.isEmpty())
-		log.append("\nRunning query number : " + query["number"].toStdString());
-	if (!doc.isEmpty())
-		log.append("\nquery : " + doc.toJson().toStdString());
-
-	ServiceHelper().WriteToCustomLog(log,
-		timeStamp[0] + "-queries");
-
-	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
-		LOG << "networkrequested";
-		try {
-			qDebug() << reply.networkReply()->request().headers().toMultiMap();
-			qDebug() << reply.networkReply()->headers().toListOfPairs();
-			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-				throw HenchmanServiceException(reply.errorString().toStdString());
-			}
-			if (reply.error() != QNetworkReply::NoError) {
-				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-			}
-			int status = reply.httpStatus();
-			LOG << status;
-			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-
-			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-
-			ServiceHelper().WriteToLog((string)"Parsing Response");
-			
-			optional json = reply.readJson();
-
-			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-
-			//string parsedVal;
-			//if (json->isArray()) {
-			//	parsedVal = parseData(json->array());
-			//}
-			//else if (json->isObject()) {
-			//	QJsonObject retVal = json->object();
-			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-			//		result = 1;*/
-			//	parsedVal = parseData(json->object());
-			//}
-			if (!json || !json.has_value()) {
-				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-				return;
-			}
-			indentCount = 0;
-
-			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-			if (results)
-				json.value().swap(*results);
-
-			if (!result)
-				//result = reply.isSuccess();
-				result = reply.isSuccess();
-
-			if (reply.isSuccess())
-			{
-				ServiceHelper().WriteToCustomLog("network request success",
-					timeStamp[0] + "-queries");
-			}
-			else {
-				ServiceHelper().WriteToCustomLog("network request failed",
-					timeStamp[0] + "-queries");
-			}
-		}
-		catch (exception& e) {
-			std::string error(e.what());
-			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
-
-			result = 0;
-
-		}
-		//reply.networkReply()->finished();
-		
-		});
-
-	//connect(reply, &QNetworkReply::finished, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
-	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-	//connect(&loop, &QEventLoop::quit, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
-	loop.exec();
-	qDebug() << "Reply post is finished? " << reply->isFinished();
-	reply->deleteLater();
-	retryCount = 0;
-	//QThread::sleep(1);
-	return result;
-}
+//bool DatabaseManager::isInternetConnected()
+//{
+//	sock->connectToHost("www.google.com", 80);
+//	bool connected = sock->waitForConnected(30000);//ms
+//	sock->disconnectFromHost();
+//	/*if (!connected)
+//	{
+//		sock->abort();
+//	}
+//	else {
+//		sock->close();
+//	}*/
+//	//sock->deleteLater();
+//	//sock = nullptr;
+//	return connected;
+//}
+
+//int indentCount = 0;
+//std::string DatabaseManager::parseData(QJsonArray array)
+//{
+//	stringstream dataRes;
+//	if (array.count() <= 0) {
+//		return "";
+//	}
+//	for (const auto& result : array) {
+//		QString res = "";
+//		if (result.isString())
+//		{
+//			res += result.toString();
+//		}
+//		if (result.isObject())
+//		{	
+//			res += QString::fromStdString(parseData(result.toObject()));
+//		}
+//		if (result.isArray())
+//		{
+//			res += QString::fromStdString(parseData(result.toArray()));
+//		}
+//		dataRes << "[ " << res.toStdString() << "]" << endl;
+//		continue;
+//	}
+//
+//	return dataRes.str();
+//}
+//
+//std::string DatabaseManager::parseData(QJsonObject object)
+//{
+//	
+//	stringstream dataRes;
+//	if (object.keys().count() <= 0) {
+//		return "";
+//	}
+//	for (auto& key : object.keys()) {
+//		QString res = "";
+//		QJsonValue value = object.value(key);
+//		/*if(indentCount)
+//			res.append("\n");*/
+//		for (int i = 0; i < indentCount; ++i) {
+//			res.append("\t");
+//			//res += "\t";
+//		}
+//		res.append(" - " + key + ": ");
+//		if (value.isString())
+//		{
+//			res += value.toString();
+//		}
+//		else if (value.isDouble()) {
+//			res += QString::number(value.toDouble());
+//		}
+//		else if (value.isObject())
+//		{
+//			//res = "\n";
+//			//res.push_front("\n");
+//			indentCount++;
+//			res += "{";
+//			res.append(parseData(value.toObject()));
+//			indentCount--;
+//			res += "}";
+//		} 
+//		else if (value.isArray())
+//		{
+//			indentCount++;
+//			res += "\n\t";
+//			res.append(parseData(value.toArray()));
+//			indentCount--;
+//		}
+//		else {
+//			res += value.toString();
+//		}
+//		
+//		dataRes << res.toStdString() << "" << endl;
+//
+//		continue;
+//	}
+//	return dataRes.str();
+//}
+//
+//int retryCount = 0;
+//
+//int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryMap, QJsonDocument* results)
+//{
+//	int result = 0;
+//	QEventLoop loop(this);
+//
+//	// Generate auth header for request.
+//	LOG << url;
+//	// Create network request object.
+//	QNetworkRequest request;
+//	request.setUrl(QUrl(url));
+//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
+//	request.setRawHeader("Content-Type", "application/json");
+//
+//
+//	ServiceHelper().WriteToCustomLog(
+//		"Making query to: " + url.toStdString(),
+//		timeStamp[0] + "-queries");
+//
+//
+//	QNetworkReply* reply = restManager->get(request, this, [&result, &results, this](QRestReply& reply) {
+//		LOG << "networkrequested";
+//		try {
+//			qDebug() << reply.error();
+//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
+//				throw HenchmanServiceException(reply.errorString().toStdString());
+//			}
+//			if (reply.error() != QNetworkReply::NoError) {
+//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+//			}
+//
+//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
+//			ServiceHelper().WriteToLog((string)"Parsing Response");
+//
+//			optional json = reply.readJson();
+//
+//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
+//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
+//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
+//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
+//
+//			//string parsedVal;
+//			//if (json->isArray()) {
+//			//	parsedVal = parseData(json->array());
+//			//}
+//			//else if (json->isObject()) {
+//			//	QJsonObject retVal = json->object();
+//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
+//			//		result = 1;*/
+//			//	parsedVal = parseData(json->object());
+//			//}
+//			if (!json || !json.has_value()) {
+//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
+//				return;
+//			}
+//			indentCount = 0;
+//
+//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
+//			if (results)
+//				json.value().swap(*results);
+//
+//			if (!result)
+//				//result = reply.isSuccess();
+//				result = reply.isSuccess();
+//
+//			if (reply.isSuccess())
+//			{
+//				ServiceHelper().WriteToCustomLog("network request success",
+//					timeStamp[0] + "-queries");
+//			}
+//			else {
+//				ServiceHelper().WriteToCustomLog("network request failed",
+//					timeStamp[0] + "-queries");
+//			}
+//		}
+//		catch (exception& e) {
+//			std::string error(e.what());
+//			ServiceHelper().WriteToError(error);
+//			reply.networkReply()->abort();
+//			result = 0;
+//
+//		}
+//		//reply.networkReply()->finished();
+//
+//		});
+//
+//	qDebug() << "Reply Get is finished? " << reply->isFinished();
+//
+//	//netManager->finished(reply);
+//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+//	loop.exec();
+//	qDebug() << "Reply Get is finished? " << reply->isFinished();
+//	reply->deleteLater();
+//	retryCount = 0;
+//	//QThread::sleep(1);
+//	return result;
+//}
+//
+//int DatabaseManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
+//{		
+//	int result = 0;
+//	QEventLoop loop(this);
+//
+//	// Generate auth header for request.
+//	LOG << url;
+//	// Create network request object.
+//	QNetworkRequest request;
+//	request.setUrl(QUrl(url));
+//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
+//	request.setRawHeader("Content-Type", "application/json");
+//
+//	//data.fromVariantMap();
+//
+//	/*QJsonObject body;
+//	body["data"] = body["data"];*/
+//	/*data["values"] = */
+//	//data["sql"] = query["query"];
+//	
+//	QJsonDocument doc(body);
+//	std::string log = "";
+//	log.append("Making Post request to: " + url.toStdString());
+//	if (!queryMap.isEmpty())
+//		log.append("\nRunning query number : " + queryMap["number"].toStdString());
+//	if (!doc.isEmpty())
+//		log.append("\nquery : " + doc.toJson().toStdString());
+//	
+//	ServiceHelper().WriteToCustomLog(log,
+//		timeStamp[0] + "-queries");
+//
+//	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
+//		LOG << "networkrequested";
+//		try {
+//			qDebug() << reply.error();
+//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
+//				throw HenchmanServiceException(reply.errorString().toStdString());
+//			}
+//			if (reply.error() != QNetworkReply::NoError) {
+//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+//			}
+//			
+//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
+//			ServiceHelper().WriteToLog((string)"Parsing Response");
+//
+//			optional json = reply.readJson();
+//
+//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
+//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
+//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
+//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
+//			
+//			//string parsedVal;
+//			//if (json->isArray()) {
+//			//	parsedVal = parseData(json->array());
+//			//}
+//			//else if (json->isObject()) {
+//			//	QJsonObject retVal = json->object();
+//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
+//			//		result = 1;*/
+//			//	parsedVal = parseData(json->object());
+//			//}
+//			if (!json || !json.has_value()) {
+//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
+//				return;
+//			}
+//			indentCount = 0;
+//
+//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
+//			if (results)
+//				json.value().swap(*results);
+//
+//			if (!result)
+//				//result = reply.isSuccess();
+//				result = reply.isSuccess();
+//
+//			if (reply.isSuccess())
+//			{
+//				ServiceHelper().WriteToCustomLog("network request success",
+//					timeStamp[0] + "-queries");
+//				reply.networkReply()->close();
+//			}
+//			else {
+//				ServiceHelper().WriteToCustomLog("network request failed",
+//					timeStamp[0] + "-queries");
+//				reply.networkReply()->abort();
+//			}
+//		}
+//		catch (exception& e) {
+//			std::string error(e.what());
+//			/*if (error == "QNetworkReply::OperationCanceledError" && retryCount < 3) {
+//				result = makePostRequest(url, queryMap, body, results);
+//				if (result) {
+//					reply.networkReply()->close();
+//					return;
+//				}
+//			}*/
+//			ServiceHelper().WriteToError(error);
+//			reply.networkReply()->abort();
+//			result = 0;
+//
+//		}
+//		//reply.networkReply()->finished();
+//		//QTimer::singleShot(1, reply.networkReply(), &QNetworkReply::finished);
+//		});
+//
+//	//netManager->finished(reply);
+//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+//	loop.exec();
+//	reply->deleteLater();
+//	//reply->deleteLater();
+//	retryCount = 0;
+//	//QThread::sleep(1);
+//	return result;
+//}
+//
+//int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
+//{
+//	int result = 0;
+//	QEventLoop loop(this);
+//
+//	// Generate auth header for request.
+//	LOG << url;
+//	// Create network request object.
+//	QNetworkRequest request;
+//	request.setUrl(QUrl(url));
+//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
+//	request.setRawHeader("Content-Type", "application/json");
+//
+//	//data.fromVariantMap();
+//
+//	/*QJsonObject body;
+//	body["data"] = body["data"];*/
+//	/*data["values"] = */
+//	//data["sql"] = query["query"];
+//
+//	QJsonDocument doc(body);
+//	std::string log = "";
+//	log.append("Making Patch request to: " + url.toStdString());
+//	if (!queryMap.isEmpty())
+//		log.append("\nRunning query number : " + queryMap["number"].toStdString());
+//	if (!doc.isEmpty())
+//		log.append("\nquery : " + doc.toJson().toStdString());
+//
+//	ServiceHelper().WriteToCustomLog(log,
+//		timeStamp[0] + "-queries");
+//
+//	QNetworkReply* reply = restManager->patch(request, doc, this, [&result, &results, this](QRestReply& reply) {
+//		LOG << "networkrequested";
+//		try {
+//			qDebug() << reply.error();
+//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
+//				throw HenchmanServiceException(reply.errorString().toStdString());
+//			}
+//			if (reply.error() != QNetworkReply::NoError) {
+//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+//			}
+//
+//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
+//			ServiceHelper().WriteToLog((string)"Parsing Response");
+//
+//			optional json = reply.readJson();
+//
+//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
+//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
+//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
+//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
+//
+//			//string parsedVal;
+//			//if (json->isArray()) {
+//			//	parsedVal = parseData(json->array());
+//			//}
+//			//else if (json->isObject()) {
+//			//	QJsonObject retVal = json->object();
+//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
+//			//		result = 1;*/
+//			//	parsedVal = parseData(json->object());
+//			//}
+//			if (!json || !json.has_value()) {
+//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
+//				return;
+//			}
+//			indentCount = 0;
+//
+//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
+//			if (results)
+//				json.value().swap(*results);
+//
+//			if (!result)
+//				//result = reply.isSuccess();
+//				result = reply.isSuccess();
+//
+//			if (reply.isSuccess())
+//			{
+//				ServiceHelper().WriteToCustomLog("network request success",
+//					timeStamp[0] + "-queries");
+//			}
+//			else {
+//				ServiceHelper().WriteToCustomLog("network request failed",
+//					timeStamp[0] + "-queries");
+//			}
+//		}
+//		catch (exception& e) {
+//			std::string error(e.what());
+//			ServiceHelper().WriteToError(error);
+//			reply.networkReply()->abort();
+//			result = 0;
+//
+//		}
+//		//reply.networkReply()->finished();
+//
+//		});
+//
+//	qDebug() << "Reply patch is finished? " << reply->isFinished();
+//
+//	//netManager->finished(reply);
+//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+//	loop.exec();
+//	qDebug() << "Reply patch is finished? " << reply->isFinished();
+//	reply->deleteLater();
+//	//QThread::sleep(1);
+//	retryCount = 0;
+//
+//	return result;
+//}
+//
+//int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
+//{
+//	int result = 0;
+//	QEventLoop loop(this);
+//
+//	// Generate auth header for request.
+//	LOG << url;
+//	// Create network request object.
+//	QUrl targetUrl(url);
+//	QNetworkRequest request;
+//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
+//	request.setRawHeader("Content-Type", "application/json");
+//
+//	//data.fromVariantMap();
+//
+//	/*QJsonObject body;
+//	body["data"] = body["data"];*/
+//	/*data["values"] = */
+//	//data["sql"] = query["query"];
+//
+//	QJsonDocument doc(body);
+//	QUrlQuery query;
+//	query.addQueryItem("target", doc.toJson().toBase64());
+//
+//	targetUrl.setQuery(query);
+//
+//	request.setUrl(targetUrl);
+//
+//	std::string log = "";
+//	log.append("Making DELETE request to: " + url.toStdString());
+//	if (!queryMap.isEmpty())
+//		log.append("\nRunning query number : " + queryMap["number"].toStdString());
+//	if (!doc.isEmpty())
+//		log.append("\nquery : " + doc.toJson().toStdString());
+//
+//	ServiceHelper().WriteToCustomLog(log,
+//		timeStamp[0] + "-queries");
+//
+//
+//	QNetworkReply* reply = restManager->deleteResource(request, this, [&result, &results, this](QRestReply& reply) {
+//		LOG << "networkrequested";
+//		try {
+//			qDebug() << reply.error();
+//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
+//				throw HenchmanServiceException(reply.errorString().toStdString());
+//			}
+//			if (reply.error() != QNetworkReply::NoError) {
+//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+//			}
+//
+//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
+//			ServiceHelper().WriteToLog((string)"Parsing Response");
+//
+//			optional json = reply.readJson();
+//
+//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
+//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
+//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
+//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
+//
+//			//string parsedVal;
+//			//if (json->isArray()) {
+//			//	parsedVal = parseData(json->array());
+//			//}
+//			//else if (json->isObject()) {
+//			//	QJsonObject retVal = json->object();
+//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
+//			//		result = 1;*/
+//			//	parsedVal = parseData(json->object());
+//			//}
+//			if (!json || !json.has_value()) {
+//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
+//				return;
+//			}
+//			indentCount = 0;
+//
+//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
+//			if (results)
+//				json.value().swap(*results);
+//
+//			if (!result)
+//				//result = reply.isSuccess();
+//				result = reply.isSuccess();
+//
+//			if (reply.isSuccess())
+//			{
+//				ServiceHelper().WriteToCustomLog("network request success",
+//					timeStamp[0] + "-queries");
+//			}
+//			else {
+//				ServiceHelper().WriteToCustomLog("network request failed",
+//					timeStamp[0] + "-queries");
+//			}
+//		}
+//		catch (exception& e) {
+//			std::string error(e.what());
+//			ServiceHelper().WriteToError(error);
+//			reply.networkReply()->abort();
+//			result = 0;
+//
+//		}
+//		//reply.networkReply()->finished();
+//
+//		});
+//
+//	qDebug() << "Reply patch is finished? " << reply->isFinished();
+//
+//	//netManager->finished(reply);
+//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+//	loop.exec();
+//
+//	qDebug() << "Reply patch is finished? " << reply->isFinished();
+//	reply->deleteLater();
+//	retryCount = 0;
+//	//QThread::sleep(1);
+//	return result;
+//}
+//
+//int DatabaseManager::makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument *results)
+//{
+//	int result = 0;
+//	QEventLoop loop(this);
+//
+//	// Generate auth header for request.
+//	//QString concatenated = apiUsername+":"+apiPassword;
+//	//QByteArray credentials = concatenated.toLocal8Bit().toBase64();
+//	//QString headerData = "Basic " + credentials;
+//	LOG << url;
+//	// Create network request object.
+//	QNetworkRequest request;
+//	request.setUrl(QUrl(url));
+//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
+//	request.setRawHeader("Content-Type", "application/json");
+//	
+//	//QJsonObject data;
+//	
+//	//data.fromVariantMap();
+//
+//	QJsonObject body;
+//	body["data"] = query["data"];
+//	/*data["values"] = */
+//	//data["sql"] = query["query"];
+//	QJsonDocument doc(body);
+//
+//	std::string log = "";
+//	log.append("Making Customer Network Post request to: " + url.toStdString());
+//	if (!query.isEmpty())
+//		log.append("\nRunning query number : " + query["number"].toStdString());
+//	if (!doc.isEmpty())
+//		log.append("\nquery : " + doc.toJson().toStdString());
+//
+//	ServiceHelper().WriteToCustomLog(log,
+//		timeStamp[0] + "-queries");
+//
+//	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
+//		LOG << "networkrequested";
+//		try {
+//			qDebug() << reply.networkReply()->request().headers().toMultiMap();
+//			qDebug() << reply.networkReply()->headers().toListOfPairs();
+//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
+//				throw HenchmanServiceException(reply.errorString().toStdString());
+//			}
+//			if (reply.error() != QNetworkReply::NoError) {
+//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+//			}
+//			int status = reply.httpStatus();
+//			LOG << status;
+//			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+//
+//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
+//
+//			ServiceHelper().WriteToLog((string)"Parsing Response");
+//			
+//			optional json = reply.readJson();
+//
+//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
+//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
+//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
+//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
+//
+//			//string parsedVal;
+//			//if (json->isArray()) {
+//			//	parsedVal = parseData(json->array());
+//			//}
+//			//else if (json->isObject()) {
+//			//	QJsonObject retVal = json->object();
+//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
+//			//		result = 1;*/
+//			//	parsedVal = parseData(json->object());
+//			//}
+//			if (!json || !json.has_value()) {
+//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
+//				return;
+//			}
+//			indentCount = 0;
+//
+//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
+//			if (results)
+//				json.value().swap(*results);
+//
+//			if (!result)
+//				//result = reply.isSuccess();
+//				result = reply.isSuccess();
+//
+//			if (reply.isSuccess())
+//			{
+//				ServiceHelper().WriteToCustomLog("network request success",
+//					timeStamp[0] + "-queries");
+//			}
+//			else {
+//				ServiceHelper().WriteToCustomLog("network request failed",
+//					timeStamp[0] + "-queries");
+//			}
+//		}
+//		catch (exception& e) {
+//			std::string error(e.what());
+//			ServiceHelper().WriteToError(error);
+//			reply.networkReply()->abort();
+//
+//			result = 0;
+//
+//		}
+//		//reply.networkReply()->finished();
+//		
+//		});
+//
+//	//connect(reply, &QNetworkReply::finished, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
+//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+//	//connect(&loop, &QEventLoop::quit, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
+//	loop.exec();
+//	qDebug() << "Reply post is finished? " << reply->isFinished();
+//	reply->deleteLater();
+//	retryCount = 0;
+//	//QThread::sleep(1);
+//	return result;
+//}
 
 // Misc Syncs
 int DatabaseManager::addToolsIfNotExists()
@@ -946,12 +934,26 @@ int DatabaseManager::addToolsIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
-
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 	
+	connect(&networkManager, &NetworkManager::requestFinished, this, [this, &targetKey, &rtManager](const QJsonDocument& result) {
+		qDebug() << result;
+		if (!result.isObject()) {
+			LOG << "Reply was not an Object";
+			databaseTablesChecked[targetKey]++;
+			return;
+		}
+		LOG << result.toJson().toStdString();
+		QJsonObject resultObject = result.object();
+		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+			LOG << resultObject["status"].toDouble();
+			databaseTablesChecked[targetKey]++;
+		}
+
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	});
+
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -993,7 +995,8 @@ int DatabaseManager::addToolsIfNotExists()
 		
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/tools", result, body, &reply)) {
+		networkManager.makePostRequest(apiUrl + "/tools", result, body, &reply);
+		/*if (networkManager.makePostRequest(apiUrl + "/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -1009,7 +1012,7 @@ int DatabaseManager::addToolsIfNotExists()
 			LOG << "No rows were altered on db";
 			databaseTablesChecked[targetKey]++;
 		}
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
 
 		//if (makeNetworkRequest(apiUrl+"/tools", result, &reply)) {
 		//	if (!reply.isObject())
@@ -1029,10 +1032,11 @@ int DatabaseManager::addToolsIfNotExists()
 		//}
 
 	}
-
+	networkManager.execRequests();
+	qDebug() << "Setting" << targetKey + "Checked to" << databaseTablesChecked[targetKey];
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 	//performCleanup();
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -1045,10 +1049,10 @@ int DatabaseManager::addToolsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -1116,11 +1120,11 @@ int DatabaseManager::addUsersIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1178,7 +1182,7 @@ int DatabaseManager::addUsersIfNotExists()
 
 		QJsonDocument reply;
 		
-		if (makePostRequest(apiUrl + "/users", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/users", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -1216,7 +1220,7 @@ int DatabaseManager::addUsersIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -1229,10 +1233,10 @@ int DatabaseManager::addUsersIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -1299,11 +1303,11 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1340,7 +1344,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/employees", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/employees", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -1380,7 +1384,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
@@ -1392,10 +1396,10 @@ int DatabaseManager::addEmployeesIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -1464,11 +1468,11 @@ int DatabaseManager::addJobsIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1504,7 +1508,7 @@ int DatabaseManager::addJobsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/jobs", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/jobs", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -1545,7 +1549,7 @@ int DatabaseManager::addJobsIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey] || colsCheck.size() <= 1 || !colsCheck[0].value("success").toInt())
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
@@ -1557,10 +1561,10 @@ int DatabaseManager::addJobsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% jobs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -1692,11 +1696,11 @@ int DatabaseManager::addKabsIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
@@ -1742,7 +1746,7 @@ int DatabaseManager::addKabsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/kabtrak", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -1765,7 +1769,7 @@ int DatabaseManager::addKabsIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -1778,10 +1782,10 @@ int DatabaseManager::addKabsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -1848,11 +1852,11 @@ int DatabaseManager::addDrawersIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -1888,7 +1892,7 @@ int DatabaseManager::addDrawersIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/kabtrak/drawers", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/kabtrak/drawers", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -1914,7 +1918,7 @@ int DatabaseManager::addDrawersIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -1927,10 +1931,10 @@ int DatabaseManager::addDrawersIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawers%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -2006,11 +2010,11 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -2052,7 +2056,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 			qDebug() << "forced breakout";
 		}
 
-		if (makePostRequest(apiUrl + "/kabtrak/tools", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/kabtrak/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -2075,7 +2079,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey]) {
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
@@ -2087,10 +2091,10 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -2284,11 +2288,11 @@ int DatabaseManager::addCribsIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 	
@@ -2334,7 +2338,7 @@ int DatabaseManager::addCribsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/cribtrak", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/cribtrak", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -2357,7 +2361,7 @@ int DatabaseManager::addCribsIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -2370,10 +2374,10 @@ int DatabaseManager::addCribsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% cribs%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -2459,11 +2463,11 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -2501,7 +2505,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/cribtrak/tools/locations", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/cribtrak/tools/locations", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -2524,7 +2528,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -2537,10 +2541,10 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% " + cribtoollocationTable.toStdString() + "%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -2619,11 +2623,11 @@ int DatabaseManager::addCribToolsIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -2698,7 +2702,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 			LOG << "breakpoint";
 		}
 
-		if (makePostRequest(apiUrl + "/cribtrak/tools", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/cribtrak/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -2721,7 +2725,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -2734,10 +2738,10 @@ int DatabaseManager::addCribToolsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribtools %' OR SQLString LIKE '% cribtools%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -2814,11 +2818,11 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -2859,7 +2863,8 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 
 		LOG << QJsonDocument(body).toJson();
 
-		if (makePostRequest(apiUrl + "/cribtrak/tools/transfer", result, body, &reply)) {
+
+		if (networkManager.makePostRequest(apiUrl + "/cribtrak/tools/transfer", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -2882,7 +2887,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey]) {
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
@@ -2894,10 +2899,10 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% tooltransfer%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -2975,11 +2980,11 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId")) {
@@ -3034,7 +3039,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 			LOG << "";
 		}*/
 
-		if (makePostRequest(apiUrl + "/cribtrak/consumables", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/cribtrak/consumables", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -3057,7 +3062,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -3070,10 +3075,10 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% cribconsumables %' OR SQLString LIKE '% cribconsumables%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -3150,11 +3155,11 @@ int DatabaseManager::addCribKitsIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -3204,7 +3209,7 @@ int DatabaseManager::addCribKitsIfNotExists()
 
 		LOG << QJsonDocument(body).toJson();
 
-		if (makePostRequest(apiUrl + "/cribtrak/kits", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/cribtrak/kits", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -3227,7 +3232,7 @@ int DatabaseManager::addCribKitsIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -3240,10 +3245,10 @@ int DatabaseManager::addCribKitsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE (SQLString  LIKE '% kittools %' OR SQLString LIKE '% kittools%') AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -3443,11 +3448,11 @@ int DatabaseManager::addPortasIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
@@ -3495,7 +3500,7 @@ int DatabaseManager::addPortasIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/portatrak", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/portatrak", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -3518,7 +3523,7 @@ int DatabaseManager::addPortasIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -3531,10 +3536,10 @@ int DatabaseManager::addPortasIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemscale%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -3611,11 +3616,11 @@ int DatabaseManager::addItemKitsIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success" || !result.contains("custId"))
@@ -3665,7 +3670,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/portatrak/kit", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/portatrak/kit", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -3688,7 +3693,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -3701,10 +3706,10 @@ int DatabaseManager::addItemKitsIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkits%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -3790,11 +3795,11 @@ int DatabaseManager::addKitCategoryIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -3836,7 +3841,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/portatrak/kit/category", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/portatrak/kit/category", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -3859,7 +3864,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -3872,10 +3877,10 @@ int DatabaseManager::addKitCategoryIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitcategory%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -3961,11 +3966,11 @@ int DatabaseManager::addKitLocationIfNotExists()
 
 	columns.clear();
 
-	if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);
+	/*if (restManager == nullptr)
+		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (isInternetConnected())
-		authenticateSession();
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -4006,7 +4011,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 
 		QJsonDocument reply;
 
-		if (makePostRequest(apiUrl + "/portatrak/kit/location", result, body, &reply)) {
+		if (networkManager.makePostRequest(apiUrl + "/portatrak/kit/location", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -4029,7 +4034,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	netManager->finished(NULL);
+	//netManager->finished(NULL);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
@@ -4042,10 +4047,10 @@ int DatabaseManager::addKitLocationIfNotExists()
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% kitlocation%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
 
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
-	}
+	}*/
 
 	return 1;
 }
@@ -4124,7 +4129,7 @@ int DatabaseManager::connectToRemoteDB()
 
 	try {
 
-		if (!isInternetConnected() || !authenticateSession())
+		if (!networkManager.isInternetConnected() || !networkManager.authenticateSession())
 			throw HenchmanServiceException("Failed to establish connection to remote server");
 
 		RegistryManager::CRegistryManager rtManagerAddDB(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\"+ targetApp + "\\Database").c_str());
@@ -4170,8 +4175,8 @@ int DatabaseManager::connectToRemoteDB()
 			{
 				ServiceHelper().WriteToCustomLog("Starting network requests to: " + apiUrl.toStdString(), timeStamp[0] + "-queries");
 
-				if (restManager == nullptr)
-					restManager = new QRestAccessManager(netManager, this->parent());
+				/*if (restManager == nullptr)
+					restManager = new QRestAccessManager(netManager, this->parent());*/
 			}
 
 
@@ -4179,7 +4184,7 @@ int DatabaseManager::connectToRemoteDB()
 
 			while (query.next())
 			{
-				if (!isInternetConnected() || !authenticateSession())
+				if (!networkManager.isInternetConnected() || !networkManager.authenticateSession())
 					throw HenchmanServiceException("Internet connection dropped, retrying when connection returns");
 
 				count++;
@@ -4350,7 +4355,7 @@ int DatabaseManager::connectToRemoteDB()
 
 				switch (query_types[queryType]) {
 				case INSERT: {
-					if (!makePostRequest(apiUrl + "/" + targetTable, res, body, &reply))
+					if (!networkManager.makePostRequest(apiUrl + "/" + targetTable, res, body, &reply))
 					{
 						LOG << "reply: " << reply.isEmpty();
 						if (reply.isEmpty() || !reply.isObject())
@@ -4378,7 +4383,7 @@ int DatabaseManager::connectToRemoteDB()
 					break;
 				}
 				case UPDATE: {
-					if (!makePatchRequest(apiUrl + "/" + targetTable, res, body, &reply))
+					if (!networkManager.makePatchRequest(apiUrl + "/" + targetTable, res, body, &reply))
 					{
 						LOG << "reply: " << reply.isEmpty();
 						if (reply.isEmpty() || !reply.isObject())
@@ -4407,7 +4412,7 @@ int DatabaseManager::connectToRemoteDB()
 					break;
 				}
 				case REMOVE: {
-					if (!makeDeleteRequest(apiUrl + "/" + targetTable, res, body, &reply))
+					if (!networkManager.makeDeleteRequest(apiUrl + "/" + targetTable, res, body, &reply))
 					{
 						LOG << "reply: " << reply.isEmpty();
 						if (reply.isEmpty() || !reply.isObject())
@@ -4434,7 +4439,7 @@ int DatabaseManager::connectToRemoteDB()
 					break;
 				}
 				default: {
-					if (!makeNetworkRequest(apiUrl, res, &reply))
+					if (!networkManager.makeNetworkRequest(apiUrl, res, &reply))
 					{
 						LOG << "request failed";
 						LOG << "reply: " << reply.isEmpty();
@@ -7231,7 +7236,7 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 
 void DatabaseManager::performCleanup()
 {
-	if (restManager) {
+	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
 	}
@@ -7243,5 +7248,5 @@ void DatabaseManager::performCleanup()
 		sock->close();
 		sock->deleteLater();
 		sock = nullptr;
-	}
+	}*/
 }

@@ -8,6 +8,7 @@ message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
 
 target_link_libraries(
 	DatabaseManager PRIVATE
+	NetworkManager
 	SQLiteManager2
 	HenchmanServiceException
 	EventManager

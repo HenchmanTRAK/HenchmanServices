@@ -13,6 +13,7 @@
 #include <iostream>
 #include <sstream>
 #include <filesystem>
+#include <QtDebug>
 
 //#include <netlistmgr.h>
 
@@ -57,6 +58,13 @@
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Wtsapi32.lib")
 
+#ifdef _DEBUG
+	#define DEBUG 1
+#endif // _DEBUG
+
+#ifndef DEBUG
+	#define QT_NO_DEBUG_OUTPUT
+#endif
 
 // TODO: Reference additional headers your program requires here.
 #define SERVICE_NAME			"HenchmanService"

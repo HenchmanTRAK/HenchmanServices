@@ -36,6 +36,7 @@
 #include <QObject>
 #include <QString>
 #include <QLibraryInfo>
+#include <QtDebug>
 //#include <QByteArray>
 //#include <QString>
 //#include <QTimer>

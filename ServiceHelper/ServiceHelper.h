@@ -21,7 +21,9 @@
 
 #include <QString>
 #include <QList>
-#include <QDebug>
+#include <QFile>
+#include <QDate>
+#include <QtDebug>
 
 //#include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -32,6 +34,8 @@
 
 #ifdef _DEBUG
 	#define DEBUG 1
+#else
+	#define QT_NO_DEBUG_OUTPUT
 #endif // _DEBUG
 
 #ifdef UNICODE
@@ -56,6 +60,8 @@
 //	#define DEBUG 1
 //#endif
 
+typedef QMap<QString, QString> QStringMap;
+
 #define LOG ServiceHelper()
 
 #ifdef UNICODE
@@ -63,6 +69,12 @@
 #else
 	typedef std::map<std::string, std::string> stringmap;
 #endif
+
+enum log_type {
+	GENERAL,
+	ERRORED,
+	CUSTOM
+};
 
 /**
  * @class ServiceHelper
@@ -267,6 +279,8 @@ public:
 
 	static QList<QString> ExplodeString(QString targetString, const char *seperator, int maxLen = -1);
 
+	static void messageOutput(QtMsgType type, const QMessageLogContext& context, const QString& msg);
+
 	void ConsoleLog(const char* log);
 
 	static int ShellExecuteApp(std::string appName, std::string params);
@@ -287,7 +301,7 @@ public:
 	ServiceHelper& operator<<(const std::vector<std::string>& s);
 
 private:
-	void WriteLog(char* targetFile, const std::string& log);
+	void WriteLog(log_type type, char* targetFile, const std::string& log);
 
 	//operator std::ostream();
 

@@ -43,16 +43,16 @@
 #include <QUrlQuery>
 #include <QList>
 #include <QThread>
+#include <QtDebug>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
 #include "SQLiteManager2.h"
+#include "NetworkManager.h"
 
 
-#define QT_NO_DEBUG_OUTPUT
-
-typedef QMap<QString, QString> QStringMap;
+//#define QT_NO_DEBUG_OUTPUT
 
 enum table_enums{
 	tools,
@@ -150,27 +150,7 @@ class DatabaseManager : public QObject
 
 private:
 
-	/**
-	 * @var netManager
-	 *
-	 * @brief The network manager for database connections.
-	 *
-	 * This object is used to make network requests to the database server.
-	 */
-	QNetworkAccessManager* netManager = nullptr;
-
-	QTcpSocket* sock = nullptr;
-
-	/**
-	 * @var restManager
-	 *
-	 * @brief The REST manager for database operations.
-	 *
-	 * This object is used to make RESTful network requests to the database server.
-	 */
-	QRestAccessManager* restManager = nullptr;
-
-	QNetworkCookieJar* cookieJar = nullptr;
+	
 
 	/**
 	 * @var testingDBManager
@@ -251,6 +231,7 @@ private:
 	SQLiteManager2 sqliteManager;
 
 public:
+	NetworkManager networkManager;
 	/**
 	 * @var bool requestRunning
 	 *
@@ -353,18 +334,6 @@ public:
 	std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params = QStringMap());
 
 	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params = std::map<const TCHAR*, const TCHAR*>());
-
-	/**
-	 * @brief Checks if the internet connection is available by attempting to connect to www.google.com on port 80.
-	 *
-	 * This function creates a QTcpSocket object, connects to www.google.com on port 80, and waits for the connection to be established.
-	 * If the connection is successful within the specified timeout, the function returns true. Otherwise, it returns false.
-	 *
-	 * @return Returns true if the internet connection is available, otherwise returns false.
-	 *
-	 * @throws None
-	*/
-	bool isInternetConnected();
 
 	/**
 	 * @brief Performs cleanup operations for the DatabaseManager object.
@@ -592,33 +561,6 @@ public:
 
 	int createPortatrakTransactionsTable();
 
-	/**
-	 * @brief Parses a QJsonArray into a string representation.
-	 *
-	 * @param array The QJsonArray to be parsed.
-	 *
-	 * @return The string representation of the QJsonArray.
-	 *
-	 * @throws None.
-	*/
-	static std::string parseData(QJsonArray array);
-
-	/**
-	 * @brief Parses a QJsonObject and returns a formatted string.
-	 *
-	 * This function takes a QJsonObject and recursively parses its keys and values.
-	 * If a key's value is a string, the key-value pair is added to the formatted string.
-	 * If a key's value is an object, the function calls itself to parse the nested object.
-	 * If a key's value is an array, the function calls another function to parse the array.
-	 *
-	 * @param object The QJsonObject to be parsed.
-	 *
-	 * @return The formatted string representing the parsed QJsonObject.
-	 *
-	 * @throws None.
-	*/
-	static std::string parseData(QJsonObject object);
-
 public slots:
 
 	/**
@@ -636,31 +578,6 @@ public slots:
 	void parseData(QNetworkReply* netReply);
 
 private:
-
-	/**
-	 * @brief Sends a network request to the specified URL with the provided query data.
-	 *
-	 * Ensures the request has appropriate headers and parses the data returned before logging it, then returns the pure json through the results pointer.
-	 *
-	 * @param url The URL to send the network request to.
-	 * @param query The query data to be sent in the request.
-	 * @param results The QJsonDocument to store the response in.
-	 *
-	 * @return Returns 1 if the network request was successful, otherwise returns 0.
-	 *
-	 * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
-	*/
-	int makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument* results);
-
-	int authenticateSession(const QString& url = "");
-	
-	int makeGetRequest(const QString& url, const QStringMap &queryMap, QJsonDocument* results);
-	
-	int makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
-
-	int makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
-
-	int makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
 
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.

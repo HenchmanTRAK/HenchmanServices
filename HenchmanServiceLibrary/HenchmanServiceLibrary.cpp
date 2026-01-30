@@ -385,6 +385,9 @@ HenchmanService::HenchmanService(QObject *parent)
 	
 	CSimpleIni ini;
 
+	// setup message logging
+	qInstallMessageHandler(ServiceHelper().messageOutput);
+
 	//ini.SetUnicode();
 
 	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));*/
@@ -685,7 +688,7 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 	try
 	{
 
-		if (!dbManager.isInternetConnected())
+		if (!dbManager.networkManager.isInternetConnected())
 		{
 			//ServiceHelper().WriteToLog("Failed to confirm network connection");
 			throw HenchmanServiceException("Failed to confirm network connection");
