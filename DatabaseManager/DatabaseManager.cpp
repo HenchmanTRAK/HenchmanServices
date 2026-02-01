@@ -1,17 +1,15 @@
 
 #include "DatabaseManager.h"
 
-using namespace std;
-
-static array<string, 2> timeStamp;
+static std::array<std::string, 2> timeStamp;
 
 static bool doNotRunCloudUpdate = 0;
 static bool parseCloudUpdate = 1;
 static bool pushCloudUpdate = 1;
 
-string getValidDrivers()
+std::string getValidDrivers()
 {
-	stringstream results;
+	std::stringstream results;
 	for (const auto& str : QSqlDatabase::drivers())
 	{
 		results << " - " << str.toStdString() << "\n";
@@ -123,46 +121,6 @@ DatabaseManager::~DatabaseManager()
 	performCleanup();
 }
 
-//int DatabaseManager::authenticateSession(const QString& url)
-//{
-//
-//	/*if (request.header(QNetworkRequest::CookieHeader).toJsonObject().keys().contains("api-session"))
-//		return 1;*/
-//	
-//	QString placeholder;
-//	if (url.isEmpty())
-//	{
-//		placeholder = apiUrl;
-//		placeholder = placeholder.slice(0, apiUrl.lastIndexOf("/")) + "/auth/key";
-//	}
-//	else
-//		placeholder = url;
-//	
-//	
-//	for (const auto & cookie : cookieJar->cookiesForUrl(QUrl(placeholder))) 
-//	{
-//		qDebug() << cookie.name().toStdString() << ":" << cookie.value().toStdString();
-//		if(cookie.name().toStdString() == "api-session")
-//		{
-//			return 1;
-//		}
-//	}
-//
-//	QStringMap temp;
-//	QJsonObject temp2;
-//	QJsonDocument reply;
-//
-//	makePostRequest(placeholder, temp, temp2, &reply);
-//
-//	if (reply.isEmpty() || !reply.isObject()) return 0;
-//
-//	QJsonObject response = reply.object();
-//	
-//	if (response.keys().contains("error") || !response.keys().contains("data")) return 0;
-//
-//	return 1;
-//}
-
 void DatabaseManager::loadTrakDetailsFromRegistry()
 {
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
@@ -170,14 +128,14 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("APP_NAME", REG_SZ, (TCHAR*)buffer, size);
-	trakType = buffer;
+	trakType = std::string(buffer);
 
-	RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
+	RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
 
 	size = 1024;
 	rtManagerCustomer.GetVal("trakID", REG_SZ, (TCHAR*)buffer, size);
 	//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
-	trakId = buffer;
+	trakId = std::string(buffer);
 	if (trakId.ends_with("ID")) {
 		trakId.pop_back();
 		trakId.pop_back();
@@ -194,678 +152,20 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 	rtManagerCustomer.GetVal(trakId.data(), REG_SZ, (TCHAR*)buffer, size);
 	//string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
 	std::string idNum(buffer);
-	trakIdNum = idNum.data();
+	trakIdNum = QString::fromStdString(idNum);
 
 	trakId.resize(trakId.size() - 2);
 	trakId.append("Id");
 }
 
-//bool DatabaseManager::isInternetConnected()
-//{
-//	sock->connectToHost("www.google.com", 80);
-//	bool connected = sock->waitForConnected(30000);//ms
-//	sock->disconnectFromHost();
-//	/*if (!connected)
-//	{
-//		sock->abort();
-//	}
-//	else {
-//		sock->close();
-//	}*/
-//	//sock->deleteLater();
-//	//sock = nullptr;
-//	return connected;
-//}
-
-//int indentCount = 0;
-//std::string DatabaseManager::parseData(QJsonArray array)
-//{
-//	stringstream dataRes;
-//	if (array.count() <= 0) {
-//		return "";
-//	}
-//	for (const auto& result : array) {
-//		QString res = "";
-//		if (result.isString())
-//		{
-//			res += result.toString();
-//		}
-//		if (result.isObject())
-//		{	
-//			res += QString::fromStdString(parseData(result.toObject()));
-//		}
-//		if (result.isArray())
-//		{
-//			res += QString::fromStdString(parseData(result.toArray()));
-//		}
-//		dataRes << "[ " << res.toStdString() << "]" << endl;
-//		continue;
-//	}
-//
-//	return dataRes.str();
-//}
-//
-//std::string DatabaseManager::parseData(QJsonObject object)
-//{
-//	
-//	stringstream dataRes;
-//	if (object.keys().count() <= 0) {
-//		return "";
-//	}
-//	for (auto& key : object.keys()) {
-//		QString res = "";
-//		QJsonValue value = object.value(key);
-//		/*if(indentCount)
-//			res.append("\n");*/
-//		for (int i = 0; i < indentCount; ++i) {
-//			res.append("\t");
-//			//res += "\t";
-//		}
-//		res.append(" - " + key + ": ");
-//		if (value.isString())
-//		{
-//			res += value.toString();
-//		}
-//		else if (value.isDouble()) {
-//			res += QString::number(value.toDouble());
-//		}
-//		else if (value.isObject())
-//		{
-//			//res = "\n";
-//			//res.push_front("\n");
-//			indentCount++;
-//			res += "{";
-//			res.append(parseData(value.toObject()));
-//			indentCount--;
-//			res += "}";
-//		} 
-//		else if (value.isArray())
-//		{
-//			indentCount++;
-//			res += "\n\t";
-//			res.append(parseData(value.toArray()));
-//			indentCount--;
-//		}
-//		else {
-//			res += value.toString();
-//		}
-//		
-//		dataRes << res.toStdString() << "" << endl;
-//
-//		continue;
-//	}
-//	return dataRes.str();
-//}
-//
-//int retryCount = 0;
-//
-//int DatabaseManager::makeGetRequest(const QString& url, const QStringMap& queryMap, QJsonDocument* results)
-//{
-//	int result = 0;
-//	QEventLoop loop(this);
-//
-//	// Generate auth header for request.
-//	LOG << url;
-//	// Create network request object.
-//	QNetworkRequest request;
-//	request.setUrl(QUrl(url));
-//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-//	request.setRawHeader("Content-Type", "application/json");
-//
-//
-//	ServiceHelper().WriteToCustomLog(
-//		"Making query to: " + url.toStdString(),
-//		timeStamp[0] + "-queries");
-//
-//
-//	QNetworkReply* reply = restManager->get(request, this, [&result, &results, this](QRestReply& reply) {
-//		LOG << "networkrequested";
-//		try {
-//			qDebug() << reply.error();
-//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-//				throw HenchmanServiceException(reply.errorString().toStdString());
-//			}
-//			if (reply.error() != QNetworkReply::NoError) {
-//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-//			}
-//
-//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-//			ServiceHelper().WriteToLog((string)"Parsing Response");
-//
-//			optional json = reply.readJson();
-//
-//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-//
-//			//string parsedVal;
-//			//if (json->isArray()) {
-//			//	parsedVal = parseData(json->array());
-//			//}
-//			//else if (json->isObject()) {
-//			//	QJsonObject retVal = json->object();
-//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-//			//		result = 1;*/
-//			//	parsedVal = parseData(json->object());
-//			//}
-//			if (!json || !json.has_value()) {
-//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-//				return;
-//			}
-//			indentCount = 0;
-//
-//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-//			if (results)
-//				json.value().swap(*results);
-//
-//			if (!result)
-//				//result = reply.isSuccess();
-//				result = reply.isSuccess();
-//
-//			if (reply.isSuccess())
-//			{
-//				ServiceHelper().WriteToCustomLog("network request success",
-//					timeStamp[0] + "-queries");
-//			}
-//			else {
-//				ServiceHelper().WriteToCustomLog("network request failed",
-//					timeStamp[0] + "-queries");
-//			}
-//		}
-//		catch (exception& e) {
-//			std::string error(e.what());
-//			ServiceHelper().WriteToError(error);
-//			reply.networkReply()->abort();
-//			result = 0;
-//
-//		}
-//		//reply.networkReply()->finished();
-//
-//		});
-//
-//	qDebug() << "Reply Get is finished? " << reply->isFinished();
-//
-//	//netManager->finished(reply);
-//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-//	loop.exec();
-//	qDebug() << "Reply Get is finished? " << reply->isFinished();
-//	reply->deleteLater();
-//	retryCount = 0;
-//	//QThread::sleep(1);
-//	return result;
-//}
-//
-//int DatabaseManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
-//{		
-//	int result = 0;
-//	QEventLoop loop(this);
-//
-//	// Generate auth header for request.
-//	LOG << url;
-//	// Create network request object.
-//	QNetworkRequest request;
-//	request.setUrl(QUrl(url));
-//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-//	request.setRawHeader("Content-Type", "application/json");
-//
-//	//data.fromVariantMap();
-//
-//	/*QJsonObject body;
-//	body["data"] = body["data"];*/
-//	/*data["values"] = */
-//	//data["sql"] = query["query"];
-//	
-//	QJsonDocument doc(body);
-//	std::string log = "";
-//	log.append("Making Post request to: " + url.toStdString());
-//	if (!queryMap.isEmpty())
-//		log.append("\nRunning query number : " + queryMap["number"].toStdString());
-//	if (!doc.isEmpty())
-//		log.append("\nquery : " + doc.toJson().toStdString());
-//	
-//	ServiceHelper().WriteToCustomLog(log,
-//		timeStamp[0] + "-queries");
-//
-//	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
-//		LOG << "networkrequested";
-//		try {
-//			qDebug() << reply.error();
-//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-//				throw HenchmanServiceException(reply.errorString().toStdString());
-//			}
-//			if (reply.error() != QNetworkReply::NoError) {
-//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-//			}
-//			
-//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-//			ServiceHelper().WriteToLog((string)"Parsing Response");
-//
-//			optional json = reply.readJson();
-//
-//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-//			
-//			//string parsedVal;
-//			//if (json->isArray()) {
-//			//	parsedVal = parseData(json->array());
-//			//}
-//			//else if (json->isObject()) {
-//			//	QJsonObject retVal = json->object();
-//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-//			//		result = 1;*/
-//			//	parsedVal = parseData(json->object());
-//			//}
-//			if (!json || !json.has_value()) {
-//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-//				return;
-//			}
-//			indentCount = 0;
-//
-//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-//			if (results)
-//				json.value().swap(*results);
-//
-//			if (!result)
-//				//result = reply.isSuccess();
-//				result = reply.isSuccess();
-//
-//			if (reply.isSuccess())
-//			{
-//				ServiceHelper().WriteToCustomLog("network request success",
-//					timeStamp[0] + "-queries");
-//				reply.networkReply()->close();
-//			}
-//			else {
-//				ServiceHelper().WriteToCustomLog("network request failed",
-//					timeStamp[0] + "-queries");
-//				reply.networkReply()->abort();
-//			}
-//		}
-//		catch (exception& e) {
-//			std::string error(e.what());
-//			/*if (error == "QNetworkReply::OperationCanceledError" && retryCount < 3) {
-//				result = makePostRequest(url, queryMap, body, results);
-//				if (result) {
-//					reply.networkReply()->close();
-//					return;
-//				}
-//			}*/
-//			ServiceHelper().WriteToError(error);
-//			reply.networkReply()->abort();
-//			result = 0;
-//
-//		}
-//		//reply.networkReply()->finished();
-//		//QTimer::singleShot(1, reply.networkReply(), &QNetworkReply::finished);
-//		});
-//
-//	//netManager->finished(reply);
-//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-//	loop.exec();
-//	reply->deleteLater();
-//	//reply->deleteLater();
-//	retryCount = 0;
-//	//QThread::sleep(1);
-//	return result;
-//}
-//
-//int DatabaseManager::makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
-//{
-//	int result = 0;
-//	QEventLoop loop(this);
-//
-//	// Generate auth header for request.
-//	LOG << url;
-//	// Create network request object.
-//	QNetworkRequest request;
-//	request.setUrl(QUrl(url));
-//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-//	request.setRawHeader("Content-Type", "application/json");
-//
-//	//data.fromVariantMap();
-//
-//	/*QJsonObject body;
-//	body["data"] = body["data"];*/
-//	/*data["values"] = */
-//	//data["sql"] = query["query"];
-//
-//	QJsonDocument doc(body);
-//	std::string log = "";
-//	log.append("Making Patch request to: " + url.toStdString());
-//	if (!queryMap.isEmpty())
-//		log.append("\nRunning query number : " + queryMap["number"].toStdString());
-//	if (!doc.isEmpty())
-//		log.append("\nquery : " + doc.toJson().toStdString());
-//
-//	ServiceHelper().WriteToCustomLog(log,
-//		timeStamp[0] + "-queries");
-//
-//	QNetworkReply* reply = restManager->patch(request, doc, this, [&result, &results, this](QRestReply& reply) {
-//		LOG << "networkrequested";
-//		try {
-//			qDebug() << reply.error();
-//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-//				throw HenchmanServiceException(reply.errorString().toStdString());
-//			}
-//			if (reply.error() != QNetworkReply::NoError) {
-//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-//			}
-//
-//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-//			ServiceHelper().WriteToLog((string)"Parsing Response");
-//
-//			optional json = reply.readJson();
-//
-//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-//
-//			//string parsedVal;
-//			//if (json->isArray()) {
-//			//	parsedVal = parseData(json->array());
-//			//}
-//			//else if (json->isObject()) {
-//			//	QJsonObject retVal = json->object();
-//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-//			//		result = 1;*/
-//			//	parsedVal = parseData(json->object());
-//			//}
-//			if (!json || !json.has_value()) {
-//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-//				return;
-//			}
-//			indentCount = 0;
-//
-//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-//			if (results)
-//				json.value().swap(*results);
-//
-//			if (!result)
-//				//result = reply.isSuccess();
-//				result = reply.isSuccess();
-//
-//			if (reply.isSuccess())
-//			{
-//				ServiceHelper().WriteToCustomLog("network request success",
-//					timeStamp[0] + "-queries");
-//			}
-//			else {
-//				ServiceHelper().WriteToCustomLog("network request failed",
-//					timeStamp[0] + "-queries");
-//			}
-//		}
-//		catch (exception& e) {
-//			std::string error(e.what());
-//			ServiceHelper().WriteToError(error);
-//			reply.networkReply()->abort();
-//			result = 0;
-//
-//		}
-//		//reply.networkReply()->finished();
-//
-//		});
-//
-//	qDebug() << "Reply patch is finished? " << reply->isFinished();
-//
-//	//netManager->finished(reply);
-//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-//	loop.exec();
-//	qDebug() << "Reply patch is finished? " << reply->isFinished();
-//	reply->deleteLater();
-//	//QThread::sleep(1);
-//	retryCount = 0;
-//
-//	return result;
-//}
-//
-//int DatabaseManager::makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
-//{
-//	int result = 0;
-//	QEventLoop loop(this);
-//
-//	// Generate auth header for request.
-//	LOG << url;
-//	// Create network request object.
-//	QUrl targetUrl(url);
-//	QNetworkRequest request;
-//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-//	request.setRawHeader("Content-Type", "application/json");
-//
-//	//data.fromVariantMap();
-//
-//	/*QJsonObject body;
-//	body["data"] = body["data"];*/
-//	/*data["values"] = */
-//	//data["sql"] = query["query"];
-//
-//	QJsonDocument doc(body);
-//	QUrlQuery query;
-//	query.addQueryItem("target", doc.toJson().toBase64());
-//
-//	targetUrl.setQuery(query);
-//
-//	request.setUrl(targetUrl);
-//
-//	std::string log = "";
-//	log.append("Making DELETE request to: " + url.toStdString());
-//	if (!queryMap.isEmpty())
-//		log.append("\nRunning query number : " + queryMap["number"].toStdString());
-//	if (!doc.isEmpty())
-//		log.append("\nquery : " + doc.toJson().toStdString());
-//
-//	ServiceHelper().WriteToCustomLog(log,
-//		timeStamp[0] + "-queries");
-//
-//
-//	QNetworkReply* reply = restManager->deleteResource(request, this, [&result, &results, this](QRestReply& reply) {
-//		LOG << "networkrequested";
-//		try {
-//			qDebug() << reply.error();
-//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-//				throw HenchmanServiceException(reply.errorString().toStdString());
-//			}
-//			if (reply.error() != QNetworkReply::NoError) {
-//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-//			}
-//
-//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-//			ServiceHelper().WriteToLog((string)"Parsing Response");
-//
-//			optional json = reply.readJson();
-//
-//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-//
-//			//string parsedVal;
-//			//if (json->isArray()) {
-//			//	parsedVal = parseData(json->array());
-//			//}
-//			//else if (json->isObject()) {
-//			//	QJsonObject retVal = json->object();
-//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-//			//		result = 1;*/
-//			//	parsedVal = parseData(json->object());
-//			//}
-//			if (!json || !json.has_value()) {
-//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-//				return;
-//			}
-//			indentCount = 0;
-//
-//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-//			if (results)
-//				json.value().swap(*results);
-//
-//			if (!result)
-//				//result = reply.isSuccess();
-//				result = reply.isSuccess();
-//
-//			if (reply.isSuccess())
-//			{
-//				ServiceHelper().WriteToCustomLog("network request success",
-//					timeStamp[0] + "-queries");
-//			}
-//			else {
-//				ServiceHelper().WriteToCustomLog("network request failed",
-//					timeStamp[0] + "-queries");
-//			}
-//		}
-//		catch (exception& e) {
-//			std::string error(e.what());
-//			ServiceHelper().WriteToError(error);
-//			reply.networkReply()->abort();
-//			result = 0;
-//
-//		}
-//		//reply.networkReply()->finished();
-//
-//		});
-//
-//	qDebug() << "Reply patch is finished? " << reply->isFinished();
-//
-//	//netManager->finished(reply);
-//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-//	loop.exec();
-//
-//	qDebug() << "Reply patch is finished? " << reply->isFinished();
-//	reply->deleteLater();
-//	retryCount = 0;
-//	//QThread::sleep(1);
-//	return result;
-//}
-//
-//int DatabaseManager::makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument *results)
-//{
-//	int result = 0;
-//	QEventLoop loop(this);
-//
-//	// Generate auth header for request.
-//	//QString concatenated = apiUsername+":"+apiPassword;
-//	//QByteArray credentials = concatenated.toLocal8Bit().toBase64();
-//	//QString headerData = "Basic " + credentials;
-//	LOG << url;
-//	// Create network request object.
-//	QNetworkRequest request;
-//	request.setUrl(QUrl(url));
-//	request.setRawHeader("Authorization", "Bearer " + apiKey.toLocal8Bit());
-//	request.setRawHeader("Content-Type", "application/json");
-//	
-//	//QJsonObject data;
-//	
-//	//data.fromVariantMap();
-//
-//	QJsonObject body;
-//	body["data"] = query["data"];
-//	/*data["values"] = */
-//	//data["sql"] = query["query"];
-//	QJsonDocument doc(body);
-//
-//	std::string log = "";
-//	log.append("Making Customer Network Post request to: " + url.toStdString());
-//	if (!query.isEmpty())
-//		log.append("\nRunning query number : " + query["number"].toStdString());
-//	if (!doc.isEmpty())
-//		log.append("\nquery : " + doc.toJson().toStdString());
-//
-//	ServiceHelper().WriteToCustomLog(log,
-//		timeStamp[0] + "-queries");
-//
-//	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
-//		LOG << "networkrequested";
-//		try {
-//			qDebug() << reply.networkReply()->request().headers().toMultiMap();
-//			qDebug() << reply.networkReply()->headers().toListOfPairs();
-//			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-//				throw HenchmanServiceException(reply.errorString().toStdString());
-//			}
-//			if (reply.error() != QNetworkReply::NoError) {
-//				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
-//			}
-//			int status = reply.httpStatus();
-//			LOG << status;
-//			QString reason = reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-//
-//			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
-//
-//			ServiceHelper().WriteToLog((string)"Parsing Response");
-//			
-//			optional json = reply.readJson();
-//
-//			/*int startingIndex = jsonRes.lastIndexOf('{') < 0 ? 0 : jsonRes.lastIndexOf('{');
-//			int endingIndex = jsonRes.lastIndexOf('}') < 0 ? 0 : jsonRes.lastIndexOf('}');
-//			LOG << "starting index: " << startingIndex << " ending index: " << endingIndex;*/
-//			//optional json = (optional<QJsonDocument>)QJsonDocument::fromJson(jsonRes);
-//
-//			//string parsedVal;
-//			//if (json->isArray()) {
-//			//	parsedVal = parseData(json->array());
-//			//}
-//			//else if (json->isObject()) {
-//			//	QJsonObject retVal = json->object();
-//			//	/*if (retVal.contains("error") && retVal.find("error").value().isObject() && retVal.find("error").value().toObject().find("status").value().toString() == "23000")
-//			//		result = 1;*/
-//			//	parsedVal = parseData(json->object());
-//			//}
-//			if (!json || !json.has_value()) {
-//				ServiceHelper().WriteToLog((string)"Recieved empty data or failed to parse JSON.");
-//				return;
-//			}
-//			indentCount = 0;
-//
-//			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), timeStamp[0] + "-queries");
-//			if (results)
-//				json.value().swap(*results);
-//
-//			if (!result)
-//				//result = reply.isSuccess();
-//				result = reply.isSuccess();
-//
-//			if (reply.isSuccess())
-//			{
-//				ServiceHelper().WriteToCustomLog("network request success",
-//					timeStamp[0] + "-queries");
-//			}
-//			else {
-//				ServiceHelper().WriteToCustomLog("network request failed",
-//					timeStamp[0] + "-queries");
-//			}
-//		}
-//		catch (exception& e) {
-//			std::string error(e.what());
-//			ServiceHelper().WriteToError(error);
-//			reply.networkReply()->abort();
-//
-//			result = 0;
-//
-//		}
-//		//reply.networkReply()->finished();
-//		
-//		});
-//
-//	//connect(reply, &QNetworkReply::finished, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
-//	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
-//	//connect(&loop, &QEventLoop::quit, restManager->networkAccessManager(), &QNetworkAccessManager::finished);
-//	loop.exec();
-//	qDebug() << "Reply post is finished? " << reply->isFinished();
-//	reply->deleteLater();
-//	retryCount = 0;
-//	//QThread::sleep(1);
-//	return result;
-//}
-
 // Misc Syncs
 int DatabaseManager::addToolsIfNotExists()
 {
+	QLoggingCategory category("databasemanager");
 	LOG << "Adding Tools to Webportal";
 	QString targetKey = "tools";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tools");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tools");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -879,20 +179,20 @@ int DatabaseManager::addToolsIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Tools");
-	string query = 
+	std::string query =
 		"SELECT * from tools ORDER BY id DESC LIMIT " + 
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 
 	std::string colQuery =
 		"SHOW COLUMNS from tools";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
-	qDebug() << colQueryResults;
+	qCDebug(category) << colQueryResults;
 
-	string tableName = "tools";
-	vector<string> columns;
+	std::string tableName = "tools";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year"};
 	QStringList uniqueIndexCols = { "custId", "toolId", "stockcode", "PartNo" };
@@ -937,8 +237,8 @@ int DatabaseManager::addToolsIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 	
-	connect(&networkManager, &NetworkManager::requestFinished, this, [this, &targetKey, &rtManager](const QJsonDocument& result) {
-		qDebug() << result;
+	connect(&networkManager, &NetworkManager::requestFinished, this, [=, &targetKey](const QJsonDocument& result) {
+		/*qCDebug(category) << result.toJson().toStdString().data();*/
 		if (!result.isObject()) {
 			LOG << "Reply was not an Object";
 			databaseTablesChecked[targetKey]++;
@@ -951,7 +251,7 @@ int DatabaseManager::addToolsIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	});
 
 	for (auto &result : sqlQueryResults) {
@@ -967,7 +267,7 @@ int DatabaseManager::addToolsIfNotExists()
 		//processKeysAndValues(result, results);
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -993,9 +293,9 @@ int DatabaseManager::addToolsIfNotExists()
 
 		body["data"] = data;
 		
-		QJsonDocument reply;
+		//QJsonDocument reply;
 
-		networkManager.makePostRequest(apiUrl + "/tools", result, body, &reply);
+		networkManager.makePostRequest(apiUrl + "/tools", result, body);
 		/*if (networkManager.makePostRequest(apiUrl + "/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
@@ -1033,7 +333,7 @@ int DatabaseManager::addToolsIfNotExists()
 
 	}
 	networkManager.execRequests();
-	qDebug() << "Setting" << targetKey + "Checked to" << databaseTablesChecked[targetKey];
+	qCDebug(category) << "Setting" << targetKey + "Checked to" << databaseTablesChecked[targetKey];
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//netManager->finished(NULL);
@@ -1061,7 +361,7 @@ int DatabaseManager::addUsersIfNotExists()
 	LOG << "Adding Users to Webportal";
 	QString targetKey = "users";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -1075,20 +375,20 @@ int DatabaseManager::addUsersIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Users");
-	string query =
+	std::string query =
 		"SELECT * from users ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from users";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
 
-	string tableName = "users";
-	vector<string> columns;
+	std::string tableName = "users";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "userId", "kabId", "cribId", "scaleId"};
@@ -1154,7 +454,7 @@ int DatabaseManager::addUsersIfNotExists()
 
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -1245,7 +545,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	LOG << "Adding Employees to Webportal";
 	QString targetKey = "employees";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM employees");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM employees");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -1259,19 +559,19 @@ int DatabaseManager::addEmployeesIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Employees");
-	string query =
+	std::string query =
 		"SELECT * from employees ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from employees";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "employees";
-	vector<string> columns;
+	std::string tableName = "employees";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "userId"};
@@ -1317,7 +617,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -1408,8 +708,8 @@ int DatabaseManager::addJobsIfNotExists()
 	LOG << "Adding Jobs to Webportal";
 	QString targetKey = "jobs";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM jobs");
-	vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM jobs");
+	std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 	QString indexingCol = colsCheck[1].value("Column_name");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
@@ -1424,19 +724,19 @@ int DatabaseManager::addJobsIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Jobs");
-	string query =
+	std::string query =
 		"SELECT * from jobs ORDER BY "+ indexingCol.toStdString() + " ASC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from jobs";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "jobs";
-	vector<string> columns;
+	std::string tableName = "jobs";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt"};
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "trailId", "description", "remark"};
@@ -1481,7 +781,7 @@ int DatabaseManager::addJobsIfNotExists()
 		res["id"] = result[indexingCol];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -4711,7 +4011,7 @@ int DatabaseManager::ExecuteTargetSqlScript(const std::string& filepath)
 	return successCount;
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sqlQuery, const stringmap& params)
+std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sqlQuery, const stringmap& params)
 {
 	int successCount = 0;
 	vector<QStringMap> resultVector;
@@ -4806,7 +4106,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sqlQuery
 	return resultVector;
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sqlQuery)
+std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sqlQuery)
 {
 	int successCount = 0;
 	vector<QStringMap> resultVector;
@@ -4891,7 +4191,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sqlQuer
 	return resultVector;
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params)
+std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params)
 {	
 	stringmap paramsMap;
 	if(params.size() > 0)
@@ -4902,7 +4202,7 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuery, co
 	return ExecuteTargetSql(sqlQuery.toStdString(), paramsMap);
 }
 
-vector<QStringMap> DatabaseManager::ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params)
+std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params)
 {
 	stringmap paramsMap;
 
@@ -4917,11 +4217,11 @@ vector<QStringMap> DatabaseManager::ExecuteTargetSql(const TCHAR* sqlQuery, cons
 void DatabaseManager::parseData(QNetworkReply *netReply)
 {
 	QRestReply restReply(netReply);
-	optional json = restReply.readJson();
-	optional <QJsonObject> response = json->object();
-	string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
-	stringstream errorRes;
-	stringstream dataRes;
+	std::optional json = restReply.readJson();
+	std::optional <QJsonObject> response = json->object();
+	std::string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
+	std::stringstream errorRes;
+	std::stringstream dataRes;
 
 	if (restReply.error() != QNetworkReply::NoError) {
 		qWarning() << "A Network error has occured: " << restReply.error() << restReply.errorString();
@@ -4932,26 +4232,26 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
 		qWarning() << "A HTTP error has occured: " << status << reason;
-		ServiceHelper().WriteToError("An HTTP error has occured: " + to_string(status) + " \"" + reason.toStdString() + "\"");
+		ServiceHelper().WriteToError("An HTTP error has occured: " + std::to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
 	if (restReply.isHttpStatusSuccess()) {
 		int status = restReply.httpStatus();
 		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-		ServiceHelper().WriteToLog("Request was successful : " + to_string(status) + " \"" + reason.toStdString() + "\"");
+		ServiceHelper().WriteToLog("Request was successful : " + std::to_string(status) + " \"" + reason.toStdString() + "\"");
 	}
-	ServiceHelper().WriteToLog((string)"Parsing Response");
+	ServiceHelper().WriteToLog((std::string)"Parsing Response");
 
 	ExecuteTargetSql(sqlQuery);
 
 	if (!json) {
-		ServiceHelper().WriteToError((string)"Recieved empty data or failed to parse JSON.");
+		ServiceHelper().WriteToError((std::string)"Recieved empty data or failed to parse JSON.");
 		goto exit;
 	}
 
 	if (response.value()["error"].toArray().count() > 0) {
 		for (const auto& result : response.value()["error"].toArray()) {
 			for (auto i = 0; i < result.toArray().size(); i++) {
-				errorRes << " - " << result.toArray()[i].toString().toStdString() << endl;
+				errorRes << " - " << result.toArray()[i].toString().toStdString() << std::endl;
 			}
 		}
 
@@ -4961,7 +4261,7 @@ void DatabaseManager::parseData(QNetworkReply *netReply)
 	if (response.value()["data"].toArray().count() > 0) {
 		for (const auto& result : response.value()["data"].toArray()) {
 			for (auto i = 0; i < result.toArray().size(); i++) {
-				dataRes << " - " << result.toArray()[i].toString().toStdString() << endl;
+				dataRes << " - " << result.toArray()[i].toString().toStdString() << std::endl;
 			}
 
 		}

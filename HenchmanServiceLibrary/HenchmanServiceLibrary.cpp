@@ -362,7 +362,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 }
 
 HenchmanService::HenchmanService(QObject *parent)
-	: QObject(parent), sqliteManager(parent), dbManager(parent)
+: QObject(parent), sqliteManager(parent), dbManager(parent)
 {
 	enum ini_keys_enum {
 		Apache_DIR,

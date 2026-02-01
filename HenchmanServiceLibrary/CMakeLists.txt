@@ -14,6 +14,8 @@ message(STATUS "OpenSSL crypto library: ${OPENSSL_CRYPTO_LIBRARY}")
 #	C:/Users/Willem/source/repos/CNC_Current_Tracker/CNC_Current_Tracker/x64/Release
 #)
 
+target_compile_definitions(HenchmanServiceLibrary PRIVATE HENCHMAN_SERVICE_LIBRARY)
+
 target_link_libraries(
 	HenchmanServiceLibrary PRIVATE 
 	ServiceController

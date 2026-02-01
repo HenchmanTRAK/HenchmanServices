@@ -313,8 +313,7 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 
 int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {	
-	
-	
+
 	QJsonDocument response;
 	int result = 0;
 	QEventLoop loop(this);
@@ -426,7 +425,7 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 	});*/
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
-	//reply->deleteLater();
+	reply->deleteLater();
 	/*connect(reply, &QNetworkReply::finished, this, [this, &response, reply]() {
 		finishRequest(response);
 		reply->deleteLater();

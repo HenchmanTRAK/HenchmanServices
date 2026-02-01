@@ -11,6 +11,12 @@
 #define HENCHMAN_SERVICE_ __declspec(dllimport)
 #endif
 
+#if defined(HENCHMAN_SERVICE_LIBRARY)
+#  define HENCHMAN_SERVICE_LIBRARY_EXPORT Q_DECL_EXPORT
+#else
+#  define HENCHMAN_SERVICE_LIBRARY_EXPORT Q_DECL_IMPORT
+#endif
+
 
 //#include "openssl/crypto.h"
 //#include "openssl/err.h"
@@ -110,7 +116,7 @@
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HenchmanService: public QObject
+class HENCHMAN_SERVICE_LIBRARY_EXPORT HenchmanService: public QObject
 {
 
 	Q_OBJECT

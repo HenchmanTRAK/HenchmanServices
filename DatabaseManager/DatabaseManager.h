@@ -8,6 +8,12 @@
 #define DATABASE_MANAGER_ __declspec(dllimport)
 #endif
 
+#if defined(DATABASE_MANAGER_LIBRARY)
+#  define DATABASE_MANAGER_LIBRARY_EXPORT Q_DECL_EXPORT
+#else
+#  define DATABASE_MANAGER_LIBRARY_EXPORT Q_DECL_IMPORT
+#endif
+
 #include <iostream>
 #include <map>
 #include <optional>
@@ -43,7 +49,7 @@
 #include <QUrlQuery>
 #include <QList>
 #include <QThread>
-#include <QtDebug>
+#include <QLoggingCategory>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -144,7 +150,7 @@ static QMap<QString, table_enums> table_map = {
  * - `~DatabaseManager()`: The destructor for the DatabaseManager class.
  * - `void performCleanup()`: Performs cleanup operations for the DatabaseManager object.
  */
-class DatabaseManager : public QObject
+class DATABASE_MANAGER_LIBRARY_EXPORT DatabaseManager : public QObject
 {
 	Q_OBJECT
 
@@ -221,10 +227,10 @@ private:
 		{"kitLocation", 0},
 	};
 
-	std::string trakType;
-	std::string trakId;
-	int custId;
-	QString trakIdNum;
+	std::string trakType = "";
+	std::string trakId = "";
+	int custId = 0;
+	QString trakIdNum = "000000";
 
 	//QNetworkRequest request;
 

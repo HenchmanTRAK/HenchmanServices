@@ -18,12 +18,14 @@
 #include <fstream>
 #include <locale>
 #include <codecvt>
+#include <map>
 
 #include <QString>
 #include <QList>
 #include <QFile>
 #include <QDate>
 #include <QtDebug>
+#include <QLoggingCategory>
 
 //#include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -73,7 +75,8 @@ typedef QMap<QString, QString> QStringMap;
 enum log_type {
 	GENERAL,
 	ERRORED,
-	CUSTOM
+	CUSTOM,
+	QUERIES,
 };
 
 /**
@@ -97,6 +100,11 @@ class ServiceHelper
 {
 private:
 	std::string functionName;
+	/*QLoggingCategory defaultCat = QLoggingCategory("default");
+	QLoggingCategory queries = QLoggingCategory("queries");*/
+
+	QList<const char*> logging_categories = QList<const char*>({"queries"});
+
 
 public:
 	/**
@@ -107,6 +115,7 @@ public:
 	 * @param caller The source location of the caller.
 	 */
 	ServiceHelper(const std::source_location& caller = std::source_location::current());
+	~ServiceHelper();
 
 	/**
 	 * @brief Returns a timestamp as a std::array<std::string, 2>.
@@ -160,7 +169,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	void WriteToLog(std::string log);
+	void WriteToLog(const std::string& log);
 
 	/**
 	 * @brief Writes the given error message to the error file.
@@ -171,7 +180,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	void WriteToError(std::string log);
+	void WriteToError(const std::string& log);
 
 	/**
 	 * @brief Writes the given log message to the custom log file.
@@ -183,7 +192,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	void WriteToCustomLog(std::string log, std::string logName);
+	void WriteToCustomLog(const std::string& log, const std::string& logName);
 
 	/**
 	 * @brief Returns the current time in microseconds.
@@ -301,7 +310,7 @@ public:
 	ServiceHelper& operator<<(const std::vector<std::string>& s);
 
 private:
-	void WriteLog(log_type type, char* targetFile, const std::string& log);
+	void WriteLog(log_type type, const char* targetFile, const std::string& log);
 
 	//operator std::ostream();
 

@@ -12,7 +12,6 @@ target_include_directories(
 
 target_compile_definitions(NetworkManager PRIVATE NETWORK_MANAGER_LIBRARY)
 
-
 target_link_libraries(
 	NetworkManager PRIVATE
 	HenchmanServiceException

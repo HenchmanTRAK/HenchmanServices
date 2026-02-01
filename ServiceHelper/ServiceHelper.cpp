@@ -25,6 +25,18 @@ ServiceHelper::ServiceHelper(const std::source_location& caller)
 		if(i < exploded.size() - 1)
 			functionName.append("::");
 	}
+
+	//logging_categories.insert("default", defaultCat);
+	//logging_categories.insert("queries", queries);
+}
+
+ServiceHelper::~ServiceHelper()
+{
+	/*for (auto i = logging_categories.cbegin(), end = logging_categories.cend(); i != end; ++i) {
+		delete  i.value();
+	}*/
+	//logging_categories.clear();
+		
 }
 
 std::vector<std::string> ServiceHelper::ExplodeString(std::string targetString, const char *seperator, int maxLen)
@@ -217,13 +229,14 @@ void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& cont
 	if (type == QtWarningMsg)
 		return;
 #endif
-	
+
 	QString filename("logs/");
 	QString message = msg;
 	switch (type)
 	{
 	case QtDebugMsg:
 	case QtInfoMsg:
+		filename.append(QDate::currentDate().toString("yyyy_MM_dd"));
 		if (msg.contains("custom-")) {
 			QString customLog = msg.sliced(msg.indexOf("-") + 2, msg.indexOf("|", msg.indexOf("-"))-msg.indexOf("-")-3);
 			message.slice(msg.indexOf("|", msg.indexOf("-"))+2);
@@ -233,13 +246,16 @@ void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& cont
 			if (customLog.contains(QDate::currentDate().toString("yyyy-MM-dd-"))) {
 				customLog.slice(customLog.lastIndexOf("-") + 1);
 			}
-			filename.append(QDate::currentDate().toString("yyyy_MM_dd")).append(".").append(customLog).append(".log");
+			filename.append(".").append(customLog);
 
 		}
-		else {
-			filename.append(QDate::currentDate().toString("yyyy_MM_dd.log"));
+		if (context.category) {
+			//qDebug() << context.category;
+			filename.append(".").append(context.category);
 		}
+		filename.append(".log");
 		break;
+		
 	case QtWarningMsg:
 	case QtCriticalMsg:
 	case QtFatalMsg:
@@ -252,9 +268,9 @@ void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& cont
 	if (!file.open(QIODevice::Append | QIODevice::Text)) return;
 
 	QTextStream out(&file);
-	out << "---| " << QTime::currentTime().toString("hh:mm:ss ") << " |--- <";
+	out << "---| " << QTime::currentTime().toString("hh:mm:ss ") << "|--- <";
 #ifdef DEBUG
-	std::cout << "---| " << QTime::currentTime().toString("hh:mm:ss ").toStdString().data() << " |--- <";
+	std::cout << "---| " << QTime::currentTime().toString("hh:mm:ss ").toStdString().data() << "|--- <";
 #endif
 	switch (type)
 	{
@@ -298,22 +314,29 @@ void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& cont
 	file.close();
 }
 
-void ServiceHelper::WriteLog(log_type type, char *targetFile, const std::string& log)
+void ServiceHelper::WriteLog(log_type type, const char *targetFile, const std::string& log)
 {	
 	switch (type) {
 	case log_type::ERRORED:
 	{
-		qWarning() << functionName.data() << ": " << log.data();
+		qWarning() << functionName.data() << ":" << log.data();
 		break;
 	}
 	case log_type::CUSTOM:
 	{
-		qInfo() << "|custom-" << targetFile << "|" << functionName.data() << ": " << log.data();
+		QLoggingCategory category("custom");
+		qCInfo(category) << functionName.data() << ":" << log.data();
+		break;
+	}
+	case log_type::QUERIES:
+	{
+		QLoggingCategory category("queries");
+		qCInfo(category) << functionName.data() << ":" << log.data();
 		break;
 	}
 	default:
 	{
-		qInfo() << functionName.data() << ": " << log.data();
+		qInfo() << functionName.data() << "" << log.data();
 		break;
 	}
 	}
@@ -331,33 +354,54 @@ void ServiceHelper::WriteLog(log_type type, char *targetFile, const std::string&
 
 }
 
-void ServiceHelper::WriteToLog(std::string log)
+void ServiceHelper::WriteToLog(const std::string& log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-log.txt");
 	WriteLog(log_type::GENERAL, logDir.data(), log);
 	logDir.clear();
-	log.clear();
 }
 
-void ServiceHelper::WriteToError(std::string log)
+void ServiceHelper::WriteToError(const std::string& log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-error.txt");
 	WriteToLog("Logged an error");
 	WriteLog(log_type::ERRORED, logDir.data(), log);
 	logDir.clear();
-	log.clear();
 }
 
-void ServiceHelper::WriteToCustomLog(std::string log, std::string logName)
+void ServiceHelper::WriteToCustomLog(const std::string& log, const std::string& logName)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
 	WriteToLog("Logged to " + logName);
-	WriteLog(log_type::CUSTOM, logName.data(), log);
+	QString log_name = QString::fromStdString(logName);
+
+	if(log_name.contains("-"))
+		log_name.slice(log_name.lastIndexOf("-") + 1);
+
+	if (log_name.contains("queries"))
+	{
+		WriteLog(log_type::QUERIES, logDir.data(), log);
+	}
+	else
+	{
+		WriteLog(log_type::CUSTOM, logDir.data(), log);
+	}
+	//QLoggingCategory* category;
+	//if (logging_categories.contains(log_name)) {
+	//	category = new QLoggingCategory(logging_categories.at(logging_categories.indexOf(log_name)));
+	//	//qCInfo(logging_categories.value(log_name)) << functionName.data() << ": " << log.data();
+	//}
+	//else {
+	//	category = new QLoggingCategory("default");
+	//	//qCInfo(logging_categories.value("default")) << functionName.data() << ": " << log.data();
+	//}
+	//qCInfo(*category) << functionName.data() << ":" << log.data();
+	//WriteLog(log_type::CUSTOM, log_name.toStdString().data(), log);
+	//delete category;
 	logDir.clear();
-	log.clear();
 }
 
 void ServiceHelper::ConsoleLog(const char* log)
