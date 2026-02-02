@@ -739,7 +739,7 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 	if (!testing)
 		timer = 30000;
 	else
-		timer = 5000;
+		timer = 10000;
 		
 	
 	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer) + " ms...");

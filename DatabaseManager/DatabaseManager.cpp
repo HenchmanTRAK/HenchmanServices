@@ -237,8 +237,9 @@ int DatabaseManager::addToolsIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 	
-	connect(&networkManager, &NetworkManager::requestFinished, this, [=, &targetKey](const QJsonDocument& result) {
+	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
 		/*qCDebug(category) << result.toJson().toStdString().data();*/
+		QString targetKey = "tools";
 		if (!result.isObject()) {
 			LOG << "Reply was not an Object";
 			databaseTablesChecked[targetKey]++;
@@ -296,40 +297,6 @@ int DatabaseManager::addToolsIfNotExists()
 		//QJsonDocument reply;
 
 		networkManager.makePostRequest(apiUrl + "/tools", result, body);
-		/*if (networkManager.makePostRequest(apiUrl + "/tools", result, body, &reply)) {
-			if (!reply.isObject()) {
-				LOG << "Reply was not an Object";
-				databaseTablesChecked[targetKey]++;
-				continue;
-			}
-			LOG << reply.toJson().toStdString();
-			QJsonObject result = reply.object();
-			if (result["status"].toDouble() == 200) {
-				databaseTablesChecked[targetKey]++;
-			}
-		}
-		else {
-			LOG << "No rows were altered on db";
-			databaseTablesChecked[targetKey]++;
-		}
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
-
-		//if (makeNetworkRequest(apiUrl+"/tools", result, &reply)) {
-		//	if (!reply.isObject())
-		//		continue;
-		//	QJsonObject result = reply.object();
-		//	if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-		//		LOG << result["result"].toString().toStdString();
-		//		databaseTablesChecked[targetKey]++;
-		//		continue;
-		//	}
-		//	LOG << "No rows were altered on db";
-		//	databaseTablesChecked[targetKey]++;
-		//	//databaseTablesChecked[targetKey] += queryLimit;
-		//	//Sleep(100);
-		//	//break;
-		//	continue;
-		//}
 
 	}
 	networkManager.execRequests();
@@ -426,6 +393,24 @@ int DatabaseManager::addUsersIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 
+	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+		/*qCDebug(category) << result.toJson().toStdString().data();*/
+		QString targetKey = "users";
+		if (!result.isObject()) {
+			LOG << "Reply was not an Object";
+			databaseTablesChecked[targetKey]++;
+			return;
+		}
+		LOG << result.toJson().toStdString();
+		QJsonObject resultObject = result.object();
+		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+			LOG << resultObject["status"].toDouble();
+			databaseTablesChecked[targetKey]++;
+		}
+
+		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	});
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -480,7 +465,9 @@ int DatabaseManager::addUsersIfNotExists()
 
 		body["data"] = data;
 
-		QJsonDocument reply;
+		networkManager.makePostRequest(apiUrl + "/users", result, body);
+
+		/*QJsonDocument reply;
 		
 		if (networkManager.makePostRequest(apiUrl + "/users", result, body, &reply)) {
 			if (!reply.isObject()) {
@@ -499,22 +486,7 @@ int DatabaseManager::addUsersIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-		
-		//if (makeNetworkRequest(apiUrl+"/users", result, &reply)) {
-		//	if (!reply.isObject())
-		//		continue;
-		//	QJsonObject result = reply.object();
-		//	LOG << result["result"].toString().toStdString();
-		//	if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-		//		databaseTablesChecked[targetKey]++;
-		//		continue;
-		//	}
-		//	LOG << "No rows were altered on db";
-		//	databaseTablesChecked[targetKey]++;
-		//	continue;
-		//	//break;
-		//}
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
 
 	}
 
@@ -609,6 +581,24 @@ int DatabaseManager::addEmployeesIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 
+	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+		/*qCDebug(category) << result.toJson().toStdString().data();*/
+		QString targetKey = "employees";
+		if (!result.isObject()) {
+			LOG << "Reply was not an Object";
+			databaseTablesChecked[targetKey]++;
+			return;
+		}
+		LOG << result.toJson().toStdString();
+		QJsonObject resultObject = result.object();
+		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+			LOG << resultObject["status"].toDouble();
+			databaseTablesChecked[targetKey]++;
+		}
+
+		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		});
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -642,7 +632,9 @@ int DatabaseManager::addEmployeesIfNotExists()
 		QJsonObject body;
 		body["data"] = data;
 
-		QJsonDocument reply;
+		networkManager.makePostRequest(apiUrl + "/employees", result, body);
+
+		/*QJsonDocument reply;
 
 		if (networkManager.makePostRequest(apiUrl + "/employees", result, body, &reply)) {
 			if (!reply.isObject()) {
@@ -661,7 +653,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
 
 		//if (makeNetworkRequest(apiUrl, res, &reply)) {
 		//	if (!reply.isObject())
@@ -774,6 +766,24 @@ int DatabaseManager::addJobsIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 
+	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+		/*qCDebug(category) << result.toJson().toStdString().data();*/
+		QString targetKey = "jobs";
+		if (!result.isObject()) {
+			LOG << "Reply was not an Object";
+			databaseTablesChecked[targetKey]++;
+			return;
+		}
+		LOG << result.toJson().toStdString();
+		QJsonObject resultObject = result.object();
+		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+			LOG << resultObject["status"].toDouble();
+			databaseTablesChecked[targetKey]++;
+		}
+
+		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		});
+
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -806,7 +816,9 @@ int DatabaseManager::addJobsIfNotExists()
 		QJsonObject body;
 		body["data"] = data;
 
-		QJsonDocument reply;
+		networkManager.makePostRequest(apiUrl + "/jobs", result, body);
+
+		/*QJsonDocument reply;
 
 		if (networkManager.makePostRequest(apiUrl + "/jobs", result, body, &reply)) {
 			if (!reply.isObject()) {
@@ -825,7 +837,7 @@ int DatabaseManager::addJobsIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
 
 		//QJsonDocument reply;
 		//if (makeNetworkRequest(apiUrl, res, &reply)) {
@@ -875,7 +887,7 @@ int DatabaseManager::addKabsIfNotExists()
 	LOG << "Adding Kabs to Webportal";
 	QString targetKey = "kabs";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabs");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabs");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -938,10 +950,10 @@ int DatabaseManager::addKabsIfNotExists()
 		databaseTablesChecked[targetKey]++;
 
 	ServiceHelper().WriteToLog("Exporting Kabs");
-	string query =
+	std::string query =
 		"SELECT * from itemkabs ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() > 0) {
 		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
@@ -959,12 +971,12 @@ int DatabaseManager::addKabsIfNotExists()
 
 	std::string colQuery =
 		"SHOW COLUMNS from itemkabs";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "itemkabs";
-	vector<string> columns;
+	std::string tableName = "itemkabs";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "kabId" };
@@ -1002,6 +1014,24 @@ int DatabaseManager::addKabsIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 
+	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+		/*qCDebug(category) << result.toJson().toStdString().data();*/
+		QString targetKey = "kabs";
+		if (!result.isObject()) {
+			LOG << "Reply was not an Object";
+			databaseTablesChecked[targetKey]++;
+			return;
+		}
+		LOG << result.toJson().toStdString();
+		QJsonObject resultObject = result.object();
+		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+			LOG << resultObject["status"].toDouble();
+			databaseTablesChecked[targetKey]++;
+		}
+
+		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		});
+
 	QStringList ensureValForTargetCols = { "description", "serialNumber", "modelNumber" };
 
 	for (auto &result : sqlQueryResults) {
@@ -1011,7 +1041,7 @@ int DatabaseManager::addKabsIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
 			QString key = it.key();
@@ -1044,7 +1074,9 @@ int DatabaseManager::addKabsIfNotExists()
 		QJsonObject body;
 		body["data"] = data;
 
-		QJsonDocument reply;
+		networkManager.makePostRequest(apiUrl + "/kabtrak", result, body);
+
+		/*QJsonDocument reply;
 
 		if (networkManager.makePostRequest(apiUrl + "/kabtrak", result, body, &reply)) {
 			if (!reply.isObject()) {
@@ -1063,7 +1095,7 @@ int DatabaseManager::addKabsIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
 
 	}
 
@@ -1094,7 +1126,7 @@ int DatabaseManager::addDrawersIfNotExists()
 	LOG << "Adding Drawers to Webportal";
 	QString targetKey = "kabDrawers";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawers");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawers");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -1108,19 +1140,19 @@ int DatabaseManager::addDrawersIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kab Drawers");
-	string query =
+	std::string query =
 		"SELECT * from itemkabdrawers ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from itemkabdrawers";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "itemkabdrawers";
-	vector<string> columns;
+	std::string tableName = "itemkabdrawers";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "kabId", "drawerCode"};
@@ -1158,6 +1190,24 @@ int DatabaseManager::addDrawersIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 
+	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+		/*qCDebug(category) << result.toJson().toStdString().data();*/
+		QString targetKey = "kabDrawers";
+		if (!result.isObject()) {
+			LOG << "Reply was not an Object";
+			databaseTablesChecked[targetKey]++;
+			return;
+		}
+		LOG << result.toJson().toStdString();
+		QJsonObject resultObject = result.object();
+		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+			LOG << resultObject["status"].toDouble();
+			databaseTablesChecked[targetKey]++;
+		}
+
+		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		});
+
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1165,7 +1215,7 @@ int DatabaseManager::addDrawersIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -1190,7 +1240,9 @@ int DatabaseManager::addDrawersIfNotExists()
 		QJsonObject body;
 		body["data"] = data;
 
-		QJsonDocument reply;
+		networkManager.makePostRequest(apiUrl + "/kabtrak/drawers", result, body);
+
+		/*QJsonDocument reply;
 
 		if (networkManager.makePostRequest(apiUrl + "/kabtrak/drawers", result, body, &reply)) {
 			if (!reply.isObject()) {
@@ -1209,7 +1261,7 @@ int DatabaseManager::addDrawersIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
 
 	}
 	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
@@ -1243,7 +1295,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	LOG << "Adding Kab Tools to Webportal";
 	QString targetKey = "kabDrawerBins";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawerbins");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawerbins");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -1256,19 +1308,19 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kab tools in bins");
-	string query =
+	std::string query =
 		"SELECT i.*, t.id as toolId from itemkabdrawerbins AS i LEFT JOIN tools AS t ON t.PartNo LIKE i.itemId OR t.stockcode LIKE i.itemId ORDER BY i.id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from itemkabdrawerbins";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "itemkabdrawerbins";
-	vector<string> columns;
+	std::string tableName = "itemkabdrawerbins";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "kabId", "toolId", "itemId", "drawerNum", "toolNumber"};
@@ -1316,6 +1368,24 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 
+	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+		/*qCDebug(category) << result.toJson().toStdString().data();*/
+		QString targetKey = "kabDrawerBins";
+		if (!result.isObject()) {
+			LOG << "Reply was not an Object";
+			databaseTablesChecked[targetKey]++;
+			return;
+		}
+		LOG << result.toJson().toStdString();
+		QJsonObject resultObject = result.object();
+		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+			LOG << resultObject["status"].toDouble();
+			databaseTablesChecked[targetKey]++;
+		}
+
+		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		});
+
 	for (auto & result : sqlQueryResults) {
 		if (result.firstKey() == "success")
 			continue;
@@ -1323,7 +1393,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -1350,13 +1420,15 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 
 		qDebug() << body;
 
-		QJsonDocument reply;
+		//QJsonDocument reply;
 		qDebug() << "Tool: itemId: " << data.value("itemId") << " toolId:" << data.value("toolId") << " drawerNum: " << data.value("drawerNum") << " toolNumber: " << data.value("toolNumber");
 		if (data.value("drawerNum").toString() == "7" && data.value("toolNumber").toString() == "79") {
 			qDebug() << "forced breakout";
 		}
 
-		if (networkManager.makePostRequest(apiUrl + "/kabtrak/tools", result, body, &reply)) {
+		networkManager.makePostRequest(apiUrl + "/kabtrak/tools", result, body);
+
+		/*if (networkManager.makePostRequest(apiUrl + "/kabtrak/tools", result, body, &reply)) {
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
 				databaseTablesChecked[targetKey]++;
@@ -1373,7 +1445,7 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
 
 	}
 	
@@ -1468,7 +1540,7 @@ int DatabaseManager::addCribsIfNotExists()
 	LOG << "Adding Cribs to Webportal";
 	QString targetKey = "cribs";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM cribs");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM cribs");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -1530,10 +1602,10 @@ int DatabaseManager::addCribsIfNotExists()
 		databaseTablesChecked[targetKey]++;
 
 	ServiceHelper().WriteToLog("Exporting CribTRAKS from crib");
-	string query =
+	std::string query =
 		"SELECT * from cribs ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() > 0) {
 		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
@@ -1551,12 +1623,12 @@ int DatabaseManager::addCribsIfNotExists()
 
 	std::string colQuery =
 		"SHOW COLUMNS from cribs";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "cribs";
-	vector<string> columns;
+	std::string tableName = "cribs";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "cribId"};
@@ -1603,7 +1675,7 @@ int DatabaseManager::addCribsIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
 			QString key = it.key();
@@ -1686,7 +1758,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 	LOG << "Adding CribToolLocations to Webportal";
 	QString targetKey = "toolLocation";
 	timeStamp = ServiceHelper().timestamp();
-	vector tableCheck = ExecuteTargetSql("show tables like 'cribtoollocation'");
+	std::vector tableCheck = ExecuteTargetSql("show tables like 'cribtoollocation'");
 	//qDebug() << tableCheck;
 	QString cribtoollocationTable;
 	if (tableCheck.size() > 1) {
@@ -1695,7 +1767,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 	else {
 		cribtoollocationTable = "cribtoollocations";
 	}
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM " + cribtoollocationTable.toStdString());
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM " + cribtoollocationTable.toStdString());
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -1709,19 +1781,19 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Tool Location from CribTRAK");
-	string query =
+	std::string query =
 		"SELECT * from "+ cribtoollocationTable.toStdString() +" ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from " + cribtoollocationTable.toStdString();
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = cribtoollocationTable.toStdString();
-	vector<string> columns;
+	std::string tableName = cribtoollocationTable.toStdString();
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "cribId", "locationId" };
@@ -1778,7 +1850,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		result["locationId"] = result["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -1853,8 +1925,8 @@ int DatabaseManager::addCribToolsIfNotExists()
 	LOG << "Adding CribTools to Webportal";
 	QString targetKey = "cribtools";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM cribtools");
-	vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM cribtools WHERE Key_name = 'PRIMARY'");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM cribtools");
+	std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM cribtools WHERE Key_name = 'PRIMARY'");
 	QString indexingCol = colsCheck[1].value("Column_name");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
@@ -1869,19 +1941,19 @@ int DatabaseManager::addCribToolsIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Tools from crib");
-	string query =
+	std::string query =
 		"SELECT * from cribtools ORDER BY "+ indexingCol.toStdString() + " DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from cribtools";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "cribtools";
-	vector<string> columns;
+	std::string tableName = "cribtools";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "cribId", "toolId", "barcodeTAG", "itemId"};
@@ -1963,7 +2035,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -2050,7 +2122,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 	LOG << "Adding CribToolTransfer to Webportal";
 	QString targetKey = "tooltransfer";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tooltransfer");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM tooltransfer");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -2064,19 +2136,19 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Tool Transfers from crib");
-	string query =
+	std::string query =
 		"SELECT * from tooltransfer ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from tooltransfer";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "tooltransfer";
-	vector<string> columns;
+	std::string tableName = "tooltransfer";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "cribId", "transferId", "barcodeTAG", "userId", "transfer_userId", "tailId", "transfer_tailId"};
@@ -2134,7 +2206,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 			result["transferId"] = result["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -2211,7 +2283,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 	LOG << "Adding Cribtrak Consumables to Webportal";
 	QString targetKey = "cribconsumables";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM cribconsumables");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM cribconsumables");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -2226,19 +2298,19 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Consumables from crib");
-	string query =
+	std::string query =
 		"SELECT * from cribconsumables ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from cribconsumables";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "cribconsumables";
-	vector<string> columns;
+	std::string tableName = "cribconsumables";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "cribId", "toolId", "barcode", "userId", "tailId"};
@@ -2298,7 +2370,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 			res["id"] = result["id"];
 			//result["toolId"] = result["id"];
 		//}
-		vector fetchTool = ExecuteTargetSql(("SELECT t.id FROM cribtools AS ct LEFT JOIN tools AS t ON ((t.PartNo IS NOT NULL OR t.PartNo <> '') AND t.PartNo = ct.itemId) OR ((t.serialNo IS NOT NULL OR t.serialNo <> '') AND t.serialNo = ct.serialNo) OR (t.id = ct.toolId) WHERE ct.barcodeTAG LIKE '" + result["barcode"]+"'").toStdString());
+		std::vector fetchTool = ExecuteTargetSql(("SELECT t.id FROM cribtools AS ct LEFT JOIN tools AS t ON ((t.PartNo IS NOT NULL OR t.PartNo <> '') AND t.PartNo = ct.itemId) OR ((t.serialNo IS NOT NULL OR t.serialNo <> '') AND t.serialNo = ct.serialNo) OR (t.id = ct.toolId) WHERE ct.barcodeTAG LIKE '" + result["barcode"]+"'").toStdString());
 		if (fetchTool.size() <= 1) {
 			databaseTablesChecked[targetKey]++;
 			continue;
@@ -2307,7 +2379,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 			result["toolId"] = fetchTool[1]["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -2387,7 +2459,7 @@ int DatabaseManager::addCribKitsIfNotExists()
 	LOG << "Adding CribTools to Webportal";
 	QString targetKey = "kittools";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM kittools");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM kittools");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -2401,19 +2473,19 @@ int DatabaseManager::addCribKitsIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kits from crib");
-	string query =
+	std::string query =
 		"SELECT * from kittools ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from kittools";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "kittools";
-	vector<string> columns;
+	std::string tableName = "kittools";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "cribId", "kitBarcode", "toolId", "itemId", "barcodeTAG"};
@@ -2467,7 +2539,7 @@ int DatabaseManager::addCribKitsIfNotExists()
 		QStringMap res;
 		res["id"] = result["id"];
 		
-		vector fetchTool = ExecuteTargetSql(("SELECT t.PartNo as itemId, ct.serialNo, t.id AS toolId FROM cribtools AS ct LEFT JOIN tools AS t ON ((t.PartNo IS NOT NULL OR t.PartNo <> '') AND t.PartNo = ct.itemId) OR ((t.serialNo IS NOT NULL OR t.serialNo <> '') AND t.serialNo = ct.serialNo) OR (t.id = ct.toolId) WHERE ct.barcodeTAG LIKE '" + result["kitBarcode"] + "'").toStdString());
+		std::vector fetchTool = ExecuteTargetSql(("SELECT t.PartNo as itemId, ct.serialNo, t.id AS toolId FROM cribtools AS ct LEFT JOIN tools AS t ON ((t.PartNo IS NOT NULL OR t.PartNo <> '') AND t.PartNo = ct.itemId) OR ((t.serialNo IS NOT NULL OR t.serialNo <> '') AND t.serialNo = ct.serialNo) OR (t.id = ct.toolId) WHERE ct.barcodeTAG LIKE '" + result["kitBarcode"] + "'").toStdString());
 		
 		if (fetchTool.size() > 1) {
 			if(!fetchTool[1]["itemId"].isEmpty())
@@ -2480,7 +2552,7 @@ int DatabaseManager::addCribKitsIfNotExists()
 
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -2627,7 +2699,7 @@ int DatabaseManager::addPortasIfNotExists()
 	LOG << "Adding Portas to Webportal";
 	QString targetKey = "scales";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemscale");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemscale");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -2690,10 +2762,10 @@ int DatabaseManager::addPortasIfNotExists()
 		databaseTablesChecked[targetKey]++;
 	
 	ServiceHelper().WriteToLog("Exporting PortaTRAKS from itemscale");
-	string query =
+	std::string query =
 		"SELECT * from itemscale ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() > 0) {
 		rtManager.GetVal("TRAK_DIR", REG_SZ, (char*)buffer, size);
@@ -2711,12 +2783,12 @@ int DatabaseManager::addPortasIfNotExists()
 
 	std::string colQuery =
 		"SHOW COLUMNS from itemscale";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "itemscale";
-	vector<string> columns;
+	std::string tableName = "itemscale";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "scaleId" };
@@ -2763,7 +2835,7 @@ int DatabaseManager::addPortasIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
 			QString key = it.key();
@@ -2848,7 +2920,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 	LOG << "Adding Kits to Webportal";
 	QString targetKey = "itemkits";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkits");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkits");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -2862,19 +2934,19 @@ int DatabaseManager::addItemKitsIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Itemkits from PortaTRAK");
-	string query =
+	std::string query =
 		"SELECT * from itemkits ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from itemkits";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "itemkits";
-	vector<string> columns;
+	std::string tableName = "itemkits";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year"};
 	QStringList uniqueIndexCols = { "custId", "scaleId", "kitTAG", "kitId"};
@@ -2934,7 +3006,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 
 		if (!result.contains("userId") || result.value("userId").isEmpty() || result.value("userId") == "0") {
 			std::string userIdQuery = "SELECT userId FROM portaemployeeitemtransactions WHERE kitTAG = '" + result.value("kitTAG").toStdString() + "' AND transType = '3' ORDER BY id DESC LIMIT 1";
-			vector queryRes = ExecuteTargetSql(userIdQuery);
+			std::vector queryRes = ExecuteTargetSql(userIdQuery);
 			if (queryRes.size() > 1 && queryRes[1].contains("userId") && (!queryRes[1].value("userId").isEmpty() || queryRes[1].value("userId") != "0")) {
 				result["userId"] = queryRes[1].value("userId");
 			}
@@ -2943,7 +3015,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 		qDebug() << result;
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -3018,7 +3090,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 	LOG << "Adding Kit Categories to Webportal";
 	QString targetKey = "kitCategory";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM kitcategory");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM kitcategory");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -3032,19 +3104,19 @@ int DatabaseManager::addKitCategoryIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kit Categories from PortaTRAK");
-	string query =
+	std::string query =
 		"SELECT * from kitcategory ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from kitcategory";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "kitcategory";
-	vector<string> columns;
+	std::string tableName = "kitcategory";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "scaleId", "categoryId"};
@@ -3114,7 +3186,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 			result["scaleId"] = trakIdNum;
 		
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -3189,7 +3261,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 	LOG << "Adding Kit Locations to Webportal";
 	QString targetKey = "kitLocation";
 	timeStamp = ServiceHelper().timestamp();
-	vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM kitlocation");
+	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM kitlocation");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
@@ -3203,19 +3275,19 @@ int DatabaseManager::addKitLocationIfNotExists()
 		return 0;
 	}
 	ServiceHelper().WriteToLog("Exporting Kit Location from PortaTRAK");
-	string query =
+	std::string query =
 		"SELECT * from kitlocation ORDER BY id DESC LIMIT " +
-		to_string(databaseTablesChecked[targetKey]) + ", " + to_string(queryLimit);
-	vector sqlQueryResults = ExecuteTargetSql(query);
+		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
+	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from kitlocation";
-	vector colQueryResults = ExecuteTargetSql(colQuery);
+	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
 	qDebug() << colQueryResults;
 
-	string tableName = "kitlocation";
-	vector<string> columns;
+	std::string tableName = "kitlocation";
+	std::vector<std::string> columns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "scaleId", "locationId"};
@@ -3284,7 +3356,7 @@ int DatabaseManager::addKitLocationIfNotExists()
 			result["scaleId"] = trakIdNum;
 
 		QJsonObject data;
-		map<string, string> toolData;
+		std::map<std::string, std::string> toolData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -3421,7 +3493,7 @@ int DatabaseManager::createPortatrakTransactionsTable() {
 
 int DatabaseManager::connectToRemoteDB()
 {
-	ServiceHelper().WriteToLog(string("Attempting to connect to Remote Database"));
+	ServiceHelper().WriteToLog(std::string("Attempting to connect to Remote Database"));
 	timeStamp = ServiceHelper().timestamp();
 	QString targetSchema;
 	QSqlDatabase db;
@@ -3456,7 +3528,7 @@ int DatabaseManager::connectToRemoteDB()
 
 		requestRunning = true;		
 
-		vector<QStringMap> queries;
+		std::vector<QStringMap> queries;
 		QSqlQuery query(db);
 
 		try {
@@ -3467,7 +3539,7 @@ int DatabaseManager::connectToRemoteDB()
 			if (!query.exec())
 			{
 				query.finish();
-				ServiceHelper().WriteToLog(string("Closing DB Session"));
+				ServiceHelper().WriteToLog(std::string("Closing DB Session"));
 				throw HenchmanServiceException("Failed to exec query: " + query.executedQuery().toStdString());
 			}
 
@@ -3618,12 +3690,12 @@ int DatabaseManager::connectToRemoteDB()
 
 				if (!pushCloudUpdate || skipQuery)
 				{
-					string sqlQuery = "UPDATE cloudupdate SET posted = " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1") + " WHERE posted <> 1 AND id = " + res["id"].toStdString();
+					std::string sqlQuery = "UPDATE cloudupdate SET posted = " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1") + " WHERE posted <> 1 AND id = " + res["id"].toStdString();
 
 					ServiceHelper().WriteToCustomLog("Updating skipped query with id: " + res["id"].toStdString() + " with posted status " + std::string(skipQuery ? (retryingQuery ? "3" : "2") : "1"), timeStamp[0] + "-queries");
 					if (skipQuery && !retryingQuery)
 						ServiceHelper().WriteToCustomLog("Skipping query to try again later:\n\tid: " + res["id"].toStdString() + "\n\t query: " + res["query"].toStdString(), timeStamp[0] + "-queries-skipped");
-					vector queryResult = ExecuteTargetSql(sqlQuery);
+					std::vector queryResult = ExecuteTargetSql(sqlQuery);
 					if (queryResult.size() > 0)
 						for (auto result : queryResult)
 							LOG << result["success"];
@@ -3673,7 +3745,7 @@ int DatabaseManager::connectToRemoteDB()
 							sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
 							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
 						}
-						vector queryResult = ExecuteTargetSql(sqlQuery);
+						std::vector queryResult = ExecuteTargetSql(sqlQuery);
 						if (queryResult.size() > 0)
 							for (auto result : queryResult)
 								LOG << result["success"];
@@ -3702,7 +3774,7 @@ int DatabaseManager::connectToRemoteDB()
 							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
 						}
 
-						vector queryResult = ExecuteTargetSql(sqlQuery);
+						std::vector queryResult = ExecuteTargetSql(sqlQuery);
 						if (queryResult.size() > 0)
 							for (auto result : queryResult)
 								LOG << result["success"];
@@ -3730,7 +3802,7 @@ int DatabaseManager::connectToRemoteDB()
 							sqlQuery = "UPDATE cloudupdate SET posted = " + QString::number(retryingQuery ? 3 : 2) + " WHERE posted <> 1 AND id = " + res["id"];
 							ServiceHelper().WriteToLog("Updating query with id: " + res["id"].toStdString() + " to posted status " + std::string(retryingQuery ? "3" : "2"));
 						}
-						vector queryResult = ExecuteTargetSql(sqlQuery);
+						std::vector queryResult = ExecuteTargetSql(sqlQuery);
 						if (queryResult.size() > 0)
 							for (auto result : queryResult)
 								LOG << result["success"];
@@ -3747,7 +3819,7 @@ int DatabaseManager::connectToRemoteDB()
 						QString sqlQuery = "UPDATE cloudupdate SET posted = 3 WHERE posted <> 1 AND id = " + res["id"];
 
 						ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status 3", timeStamp[0] + "-queries");
-						vector queryResult = ExecuteTargetSql(sqlQuery);
+						std::vector queryResult = ExecuteTargetSql(sqlQuery);
 						if (queryResult.size() > 0)
 						{
 							for (auto result : queryResult)
@@ -3763,7 +3835,7 @@ int DatabaseManager::connectToRemoteDB()
 				QString sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted <> 1 AND id = " + res["id"];
 
 				ServiceHelper().WriteToCustomLog("Updating query with id: " + res["id"].toStdString() + " to posted status 1", timeStamp[0] + "-queries");
-				vector queryResult = ExecuteTargetSql(sqlQuery);
+				std::vector queryResult = ExecuteTargetSql(sqlQuery);
 				if (queryResult.size() > 0)
 				{
 					for (auto result : queryResult)
@@ -3789,7 +3861,7 @@ int DatabaseManager::connectToRemoteDB()
 		result = true;
 
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 		if(db.isOpen())
 			db.close();
@@ -3865,7 +3937,7 @@ int DatabaseManager::connectToLocalDB()
 			rtManager.GetVal("Password", REG_SZ, (char*)buffer, size);
 			QString pass(buffer);
 
-			ServiceHelper().WriteToLog((string)"Creating session to db");
+			ServiceHelper().WriteToLog((std::string)"Creating session to db");
 					
 			db = QSqlDatabase::addDatabase(databaseDriver, schema);
 			db.setHostName(server);
@@ -3883,7 +3955,7 @@ int DatabaseManager::connectToLocalDB()
 		if (!db.open())
 			throw HenchmanServiceException("DB Connection failed to open");
 
-		ServiceHelper().WriteToLog((string)"DB Connection successfully opened");
+		ServiceHelper().WriteToLog((std::string)"DB Connection successfully opened");
 		
 		if (!db.driver()->hasFeature(QSqlDriver::Transactions))
 			throw HenchmanServiceException("Selected Driver does not support transactions");
@@ -3906,14 +3978,14 @@ int DatabaseManager::connectToLocalDB()
 		query.clear();
 
 		if (!dbFound) {
-			ServiceHelper().WriteToLog((string)"Generating Database");
+			ServiceHelper().WriteToLog((std::string)"Generating Database");
 			QString targetQuery = "CREATE DATABASE " + schema + " CHARACTER SET utf8 COLLATE utf8_general_ci";
 			LOG << targetQuery;
 			if (!query.exec(targetQuery)) {
-				ServiceHelper().WriteToError((string)"Failed to create database");
+				ServiceHelper().WriteToError((std::string)"Failed to create database");
 			}
 			else {
-				ServiceHelper().WriteToLog((string)"Successfully created Database");
+				ServiceHelper().WriteToLog((std::string)"Successfully created Database");
 			}
 		}
 
@@ -3928,7 +4000,7 @@ int DatabaseManager::connectToLocalDB()
 		db.setDatabaseName(schema);
 
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 
 		if (db.isOpen()) {
@@ -3997,7 +4069,7 @@ int DatabaseManager::ExecuteTargetSqlScript(const std::string& filepath)
 		db.close();
 		file.close();
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 		if (file.isOpen())
 			file.close();
@@ -4014,7 +4086,7 @@ int DatabaseManager::ExecuteTargetSqlScript(const std::string& filepath)
 std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sqlQuery, const stringmap& params)
 {
 	int successCount = 0;
-	vector<QStringMap> resultVector;
+	std::vector<QStringMap> resultVector;
 	QStringMap queryResult;
 	queryResult["success"] = "0";
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
@@ -4091,7 +4163,7 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sql
 			db.rollback();
 		db.close();
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 		if (db.isOpen()) {
 			db.rollback();
@@ -4109,7 +4181,7 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sql
 std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sqlQuery)
 {
 	int successCount = 0;
-	vector<QStringMap> resultVector;
+	std::vector<QStringMap> resultVector;
 	QStringMap queryResult;
 	queryResult["success"] = "0";
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
@@ -4176,7 +4248,7 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sq
 			db.rollback();
 		db.close();
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 		if (db.isOpen()) {
 			db.rollback();
@@ -4513,7 +4585,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 					jobQuery.append(" AND ");
 			}
 
-			vector fetchedJob = ExecuteTargetSql(jobQuery, keyValue);
+			std::vector fetchedJob = ExecuteTargetSql(jobQuery, keyValue);
 
 			if (fetchedJob.size() <= 1) {
 				skipQuery = true;
@@ -4580,7 +4652,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 			kabToolQuery.append(queryConditions.join(" AND "));
 			//qDebug() << kabToolQuery;
-			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
+			std::vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
 
 			if (fetchedKabTool.size() <= 1) {
 				skipQuery = true;
@@ -4635,7 +4707,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			toolQuery.append(queryConditions.join(" AND "));
 			toolQuery.append(" ORDER BY barcodeTAG DESC LIMIT 1");
 			//qDebug() << toolQuery;
-			vector fetchedTool = ExecuteTargetSql(toolQuery, keyValueMap);
+			std::vector fetchedTool = ExecuteTargetSql(toolQuery, keyValueMap);
 
 			if (fetchedTool.size() <= 1) {
 				skipQuery = true;
@@ -4681,7 +4753,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!hasTrakId)
 			entry[trakId.data()] = trakIdNum;
 
-		vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM cribtools WHERE Key_name = 'PRIMARY'");
+		std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM cribtools WHERE Key_name = 'PRIMARY'");
 		QString indexingCol = colsCheck[1].value("Column_name");
 
 		QString cribToolQuery = "SELECT ct."+ indexingCol +" AS id, t.id as toolId FROM cribtools AS ct INNER JOIN tools AS t ON t.custId = ct.custId AND (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo) WHERE ";
@@ -4702,7 +4774,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		}
 		cribToolQuery.append(queryConditions.join(" AND "));
 		//qDebug() << cribToolQuery;
-		vector fetchedKabTool = ExecuteTargetSql(cribToolQuery, keyValueMap);
+		std::vector fetchedKabTool = ExecuteTargetSql(cribToolQuery, keyValueMap);
 
 		if (fetchedKabTool.size() <= 1) {
 			skipQuery = true;
@@ -4779,7 +4851,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 			kitQuery.append(queryConditions.join(" AND "));
 			//qDebug() << kitQuery;
-			vector fetchedRes = ExecuteTargetSql(kitQuery, keyValue);
+			std::vector fetchedRes = ExecuteTargetSql(kitQuery, keyValue);
 
 			if (fetchedRes.size() <= 1) {
 				skipQuery = true;
@@ -4830,7 +4902,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 			categoryQuery.append(queryConditions.join(" AND "));
 			//qDebug() << categoryQuery;
-			vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
+			std::vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
 
 			if (fetchedRes.size() <= 1) {
 				skipQuery = true;
@@ -4876,7 +4948,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 			locationQuery.append(queryConditions.join(" AND "));
 			//qDebug() << locationQuery;
-			vector fetchedRes = ExecuteTargetSql(locationQuery, keyValue);
+			std::vector fetchedRes = ExecuteTargetSql(locationQuery, keyValue);
 
 			if (fetchedRes.size() <= 1) {
 				skipQuery = true;
@@ -4920,7 +4992,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			kabToolQuery.append(queryConditions.join(" AND "));
 			kabToolQuery.append(" LIMIT 1");
 			//qDebug() << kabToolQuery;
-			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
+			std::vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
 
 			if (fetchedKabTool.size() > 1) {
 				for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
@@ -4938,7 +5010,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			//qDebug() << kabToolQuery;
 			QStringMap keyValue;
 			keyValue["itemId"] = entry.value("itemId").toString();
-			vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
+			std::vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
 
 			if (fetchedKabTool.size() > 1) {
 				for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
@@ -5018,7 +5090,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				kabToolQuery.append(queryConditions.join(" AND "));
 				kabToolQuery.append(" LIMIT 1");*/
 				//qDebug() << transactionQuery;
-				vector fetchedKabTool = ExecuteTargetSql(transactionQuery, keyValue);
+				std::vector fetchedKabTool = ExecuteTargetSql(transactionQuery, keyValue);
 
 				if (fetchedKabTool.size() > 1) {
 					for (auto it = fetchedKabTool[1].cbegin(); it != fetchedKabTool[1].cend(); ++it) {
@@ -5041,7 +5113,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			//LOG << transactionQuery;
 			QStringMap keyValue;
 			keyValue["toolId"] = entry.value("toolId").toString();
-			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -5065,7 +5137,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		//ServiceHelper().WriteToLog("Insert parse results after checking issuedBy: " + doc.toJson().toStdString());
 
 		if ((!entry.contains("tailId") || entry.value("tailId").toString().isEmpty()) && entry.contains("trailId")) {
-			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
+			std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 
 			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE " + indexingCol + " = :trailId";
@@ -5073,7 +5145,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			//LOG << transactionQuery;
 			QStringMap keyValue;
 			keyValue["trailId"] = entry.value("trailId").toString();
-			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -5090,7 +5162,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		ServiceHelper().WriteToLog("Insert parse results after checking tailId and trailId: " + doc.toJson().toStdString());*/
 
 		if ((!entry.contains("trailId") || entry.value("trailId").toString().isEmpty() || entry.value("trailId").toString() == "0") && (entry.contains("tailId") && !entry.value("tailId").toString().isEmpty())) {
-			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
+			std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 
 			QString transactionQuery = "SELECT " + indexingCol + " FROM jobs WHERE description LIKE :tailId";
@@ -5098,7 +5170,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			//LOG << transactionQuery;
 			QStringMap keyValue;
 			keyValue["tailId"] = entry.value("tailId").toString();
-			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -5146,7 +5218,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 			kitQuery.append(queryConditions.join(" AND "));
 			//qDebug() << kitQuery;
-			vector fetchedRes = ExecuteTargetSql(kitQuery, keyValue);
+			std::vector fetchedRes = ExecuteTargetSql(kitQuery, keyValue);
 			//qDebug() << fetchedRes;
 			if (fetchedRes.size() > 1) {	
 				QStringList targerResponseKeys = { "kitId" };
@@ -5168,7 +5240,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			&&
 			(!entry.contains("trailId") || entry.value("trailId").toString().isEmpty())
 			) {
-			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
+			std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 			QString jobQuery = "SELECT "+ indexingCol +" as trailId FROM jobs WHERE ";
 			QStringList targetKeys = { "custId", "tailId" };
@@ -5190,7 +5262,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			}
 			jobQuery.append(queryConditions.join(" AND "));
 			//qDebug() << jobQuery;
-			vector fetchedRes = ExecuteTargetSql(jobQuery, keyValue);
+			std::vector fetchedRes = ExecuteTargetSql(jobQuery, keyValue);
 			//qDebug() << fetchedRes;
 			if (fetchedRes.size() > 1) {
 				QStringList targerResponseKeys = { "trailId" };
@@ -5522,7 +5594,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 		ServiceHelper().WriteToLog("itemkabdrawerbins search query: " + itemDrawerQuery.toStdString());
 
-		vector itemDrawerRes = ExecuteTargetSql(itemDrawerQuery, keyValue);
+		std::vector itemDrawerRes = ExecuteTargetSql(itemDrawerQuery, keyValue);
 		//qDebug() << itemDrawerRes;
 		if (itemDrawerRes.size() > 1) {	
 			QStringList allowedKeyList = { "drawerNum", "toolNumber", "itemId", "toolId" };
@@ -5573,14 +5645,14 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 	{
 		data["table"] = "cribtrak/tools";
 
-		vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM cribtools WHERE Key_name = 'PRIMARY'");
+		std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM cribtools WHERE Key_name = 'PRIMARY'");
 		QString indexingCol = colsCheck[1].value("Column_name");
 
 		if (indexingCol == "toolId" && conditionPairs.contains("toolId")) {
 			QString targetQuery = "SELECT ct.itemId, ct.barcodeTAG, t.id as toolId FROM cribtools AS ct LEFT JOIN tools AS t ON ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo WHERE ct.toolId = :toolId";
 			QStringMap keyValue;
 			keyValue["toolId"] = conditionPairs.value("toolId").toString();
-			vector response = ExecuteTargetSql(targetQuery, keyValue);
+			std::vector response = ExecuteTargetSql(targetQuery, keyValue);
 			if (response.size() > 1) {
 				if(!conditionPairs.contains("barcodeTAG"))
 					conditionPairs["barcodeTAG"] = response[1].value("barcodeTAG");
@@ -5781,7 +5853,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 		categoryQuery.append(queryConditions.join(" AND "));
 		//qDebug() << categoryQuery;
-		vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
+		std::vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
 
 		if (fetchedRes.size() <= 1) {
 			skipQuery = true;
@@ -5826,7 +5898,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			}
 			categoryQuery.append(queryConditions.join(" AND "));
 			//qDebug() << categoryQuery;
-			vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
+			std::vector fetchedRes = ExecuteTargetSql(categoryQuery, keyValue);
 
 			if (fetchedRes.size() <= 1) {
 				skipQuery = true;
@@ -5897,7 +5969,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 
 		//LOG << transactionQuery;
-		vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+		std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 		//qDebug() << conditionPairs;
 		//qDebug() << queryRes;
 		if (queryRes.size() > 1) {
@@ -5946,7 +6018,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			transactionQuery.append(" ORDER BY id ASC LIMIT 1");
 
 			//LOG << transactionQuery;
-			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << conditionPairs;
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
@@ -6022,7 +6094,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				QString transactionQuery = "SELECT id as toolId FROM tools WHERE " + transactionQueryList.join(" OR ") + " LIMIT 1";
 
 				//LOG << transactionQuery;
-				vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+				std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 				//qDebug() << queryRes;
 				if (queryRes.size() > 1) {
 					for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -6071,7 +6143,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				QString transactionQuery = "SELECT PartNo as itemId FROM tools WHERE " + transactionQueryList.join(" OR ") + " LIMIT 1";
 
 				//LOG << transactionQuery;
-				vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+				std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 				//qDebug() << queryRes;
 				if (queryRes.size() > 1) {
 					for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -6114,7 +6186,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		*/
 
 		if ((!conditionPairs.contains("tailId") || conditionPairs.value("tailId").toString().isEmpty()) && conditionPairs.contains("trailId")) {
-			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
+			std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 
 			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE " + indexingCol + " = :trailId";
@@ -6122,7 +6194,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			//LOG << transactionQuery;
 			QStringMap keyValue;
 			keyValue["trailId"] = conditionPairs.value("trailId").toString();
-			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -6136,7 +6208,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 
 		if ((!conditionPairs.contains("trailId") || conditionPairs.value("trailId").toString().isEmpty() || conditionPairs.value("trailId").toString() == "0") && conditionPairs.contains("tailId")) {
-			vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
+			std::vector colsCheck = ExecuteTargetSql("SHOW KEYS FROM jobs WHERE Key_name = 'PRIMARY'");
 			QString indexingCol = colsCheck[1].value("Column_name");
 
 			QString transactionQuery = "SELECT " + indexingCol + " FROM jobs WHERE description LIKE :tailId";
@@ -6144,7 +6216,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			//LOG << transactionQuery;
 			QStringMap keyValue;
 			keyValue["tailId"] = conditionPairs.value("tailId").toString();
-			vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
+			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
 			if (queryRes.size() > 1) {
 				for (auto it = queryRes[1].cbegin(); it != queryRes[1].cend(); ++it) {
@@ -6434,7 +6506,7 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 				jobQuery.append(" AND ");
 		}
 		//qDebug() << jobQuery;
-		vector fetchedJob = ExecuteTargetSql(jobQuery, keyValue);
+		std::vector fetchedJob = ExecuteTargetSql(jobQuery, keyValue);
 
 		if (fetchedJob.size() <= 1) {
 			skipQuery = true;

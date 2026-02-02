@@ -6,7 +6,7 @@ message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
 
 # target_include_directories(DatabaseManager PRIVATE "DatabaseManager.h")
 
-target_compile_definitions(DatabaseManager PRIVATE DATABASE_MANAGER_LIBRARY)
+target_compile_definitions(DatabaseManager PRIVATE DATABASE_MANAGER)
 
 target_link_libraries(
 	DatabaseManager PRIVATE

@@ -8,10 +8,10 @@
 #define DATABASE_MANAGER_ __declspec(dllimport)
 #endif
 
-#if defined(DATABASE_MANAGER_LIBRARY)
-#  define DATABASE_MANAGER_LIBRARY_EXPORT Q_DECL_EXPORT
+#if defined(DATABASE_MANAGER)
+#  define DATABASE_MANAGER_EXPORT Q_DECL_EXPORT
 #else
-#  define DATABASE_MANAGER_LIBRARY_EXPORT Q_DECL_IMPORT
+#  define DATABASE_MANAGER_EXPORT Q_DECL_IMPORT
 #endif
 
 #include <iostream>
@@ -150,7 +150,7 @@ static QMap<QString, table_enums> table_map = {
  * - `~DatabaseManager()`: The destructor for the DatabaseManager class.
  * - `void performCleanup()`: Performs cleanup operations for the DatabaseManager object.
  */
-class DATABASE_MANAGER_LIBRARY_EXPORT DatabaseManager : public QObject
+class DATABASE_MANAGER_EXPORT DatabaseManager : public QObject
 {
 	Q_OBJECT
 

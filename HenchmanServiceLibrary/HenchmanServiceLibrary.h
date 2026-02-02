@@ -11,10 +11,10 @@
 #define HENCHMAN_SERVICE_ __declspec(dllimport)
 #endif
 
-#if defined(HENCHMAN_SERVICE_LIBRARY)
-#  define HENCHMAN_SERVICE_LIBRARY_EXPORT Q_DECL_EXPORT
+#if defined(HENCHMAN_SERVICE)
+#  define HENCHMAN_SERVICE_EXPORT Q_DECL_EXPORT
 #else
-#  define HENCHMAN_SERVICE_LIBRARY_EXPORT Q_DECL_IMPORT
+#  define HENCHMAN_SERVICE_EXPORT Q_DECL_IMPORT
 #endif
 
 
@@ -42,7 +42,6 @@
 #include <QObject>
 #include <QString>
 #include <QLibraryInfo>
-#include <QtDebug>
 //#include <QByteArray>
 //#include <QString>
 //#include <QTimer>
@@ -116,7 +115,7 @@
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HENCHMAN_SERVICE_LIBRARY_EXPORT HenchmanService: public QObject
+class HENCHMAN_SERVICE_EXPORT HenchmanService: public QObject
 {
 
 	Q_OBJECT

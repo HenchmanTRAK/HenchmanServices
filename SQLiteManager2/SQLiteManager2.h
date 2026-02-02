@@ -8,10 +8,10 @@
 #define SQLITE_MANAGER_2_LIBRARY_ __declspec(dllimport)
 #endif
 
-#if defined( SQLITE_MANAGER_2_LIBRARY)
-#  define SQLITE_MANAGER_2_LIBRARY_EXPORT Q_DECL_EXPORT
+#if defined(SQLITE_MANAGER_2)
+#  define SQLITE_MANAGER_2_EXPORT Q_DECL_EXPORT
 #else
-#  define SQLITE_MANAGER_2_LIBRARY_EXPORT Q_DECL_IMPORT
+#  define SQLITE_MANAGER_2_EXPORT Q_DECL_IMPORT
 #endif
 
 #include <iostream>
@@ -56,7 +56,7 @@
  * @see QSqlDatabase
  * @see QSqlQuery
  */
-class SQLITE_MANAGER_2_LIBRARY_EXPORT SQLiteManager2 : public QObject
+class SQLITE_MANAGER_2_EXPORT SQLiteManager2 : public QObject
 {
 	Q_OBJECT
 

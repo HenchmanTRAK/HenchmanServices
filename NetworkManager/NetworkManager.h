@@ -4,16 +4,16 @@
 
 #pragma once
 
-#ifdef NETWORK_MANAGER_LIBRARY_EXPORTS
-#define NETWORK_MANAGER_LIBRARY_ __declspec(dllexport)
+#ifdef NETWORK_MANAGER_EXPORTS
+#define NETWORK_MANAGER_ __declspec(dllexport)
 #else
-#define NETWORK_MANAGER_LIBRARY_ __declspec(dllimport)
+#define NETWORK_MANAGER_ __declspec(dllimport)
 #endif
 
-#if defined(NETWORK_MANAGER_LIBRARY)
-#  define NETWORK_MANAGER_LIBRARY_EXPORT Q_DECL_EXPORT
+#if defined(NETWORK_MANAGER)
+#  define NETWORK_MANAGER_EXPORT Q_DECL_EXPORT
 #else
-#  define NETWORK_MANAGER_LIBRARY_EXPORT Q_DECL_IMPORT
+#  define NETWORK_MANAGER_EXPORT Q_DECL_IMPORT
 #endif
 
 #include <optional>
@@ -37,7 +37,7 @@
 #include "HenchmanServiceException.h";
 
 
-class NETWORK_MANAGER_LIBRARY_EXPORT NetworkManager : public QObject
+class NETWORK_MANAGER_EXPORT NetworkManager : public QObject
 {
 	Q_OBJECT
 
