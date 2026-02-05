@@ -333,7 +333,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
 	*/
-	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery, const stringmap& params = stringmap());
+	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery, const std::map<std::string, QVariant>& params = std::map<std::string, QVariant>());
 
 	std::vector<QStringMap> ExecuteTargetSql(const std::wstring &sqlQuery);
 	

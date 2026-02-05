@@ -227,12 +227,29 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 	LOG << url;
 	// Create network request object.
 	QNetworkRequest request;
-	request.setUrl(QUrl(url));
+	QUrl requestUrl(url);
+
+	QVariantMap vmap;
+
+	QMapIterator<QString, QString> it(queryMap);
+	while (it.hasNext()) {
+		it.next();
+		vmap.insert(it.key(), it.value());
+	}
+	
+	QJsonDocument query = QJsonDocument::fromVariant(vmap);
+	QUrlQuery urlQuery;
+	urlQuery.addQueryItem("query", query.toJson().toBase64());
+
+	requestUrl.setQuery(urlQuery);
+	
+	request.setUrl(requestUrl);
+
 	request.setRawHeader("Authorization", "Bearer " + api_key.toLocal8Bit());
 	request.setRawHeader("Content-Type", "application/json");
 
 
-	ServiceHelper().WriteToCustomLog("Making query to: " + url.toStdString(), "queries");
+	ServiceHelper().WriteToCustomLog("Making query to: " + request.url().toString().toStdString(), "queries");
 
 
 	QNetworkReply* reply = restManager->get(request, this, [&result, &results, this](QRestReply& reply) {
@@ -275,6 +292,8 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), "queries");
 			if (results)
 				json.value().swap(*results);
+			else
+				emit requestFinished(json.value());
 
 			if (!result)
 				//result = reply.isSuccess();
@@ -297,7 +316,7 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 		}
 		//reply.networkReply()->finished();
 
-		});
+	});
 
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
 
@@ -305,7 +324,7 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
-	reply->deleteLater();
+	//reply->deleteLater();
 	retryCount = 0;
 	//QThread::sleep(1);
 	return result;
@@ -381,7 +400,8 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 			indentCount = 0;
 
 			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), "queries");
-			finishRequest(json.value());
+			//finishRequest(json.value());
+			emit requestFinished(json.value());
 			//response = json.value();
 			if (results) {
 				json.value().swap(*results);
@@ -425,7 +445,7 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 	});*/
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
-	reply->deleteLater();
+	//reply->deleteLater();
 	/*connect(reply, &QNetworkReply::finished, this, [this, &response, reply]() {
 		finishRequest(response);
 		reply->deleteLater();

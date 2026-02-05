@@ -1296,22 +1296,45 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	QString targetKey = "kabDrawerBins";
 	timeStamp = ServiceHelper().timestamp();
 	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM itemkabdrawerbins");
+
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
+
+
+	QJsonDocument reply;
+	
+	QStringMap queryMap;
+	queryMap.insert("custId", QString::number(custId));
+	queryMap.insert("kabId", trakIdNum);
+
+	networkManager.makeGetRequest(apiUrl + "/kabtrak/tools", queryMap, &reply);
+	
+	QJsonArray webportalResults;
+
+	if (reply.isObject()) {	
+	//LOG << result.toJson().toStdString();
+		QJsonObject resultObject = reply.object();
+		if (!resultObject["data"].isNull() && !resultObject["data"].isUndefined())
+			webportalResults = resultObject["data"].toArray();
+	}
+	
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal((targetKey + "Checked").toUtf8(), REG_SZ, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey]) {
+	
+	LOG << rowCheck[1][rowCheck[1].firstKey()].toInt();
+	LOG << databaseTablesChecked[targetKey];
+	LOG << webportalResults.size();
+
+	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= webportalResults.size()) {
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
 			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
-	ServiceHelper().WriteToLog("Exporting Kab tools in bins");
-	std::string query =
-		"SELECT i.*, t.id as toolId from itemkabdrawerbins AS i LEFT JOIN tools AS t ON t.PartNo LIKE i.itemId OR t.stockcode LIKE i.itemId ORDER BY i.id DESC LIMIT " +
-		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
-	std::vector sqlQueryResults = ExecuteTargetSql(query);
 
 	std::string colQuery =
 		"SHOW COLUMNS from itemkabdrawerbins";
@@ -1365,10 +1388,11 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	/*if (restManager == nullptr)
 		restManager = new QRestAccessManager(netManager, this);*/
 
-	if (networkManager.isInternetConnected())
-		networkManager.authenticateSession();
+	ServiceHelper().WriteToLog("Exporting Kab tools in bins");
 
-	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+	std::vector drawerToolsCheck = ExecuteTargetSql("SELECT drawerNum, COUNT(*) FROM itemkabdrawerbins GROUP BY drawerNum");
+
+	connect(&networkManager, &NetworkManager::requestFinished, this, [this, &rtManager](const QJsonDocument& result) {
 		/*qCDebug(category) << result.toJson().toStdString().data();*/
 		QString targetKey = "kabDrawerBins";
 		if (!result.isObject()) {
@@ -1384,70 +1408,177 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		}
 
 		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 		});
 
-	for (auto & result : sqlQueryResults) {
+	for (auto& result : drawerToolsCheck)
+	{
 		if (result.firstKey() == "success")
 			continue;
-		QStringMap res;
-		res["id"] = result["id"];
 
-		QJsonObject data;
-		std::map<std::string, std::string> toolData;
+		QListIterator<QVariant> wit(webportalResults.toVariantList());
 
-		for (auto it = result.cbegin(); it != result.cend(); ++it)
-		{
-			QString key = it.key();
-			QString val = it.value().trimmed().simplified();
-			if (val.isEmpty() || val == "''")
+		std::map<std::string, QVariant> vMapConditionals;
+		QList<QString> listConditionals;
+
+		vMapConditionals.insert_or_assign("drawerNum", result.value("drawerNum"));
+		//listConditionals.append("t.id NOT IN (:toolId)");
+
+		listConditionals.append("i.itemId NOT IN (:itemId)");
+		//listConditionals.append("i.drawerNum NOT IN (:drawerNum)");
+		listConditionals.append("i.toolNumber NOT IN (:toolNumber)");
+		//
+		while (wit.hasNext()) {
+			QJsonObject tool = wit.next().toJsonObject();
+			
+			if (QString::number(tool.value("drawerNum").toInt()) != result.value("drawerNum"))
 				continue;
-			if (!skipTargetCols.contains(key))
-				toolData[key.toStdString()] = val.toStdString();
-			data[key] = val;
+			
+			qDebug() << tool;
+
+			//QList<QString> toolCondi;
+
+			//if (tool["toolId"].isString())
+			//	toolCondi.append("t.id != '" + tool["toolId"].toString() + "'");
+			//else
+			//	toolCondi.append("t.id != " + QString::number(tool["toolId"].toInt()));
+
+			//if (tool["itemId"].isString())
+			//	toolCondi.append("i.itemId != '" + tool["itemId"].toString() + "'");
+			//else
+			//	toolCondi.append("i.itemId != " + QString::number(tool["itemId"].toInt()));
+
+			///*if (tool["drawerNum"].isString())
+			//	toolCondi.append("i.drawerNum != '" + tool["drawerNum"].toString() + "'");
+			//else
+			//	toolCondi.append("i.drawerNum != " + QString::number(tool["drawerNum"].toInt()));*/
+
+			//if (tool["toolNumber"].isString())
+			//	toolCondi.append("i.toolNumber != '" + tool["toolNumber"].toString() + "'");
+			//else
+			//	toolCondi.append("i.toolNumber != " + QString::number(tool["toolNumber"].toInt()));
+
+			//listConditionals.append("(" + toolCondi.join(" AND ") + ")");
+
+			//	if (vMapConditionals.contains("toolId")) {
+			//		if (!vMapConditionals.at("toolId").toJsonArray().contains(tool["toolId"])) {
+			//			QJsonArray newVal = vMapConditionals.at("toolId").toJsonArray();
+			//			newVal.append(tool["toolId"]);
+			//			//vMapConditionals.at("toolId") = newVal;
+			//			vMapConditionals.insert_or_assign("toolId", newVal);
+			//		}
+			//	}
+			//	else
+			//		vMapConditionals.insert_or_assign("toolId", tool["toolId"].toVariant());
+
+				if (vMapConditionals.contains("itemId")) {
+					if (!vMapConditionals.at("itemId").toJsonArray().contains(tool["itemId"])) {
+						QJsonArray newVal = vMapConditionals.at("itemId").toJsonArray();
+						newVal.append(tool["itemId"]);
+						vMapConditionals.at("itemId") = newVal;
+					}
+				}
+				else
+					vMapConditionals.insert_or_assign("itemId", tool["itemId"].toVariant());
+
+			//	if (vMapConditionals.contains("drawerNum")) {
+			//		if (!vMapConditionals.at("drawerNum").toJsonArray().contains(tool["drawerNum"])) {
+			//			QJsonArray newVal = vMapConditionals.at("drawerNum").toJsonArray();
+			//			newVal.append(tool["drawerNum"]);
+			//			vMapConditionals.at("drawerNum") = newVal;
+			//		}
+			//	}
+			//	else
+			//		vMapConditionals.insert_or_assign("drawerNum", tool["drawerNum"].toVariant());
+
+				if (vMapConditionals.contains("toolNumber")) {
+					if (!vMapConditionals.at("toolNumber").toJsonArray().contains(tool["toolNumber"])) {
+						QJsonArray newVal = vMapConditionals.at("toolNumber").toJsonArray();
+						newVal.append(tool["toolNumber"]);
+						vMapConditionals.at("toolNumber") = newVal;
+					}
+				}
+				else
+					vMapConditionals.insert_or_assign("toolNumber", tool["toolNumber"].toVariant());
+
+			//	//qDebug() << vMapConditionals;
 		}
+		
+		std::string query =
+			"SELECT i.*, t.id as toolId from itemkabdrawerbins AS i LEFT JOIN tools AS t ON t.PartNo LIKE i.itemId OR t.stockcode LIKE i.itemId";
+
+		if (listConditionals.size() > 0)
+			query.append(" WHERE i.drawerNum = :drawerNum AND " + listConditionals.join(" AND ").toStdString());
+
+		query.append(" ORDER BY i.id DESC LIMIT " + std::to_string(queryLimit));
+
+		LOG << query;
+		qDebug() << vMapConditionals;
+
+
+		std::vector sqlQueryResults = vMapConditionals.size() > 0 ? ExecuteTargetSql(query, vMapConditionals) : ExecuteTargetSql(query);
+
+		for (auto& result : sqlQueryResults) {
+			if (result.firstKey() == "success")
+				continue;
+			QStringMap res;
+			res["id"] = result["id"];
+
+			QJsonObject data;
+			std::map<std::string, std::string> toolData;
+
+			for (auto it = result.cbegin(); it != result.cend(); ++it)
+			{
+				QString key = it.key();
+				QString val = it.value().trimmed().simplified();
+				if (val.isEmpty() || val == "''")
+					continue;
+				if (!skipTargetCols.contains(key))
+					toolData[key.toStdString()] = val.toStdString();
+				data[key] = val;
+			}
 
 #if true
-		sqliteManager.AddEntry(
-			tableName,
-			toolData
-		);
+			sqliteManager.AddEntry(
+				tableName,
+				toolData
+			);
 #endif
 
-		toolData.clear();
+			toolData.clear();
 
-		QJsonObject body;
-		body["data"] = data;
+			QJsonObject body;
+			body["data"] = data;
 
-		qDebug() << body;
+			qDebug() << body;
 
-		//QJsonDocument reply;
-		qDebug() << "Tool: itemId: " << data.value("itemId") << " toolId:" << data.value("toolId") << " drawerNum: " << data.value("drawerNum") << " toolNumber: " << data.value("toolNumber");
-		if (data.value("drawerNum").toString() == "7" && data.value("toolNumber").toString() == "79") {
-			qDebug() << "forced breakout";
-		}
+			//QJsonDocument reply;
+			qDebug() << "Tool: itemId: " << data.value("itemId") << " toolId:" << data.value("toolId") << " drawerNum: " << data.value("drawerNum") << " toolNumber: " << data.value("toolNumber");
 
-		networkManager.makePostRequest(apiUrl + "/kabtrak/tools", result, body);
+			while (wit.hasNext()) {
+				QJsonObject tool = wit.next().toJsonObject();
+				qDebug() << tool;
 
-		/*if (networkManager.makePostRequest(apiUrl + "/kabtrak/tools", result, body, &reply)) {
-			if (!reply.isObject()) {
-				LOG << "Reply was not an Object";
-				databaseTablesChecked[targetKey]++;
-				continue;
+				if (tool.value("toolId") != data.value("toolId"))
+					continue;
+				if (tool.value("itemId") != data.value("itemId"))
+					continue;
+				if (tool.value("drawerNum") != data.value("drawerNum"))
+					continue;
+				if (tool.value("toolNumber") != data.value("toolNumber"))
+					continue;
+				qDebug() << "webportal tool: itemId: " << tool.value("itemId") << " toolId:" << tool.value("toolId") << " drawerNum: " << tool.value("drawerNum") << " toolNumber: " << tool.value("toolNumber");;
 			}
-			LOG << reply.toJson().toStdString();
-			QJsonObject result = reply.object();
-			if (result["status"].toDouble() == 200) {
-				databaseTablesChecked[targetKey]++;
+			if (data.value("drawerNum").toString() == "7" && data.value("toolNumber").toString() == "79") {
+				qDebug() << "forced breakout";
 			}
-		}
-		else {
-			LOG << "No rows were altered on db";
-			databaseTablesChecked[targetKey]++;
-		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
+			networkManager.makePostRequest(apiUrl + "/kabtrak/tools", result, body);
 
+		}
 	}
+	
+	
 	
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
@@ -4083,7 +4214,7 @@ int DatabaseManager::ExecuteTargetSqlScript(const std::string& filepath)
 	return successCount;
 }
 
-std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sqlQuery, const stringmap& params)
+std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sqlQuery, const std::map<std::string, QVariant>& params)
 {
 	int successCount = 0;
 	std::vector<QStringMap> resultVector;
@@ -4128,9 +4259,27 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sql
 				query.prepare(statement);
 				for (auto it = params.cbegin(); it != params.cend(); ++it) {
 					std::string key = it->first;
-					std::string value = it->second;
-					LOG << key << ": " << value;
-					query.bindValue(QString::fromStdString(":" + key), QString::fromStdString(value));
+					QVariant value = it->second;
+					qDebug() << key << ": " << value;
+					qDebug() << value.typeName();
+					if (value.canConvert<QString>()) {
+						query.bindValue(QString::fromStdString(":" + key), value.toString());
+						continue;
+					}
+					
+					if (value.canConvert<QJsonArray>()) {
+						QStringList values;
+						foreach(QJsonValue val, value.toJsonArray()) {
+							qDebug() << val;
+							values << (val.isDouble() ? QString::number(val.toInt()) : val.toString());
+						}
+						qDebug() << values;
+						
+						query.bindValue(QString::fromStdString(":" + key), values.join(","));
+						continue;
+					}
+
+					query.bindValue(QString::fromStdString(":" + key), value);					
 				}
 			}
 
@@ -4265,10 +4414,10 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sq
 
 std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params)
 {	
-	stringmap paramsMap;
+	std::map<std::string, QVariant> paramsMap;
 	if(params.size() > 0)
 		for (auto it = params.cbegin(); it != params.cend(); ++it) {
-			paramsMap[it.key().toStdString()] = it.value().toStdString();
+			paramsMap[it.key().toStdString()] = it.value();
 		}
 	
 	return ExecuteTargetSql(sqlQuery.toStdString(), paramsMap);
@@ -4276,11 +4425,11 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuer
 
 std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params)
 {
-	stringmap paramsMap;
+	std::map<std::string, QVariant> paramsMap;
 
 	if(params.size() > 0)
 	for (auto it = params.cbegin(); it != params.cend(); ++it) {
-		paramsMap[std::string(it->first)] = std::string(it->second);
+		paramsMap[std::string(it->first)] = it->second;
 	}
 
 	return ExecuteTargetSql((std::string)sqlQuery, paramsMap);

@@ -115,7 +115,7 @@ public:
 	 *
 	 * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
 	*/
-	int makeNetworkRequest(const QString& url, const QStringMap& query, QJsonDocument* results= nullptr);
+	int makeNetworkRequest(const QString& url, const QStringMap& query, QJsonDocument* results = nullptr);
 
 	int makeGetRequest(const QString& url, const QStringMap& queryMap, QJsonDocument* results = nullptr);
 
