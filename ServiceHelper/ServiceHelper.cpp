@@ -249,7 +249,7 @@ void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& cont
 			filename.append(".").append(customLog);
 
 		}
-		if (context.category) {
+		if (context.category && context.category != "default") {
 			//qDebug() << context.category;
 			filename.append(".").append(context.category);
 		}

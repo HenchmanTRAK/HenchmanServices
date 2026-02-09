@@ -688,12 +688,12 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 	try
 	{
 
-		if (!dbManager.networkManager.isInternetConnected())
-		{
-			//ServiceHelper().WriteToLog("Failed to confirm network connection");
-			throw HenchmanServiceException("Failed to confirm network connection");
-			//QTimer::singleShot(100, a, &QCoreApplication::quit);
-		}
+		//if (!dbManager.networkManager.isInternetConnected())
+		//{
+		//	//ServiceHelper().WriteToLog("Failed to confirm network connection");
+		//	throw HenchmanServiceException("Failed to confirm network connection");
+		//	//QTimer::singleShot(100, a, &QCoreApplication::quit);
+		//}
 		//ConnectWithSMTP();
 
 		//dbManager = new DatabaseManager(a);

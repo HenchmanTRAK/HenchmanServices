@@ -3,18 +3,22 @@
 
 
 NetworkManager::NetworkManager(QObject* parent)
-: QObject(parent)
+	: QObject(parent), sock(parent), cookieJar(parent)
 {
 	loops = std::vector<QEventLoop*>();
+
+	//sock = new QTcpSocket(this);
+	//cookieJar = new QNetworkCookieJar(this);
+	//netManager = new QNetworkAccessManager(this);
 }
 
 NetworkManager::~NetworkManager()
 {
-	if (cookieJar)
-	{
-		cookieJar->deleteLater();
-		cookieJar = nullptr;
-	}
+	//if (cookieJar)
+	//{
+		cookieJar.deleteLater();
+		//cookieJar = nullptr;
+	//}
 
 	if (restManager)
 	{
@@ -30,12 +34,12 @@ NetworkManager::~NetworkManager()
 		netManager = nullptr;
 	}
 
-	if (sock)
-	{
-		sock->close();
-		sock->deleteLater();
-		sock = nullptr;
-	}
+	//if (sock)
+	//{
+		sock.close();
+		sock.deleteLater();
+		//sock = nullptr;
+	//}
 
 	if (!loops.empty()) {
 		loops.clear();
@@ -44,18 +48,37 @@ NetworkManager::~NetworkManager()
 
 void NetworkManager::createManager()
 {
-	sock = new QTcpSocket(this);
-	cookieJar = new QNetworkCookieJar(this);
-	netManager = new QNetworkAccessManager(this);
+	if (!netManager) {
+		netManager = new QNetworkAccessManager(this);
+		netManager->setCookieJar(&cookieJar);
+		netManager->setStrictTransportSecurityEnabled(strict_transport);
+		netManager->setAutoDeleteReplies(true);
+		netManager->setTransferTimeout(30000);
+	}
 
-	netManager->setCookieJar(cookieJar);
-	netManager->setStrictTransportSecurityEnabled(strict_transport);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
+	if(!restManager)
+		restManager = new QRestAccessManager(netManager, this);
 
-	restManager = new QRestAccessManager(netManager, this);
 
-	connect(netManager, &QNetworkAccessManager::finished, this->parent(), &QCoreApplication::quit);
+
+	//connect(this, &NetworkManager::requestFinished, netManager, &QNetworkAccessManager::finished);
+}
+
+void NetworkManager::cleanManager()
+{
+	if (restManager)
+	{
+		restManager->blockSignals(true);
+		restManager->deleteLater();
+		restManager = nullptr;
+	}
+
+	if (netManager)
+	{
+		netManager->blockSignals(true);
+		netManager->deleteLater();
+		netManager = nullptr;
+	}
 }
 
 
@@ -69,9 +92,9 @@ void NetworkManager::setApiUrl(const QString& apiKey)
 	api_url = apiKey;
 }
 
-void NetworkManager::toggleSecureTransport(bool& secureTransport)
+void NetworkManager::toggleSecureTransport(const bool& secureTransport)
 {
-	if(secureTransport)
+	if(secureTransport != NULL)
 		strict_transport = secureTransport;
 	else
 		strict_transport = !strict_transport;
@@ -82,14 +105,14 @@ void NetworkManager::toggleSecureTransport(bool& secureTransport)
 
 bool NetworkManager::isInternetConnected()
 {
-	sock->connectToHost("www.google.com", 80);
-	bool connected = sock->waitForConnected(30000);//ms
-	sock->disconnectFromHost();
-	/*if (!connected)
+	sock.connectToHost("www.google.com", 80);
+	bool connected = sock.waitForConnected(30000);//ms
+	sock.disconnectFromHost();
+	if (connected)
 	{
-		sock->abort();
+		createManager();
 	}
-	else {
+	/*else {
 		sock->close();
 	}*/
 	//sock->deleteLater();
@@ -112,7 +135,7 @@ int NetworkManager::authenticateSession(const QString& url)
 		placeholder = url;
 
 
-	for (const auto& cookie : cookieJar->cookiesForUrl(QUrl(placeholder)))
+	for (const auto& cookie : cookieJar.cookiesForUrl(QUrl(placeholder)))
 	{
 		qDebug() << cookie.name().toStdString() << ":" << cookie.value().toStdString();
 		if (cookie.name().toStdString() == "api-session")
@@ -220,6 +243,28 @@ int retryCount = 0;
 
 int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMap, QJsonDocument* results)
 {
+	
+	QJsonObject query;
+
+
+	if (queryMap.size() > 0) {
+
+
+		QJsonObject where;
+
+		QMapIterator<QString, QString> it(queryMap);
+		while (it.hasNext()) {
+			it.next();
+			where.insert(it.key(), it.value());
+		}
+		query.insert("where", where);
+	}
+	
+	return makeGetRequest(url, query, results);
+}
+
+int NetworkManager::makeGetRequest(const QString& url, const QJsonObject& queryMap, QJsonDocument* results)
+{
 	int result = 0;
 	QEventLoop loop(this);
 
@@ -229,20 +274,13 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 	QNetworkRequest request;
 	QUrl requestUrl(url);
 
-	QVariantMap vmap;
 
-	QMapIterator<QString, QString> it(queryMap);
-	while (it.hasNext()) {
-		it.next();
-		vmap.insert(it.key(), it.value());
-	}
-	
-	QJsonDocument query = QJsonDocument::fromVariant(vmap);
+	QJsonDocument query(queryMap);
 	QUrlQuery urlQuery;
 	urlQuery.addQueryItem("query", query.toJson().toBase64());
 
 	requestUrl.setQuery(urlQuery);
-	
+
 	request.setUrl(requestUrl);
 
 	request.setRawHeader("Authorization", "Bearer " + api_key.toLocal8Bit());
@@ -251,16 +289,17 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 
 	ServiceHelper().WriteToCustomLog("Making query to: " + request.url().toString().toStdString(), "queries");
 
-
-	QNetworkReply* reply = restManager->get(request, this, [&result, &results, this](QRestReply& reply) {
+	QNetworkReply* reply = restManager->get(request, &loop, [&result, &results, &loop, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
-			if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
-				throw HenchmanServiceException(reply.errorString().toStdString());
-			}
-			if (reply.error() != QNetworkReply::NoError) {
-				throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+			if (reply.hasError()) {
+				if (reply.error() == QNetworkReply::OperationCanceledError && retryCount < 3) {
+					throw HenchmanServiceException(reply.errorString().toStdString());
+				}
+				if (reply.error() != QNetworkReply::NoError) {
+					throw HenchmanServiceException("A Network error has occured: " + reply.errorString().toStdString());
+				}
 			}
 
 			ServiceHelper().WriteToLog((reply.isHttpStatusSuccess() ? "Request was successful: " : "An HTTP error has occured: ") + std::to_string(reply.httpStatus()) + " \"" + reply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString().toStdString() + "\"");
@@ -310,25 +349,32 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 		catch (std::exception& e) {
 			std::string error(e.what());
 			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
+			//reply.networkReply()->abort();
 			result = 0;
 
 		}
 		//reply.networkReply()->finished();
 
-	});
+		});
 
+	qDebug() << "Reply Get is Running? " << reply->isRunning();
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
+
+	connect(restManager->networkAccessManager(), &QNetworkAccessManager::finished, reply, [=]() {
+		qDebug() << "Network Access Manager has finished GET request";
+	});
 
 	//netManager->finished(reply);
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
-	//reply->deleteLater();
+	/*loop.deleteLater();*/
+	reply->deleteLater();
 	retryCount = 0;
 	//QThread::sleep(1);
 	return result;
 }
+
 
 int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {	
@@ -362,7 +408,7 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 	
 	ServiceHelper().WriteToCustomLog(log, "queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, this, [&result, results, this, &response](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, &loop, [&result, results, &loop, this, &response](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -401,10 +447,12 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 
 			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), "queries");
 			//finishRequest(json.value());
-			emit requestFinished(json.value());
 			//response = json.value();
 			if (results) {
 				json.value().swap(*results);
+			}
+			else {
+				emit requestFinished(json.value());
 			}
 
 			if (!result)
@@ -414,11 +462,11 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 			if (reply.isSuccess())
 			{
 				ServiceHelper().WriteToCustomLog("network request success", "queries");
-				reply.networkReply()->close();
+				//reply.networkReply()->close();
 			}
 			else {
 				ServiceHelper().WriteToCustomLog("network request failed", "queries");
-				reply.networkReply()->abort();
+				//reply.networkReply()->abort();
 			}
 		}
 		catch (std::exception& e) {
@@ -431,7 +479,7 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 				}
 			}*/
 			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
+			//reply.networkReply()->abort();
 			result = 0;
 
 		}
@@ -443,9 +491,13 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 	/*connect(reply, &QNetworkReply::finished, [=]() {
 		emit this->requestFinished();
 	});*/
+	connect(restManager->networkAccessManager(), &QNetworkAccessManager::finished, reply, [=]() {
+		qDebug() << "Network Access Manager has finished POST request";
+		});
 	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
 	loop.exec();
-	//reply->deleteLater();
+	//loop.deleteLater();
+	reply->deleteLater();
 	/*connect(reply, &QNetworkReply::finished, this, [this, &response, reply]() {
 		finishRequest(response);
 		reply->deleteLater();
@@ -524,8 +576,12 @@ int NetworkManager::makePatchRequest(const QString& url, const QStringMap& query
 			indentCount = 0;
 
 			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), "queries");
-			if (results)
+			if (results) {
 				json.value().swap(*results);
+			}
+			else {
+				emit requestFinished(json.value());
+			}
 
 			if (!result)
 				//result = reply.isSuccess();
@@ -542,7 +598,7 @@ int NetworkManager::makePatchRequest(const QString& url, const QStringMap& query
 		catch (std::exception& e) {
 			std::string error(e.what());
 			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
+			//reply.networkReply()->abort();
 			result = 0;
 
 		}
@@ -639,8 +695,12 @@ int NetworkManager::makeDeleteRequest(const QString& url, const QStringMap& quer
 			indentCount = 0;
 
 			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), "queries");
-			if (results)
+			if (results) {
 				json.value().swap(*results);
+			}
+			else {
+				emit requestFinished(json.value());
+			}
 
 			if (!result)
 				//result = reply.isSuccess();
@@ -657,7 +717,7 @@ int NetworkManager::makeDeleteRequest(const QString& url, const QStringMap& quer
 		catch (std::exception& e) {
 			std::string error(e.what());
 			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
+			//reply.networkReply()->abort();
 			result = 0;
 
 		}
@@ -756,8 +816,12 @@ int NetworkManager::makeNetworkRequest(const QString &url, const QStringMap &que
 			indentCount = 0;
 
 			ServiceHelper().WriteToCustomLog("Webportal response: \n" + json.value().toJson().toStdString(), "queries");
-			if (results)
+			if (results) {
 				json.value().swap(*results);
+			}
+			else {
+				emit requestFinished(json.value());
+			}
 
 			if (!result)
 				//result = reply.isSuccess();
@@ -774,7 +838,7 @@ int NetworkManager::makeNetworkRequest(const QString &url, const QStringMap &que
 		catch (std::exception& e) {
 			std::string error(e.what());
 			ServiceHelper().WriteToError(error);
-			reply.networkReply()->abort();
+			//reply.networkReply()->abort();
 
 			result = 0;
 
@@ -792,6 +856,11 @@ int NetworkManager::makeNetworkRequest(const QString &url, const QStringMap &que
 	retryCount = 0;
 	//QThread::sleep(1);
 	return result;
+}
+
+QRestAccessManager* NetworkManager::getRestManager() const
+{
+	return restManager;
 }
 
 void NetworkManager::execRequests()

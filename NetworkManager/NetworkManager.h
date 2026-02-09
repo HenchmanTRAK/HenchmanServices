@@ -51,7 +51,7 @@ private:
 	 */
 	QNetworkAccessManager* netManager = nullptr;
 
-	QTcpSocket* sock = nullptr;
+	QTcpSocket sock;
 
 	/**
 	 * @var restManager
@@ -62,7 +62,7 @@ private:
 	 */
 	QRestAccessManager* restManager = nullptr;
 
-	QNetworkCookieJar* cookieJar = nullptr;
+	QNetworkCookieJar cookieJar;
 
 	std::vector<QEventLoop*> loops;
 
@@ -84,9 +84,10 @@ public:
 	void setApiKey(const QString& apiKey);
 	void setApiUrl(const QString& url);
 	
-	void toggleSecureTransport(bool &secureTransport);
+	void toggleSecureTransport(const bool &secureTransport);
 
 	void createManager();
+	void cleanManager();
 
 	/**
 	 * @brief Checks if the internet connection is available by attempting to connect to www.google.com on port 80.
@@ -118,12 +119,15 @@ public:
 	int makeNetworkRequest(const QString& url, const QStringMap& query, QJsonDocument* results = nullptr);
 
 	int makeGetRequest(const QString& url, const QStringMap& queryMap, QJsonDocument* results = nullptr);
+	int makeGetRequest(const QString& url, const QJsonObject& queryMap, QJsonDocument* results = nullptr);
 
 	int makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results = nullptr);
 
 	int makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results = nullptr);
 
 	int makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results = nullptr);
+
+	QRestAccessManager* getRestManager() const;
 
 	void execRequests();
 
