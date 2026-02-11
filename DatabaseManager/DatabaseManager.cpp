@@ -4381,7 +4381,8 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sql
 			db.close();
 		}
 		ServiceHelper().WriteToError(e.what());
-		resultVector[0] = queryResult;
+		if(!queryResult.empty())
+			resultVector[0] = queryResult;
 
 	}
 
