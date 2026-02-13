@@ -12,6 +12,7 @@ target_link_libraries(
 	ServiceHelper
 	RegistryManager
 	SimpleIni
+	Qt6::Concurrent
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

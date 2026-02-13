@@ -16,6 +16,7 @@ target_link_libraries(
 	EventManager
 	ServiceHelper
 	RegistryManager
+	Qt6::Concurrent
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

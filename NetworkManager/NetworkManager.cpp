@@ -10,6 +10,14 @@ NetworkManager::NetworkManager(QObject* parent)
 	//sock = new QTcpSocket(this);
 	//cookieJar = new QNetworkCookieJar(this);
 	//netManager = new QNetworkAccessManager(this);
+	netManager = new QNetworkAccessManager(this);
+	netManager->setCookieJar(&cookieJar);
+	netManager->setStrictTransportSecurityEnabled(strict_transport);
+	netManager->setAutoDeleteReplies(true);
+	netManager->setTransferTimeout(30000);
+
+	/*if (!restManager)
+		restManager = new QRestAccessManager(netManager, this);*/
 }
 
 NetworkManager::~NetworkManager()
@@ -22,6 +30,7 @@ NetworkManager::~NetworkManager()
 
 	if (restManager)
 	{
+
 		restManager->blockSignals(true);
 		restManager->deleteLater();
 		restManager = nullptr;
@@ -48,17 +57,18 @@ NetworkManager::~NetworkManager()
 
 void NetworkManager::createManager()
 {
-	if (!netManager) {
+
+
+	/*if (!netManager) {
 		netManager = new QNetworkAccessManager(this);
 		netManager->setCookieJar(&cookieJar);
 		netManager->setStrictTransportSecurityEnabled(strict_transport);
 		netManager->setAutoDeleteReplies(true);
 		netManager->setTransferTimeout(30000);
-	}
+	}*/
 
 	if(!restManager)
 		restManager = new QRestAccessManager(netManager, this);
-
 
 
 	//connect(this, &NetworkManager::requestFinished, netManager, &QNetworkAccessManager::finished);
@@ -73,12 +83,12 @@ void NetworkManager::cleanManager()
 		restManager = nullptr;
 	}
 
-	if (netManager)
+	/*if (netManager)
 	{
 		netManager->blockSignals(true);
 		netManager->deleteLater();
 		netManager = nullptr;
-	}
+	}*/
 }
 
 
@@ -105,6 +115,7 @@ void NetworkManager::toggleSecureTransport(const bool& secureTransport)
 
 bool NetworkManager::isInternetConnected()
 {
+	
 	sock.connectToHost("www.google.com", 80);
 	bool connected = sock.waitForConnected(30000);//ms
 	sock.disconnectFromHost();
@@ -266,7 +277,7 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 int NetworkManager::makeGetRequest(const QString& url, const QJsonObject& queryMap, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop;
 
 	// Generate auth header for request.
 	LOG << url;
@@ -286,10 +297,10 @@ int NetworkManager::makeGetRequest(const QString& url, const QJsonObject& queryM
 	request.setRawHeader("Authorization", "Bearer " + api_key.toLocal8Bit());
 	request.setRawHeader("Content-Type", "application/json");
 
-
 	ServiceHelper().WriteToCustomLog("Making query to: " + request.url().toString().toStdString(), "queries");
+	
 
-	QNetworkReply* reply = restManager->get(request, &loop, [&result, &results, &loop, this](QRestReply& reply) {
+	QNetworkReply* reply = restManager->get(request, &loop, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -381,7 +392,7 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 
 	QJsonDocument response;
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop;
 
 	// Generate auth header for request.
 	LOG << url;
@@ -408,7 +419,7 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 	
 	ServiceHelper().WriteToCustomLog(log, "queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, &loop, [&result, results, &loop, this, &response](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, &loop, [&result, results, this, &response](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -511,7 +522,7 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 int NetworkManager::makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop;
 
 	// Generate auth header for request.
 	LOG << url;
@@ -538,7 +549,7 @@ int NetworkManager::makePatchRequest(const QString& url, const QStringMap& query
 
 	ServiceHelper().WriteToCustomLog(log, "queries");
 
-	QNetworkReply* reply = restManager->patch(request, doc, this, [&result, &results, this](QRestReply& reply) {
+	QNetworkReply* reply = restManager->patch(request, doc, &loop, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -622,7 +633,7 @@ int NetworkManager::makePatchRequest(const QString& url, const QStringMap& query
 int NetworkManager::makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop;
 
 	// Generate auth header for request.
 	LOG << url;
@@ -656,8 +667,7 @@ int NetworkManager::makeDeleteRequest(const QString& url, const QStringMap& quer
 
 	ServiceHelper().WriteToCustomLog(log, "queries");
 
-
-	QNetworkReply* reply = restManager->deleteResource(request, this, [&result, &results, this](QRestReply& reply) {
+	QNetworkReply* reply = restManager->deleteResource(request, &loop, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -741,7 +751,7 @@ int NetworkManager::makeDeleteRequest(const QString& url, const QStringMap& quer
 int NetworkManager::makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument *results)
 {
 	int result = 0;
-	QEventLoop loop(this);
+	QEventLoop loop;
 
 	// Generate auth header for request.
 	//QString concatenated = apiUsername+":"+apiPassword;
@@ -773,7 +783,7 @@ int NetworkManager::makeNetworkRequest(const QString &url, const QStringMap &que
 
 	ServiceHelper().WriteToCustomLog(log, "queries");
 
-	QNetworkReply* reply = restManager->post(request, doc, this, [&result, &results, this](QRestReply& reply) {
+	QNetworkReply* reply = restManager->post(request, doc, &loop, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.networkReply()->request().headers().toMultiMap();

@@ -121,7 +121,7 @@ find_package(OpenSSL REQUIRED)
 #set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR};${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/quazip)
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
-find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Sql Network Concurrent)
 qt_standard_project_setup()
 
 #INPUT = @CMAKE_CURRENT_SOURCE_DIR@/

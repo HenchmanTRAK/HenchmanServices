@@ -156,6 +156,11 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 	trakId.append("Id");
 }
 
+void DatabaseManager::attachThreadController(QMutex* threadController)
+{
+	p_thread_controller = threadController;
+}
+
 // Misc Syncs
 int DatabaseManager::addToolsIfNotExists()
 {
@@ -235,23 +240,23 @@ int DatabaseManager::addToolsIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 	
-	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
-		/*qCDebug(category) << result.toJson().toStdString().data();*/
-		QString targetKey = "tools";
-		if (!result.isObject()) {
-			LOG << "Reply was not an Object";
-			databaseTablesChecked[targetKey]++;
-			return;
-		}
-		LOG << result.toJson().toStdString();
-		QJsonObject resultObject = result.object();
-		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
-			LOG << resultObject["status"].toDouble();
-			databaseTablesChecked[targetKey]++;
-		}
+	//connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+	//	/*qCDebug(category) << result.toJson().toStdString().data();*/
+	//	QString targetKey = "tools";
+	//	if (!result.isObject()) {
+	//		LOG << "Reply was not an Object";
+	//		databaseTablesChecked[targetKey]++;
+	//		return;
+	//	}
+	//	LOG << result.toJson().toStdString();
+	//	QJsonObject resultObject = result.object();
+	//	if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+	//		LOG << resultObject["status"].toDouble();
+	//		databaseTablesChecked[targetKey]++;
+	//	}
 
-		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	});
+	//	//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	//});
 
 	for (auto &result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -292,12 +297,27 @@ int DatabaseManager::addToolsIfNotExists()
 
 		body["data"] = data;
 		
-		//QJsonDocument reply;
+		QJsonDocument reply;
 
-		networkManager.makePostRequest(apiUrl + "/tools", result, body);
+		networkManager.makePostRequest(apiUrl + "/tools", result, body, &reply);
+
+		QString targetKey = "tools";
+		if (!reply.isObject()) {
+			LOG << "Reply was not an Object";
+			databaseTablesChecked[targetKey]++;
+			continue;
+		}
+		LOG << reply.toJson().toStdString();
+		QJsonObject resultObject = reply.object();
+		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+			LOG << resultObject["status"].toDouble();
+			databaseTablesChecked[targetKey]++;
+		}
+
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 
 	}
-	networkManager.execRequests();
+	//networkManager.execRequests();
 	qCDebug(category) << "Setting" << targetKey + "Checked to" << databaseTablesChecked[targetKey];
 	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
@@ -313,6 +333,7 @@ int DatabaseManager::addToolsIfNotExists()
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE  '% tools%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
 	}
+	networkManager.cleanManager();
 
 	/*if (restManager) {
 		restManager->deleteLater();
@@ -326,16 +347,17 @@ int DatabaseManager::addUsersIfNotExists()
 	LOG << "Adding Users to Webportal";
 	QString targetKey = "users";
 	timeStamp = ServiceHelper().timestamp();
+	
 	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM users");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
-	rtManager.GetVal((targetKey + "Checked").toUtf8(), REG_SZ, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	(void)rtManager.GetVal((targetKey + "Checked").toUtf8(), REG_SZ, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
-			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
+			(void)rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
+			(void)ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
 		}
 		return 0;
 	}
@@ -391,23 +413,23 @@ int DatabaseManager::addUsersIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 
-	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
-		/*qCDebug(category) << result.toJson().toStdString().data();*/
-		QString targetKey = "users";
-		if (!result.isObject()) {
-			LOG << "Reply was not an Object";
-			databaseTablesChecked[targetKey]++;
-			return;
-		}
-		LOG << result.toJson().toStdString();
-		QJsonObject resultObject = result.object();
-		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
-			LOG << resultObject["status"].toDouble();
-			databaseTablesChecked[targetKey]++;
-		}
+	//connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+	//	/*qCDebug(category) << result.toJson().toStdString().data();*/
+	//	QString targetKey = "users";
+	//	if (!result.isObject()) {
+	//		LOG << "Reply was not an Object";
+	//		databaseTablesChecked[targetKey]++;
+	//		return;
+	//	}
+	//	LOG << result.toJson().toStdString();
+	//	QJsonObject resultObject = result.object();
+	//	if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+	//		LOG << resultObject["status"].toDouble();
+	//		databaseTablesChecked[targetKey]++;
+	//	}
 
-		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	});
+	//	//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	//});
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -463,9 +485,9 @@ int DatabaseManager::addUsersIfNotExists()
 
 		body["data"] = data;
 
-		networkManager.makePostRequest(apiUrl + "/users", result, body);
+		//networkManager.makePostRequest(apiUrl + "/users", result, body);
 
-		/*QJsonDocument reply;
+		QJsonDocument reply;
 		
 		if (networkManager.makePostRequest(apiUrl + "/users", result, body, &reply)) {
 			if (!reply.isObject()) {
@@ -484,7 +506,7 @@ int DatabaseManager::addUsersIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 
 	}
 
@@ -508,6 +530,8 @@ int DatabaseManager::addUsersIfNotExists()
 		restManager = nullptr;
 	}*/
 
+	networkManager.cleanManager();
+
 	return 1;
 }
 int DatabaseManager::addEmployeesIfNotExists()
@@ -515,12 +539,62 @@ int DatabaseManager::addEmployeesIfNotExists()
 	LOG << "Adding Employees to Webportal";
 	QString targetKey = "employees";
 	timeStamp = ServiceHelper().timestamp();
-	std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM employees");
+
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+
 	TCHAR buffer[1024] = "\0";
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal((targetKey + "Checked").toUtf8(), REG_SZ, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+
+	if (!databaseTablesChecked[targetKey]) {
+		std::vector rowCheck = ExecuteTargetSql("SELECT COUNT(*) FROM employees WHERE userId <> '' AND userId IS NOT NULL");
+		databaseTablesChecked[targetKey] = rowCheck[1][rowCheck[1].firstKey()].toInt();
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	}
+
+	if (networkManager.isInternetConnected())
+		networkManager.authenticateSession();
+
+	QJsonDocument reply;
+
+	QJsonObject query;
+	QJsonObject where;
+	QJsonObject select;
+
+	QJsonArray webportalResults;
+	QJsonObject webportalToolCount;
+
+	try{
+
+		where.insert("custId", QString::number(custId));
+		where.insert("kabId", trakIdNum);
+		select.insert("count", "total");
+
+		query.insert("where", where);
+		query.insert("select", select);
+
+		if (!networkManager.makeGetRequest(apiUrl + "/employees", query, &reply))
+		{
+			throw std::exception();
+		}
+
+		if (reply.isObject()) {
+			//LOG << result.toJson().toStdString();
+			QJsonObject resultObject = reply.object();
+			if (!resultObject["data"].isNull() && !resultObject["data"].isUndefined()) {
+				//webportalResults = resultObject["data"].toArray();
+				if (resultObject["data"].toArray().at(0).isObject())
+					webportalToolCount = webportalResults.at(0).toObject();
+			}
+		}
+	}
+	catch (void*)
+	{
+		networkManager.cleanManager();
+		return 1;
+	}
+
+	if (databaseTablesChecked[targetKey] <= webportalToolCount["total"].toInt())
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
@@ -528,17 +602,14 @@ int DatabaseManager::addEmployeesIfNotExists()
 		}
 		return 0;
 	}
-	ServiceHelper().WriteToLog("Exporting Employees");
-	std::string query =
-		"SELECT * from employees ORDER BY id DESC LIMIT " +
-		std::to_string(databaseTablesChecked[targetKey]) + ", " + std::to_string(queryLimit);
-	std::vector sqlQueryResults = ExecuteTargetSql(query);
-
+	
 	std::string colQuery =
 		"SHOW COLUMNS from employees";
 	std::vector colQueryResults = ExecuteTargetSql(colQuery);
 
-	qDebug() << colQueryResults;
+	int hadEmpId = 0;
+
+	//qDebug() << colQueryResults;
 
 	std::string tableName = "employees";
 	std::vector<std::string> columns;
@@ -549,6 +620,9 @@ int DatabaseManager::addEmployeesIfNotExists()
 	for (auto& column : colQueryResults) {
 		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
 			continue;
+
+		if (column.value("Field") == "empId")
+			hadEmpId = 1;
 
 		if (dates.contains(column.value("Type").toLower()))
 			column["Type"] = "TEXT";
@@ -564,38 +638,73 @@ int DatabaseManager::addEmployeesIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
+	//std::vector<stringmap> result;
 
-	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
-	);
+	sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")");
 
 	columns.clear();
 
-	/*if (restManager == nullptr)
-		restManager = new QRestAccessManager(netManager, this);*/
+	try {
 
-	if (networkManager.isInternetConnected())
-		networkManager.authenticateSession();
+		select.erase(select.find("count"));
 
-	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
-		/*qCDebug(category) << result.toJson().toStdString().data();*/
-		QString targetKey = "employees";
-		if (!result.isObject()) {
-			LOG << "Reply was not an Object";
-			databaseTablesChecked[targetKey]++;
-			return;
-		}
-		LOG << result.toJson().toStdString();
-		QJsonObject resultObject = result.object();
-		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
-			LOG << resultObject["status"].toDouble();
-			databaseTablesChecked[targetKey]++;
+		select.insert("columns", QJsonArray({ "custId", "userId", "empId" }));
+
+		query.insert("where", where);
+		query.insert("select", select);
+
+		qDebug() << query;
+
+		if (!networkManager.makeGetRequest(apiUrl + "/employees", query, &reply)) {
+			throw std::exception();
 		}
 
-		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-		});
+		//webportalResults.empty();
+		//QJsonObject webportalEmployeeIds;
+
+		if (reply.isObject()) {
+			//LOG << result.toJson().toStdString();
+			QJsonObject resultObject = reply.object();
+			if (!resultObject["data"].isNull() && !resultObject["data"].isUndefined()) {
+				webportalResults = resultObject["data"].toArray();
+				/*if (webportalResults.at(0).isObject()) {
+					webportalEmployeeIds = webportalResults.at(0).toObject();
+				}*/
+			}
+		}
+
+	}
+	catch (void*)
+	{
+		networkManager.cleanManager();
+		return 1;
+	}
+	qDebug() << webportalResults;
+	qDebug() << webportalResults.empty();
+	//qDebug() << webportalEmployeeIds.empty;
+
+	ServiceHelper().WriteToLog("Exporting Employees");
+
+	QString employeeSelect;
+	QJsonArray employeeIds;
+
+	QVariantMap vMapConditionals = {};
+
+	if (webportalResults.empty())
+		employeeSelect = "SELECT * FROM employees ORDER BY id DESC LIMIT " + QString::number(queryLimit);
+	else {
+		for (const QJsonValue& employee : webportalResults)
+		{
+			if (!employee.isObject())
+				continue;
+
+			employeeIds.push_back(employee.toObject().value("empId"));
+		}
+		employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) ORDER BY id DESC LIMIT " + QString::number(queryLimit);
+		vMapConditionals.insert("empIds", employeeIds);
+	}
+
+	std::vector sqlQueryResults = ExecuteTargetSql(employeeSelect, vMapConditionals);
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -605,7 +714,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 		res["id"] = result["id"];
 
 		QJsonObject data;
-		std::map<std::string, std::string> toolData;
+		std::map<std::string, std::string> sqliteData;
 
 		for (auto it = result.cbegin(); it != result.cend(); ++it)
 		{
@@ -614,44 +723,92 @@ int DatabaseManager::addEmployeesIfNotExists()
 			if (val.isEmpty() || val == "''")
 				continue;
 			if (!skipTargetCols.contains(key))
-				toolData[key.toStdString()] = val.toStdString();
+				sqliteData[key.toStdString()] = val.toStdString();
 			data[key] = val;
+		}
+
+		data[QString::fromStdString(trakId)] = trakIdNum;
+
+		if (!data.contains("userId"))
+			continue;
+
+
+		if (!data.contains("empId")) {
+			if (!hadEmpId)
+				(void)ExecuteTargetSql("ALTER TABLE employees ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+			
+			std::vector uuidVector = ExecuteTargetSql("SELECT REGEXP_REPLACE(UUID(), '-', '') as uuid");
+			
+			QVariant empId(uuidVector.at(1)["uuid"]);
+			
+			qDebug() << uuidVector;
+
+			if (!webportalResults.isEmpty()) {
+				QJsonObject webportalEmployee;
+				for (const QJsonValue& employee : webportalResults)
+				{
+					qDebug() << employee;
+					if (!employee.isObject())
+						continue;
+					QJsonObject empObj = employee.toObject();
+					qDebug() << "webportal userid:" << empObj.value("userId").toString() << "localdb userid: " << data.value("userId").toString();
+					qDebug() << "webportal is same as localdb: " << (empObj.value("userId") == data.value("userId") ? "True" : "False");
+					qDebug() << "webportal is same as localdb2: " << (empObj.value("userId").toString() == data.value("userId").toString() ? "True" : "False");
+					qDebug() << "webportal is same as localdb3: " << (empObj.value("userId").toString().compare(data.value("userId").toString()) ? "True" : "False");
+					if (empObj.value("userId").toString() != data.value("userId").toString()) continue;
+					
+					empId = empObj.value("empId").toVariant();
+				}
+			}
+			
+
+			(void)ExecuteTargetSql("UPDATE employees SET empId = :empId WHERE userId = :userId", std::map<std::string, QVariant>({
+				{"empId", empId},
+				{"userId", data.value("userId").toVariant()},
+				}));
+
+			data["empId"] = empId.toString();
 		}
 
 #if true
 		sqliteManager.AddEntry(
 			tableName,
-			toolData
+			sqliteData
 		);
 #endif
 
-		toolData.clear();
+		sqliteData.clear();
 
 		QJsonObject body;
 		body["data"] = data;
 
-		networkManager.makePostRequest(apiUrl + "/employees", result, body);
+		//networkManager.makePostRequest(apiUrl + "/employees", result, body);
 
-		/*QJsonDocument reply;
+		QJsonDocument reply;
+
+		qDebug() << data;
 
 		if (networkManager.makePostRequest(apiUrl + "/employees", result, body, &reply)) {
+			qDebug() << reply;
+			
 			if (!reply.isObject()) {
 				LOG << "Reply was not an Object";
-				databaseTablesChecked[targetKey]++;
+				//databaseTablesChecked[targetKey]++;
 				continue;
 			}
 			LOG << reply.toJson().toStdString();
 			QJsonObject result = reply.object();
 			if (result["status"].toDouble() == 200) {
-				databaseTablesChecked[targetKey]++;
+				//databaseTablesChecked[targetKey]++;
+				//LOG << result["status"].toDouble();
 			}
 		}
 		else {
 			LOG << "No rows were altered on db";
-			databaseTablesChecked[targetKey]++;
+			//databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
+		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 
 		//if (makeNetworkRequest(apiUrl, res, &reply)) {
 		//	if (!reply.isObject())
@@ -672,10 +829,11 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	}
 
-	rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
 	//netManager->finished(NULL);
-	if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
+	
+	/*if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			size = 1024;
@@ -684,13 +842,13 @@ int DatabaseManager::addEmployeesIfNotExists()
 		}
 		std::string timestamp(buffer);
 		ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
-	}
+	}*/
 
 	/*if (restManager) {
 		restManager->deleteLater();
 		restManager = nullptr;
 	}*/
-
+	networkManager.cleanManager();
 	return 1;
 }
 int DatabaseManager::addJobsIfNotExists()
@@ -764,23 +922,23 @@ int DatabaseManager::addJobsIfNotExists()
 	if (networkManager.isInternetConnected())
 		networkManager.authenticateSession();
 
-	connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
-		/*qCDebug(category) << result.toJson().toStdString().data();*/
-		QString targetKey = "jobs";
-		if (!result.isObject()) {
-			LOG << "Reply was not an Object";
-			databaseTablesChecked[targetKey]++;
-			return;
-		}
-		LOG << result.toJson().toStdString();
-		QJsonObject resultObject = result.object();
-		if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
-			LOG << resultObject["status"].toDouble();
-			databaseTablesChecked[targetKey]++;
-		}
+	//connect(&networkManager, &NetworkManager::requestFinished, this, [=](const QJsonDocument& result) {
+	//	/*qCDebug(category) << result.toJson().toStdString().data();*/
+	//	QString targetKey = "jobs";
+	//	if (!result.isObject()) {
+	//		LOG << "Reply was not an Object";
+	//		databaseTablesChecked[targetKey]++;
+	//		return;
+	//	}
+	//	LOG << result.toJson().toStdString();
+	//	QJsonObject resultObject = result.object();
+	//	if (resultObject["status"].toDouble() == 200 || resultObject["status"].toDouble() == 500) {
+	//		LOG << resultObject["status"].toDouble();
+	//		databaseTablesChecked[targetKey]++;
+	//	}
 
-		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-		});
+	//	//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	//	});
 
 	for (auto& result : sqlQueryResults) {
 		if (result.firstKey() == "success")
@@ -814,9 +972,9 @@ int DatabaseManager::addJobsIfNotExists()
 		QJsonObject body;
 		body["data"] = data;
 
-		networkManager.makePostRequest(apiUrl + "/jobs", result, body);
+		//networkManager.makePostRequest(apiUrl + "/jobs", result, body);
 
-		/*QJsonDocument reply;
+		QJsonDocument reply;
 
 		if (networkManager.makePostRequest(apiUrl + "/jobs", result, body, &reply)) {
 			if (!reply.isObject()) {
@@ -835,7 +993,7 @@ int DatabaseManager::addJobsIfNotExists()
 			databaseTablesChecked[targetKey]++;
 		}
 
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));*/
+		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 
 		//QJsonDocument reply;
 		//if (makeNetworkRequest(apiUrl, res, &reply)) {
@@ -875,6 +1033,8 @@ int DatabaseManager::addJobsIfNotExists()
 		restManager->deleteLater();
 		restManager = nullptr;
 	}*/
+
+	networkManager.cleanManager();
 
 	return 1;
 }
@@ -1343,7 +1503,8 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 	LOG << webportalResults.size();
 	LOG << webportalToolCount["total"].toInt();
 
-	if (databaseTablesChecked[targetKey] <= webportalToolCount["total"].toInt()) {
+	if (databaseTablesChecked[targetKey] <= webportalToolCount["total"].toInt())
+	{
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
 			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
 			ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% itemkabdrawerbins%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
@@ -4065,7 +4226,7 @@ int DatabaseManager::connectToLocalDB()
 	try {
 		//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").c_str());
-		TCHAR buffer[1024];
+		TCHAR buffer[1024] = "\0";
 		DWORD size = 1024;
 		if (databaseDriver == "") {
 
@@ -4129,6 +4290,7 @@ int DatabaseManager::connectToLocalDB()
 		else {
 			db = QSqlDatabase::database(schema);
 		}
+		
 		//RegCloseKey(hKey);
 
 		if (!db.open())
@@ -4193,7 +4355,7 @@ int DatabaseManager::connectToLocalDB()
 	return 1;
 }
 
-int DatabaseManager::ExecuteTargetSqlScript(const std::string& filepath)
+int DatabaseManager::ExecuteTargetSqlScript(const std::string& filepath) const
 {
 	int successCount = 0;
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").data());
@@ -4275,11 +4437,16 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sql
 	//QString schema = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Schema", REG_SZ));
 	rtManager.GetVal("Schema", REG_SZ, (char*)buffer, size);
 	QString schema(buffer);
-	//RegCloseKey(hKey);
+
+	QMutexLocker locker(p_thread_controller);
+	
 	QSqlDatabase db = QSqlDatabase::database(schema);
+	
 
 	try {
-
+		if (db.isOpen()) {
+			qDebug() << "Database is open";
+		}
 		if (!db.open())
 		{
 			// HenchmanServiceException
@@ -4333,7 +4500,7 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sql
 					boundValues.insert(QString::fromStdString(":" + key), value);
 				}
 			}
-			//qDebug() << boundValues;
+			qDebug() << boundValues;
 
 			QMapIterator it(boundValues);
 
@@ -4389,7 +4556,7 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::string& sql
 	return resultVector;
 }
 
-std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sqlQuery)
+std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sqlQuery) const
 {
 	int successCount = 0;
 	std::vector<QStringMap> resultVector;
@@ -4474,14 +4641,25 @@ std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const std::wstring& sq
 	return resultVector;
 }
 
-std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params)
-{	
+//std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params)
+//{	
+//	std::map<std::string, QVariant> paramsMap;
+//	if(params.size() > 0)
+//		for (auto it = params.cbegin(); it != params.cend(); ++it) {
+//			paramsMap[it.key().toStdString()] = it.value();
+//		}
+//	
+//	return ExecuteTargetSql(sqlQuery.toStdString(), paramsMap);
+//}
+
+std::vector<QStringMap> DatabaseManager::ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params)
+{
 	std::map<std::string, QVariant> paramsMap;
-	if(params.size() > 0)
+	if (params.size() > 0)
 		for (auto it = params.cbegin(); it != params.cend(); ++it) {
 			paramsMap[it.key().toStdString()] = it.value();
 		}
-	
+
 	return ExecuteTargetSql(sqlQuery.toStdString(), paramsMap);
 }
 
@@ -4587,7 +4765,7 @@ void DatabaseManager::processKeysAndValues(const QStringMap &map, QString (&resu
 	results[1] = queryValues;
 }
 
-QString parseTimeValue(const QString& time) {
+static QString parseTimeValue(const QString& time) {
 	QStringList splitTime;
 
 	if (time.contains(" "))
@@ -4781,7 +4959,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!entry.contains("trailId")) {
 
 			QString jobQuery = "SELECT * FROM jobs WHERE ";
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty())
@@ -4791,7 +4969,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 				else
 					jobQuery.append(it.key() + " = '" + value + "'");*/
 				jobQuery.append(it.key() + " = :" + it.key());
-				keyValue[it.key()] = value;
+				keyValue.insert(it.key(), value);
 				if ((it + 1) != entry.constEnd())
 					jobQuery.append(" AND ");
 			}
@@ -4845,7 +5023,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString kabToolQuery = "SELECT t.id as toolId FROM itemkabdrawerbins AS kt INNER JOIN tools AS t ON t.custId = kt.custId AND (kt.itemId LIKE t.PartNo OR kt.itemId LIKE t.stockcode) WHERE ";
 			QStringList targetKeys = { "custId", "kabId", "drawerNum", "toolNumber", "itemId" };
 			QStringList queryConditions;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -4900,7 +5078,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString toolQuery = "SELECT t.id as toolId FROM cribtools AS ct INNER JOIN tools AS t ON t.custId = ct.custId AND (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo) WHERE ";
 			QStringList targetKeys = { "custId", "cribId", "barcode"};
 			QStringList queryConditions;
-			QStringMap keyValueMap;
+			QVariantMap keyValueMap;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -4947,7 +5125,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if (!entry.contains("locationId") && entry.contains("id"))
 			entry["locationId"] = entry.value("id");
 		else if (!entry.contains("locationId") && !entry.contains("id")) {
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["description"] = entry.value("description").toString();
 			std::vector locationId = ExecuteTargetSql("SELECT id FROM " + table + " WHERE description = :description", keyValue);
 			entry["locationId"] = locationId.at(1).value("id");
@@ -4970,7 +5148,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		QString cribToolQuery = "SELECT ct."+ indexingCol +" AS id, t.id as toolId FROM cribtools AS ct INNER JOIN tools AS t ON t.custId = ct.custId AND (ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo) WHERE ";
 		QStringList targetKeys = { "custId", "cribId", "barcodeTAG" };
 		QStringList queryConditions;
-		QStringMap keyValueMap;
+		QVariantMap keyValueMap;
 		for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 			QString value = it.value().toString();
 			if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5021,7 +5199,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 		if(!entry.contains("transferId") && entry.contains("id"))
 			entry["transferId"] = entry.value("id");
 		else if (!entry.contains("transferId") && !entry.contains("id")) {
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["barcodeTAG"] = entry.value("barcodeTAG").toString();
 			std::vector locationId = ExecuteTargetSql("SELECT id FROM tooltransfer WHERE barcodeTAG = :barcodeTAG", keyValue);
 			if (locationId.size() <= 1) {
@@ -5046,7 +5224,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString kitQuery = "SELECT id as kitId FROM itemkits WHERE ";
 			QStringList targetKeys = { "custId", "scaleId", "kitTAG" };
 			QStringList queryConditions;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				QString key = it.key();
@@ -5097,7 +5275,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString categoryQuery = "SELECT id as categoryId FROM kitcategory WHERE ";
 			QStringList targetKeys = { "custId", "description" };
 			QStringList queryConditions;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString().simplified();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5143,7 +5321,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString locationQuery = "SELECT id as locationId FROM kitlocation WHERE ";
 			QStringList targetKeys = { "custId", "scaleId", "description" };
 			QStringList queryConditions;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString().simplified();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5183,7 +5361,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString kabToolQuery = "SELECT itemId FROM itemkabdrawerbins WHERE ";
 			QStringList targetKeys = { "custId", "kabId", "drawerNum", "toolNum", "itemId" };
 			QStringList queryConditions;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5219,7 +5397,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 			QString kabToolQuery = "SELECT id AS toolId FROM tools WHERE PartNo LIKE :itemId OR stockcode LIKE :itemId";
 			//qDebug() << kabToolQuery;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["itemId"] = entry.value("itemId").toString();
 			std::vector fetchedKabTool = ExecuteTargetSql(kabToolQuery, keyValue);
 
@@ -5265,7 +5443,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 			if (!returnedData.empty()) {
 				QStringList transactionQueryList = { };
-				QStringMap keyValue;
+				QVariantMap keyValue;
 
 				if (returnedData[0].contains("itemId")) {
 					transactionQueryList.append(QString::fromStdString("PartNo LIKE :itemId"));
@@ -5322,7 +5500,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString transactionQuery = "SELECT PartNo as itemId FROM tools WHERE id = :toolId'";
 
 			//LOG << transactionQuery;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["toolId"] = entry.value("toolId").toString();
 			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
@@ -5354,7 +5532,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE " + indexingCol + " = :trailId";
 
 			//LOG << transactionQuery;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["trailId"] = entry.value("trailId").toString();
 			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
@@ -5379,7 +5557,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString transactionQuery = "SELECT " + indexingCol + " FROM jobs WHERE description LIKE :tailId";
 
 			//LOG << transactionQuery;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["tailId"] = entry.value("tailId").toString();
 			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
@@ -5414,7 +5592,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString kitQuery = "SELECT id as kitId FROM itemkits WHERE ";
 			QStringList targetKeys = { "custId", "scaleId", "kitTAG" };
 			QStringList queryConditions;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5456,7 +5634,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 			QString jobQuery = "SELECT "+ indexingCol +" as trailId FROM jobs WHERE ";
 			QStringList targetKeys = { "custId", "tailId" };
 			QStringList queryConditions;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = entry.constBegin(); it != entry.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -5720,7 +5898,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs["toolId"] = conditionPairs.value("id").toString();
 
 		if (!hadId && !conditionPairs.contains("toolId") && conditionPairs.contains("stockcode") && !conditionPairs.value("stockcode").toString().isEmpty()) {
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["stockcode"] = conditionPairs.value("stockcode").toString();
 			std::vector response = ExecuteTargetSql("SELECT id as toolId FROM tools WHERE stockcode = :stockcode", keyValue);
 			if (response.size() > 1)
@@ -5789,7 +5967,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		}
 
 		QString itemDrawerQuery = "SELECT i.*, t.id as toolId FROM itemkabdrawerbins as i LEFT JOIN tools as t ON i.itemId LIKE t.PartNo OR i.itemId LIKE t.stockcode WHERE ";
-		QStringMap keyValue;
+		QVariantMap keyValue;
 		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
 			QString value = it.value().toString();
 			if (value.isEmpty())
@@ -5861,7 +6039,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 		if (indexingCol == "toolId" && conditionPairs.contains("toolId")) {
 			QString targetQuery = "SELECT ct.itemId, ct.barcodeTAG, t.id as toolId FROM cribtools AS ct LEFT JOIN tools AS t ON ct.itemId LIKE t.PartNo OR ct.serialNo LIKE t.serialNo WHERE ct.toolId = :toolId";
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["toolId"] = conditionPairs.value("toolId").toString();
 			std::vector response = ExecuteTargetSql(targetQuery, keyValue);
 			if (response.size() > 1) {
@@ -5879,7 +6057,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				conditionPairs.remove("toolId");*/
 			QString targetQuery = "SELECT ct.barcodeTAG FROM cribtools AS ct WHERE ";
 			QStringList conditionals;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
 				QString key = it.key();
 				QString value = it.value().toString();
@@ -5936,7 +6114,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 				targetQuery += " AND ct.toolId = t.id";
 			
 			QStringList conditionals;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 
 			for (auto it = setPairs.constBegin(); it != setPairs.constEnd(); ++it) {
 				QString key = it.key();
@@ -6047,7 +6225,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 		QString categoryQuery = "SELECT id as categoryId FROM kitcategory WHERE ";
 		QStringList targetKeys = { "category" };
 		QStringList queryConditions;
-		QStringMap keyValue;
+		QVariantMap keyValue;
 		for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
 			QString value = it.value().toString();
 			if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -6092,7 +6270,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			QString categoryQuery = "SELECT id as locationId FROM kitlocation WHERE ";
 			QStringList targetKeys = { "location" };
 			QStringList queryConditions;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = conditionPairs.constBegin(); it != conditionPairs.constEnd(); ++it) {
 				QString value = it.value().toString();
 				if (value.isEmpty() || !targetKeys.contains(it.key()))
@@ -6137,7 +6315,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			conditionPairs[trakId.data()] = trakIdNum;
 		
 		QString transactionQuery = "SELECT * FROM cribemployeeitemtransactions WHERE ";
-		QStringMap keyValue;
+		QVariantMap keyValue;
 		if (hadId) {
 			transactionQuery += "id = :id";
 			keyValue["id"] = conditionPairs.value("id").toString();
@@ -6403,7 +6581,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			QString transactionQuery = "SELECT description as tailId FROM jobs WHERE " + indexingCol + " = :trailId";
 
 			//LOG << transactionQuery;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["trailId"] = conditionPairs.value("trailId").toString();
 			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
@@ -6425,7 +6603,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 			QString transactionQuery = "SELECT " + indexingCol + " FROM jobs WHERE description LIKE :tailId";
 
 			//LOG << transactionQuery;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			keyValue["tailId"] = conditionPairs.value("tailId").toString();
 			std::vector queryRes = ExecuteTargetSql(transactionQuery, keyValue);
 			//qDebug() << queryRes;
@@ -6626,7 +6804,7 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 		if (!data.contains("userId")) {
 			QString targetQuery = "SELECT userId FROM users WHERE ";
 			QStringList conditionals;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
 				QString key = it.key();
 				QString value = it.value().toString().trimmed();
@@ -6662,7 +6840,7 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 		if (!data.contains("userId")) {
 			QString targetQuery = "SELECT userId FROM employees WHERE ";
 			QStringList conditionals;
-			QStringMap keyValue;
+			QVariantMap keyValue;
 			for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
 				QString key = it.key();
 				QString value = it.value().toString().trimmed();
@@ -6701,7 +6879,7 @@ void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, 
 			break;
 
 		QString jobQuery = "SELECT * FROM jobs WHERE ";
-		QStringMap keyValue;
+		QVariantMap keyValue;
 		for (auto it = data.constBegin(); it != data.constEnd(); ++it) {
 			QString value = it.value().toString();
 			if (value.isEmpty())

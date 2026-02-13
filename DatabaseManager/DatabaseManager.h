@@ -48,8 +48,10 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QList>
-#include <QThread>
 #include <QLoggingCategory>
+#include <QAtomicPointer>
+#include <QMutex>
+#include <QMutexLocker>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -267,6 +269,8 @@ public:
 
 	QString databaseDriver;
 
+	QMutex* p_thread_controller = nullptr;
+
 public:
 	/**
 	 * @brief Constructs a DatabaseManager object.
@@ -319,7 +323,7 @@ public:
 	*
 	* @throws None
 	*/
-	int ExecuteTargetSqlScript(const std::string& filepath);
+	int ExecuteTargetSqlScript(const std::string& filepath) const;
 
 	/**
 	 * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
@@ -335,9 +339,11 @@ public:
 	*/
 	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery, const std::map<std::string, QVariant>& params = std::map<std::string, QVariant>());
 
-	std::vector<QStringMap> ExecuteTargetSql(const std::wstring &sqlQuery);
+	std::vector<QStringMap> ExecuteTargetSql(const std::wstring &sqlQuery) const;
 	
-	std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params = QStringMap());
+	/*std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params = QStringMap());*/
+
+	std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params = QVariantMap());
 
 	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params = std::map<const TCHAR*, const TCHAR*>());
 
@@ -348,6 +354,8 @@ public:
 	 * including deleting the network manager and REST manager.
 	 */
 	void performCleanup();
+
+	void attachThreadController(QMutex* threadController = nullptr);
 
 	//General Table Upload
 
@@ -606,6 +614,8 @@ private:
 	void processDeleteStatement( QString& query, QJsonObject& data, bool& skipQuery);
 
 };
+
+Q_DECLARE_METATYPE(DatabaseManager);
 
 std::string getValidDrivers();
 

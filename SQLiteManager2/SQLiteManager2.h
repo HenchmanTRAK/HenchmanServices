@@ -30,6 +30,9 @@
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QString>
+#include <QThread>
+#include <QMutex>
+#include <QMutexLocker>
 
 //#include <Windows.h>
 
@@ -59,6 +62,10 @@
 class SQLITE_MANAGER_2_EXPORT SQLiteManager2 : public QObject
 {
 	Q_OBJECT
+
+private:
+	//QSqlDatabase db;
+	QMutex mutex;
 
 public:
 
@@ -208,5 +215,7 @@ private:
 	QString databaseLocation;
 
 };
+
+Q_DECLARE_METATYPE(SQLiteManager2);
 
 #endif

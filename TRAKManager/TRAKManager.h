@@ -2,17 +2,12 @@
 #define TRAK_MANAGER_H
 #pragma once
 
-#include <iostream>
-//#include <map>
-
 #include <SimpleIni.h>
-
-//#include <QByteArray>
-
-#include "HenchmanServiceException.h"
-//#include "RegistryManager.h"
-#include "ServiceHelper.h"
 #include "DatabaseManager.h"
+#include <exception>
+#include <string>
+#include <qobject.h>
+#include <qtmetamacros.h>
 
 enum Trak_Type {
 	unknown = 0,
@@ -31,7 +26,9 @@ enum Trak_Type {
  * @author Willem Swanepoel
  * @version 1.0
  */
-class TRAKManager {
+class TRAKManager : public QObject
+{
+	Q_OBJECT
 private:
 
 	/**
@@ -39,7 +36,7 @@ private:
 	 *
 	 * This variable is used to manage the database connection.
 	 */
-	DatabaseManager *databaseManager = nullptr;
+	//DatabaseManager *databaseManager = nullptr;
 
 	/**
 	 * @brief The type of the TRAK application.
@@ -103,7 +100,7 @@ private:
 	 *
 	 * @throws None.
 	 */
-	int exportGeneralTables();
+	int exportGeneralTables(DatabaseManager& databaseManager);
 
 public:
 	/**
@@ -135,7 +132,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	TRAKManager(DatabaseManager *dbManager = nullptr);
+	TRAKManager();
 
 	/**
 	 * @brief Destructor for the TRAKManager class.
@@ -166,7 +163,8 @@ public:
 	 *
 	 * @throws None.
 	 */
-	int UploadCurrentStateToRemote();
+	int UploadCurrentStateToRemote(DatabaseManager& databaseManager);
 };
+
 
 #endif

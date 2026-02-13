@@ -18,23 +18,10 @@
 #endif
 
 
-//#include "openssl/crypto.h"
-//#include "openssl/err.h"
-//#include "openssl/ssl.h"
-
 #include <iostream>
 #include <sstream>
 #include <filesystem>
 
-//#include <netlistmgr.h>
-
-//#include <tchar.h>
-
-//#include <WinSock2.h>
-//#include <Ws2tcpip.h>
-
-//#include <future>
-//#include <thread>
 
 #include "ServiceController.h"
 
@@ -42,10 +29,7 @@
 #include <QObject>
 #include <QString>
 #include <QLibraryInfo>
-//#include <QByteArray>
-//#include <QString>
-//#include <QTimer>
-//#include <QTcpSocket>
+
 
 #include "SimpleIni.h"
 
@@ -56,7 +40,7 @@
 #include "RegistryManager.h"
 #include "EventManager.h"
 #include "TRAKManager.h"
-//#include "ServiceException.h"
+
 
 #include <Windows.h>
 #include <wtsapi32.h>
@@ -70,8 +54,8 @@
 
 
 // TODO: Reference additional headers your program requires here.
-#define SERVICE_NAME			"HenchmanService"
-#define SERVICE_DISPLAY_NAME	"HenchmanTRAK Product Service"
+#define SERVICE_NAME			TEXT("HenchmanService")
+#define SERVICE_DISPLAY_NAME	TEXT("HenchmanTRAK Product Service")
 #define SERVICE_DESIRED_ACCESS	SERVICE_ALL_ACCESS
 #define SERVICE_TYPE			SERVICE_WIN32_OWN_PROCESS
 #define SERVICE_START_TYPE		SERVICE_AUTO_START
@@ -163,7 +147,7 @@ public:
 	 * This variable is used to manage the database connection.
 	 */
 	//std::unique_ptr<DatabaseManager> dbManager;
-	DatabaseManager dbManager;
+	//DatabaseManager dbManager = nullptr;
 
 	/**
 	 * @brief A unique pointer to a SQLiteManager2 object.

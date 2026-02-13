@@ -5,9 +5,6 @@
 
 #include "HenchmanServiceLibrary.h"
 
-using namespace std;
-using namespace ServiceController;
-
 #ifdef DEBUG
 	bool testing = true;
 #else
@@ -17,15 +14,15 @@ using namespace ServiceController;
 bool logEvent = false;
 //QCoreApplication* a = nullptr;
 
-std::unique_ptr<CServiceController> svcController = nullptr;
+std::unique_ptr<ServiceController::CServiceController> svcController = nullptr;
 //std::unique_ptr<SService> service = nullptr;
 
 
-void createUniqueServiceController(const SService& pService, bool isTesting) {
-	svcController = make_unique<CServiceController>(pService, isTesting || testing);
+void createUniqueServiceController(const ServiceController::SService& pService, bool isTesting) {
+	svcController = std::make_unique<ServiceController::CServiceController>(pService, isTesting || testing);
 }
 
-CServiceController* getServiceController() {
+ServiceController::CServiceController* getServiceController() {
 	return svcController.get();
 }
 
@@ -143,7 +140,7 @@ static bool FileInUse(tstring fileName) {
 	//struct stat buffer;
 	LOG << "Checking if: " << fileName << " is being used";
 	bool result = false;
-	if (filesystem::exists(fileName)) {
+	if (std::filesystem::exists(fileName)) {
 		LOG << "Target File Exists";
 		fileRes = CreateFileA(fileName.data(), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 		result = fileRes == INVALID_HANDLE_VALUE;
@@ -154,7 +151,7 @@ static bool FileInUse(tstring fileName) {
 	return result;
 }
 
-DWORD GetCurrentSessionId()
+static DWORD GetCurrentSessionId()
 {
 	WTS_SESSION_INFO* pSessionInfo;
 	DWORD n_sessions = 0;
@@ -209,7 +206,7 @@ static int CreateTargetProcess(tstring lpAppName)
 		CloseHandle(processInformation.hProcess);
 		CloseHandle(processInformation.hThread);
 	}
-	catch (exception &e)
+	catch (std::exception &e)
 	{
 		ServiceHelper().WriteToError(e.what());
 		return 0;
@@ -217,7 +214,7 @@ static int CreateTargetProcess(tstring lpAppName)
 	return 1;
 }
 
-bool LaunchProcess(const TCHAR* process_path)
+static bool LaunchProcess(const TCHAR* process_path)
 {
 
 	ServiceHelper().WriteToLog("Attempting to launch process: " + std::string(process_path));
@@ -254,7 +251,7 @@ bool LaunchProcess(const TCHAR* process_path)
 	// Do NOT want to inherit handles here
 	DWORD dwCreationFlags = NORMAL_PRIORITY_CLASS | DETACHED_PROCESS | CREATE_UNICODE_ENVIRONMENT;
 
-	string path = string(process_path).substr(0, string(process_path).find_last_of('\\')+1);
+	std::string path = std::string(process_path).substr(0, std::string(process_path).find_last_of('\\')+1);
 
 	ok = CreateProcessAsUser(
 		hToken, 
@@ -287,7 +284,7 @@ bool LaunchProcess(const TCHAR* process_path)
 DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 {
 	int argc = 0;
-	char* argv[1];
+	char* argv[1] = {};
 
 	//EventManager::CEventManager::Init(service->serviceName);
 
@@ -362,7 +359,7 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 }
 
 HenchmanService::HenchmanService(QObject *parent)
-: QObject(parent), sqliteManager(parent), dbManager(parent)
+: QObject(parent), sqliteManager(this)
 {
 	enum ini_keys_enum {
 		Apache_DIR,
@@ -403,7 +400,7 @@ HenchmanService::HenchmanService(QObject *parent)
 	LOG << "Install dir: " << installDir;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
 	if (rc < 0) {
-		cerr << "Failed to Load INI File" << endl;
+		std::cerr << "Failed to Load INI File" << std::endl;
 	}
 
 	CSimpleIniA::TNamesDepend keys;
@@ -577,7 +574,7 @@ HenchmanService::HenchmanService(QObject *parent)
 
 
 	tstring tableName = "TestTable";
-	vector<tstring> columns;
+	std::vector<tstring> columns;
 	columns.push_back("username TEXT NOT NULL");
 	columns.push_back("password TEXT NOT NULL");
 	sqliteManager.CreateTable(
@@ -628,9 +625,13 @@ HenchmanService::~HenchmanService()
 	LOG << "Deconstructing HenchmanService";
 	ServiceHelper().WriteToLog("HenchmanService has been closed");
 
+	/*if (sqliteManager != nullptr)
+		sqliteManager->deleteLater();*/
 	sqliteManager.deleteLater();
-	dbManager.deleteLater();
-	this->parent()->deleteLater();
+
+	/*if(dbManager != nullptr)
+		dbManager->deleteLater();*/
+	//this->parent()->deleteLater();
 
 	//delete SQLiteM;
 	//delete TrakM;
@@ -649,7 +650,7 @@ bool HenchmanService::setMailLogin(const tstring& username, const tstring& passw
 		mail_username = username;
 		mail_password = password;
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 		ServiceHelper().WriteToError(e.what());
 		return false;
@@ -698,15 +699,15 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 
 		//dbManager = new DatabaseManager(a);
 
-		TRAKManager TrakM(&dbManager);
+		TRAKManager TrakM;
+		
 
 		TrakM.CreateDataModule();
-		dbManager.loadTrakDetailsFromRegistry();
 
 		ServiceHelper().WriteToLog("Checking if TRAK is Running");
 		if (!ProcessExists(TrakM.appName)) {
 			ServiceHelper().WriteToError("TRAK process is not running");
-			string targetExe = TrakM.appDir + TrakM.appName;
+			std::string targetExe = TrakM.appDir + TrakM.appName;
 #if false
 			ServiceHelper().WriteToLog("TRAK process not running, starting with path: " + targetExe);
 			//if (!CreateTargetProcess(targetExe))
@@ -716,6 +717,9 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 			}
 #endif
 		}
+		DatabaseManager dbManager;
+
+		dbManager.loadTrakDetailsFromRegistry();
 
 		dbManager.targetApp = TrakM.appType;
 
@@ -725,13 +729,14 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 			//QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
 			//return 0;
 		}
-
-		if (!TrakM.UploadCurrentStateToRemote())
+		
+		if (!TrakM.UploadCurrentStateToRemote(dbManager))
 		{
 			dbManager.connectToRemoteDB();
 		}
+
 	} 
-	catch (exception& e) 
+	catch (std::exception& e) 
 	{
 		ServiceHelper().WriteToError(e.what());
 	}
@@ -742,7 +747,7 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 		timer = 10000;
 		
 	
-	ServiceHelper().WriteToLog("Service sleeping for " + to_string(timer) + " ms...");
+	ServiceHelper().WriteToLog("Service sleeping for " + std::to_string(timer) + " ms...");
 	QTimer::singleShot(timer, this->parent(), &QCoreApplication::quit);
 	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
 	a->exec();
@@ -769,7 +774,7 @@ void HenchmanService::checkStateOfMySQL()
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("MySQL_DIR", REG_SZ, (TCHAR *)buffer, size);
 	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
-	string mysql_dir(buffer);
+	std::string mysql_dir(buffer);
 	//RegCloseKey(hKey);
 	ServiceHelper().WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = svcController->GetSvcStatus("wampmysqld64");
@@ -797,12 +802,12 @@ void HenchmanService::checkStateOfMySQL()
 			break;
 		}
 		default: {
-			ServiceHelper().WriteToLog("Local MYSQL Service has not stopped or errored \nIt returned with status code: " + to_string(wampMySQLSvcStatus));
+			ServiceHelper().WriteToLog("Local MYSQL Service has not stopped or errored \nIt returned with status code: " + std::to_string(wampMySQLSvcStatus));
 			break;
 		}
 		}
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 		ServiceHelper().WriteToError(e.what());
 		if (ServiceHelper::ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --remove wampmysqld64"))
@@ -822,7 +827,7 @@ void HenchmanService::checkStateOfApache()
 	DWORD size = sizeof(buffer);
 	rtManager.GetVal("Apache_DIR", REG_SZ, (TCHAR*)buffer, size);
 	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
-	string apache_dir(buffer);
+	std::string apache_dir(buffer);
 
 	ServiceHelper().WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = svcController->GetSvcStatus("wampapache64");
@@ -852,12 +857,12 @@ void HenchmanService::checkStateOfApache()
 			break;
 		}
 		default: {
-			ServiceHelper().WriteToLog("Apache Service has not stopped or errored \nIt returned with status code: " + to_string(wampApacheSvcStatus));
+			ServiceHelper().WriteToLog("Apache Service has not stopped or errored \nIt returned with status code: " + std::to_string(wampApacheSvcStatus));
 			break;
 		}
 		}
 	}
-	catch (exception& e) {
+	catch (std::exception& e) {
 		ServiceHelper().WriteToError(e.what());
 		if (ServiceHelper::ShellExecuteApp(apache_dir + "\\httpd.exe", " -k stop -n wampapache64"))
 			ServiceHelper().WriteToLog("Apache Service stopped...");

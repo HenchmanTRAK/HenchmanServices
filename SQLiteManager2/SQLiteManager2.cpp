@@ -26,9 +26,9 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	databaseName = ini.value("Database", "").toString().toStdString();
 	databaseLocation = ini.value("DatabaseLocation", "").toString();
 	ini.endGroup();
-	
-	QSqlDatabase db;
 
+	QSqlDatabase db;
+	
 	try{
 		if (databaseLocation == "")
 			databaseLocation = installDir;
@@ -102,6 +102,13 @@ void SQLiteManager2::ExecQuery(
 {
 	std::vector<stringmap> resultVector;
 	stringmap queryResult;
+	//QThread currThread(QThread::currentThread());
+
+	QMutexLocker locket(&mutex);
+
+	/*if (!db.thread()->isCurrentThread())
+		db.moveToThread(&currThread);*/
+
 	QSqlDatabase db = QSqlDatabase::database(databaseName.data());
 
 	try {
@@ -159,9 +166,12 @@ void SQLiteManager2::ExecQuery(
 	catch (std::exception& e)
 	//catch (const HenchmanServiceException& e)
 	{
-		db.rollback();
-		db.close();
 		ServiceHelper().WriteToError("An exception was thrown: " + (std::string)e.what());
+		if (db.isOpen())
+		{
+			db.rollback();
+			db.close();
+		}
 		//throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
 	}
 	//if (results)

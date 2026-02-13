@@ -166,5 +166,6 @@ signals:
 	void requestFinished(const QJsonDocument& requestResult);
 };
 
+Q_DECLARE_METATYPE(NetworkManager);
 
 #endif
