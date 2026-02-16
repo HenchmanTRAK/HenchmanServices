@@ -58,6 +58,7 @@
 #include "ServiceHelper.h"
 #include "SQLiteManager2.h"
 #include "NetworkManager.h"
+#include "QueryManager.h"
 
 
 //#define QT_NO_DEBUG_OUTPUT
@@ -237,6 +238,7 @@ private:
 	//QNetworkRequest request;
 
 	SQLiteManager2 sqliteManager;
+	QueryManager queryManager;
 
 public:
 	NetworkManager networkManager;
@@ -311,41 +313,6 @@ public:
 	 * @throws Throws an exception if there is an error opening the database connection or if there is an error creating the database.
 	 */
 	int connectToLocalDB();
-
-	/**
-	* @brief Executes a target SQL script file on a local database.
-	* 
-	* Takes a passed SQL script path and executes it query by query on the local database.
-	*
-	* @param filepath - The path to the SQL script file.
-	*
-	* @return Returns the number of SQL statements successfully executed.
-	*
-	* @throws None
-	*/
-	int ExecuteTargetSqlScript(const std::string& filepath) const;
-
-	/**
-	 * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
-	 *
-	 * This function connects to a local database, executes the given SQL query, and returns the results as a vector of QMap objects.
-	 * Each QMap object represents a row in the query result and contains the column names as keys and the corresponding values as values.
-	 *
-	 * @param sqlQuery - The SQL query to execute.
-	 *
-	 * @return Returns a vector of QMap objects representing the query results. Each QMap object contains the column names as keys and the corresponding values as values.
-	 *
-	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
-	*/
-	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery, const std::map<std::string, QVariant>& params = std::map<std::string, QVariant>());
-
-	std::vector<QStringMap> ExecuteTargetSql(const std::wstring &sqlQuery) const;
-	
-	/*std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params = QStringMap());*/
-
-	std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params = QVariantMap());
-
-	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params = std::map<const TCHAR*, const TCHAR*>());
 
 	/**
 	 * @brief Performs cleanup operations for the DatabaseManager object.

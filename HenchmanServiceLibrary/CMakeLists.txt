@@ -21,7 +21,6 @@ target_link_libraries(
 	ServiceController
 	TRAKManager
 	DatabaseManager
-	NetworkManager
 	SQLiteManager2
 	HenchmanServiceException
 	EventManager
