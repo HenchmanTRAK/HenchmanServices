@@ -8,15 +8,11 @@ target_include_directories(
 )
 
 target_link_libraries(
-	ServiceController PUBLIC
-	HenchmanServiceTaskScheduler
-)
-
-target_link_libraries(
 	ServiceController PRIVATE
 	ServiceHelper
 	RegistryManager
 	Qt6::Core
+	HenchmanServiceTaskScheduler
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

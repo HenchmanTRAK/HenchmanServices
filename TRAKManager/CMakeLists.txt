@@ -5,6 +5,9 @@ qt_disable_unicode_defines(TRAKManager)
 target_link_libraries(
 	TRAKManager PRIVATE
 	DatabaseManager
+	EmployeesManager
+	QueryManager
+	NetworkManager
 	SQLiteManager2
 	HenchmanServiceException
 	EventManager

@@ -122,6 +122,7 @@ public:
 	int makeGetRequest(const QString& url, const QJsonObject& queryMap, QJsonDocument* results = nullptr);
 
 	int makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results = nullptr);
+	int makePostRequest(const QString& url, const QJsonObject& queryMap, const QJsonObject& body, QJsonDocument* results = nullptr);
 
 	int makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results = nullptr);
 

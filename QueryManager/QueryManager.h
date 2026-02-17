@@ -15,6 +15,8 @@
 //#  define QUERY_MANAGER_EXPORT Q_DECL_IMPORT
 //#endif
 
+#include <vector>
+
 #include <QObject>
 #include <QString>
 #include <QMutex>
@@ -42,6 +44,9 @@ public:
 	QueryManager(QObject* parent = nullptr, const QString &target_schema = "");
 	~QueryManager();
 
+	void setSchema(const QString& new_schema = "");
+	QString getSchema();
+
 	/**
 	 * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
 	 *
@@ -65,6 +70,8 @@ public:
 	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params = std::map<const TCHAR*, const TCHAR*>());
 
 	QJsonArray ExecuteTargetSql(const std::string& sqlQuery, const QJsonObject& params);
+	QJsonArray ExecuteTargetSql(const QString& sqlQuery, const QJsonObject& params);
+	QJsonArray ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObject& params);
 
 	/**
 	* @brief Executes a target SQL script file on a local database.

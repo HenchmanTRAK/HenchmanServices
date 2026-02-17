@@ -9,10 +9,29 @@ QueryManager::QueryManager(QObject* parent, const QString& target_schema)
 QueryManager::~QueryManager()
 {
 	if (p_thread_controller) {
-		p_thread_controller->unlock();
-		p_thread_controller->~QMutex();
 		p_thread_controller = nullptr;
 	}
+}
+
+void QueryManager::setSchema(const QString& new_schema)
+{
+	if (schema != new_schema)
+		schema = new_schema;
+}
+
+QString QueryManager::getSchema()
+{
+	return schema;
+}
+
+QJsonArray QueryManager::ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObject& params)
+{
+	return ExecuteTargetSql(std::string(sqlQuery), params);
+}
+
+QJsonArray QueryManager::ExecuteTargetSql(const QString& sqlQuery, const QJsonObject& params)
+{
+	return ExecuteTargetSql(sqlQuery.toStdString(), params);
 }
 
 QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJsonObject& params)

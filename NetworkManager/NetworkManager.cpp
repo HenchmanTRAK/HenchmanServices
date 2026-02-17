@@ -386,8 +386,28 @@ int NetworkManager::makeGetRequest(const QString& url, const QJsonObject& queryM
 	return result;
 }
 
-
 int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
+{
+	QJsonObject query;
+
+	qDebug() << queryMap;
+
+	if (queryMap.size() > 0) {
+
+		QJsonObject where;
+
+		QMapIterator<QString, QString> it(queryMap);
+		while (it.hasNext()) {
+			it.next();
+			where.insert(it.key(), it.value());
+		}
+		query.insert("where", where);
+	}
+
+	return makePostRequest(url, query, body, results);
+}
+
+int NetworkManager::makePostRequest(const QString& url, const QJsonObject& queryMap, const QJsonObject& body, QJsonDocument* results)
 {	
 
 	QJsonDocument response;
@@ -413,7 +433,7 @@ int NetworkManager::makePostRequest(const QString& url, const QStringMap& queryM
 	std::string log = "";
 	log.append("Making Post request to: " + url.toStdString());
 	if (!queryMap.isEmpty())
-		log.append("\nRunning query number : " + queryMap["number"].toStdString());
+		log.append("\nRunning query number : " + (queryMap["number"].isUndefined() ? "undefined" : queryMap["number"].toString().toStdString()));
 	if (!doc.isEmpty())
 		log.append("\nquery : " + doc.toJson().toStdString());
 	

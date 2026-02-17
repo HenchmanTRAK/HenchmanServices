@@ -43,6 +43,9 @@ target_link_libraries(
 	ServiceController
 	TRAKManager
 	DatabaseManager
+	EmployeesManager
+	QueryManager
+	NetworkManager
 	SQLiteManager2
 	HenchmanServiceException
 	EventManager
@@ -53,6 +56,7 @@ target_link_libraries(
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core
+	HenchmanServiceTaskScheduler
 )
 
 set_target_properties(

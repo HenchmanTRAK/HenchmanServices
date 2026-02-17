@@ -16,18 +16,6 @@ std::string getValidDrivers()
 	}
 	return results.str();
 }
-//
-//static int checkValidConnections(QString &targetConnection)
-//{
-//	for (auto& str : QSqlDatabase::connectionNames())
-//	{
-//		std::cout << " - " << str.toUtf8().data() << endl;
-//		if (str == targetConnection)
-//			return TRUE;
-//	}
-//
-//	return FALSE;
-//}
 
 static std::array<QString, 2> GetTrakDirAndIni(RegistryManager::CRegistryManager & rtManager)
 {
@@ -48,6 +36,38 @@ static std::array<QString, 2> GetTrakDirAndIni(RegistryManager::CRegistryManager
 	}
 
 	return { trakDir, iniFile };
+}
+
+static QString parseTimeValue(const QString& time) {
+	QStringList splitTime;
+
+	if (time.contains(" "))
+		splitTime = time.split(" ").last().split(":");
+	else
+		splitTime = time.split(":");
+
+	QStringList secondsSplit = splitTime.last().split(".");
+	int hours = splitTime.first().toInt();
+	int minutes = splitTime.at(1).toInt();
+	int seconds = secondsSplit.first().toInt();
+	if (secondsSplit.length() > 1 && QString::number(secondsSplit.last().toInt()).slice(0, 1).toInt() >= 5) {
+		seconds++;
+	}
+	if (seconds >= 60) {
+		seconds = 0;
+		minutes++;
+	}
+	if (minutes >= 60) {
+		minutes = 0;
+		hours++;
+	}
+	if (hours >= 24) {
+		hours = 0;
+	}
+	splitTime.last() = (seconds < 10 ? "0" : "") + QString::number(seconds);
+	splitTime[1] = (minutes < 10 ? "0" : "") + QString::number(minutes);
+	splitTime.first() = (hours < 10 ? "0" : "") + QString::number(hours);
+	return splitTime.join(":");
 }
 
 DatabaseManager::DatabaseManager(QObject* parent) 
@@ -699,31 +719,27 @@ int DatabaseManager::addUsersIfNotExists()
 
 	return 1;
 }
-
-
-
-
 int DatabaseManager::addEmployeesIfNotExists()
 {
 	LOG << "Adding Employees to Webportal";
 	QString targetKey = "employees";
 	timeStamp = ServiceHelper().timestamp();
 
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
+	TrakDetails trakDetails;
+	trakDetails.schema = queryManager.getSchema();
+	trakDetails.cust_id = custId;
+	trakDetails.trak_type = QString::fromStdString(trakType);
+	trakDetails.trak_id_type = QString::fromStdString(trakId);
+	trakDetails.trak_id = trakIdNum;
 
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
-	rtManager.GetVal((targetKey + "Checked").toUtf8(), REG_SZ, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
+	WebportalDetails webportalDetails;
+	webportalDetails.api_url = apiUrl;
+	webportalDetails.api_key = apiKey;
 
-	std::vector rowCheck = queryManager.ExecuteTargetSql("SELECT COUNT(*) FROM employees WHERE userId <> '' AND userId IS NOT NULL");
-	
-	if (!databaseTablesChecked[targetKey] || databaseTablesChecked[targetKey] != rowCheck[1][rowCheck[1].firstKey()].toInt()) {
-		databaseTablesChecked[targetKey] = rowCheck[1][rowCheck[1].firstKey()].toInt();
-		rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	}
 
-	if (networkManager.isInternetConnected())
-		networkManager.authenticateSession();
+	EmployeesManager employeesManager(this, trakDetails, webportalDetails);
+
+	databaseTablesChecked[targetKey] = employeesManager.GetLocalEmployeeCount();
 
 	QJsonDocument reply;
 
@@ -733,59 +749,43 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	QJsonArray webportalResults;
 	QJsonObject webportalToolCount;
-
-	try{
-
-		where.insert("custId", QString::number(custId));
-		where.insert("kabId", trakIdNum);
-		select.insert("count", "total");
-
-		query.insert("where", where);
-		query.insert("select", select);
-
-		if (!networkManager.makeGetRequest(apiUrl + "/employees", query, &reply))
-		{
-			throw std::exception();
-		}
-
-		if (reply.isObject()) {
-			//LOG << result.toJson().toStdString();
-			QJsonObject resultObject = reply.object();
-			if (!resultObject["data"].isNull() && !resultObject["data"].isUndefined()) {
-				//webportalResults = resultObject["data"].toArray();
-				if (resultObject["data"].toArray().at(0).isObject())
-					webportalToolCount = resultObject["data"].toArray().at(0).toObject();
-			}
-		}
-	}
-	catch (std::exception &e)
-	{
-		networkManager.cleanManager();
-		return 1;
-	}
-
-	qDebug() << webportalToolCount;
-	LOG << "Local Emp Count:" << databaseTablesChecked[targetKey];
-	LOG << "Remote Emp Count:" << webportalToolCount["total"].toInt();
-
-	if (databaseTablesChecked[targetKey] == webportalToolCount["total"].toInt())
-	{
-		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
-			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			queryManager.ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timeStamp[0] + "' AND (posted = 0 OR posted = 2)");
-		}
-		return 0;
-	}
-
-	if (databaseTablesChecked[targetKey] <= webportalToolCount["total"].toInt())
-	{
-
-	}
 	
-	std::string colQuery =
-		"SHOW COLUMNS from employees";
-	std::vector colQueryResults = queryManager.ExecuteTargetSql(colQuery);
+	int webportalEmployeeCount = employeesManager.GetRemoteEmployeeCount();
 
+	LOG << "Local Emp Count:" << databaseTablesChecked[targetKey];
+	LOG << "Remote Emp Count:" << webportalEmployeeCount;
+
+	/*
+	 * Actions that need to be taken and when;
+	 *	- If Entries on remote is less that local: done
+	 *		update remote with local entires
+	 * 
+	 *	- If Entries on remote is the same as local:
+	 *		fetch entries from remote and local which have changed since last sync
+	 *		update local and remote based on recency of changes
+	 * 
+	 *	- If Entires on remote is greater than local:
+	 *		fetch entries from remote that are not on local
+	 *		add missing entries to local
+	 * 
+	 * Changes and improvements that should be made:
+	 *	- Add support for sending lists of values to fetch entries based on
+	 *	- Add support for excluding entries based on single values
+	 *	- Add support for excluding entries based on list of values
+	 */
+
+	if (employeesManager.ClearCloudUpdate())
+		return 0;
+
+
+
+	/*if (databaseTablesChecked[targetKey] <= webportalToolCount["total"].toInt())
+	{
+
+	}*/
+
+	QJsonArray tableColumns = employeesManager.GetColumns();
+	
 	int hadEmpId = 0;
 
 	//qDebug() << colQueryResults;
@@ -796,71 +796,52 @@ int DatabaseManager::addEmployeesIfNotExists()
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "userId"};
 
-	for (auto& column : colQueryResults) {
-		if (column.firstKey() == "success" || skipTargetCols.contains(column.value("Field")))
+	for (const auto& tableColumn : tableColumns) {
+		if (!tableColumn.isObject())
+			throw HenchmanServiceException("Failed to retrieve list of columns for employees table");
+		QJsonObject column = tableColumn.toObject();
+
+		if (skipTargetCols.contains(column.value("Field").toString()))
 			continue;
 
-		if (column.value("Field") == "empId")
+		if (column.value("Field").toString() == "empId") {
 			hadEmpId = 1;
-
-		if (dates.contains(column.value("Type").toLower()))
+		}
+		if (hadEmpId && !uniqueIndexCols.contains("empId")) {
+			uniqueIndexCols.push_back("empId");
+		}
+			
+		if (dates.contains(column.value("Type").toString().toLower()))
 			column["Type"] = "TEXT";
 
-		columns.push_back((column.value("Field") + " " + column.value("Type").toUpper() + " " +
-			(uniqueIndexCols.contains(column.value("Field"))
-				? "NOT NULL DEFAULT " + QString(column.value("Type").toUpper() == "INT" ? "0" : "''") + ""
-				: (column.value("Null") == "NO" ? "NOT NULL DEFAULT " + (column.value("Default") == "" ? "''" : column.value("Default")) : "NULL" + (column.value("Default") == "" ? "" : " DEFAULT " + column.value("Default"))))).toStdString());
+		columns.push_back((column.value("Field").toString() + " " + column.value("Type").toString().toUpper() + " " +
+			(uniqueIndexCols.contains(column.value("Field").toString())
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toString().toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null").toString() == "NO" ? "NOT NULL DEFAULT " + (column.value("Default").toString() == "" ? "''" : column.value("Default").toString()) : "NULL" + (column.value("Default").toString() == "" ? "" : " DEFAULT " + column.value("Default").toString())))).toStdString());
 	}
 
-	sqliteManager.CreateTable(
+	(void)sqliteManager.CreateTable(
 		tableName,
 		columns
 	);
 
+
 	//std::vector<stringmap> result;
 
-	sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")");
+	(void)sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")");
+
+
+	if (!hadEmpId) {
+		(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId");
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE employees ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+		(void)sqliteManager.ExecQuery("ALTER TABLE " + tableName + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+	}
 
 	columns.clear();
 
-	if (!hadEmpId)
-		(void)queryManager.ExecuteTargetSql("ALTER TABLE employees ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+	webportalResults = employeesManager.GetRemoteEmployees(QJsonArray({ "custId", "userId", "empId" }), where);
 
-	try {
-
-		select.erase(select.find("count"));
-
-		select.insert("columns", QJsonArray({ "custId", "userId", "empId" }));
-
-		query.insert("where", where);
-		query.insert("select", select);
-
-		qDebug() << query;
-
-		if (!networkManager.makeGetRequest(apiUrl + "/employees", query, &reply)) {
-			throw std::exception();
-		}
-
-		//webportalResults.empty();
-		//QJsonObject webportalEmployeeIds;
-
-		if (reply.isObject()) {
-			//LOG << result.toJson().toStdString();
-			QJsonObject resultObject = reply.object();
-			if (!resultObject["data"].isNull() && !resultObject["data"].isUndefined()) {
-				webportalResults = resultObject["data"].toArray();
-				/*if (webportalResults.at(0).isObject()) {
-					webportalEmployeeIds = webportalResults.at(0).toObject();
-				}*/
-			}
-		}
-
-	}
-	catch (void*)
-	{
-		networkManager.cleanManager();
-		return 1;
-	}
+	
 	qDebug() << webportalResults;
 	qDebug() << webportalResults.empty();
 	//qDebug() << webportalEmployeeIds.empty;
@@ -868,78 +849,116 @@ int DatabaseManager::addEmployeesIfNotExists()
 	ServiceHelper().WriteToLog("Exporting Employees");
 
 	QString employeeSelect;
-	QJsonArray employeeIds;
-
-	QVariantMap vMapConditionals = {};
+	QJsonObject placeholderMap;
+	//QVariantMap vMapConditionals = {};
 
 	if (webportalResults.empty())
 		employeeSelect = "SELECT * FROM employees WHERE userId <> '' AND userId IS NOT NULL ORDER BY id DESC LIMIT " + QString::number(queryLimit);
 	else {
-		for (const QJsonValue& employee : webportalResults)
-		{
+		QJsonArray employeeIds;
+		QFutureSynchronizer<void> synchronizer;
+
+		synchronizer.addFuture(QtConcurrent::map(webportalResults, [=, &employeeIds](const QJsonValue& employee) {
 			if (!employee.isObject())
-				continue;
+				return;
 
 			employeeIds.push_back(employee.toObject().value("empId"));
-		}
-		employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) ORDER BY id DESC LIMIT " + QString::number(queryLimit);
-		vMapConditionals.insert("empIds", employeeIds);
+
+		}));
+		
+		synchronizer.waitForFinished();
+
+		employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) ORDER BY id ASC LIMIT " + QString::number(queryLimit);
+		
+		placeholderMap.insert("empIds", employeeIds);
 	}
 
-	std::vector sqlQueryResults = queryManager.ExecuteTargetSql(employeeSelect, vMapConditionals);
+	//std::vector sqlQueryResults = queryManager.ExecuteTargetSql(employeeSelect, vMapConditionals);
+	QJsonArray queryResults = employeesManager.GetLocalEmployees(employeeSelect, placeholderMap);
 
-	for (auto& result : sqlQueryResults) {
-		if (result.firstKey() == "success")
+	for (const auto& queryResult : queryResults) {
+		if (!queryResult.isObject())
 			continue;
-		//qDebug() << result;
-		QStringMap res;
-		res["id"] = result["id"];
+		QJsonObject result = queryResult.toObject();
 
-		QJsonObject data;
+
+		qDebug() << result;
+
 		std::map<std::string, std::string> sqliteData;
+		QJsonObject data;
 
-		for (auto it = result.cbegin(); it != result.cend(); ++it)
-		{
-			QString key = it.key();
-			QString val = it.value().trimmed().simplified();
-			if (val.isEmpty() || val == "''")
-				continue;
-			if (!skipTargetCols.contains(key))
-				sqliteData[key.toStdString()] = val.toStdString();
-			data[key] = val;
-		}
+		QFuture<void> parserFuture = QtConcurrent::run([=, &result, &sqliteData, &data]() {
 
-		data[QString::fromStdString(trakId)] = trakIdNum;
+			for (auto it = result.constBegin(); it != result.constEnd(); ++it)
+			{
+				QString key = it.key();
+				QString val;
+			
+				//if(it.value().isString())
+				val = it.value().toString().trimmed().simplified();
+			
+				if (val.isEmpty() || val == "''")
+					continue;
+				if (!skipTargetCols.contains(key))
+					sqliteData[key.toStdString()] = val.toStdString();
+				data[key] = val;
+			}
+
+
+		});
+
+		parserFuture.waitForFinished();
+
 
 		if (!data.contains("userId"))
 			continue;
 
+		data[QString::fromStdString(trakId)] = trakIdNum;
 
-		if (!data.contains("empId")) {			
-			std::vector uuidVector = queryManager.ExecuteTargetSql("SELECT REGEXP_REPLACE(UUID(), '-', '') as uuid");
-			
-			QVariant empId(uuidVector.at(1)["uuid"]);
-			
-			qDebug() << uuidVector;
+		QVariant empId;
 
-			if (!webportalResults.isEmpty()) {
-				QJsonObject webportalEmployee;
-				for (const QJsonValue& employee : webportalResults)
-				{
-					qDebug() << employee;
-					if (!employee.isObject())
-						continue;
-					QJsonObject empObj = employee.toObject();
-					qDebug() << "webportal userid:" << empObj.value("userId").toString() << "localdb userid: " << data.value("userId").toString();
-					qDebug() << "webportal is same as localdb: " << (empObj.value("userId") == data.value("userId") ? "True" : "False");
-					qDebug() << "webportal is same as localdb2: " << (empObj.value("userId").toString() == data.value("userId").toString() ? "True" : "False");
-					qDebug() << "webportal is same as localdb3: " << (empObj.value("userId").toString().compare(data.value("userId").toString()) ? "True" : "False");
-					if (empObj.value("userId").toString() != data.value("userId").toString()) continue;
-					
-					empId = empObj.value("empId").toVariant();
-				}
+		if (data.contains("empId")) {
+			empId = data.value("empId").toVariant();
+		}
+		else if (result.contains("empId")) {
+			QJsonArray userEmpId = queryManager.ExecuteTargetSql("SELECT empId as uuid FROM users WHERE custId = :custId AND userId = :userId", data);
+
+			if (userEmpId.size() >= 1) {
+				empId = userEmpId.at(0).toObject().value("uuid").toVariant();
 			}
-			
+		}
+		
+		
+		if(empId.isNull()) 
+		{
+			std::vector uuidVector = queryManager.ExecuteTargetSql("SELECT REGEXP_REPLACE(UUID(), '-', '') as uuid");
+
+			empId = uuidVector.at(1).value("uuid");
+
+			qDebug() << uuidVector;
+		}
+
+		if (!webportalResults.isEmpty()) {
+			QJsonObject webportalEmployee;
+			QFutureSynchronizer<void> synchronizer;
+
+			synchronizer.addFuture(QtConcurrent::map(webportalResults, [=, &empId, &data](const QJsonValue& employee) {
+				qDebug() << employee;
+				if (!employee.isObject())
+					return;
+				QJsonObject employeeObject = employee.toObject();
+
+				if (employeeObject.value("empId").toString() == data.value("empId").toString()) return;
+				if (employeeObject.value("userId").toString() != data.value("userId").toString()) return;
+
+				empId = employeeObject.value("empId").toVariant();
+
+			}));
+
+			synchronizer.waitForFinished();
+		}
+
+		if (empId.toString() != data.value("empId").toString()) {
 
 			(void)queryManager.ExecuteTargetSql("UPDATE employees SET empId = :empId WHERE userId = :userId", std::map<std::string, QVariant>({
 				{"empId", empId},
@@ -948,6 +967,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 			data["empId"] = empId.toString();
 		}
+		sqliteData["empId"] = empId.toString().toStdString();
 
 #if true
 		sqliteManager.AddEntry(
@@ -958,76 +978,11 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 		sqliteData.clear();
 
-		QJsonObject body;
-		body["data"] = data;
-
-		//networkManager.makePostRequest(apiUrl + "/employees", result, body);
-
-		QJsonDocument reply;
-
 		qDebug() << data;
 
-		if (networkManager.makePostRequest(apiUrl + "/employees", result, body, &reply)) {
-			qDebug() << reply;
-			
-			if (!reply.isObject()) {
-				LOG << "Reply was not an Object";
-				//databaseTablesChecked[targetKey]++;
-				continue;
-			}
-			LOG << reply.toJson().toStdString();
-			QJsonObject result = reply.object();
-			if (result["status"].toDouble() == 200) {
-				//databaseTablesChecked[targetKey]++;
-				//LOG << result["status"].toDouble();
-			}
-		}
-		else {
-			LOG << "No rows were altered on db";
-			//databaseTablesChecked[targetKey]++;
-		}
-
-		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-
-		//if (makeNetworkRequest(apiUrl, res, &reply)) {
-		//	if (!reply.isObject())
-		//		continue;
-		//	QJsonObject result = reply.object();
-		//	LOG << result["result"].toString().toStdString();
-		//	if (ServiceHelper().Contain(result["result"].toString(), "1 rows were affected")) {
-		//		databaseTablesChecked[targetKey]++;
-		//		continue;
-		//	}
-		//	LOG << "No rows were altered on db";
-		//	databaseTablesChecked[targetKey]++;
-		//	//databaseTablesChecked[targetKey] += queryLimit;
-		//	//Sleep(100);
-		//	continue;
-		//	//break;
-		//}
-
+		(void)employeesManager.SendEmployeeToRemote(result, data);
 	}
 
-	//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	//netManager->finished(NULL);
-	
-	/*if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
-	{
-		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
-			size = 1024;
-			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
-		}
-		std::string timestamp(buffer);
-		queryManager.ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
-	}*/
-
-	/*if (restManager) {
-		restManager->deleteLater();
-		restManager = nullptr;
-	}*/
-	networkManager.cleanManager();
 	return 1;
 }
 int DatabaseManager::addJobsIfNotExists()
@@ -4519,6 +4474,8 @@ int DatabaseManager::connectToLocalDB()
 
 		db.setDatabaseName(schema);
 
+		queryManager.setSchema(schema);
+
 	}
 	catch (std::exception& e)
 	{
@@ -4532,70 +4489,6 @@ int DatabaseManager::connectToLocalDB()
 		return 0;
 	}
 	return 1;
-}
-
-
-void DatabaseManager::parseData(QNetworkReply *netReply)
-{
-	QRestReply restReply(netReply);
-	std::optional json = restReply.readJson();
-	std::optional <QJsonObject> response = json->object();
-	std::string sqlQuery = "UPDATE cloudupdate SET posted = 1 WHERE posted = 0 ORDER BY id LIMIT " + QString::number(queryLimit).toStdString();
-	std::stringstream errorRes;
-	std::stringstream dataRes;
-
-	if (restReply.error() != QNetworkReply::NoError) {
-		qWarning() << "A Network error has occured: " << restReply.error() << restReply.errorString();
-		ServiceHelper().WriteToError("A Network error has occured: " + restReply.errorString().toStdString());
-		goto exit;
-	}
-	if (!restReply.isHttpStatusSuccess()) {
-		int status = restReply.httpStatus();
-		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-		qWarning() << "A HTTP error has occured: " << status << reason;
-		ServiceHelper().WriteToError("An HTTP error has occured: " + std::to_string(status) + " \"" + reason.toStdString() + "\"");
-	}
-	if (restReply.isHttpStatusSuccess()) {
-		int status = restReply.httpStatus();
-		QString reason = restReply.networkReply()->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-		ServiceHelper().WriteToLog("Request was successful : " + std::to_string(status) + " \"" + reason.toStdString() + "\"");
-	}
-	ServiceHelper().WriteToLog((std::string)"Parsing Response");
-
-	queryManager.ExecuteTargetSql(sqlQuery);
-
-	if (!json) {
-		ServiceHelper().WriteToError((std::string)"Recieved empty data or failed to parse JSON.");
-		goto exit;
-	}
-
-	if (response.value()["error"].toArray().count() > 0) {
-		for (const auto& result : response.value()["error"].toArray()) {
-			for (auto i = 0; i < result.toArray().size(); i++) {
-				errorRes << " - " << result.toArray()[i].toString().toStdString() << std::endl;
-			}
-		}
-
-		ServiceHelper().WriteToError("Server responded with error: " + errorRes.str());
-	}
-
-	if (response.value()["data"].toArray().count() > 0) {
-		for (const auto& result : response.value()["data"].toArray()) {
-			for (auto i = 0; i < result.toArray().size(); i++) {
-				dataRes << " - " << result.toArray()[i].toString().toStdString() << std::endl;
-			}
-
-		}
-		ServiceHelper().WriteToLog("Server responded with data: " + dataRes.str());
-	}
-
-exit:
-	json.reset();
-	//performCleanup();
-
-	requestRunning = false;
-
-	return;
 }
 
 void DatabaseManager::processKeysAndValues(const QStringMap &map, QString (&results)[])
@@ -4623,38 +4516,6 @@ void DatabaseManager::processKeysAndValues(const QStringMap &map, QString (&resu
 	
 	results[0] = queryKeys;
 	results[1] = queryValues;
-}
-
-static QString parseTimeValue(const QString& time) {
-	QStringList splitTime;
-
-	if (time.contains(" "))
-		splitTime = time.split(" ").last().split(":");
-	else
-		splitTime = time.split(":");
-
-	QStringList secondsSplit = splitTime.last().split(".");
-	int hours = splitTime.first().toInt();
-	int minutes = splitTime.at(1).toInt();
-	int seconds = secondsSplit.first().toInt();
-	if (secondsSplit.length() > 1 && QString::number(secondsSplit.last().toInt()).slice(0, 1).toInt() >= 5) {
-		seconds++;
-	}
-	if (seconds >= 60) {
-		seconds = 0;
-		minutes++;
-	}
-	if (minutes >= 60) {
-		minutes = 0;
-		hours++;
-	}
-	if (hours >= 24) {
-		hours = 0;
-	}
-	splitTime.last() = (seconds < 10 ? "0" : "") + QString::number(seconds);
-	splitTime[1] = (minutes < 10 ? "0" : "") + QString::number(minutes);
-	splitTime.first() = (hours < 10 ? "0" : "") + QString::number(hours);
-	return splitTime.join(":");
 }
 
 void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data,  bool& skipQuery)

@@ -64,6 +64,27 @@ class SQLITE_MANAGER_2_EXPORT SQLiteManager2 : public QObject
 	Q_OBJECT
 
 private:
+	/**
+	 * @brief The database name.
+	 *
+	 * This is the name of the SQLite database file.
+	 */
+	std::string databaseName;
+
+	/**
+	 * @brief The driver name.
+	 *
+	 * This is the name of the Qt SQLite driver.
+	 */
+	QString databaseDriver = "QSQLITE";
+
+	/**
+	 * @brief The location of the SQLite database.
+	 *
+	 * This is the location of the SQLite database file.
+	 */
+	QString databaseLocation;
+
 	//QSqlDatabase db;
 	QMutex mutex;
 
@@ -193,26 +214,7 @@ public:
 	);
 
 private:
-	/**
-	 * @brief The database name.
-	 *
-	 * This is the name of the SQLite database file.
-	 */
-	std::string databaseName;
-
-	/**
-	 * @brief The driver name.
-	 *
-	 * This is the name of the Qt SQLite driver.
-	 */
-	QString databaseDriver = "QSQLITE";
-
-	/**
-	 * @brief The location of the SQLite database.
-	 *
-	 * This is the location of the SQLite database file.
-	 */
-	QString databaseLocation;
+	void CreateNewDatabase(QSqlDatabase* db, const QString& databaseName);
 
 };
 

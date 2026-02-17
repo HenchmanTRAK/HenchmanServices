@@ -9,8 +9,6 @@ qt_disable_unicode_defines(QueryManager)
 
 target_link_libraries(
 	QueryManager PRIVATE
-	NetworkManager
-	SQLiteManager2
 	HenchmanServiceException
 	EventManager
 	ServiceHelper

@@ -26,9 +26,9 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	databaseName = ini.value("Database", "").toString().toStdString();
 	databaseLocation = ini.value("DatabaseLocation", "").toString();
 	ini.endGroup();
-
-	QSqlDatabase db;
 	
+	QSqlDatabase db;
+
 	try{
 		if (databaseLocation == "")
 			databaseLocation = installDir;
@@ -51,17 +51,8 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 			throw HenchmanServiceException("QSQLITE database driver was not found");
 
 		LOG << "Checking if database has been previously defined";
-		if (QSqlDatabase::contains(databaseName.data()))
-			db = QSqlDatabase::database(databaseName.data());
-		else {
-			db = QSqlDatabase::addDatabase(databaseDriver, databaseName.data());
-			db.setDatabaseName(databaseLocation + "\\" + databaseName.data());
-		}
-
-		LOG << "Initializing Database";
-		if (!db.open())
-			throw HenchmanServiceException("Failed to open database");
-
+		CreateNewDatabase(&db, QString::fromStdString(databaseName));
+		
 		LOG << "Checking if database file is hidden";
 		int attr = GetFileAttributesA(db.databaseName().toUtf8());
 		if (!(attr & FILE_ATTRIBUTE_HIDDEN))
@@ -69,15 +60,14 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 			LOG << "Setting hidden attribute";
 			SetFileAttributesA(db.databaseName().toUtf8(), attr | FILE_ATTRIBUTE_HIDDEN);
 		}
-	
-		db.close();
 	}
 	catch (std::exception& e)
 	//catch (const HenchmanServiceException& e)
 	{
-		ServiceHelper().WriteToError(e.what());
 		if (db.isOpen())
 			db.close();
+
+		ServiceHelper().WriteToError(e.what());
 	}
 
 	//RegCloseKey(hKey);
@@ -86,6 +76,33 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 SQLiteManager2::~SQLiteManager2()
 {
 
+}
+
+void SQLiteManager2::CreateNewDatabase(QSqlDatabase* targetDatabase, const QString& databaseName)
+{
+	QSqlDatabase &db = *targetDatabase;
+	try {
+		if (QSqlDatabase::contains(databaseName))
+			db = QSqlDatabase::database(databaseName);
+		else {
+			db = QSqlDatabase::addDatabase(databaseDriver, databaseName);
+			db.setDatabaseName(databaseLocation + "\\" + databaseName);
+		}
+
+		LOG << "Initializing Database";
+		if (!db.open())
+			throw HenchmanServiceException("Failed to open database");
+
+		db.close();
+	}
+	catch (const std::exception& e) {
+		if (db.isOpen())
+			db.close();
+		targetDatabase = &db;
+		throw e;
+	}
+
+	targetDatabase = &db;
 }
 
 
@@ -102,21 +119,29 @@ void SQLiteManager2::ExecQuery(
 {
 	std::vector<stringmap> resultVector;
 	stringmap queryResult;
-	//QThread currThread(QThread::currentThread());
 
 	QMutexLocker locket(&mutex);
 
-	/*if (!db.thread()->isCurrentThread())
-		db.moveToThread(&currThread);*/
+	QSqlDatabase db;
 
-	QSqlDatabase db = QSqlDatabase::database(databaseName.data());
+	if (!db.thread()->isCurrentThread()) {
+		QSqlDatabase::removeDatabase(QString::fromStdString(databaseName));
+		CreateNewDatabase(&db, QString::fromStdString(databaseName));
 
+		qDebug() << "Global Manager thread is current: " << this->thread()->isCurrentThread();
+		qDebug() << "Global QSqlDatabase thread is current: " << QSqlDatabase::database(QString::fromStdString(databaseName)).thread()->isCurrentThread();
+		qDebug() << "Local QSqlDatabase thread is current: " << db.thread()->isCurrentThread();
+	}
+	
+	db = QSqlDatabase::database(QString::fromStdString(databaseName));
+		
 	try {
 		// HenchmanServiceException
-		if (!db.open())
-		{
-			throw HenchmanServiceException("Failed to open database");
-		}
+		if(!db.isOpen())
+			if (!db.open())
+			{
+				throw HenchmanServiceException("Failed to open database");
+			}
 
 		if (!db.driver()->hasFeature(QSqlDriver::Transactions))
 		{
@@ -246,6 +271,7 @@ int SQLiteManager2::AddEntry(
 	std::string columns;
 	std::string values;
 	std::string conditionals;
+	std::string update_sets;
 
 	std::thread columnsAndValuesThread(
 		[&data, &columns, &values]() {
@@ -261,23 +287,26 @@ int SQLiteManager2::AddEntry(
 	);
 
 	std::thread conditionalsThread(
-		[&data, &conditionals]() {
+		[&data, &conditionals, &update_sets]() {
 
 			int count = data.size();
 			for (const auto& [key, value] : data)
 			{
 				count--;
 				conditionals.append(key + "='" + value + "'");
+				update_sets.append(key + "='" + value + "'");
 				conditionals.append(count > 0 ? " AND " : " ");
+				update_sets.append(count > 0 ? ", " : "");
 			}
 		}
 	);
 	queryText << "INSERT INTO " << tableName;
 
 	columnsAndValuesThread.join();
-	queryText << " (" << columns << ") VALUES (" << values << ") ON CONFLICT DO NOTHING";
-
 	conditionalsThread.join();
+
+	queryText << " (" << columns << ") VALUES (" << values << ") ON CONFLICT DO UPDATE SET " + update_sets;
+
 	/*queryText << "WHERE NOT EXISTS (SELECT * FROM " << tableName << " WHERE ";
 
 	queryText << conditionals;

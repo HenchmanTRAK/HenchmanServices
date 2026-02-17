@@ -52,6 +52,10 @@
 #include <QAtomicPointer>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QFuture>
+#include <QFutureSynchronizer>
+#include <QtConcurrentMap>
+#include <QtConcurrentRun>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -59,6 +63,7 @@
 #include "SQLiteManager2.h"
 #include "NetworkManager.h"
 #include "QueryManager.h"
+#include "EmployeesManager.h"
 
 
 //#define QT_NO_DEBUG_OUTPUT
@@ -542,7 +547,7 @@ public:
 
 	int createPortatrakTransactionsTable();
 
-public slots:
+private slots:
 
 	/**
 	 * @brief Parses the data received from a network request.
@@ -556,7 +561,7 @@ public slots:
 	 * @throws Throws an exception if there is a network or HTTP error, or if there is an error
 	 *         executing the SQL query or parsing the JSON response.
 	 */
-	void parseData(QNetworkReply* netReply);
+	//void parseData(QNetworkReply* netReply);
 
 private:
 
