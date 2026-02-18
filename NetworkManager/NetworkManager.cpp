@@ -541,6 +541,27 @@ int NetworkManager::makePostRequest(const QString& url, const QJsonObject& query
 
 int NetworkManager::makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results)
 {
+	QJsonObject query;
+
+	qDebug() << queryMap;
+
+	if (queryMap.size() > 0) {
+
+		QJsonObject where;
+
+		QMapIterator<QString, QString> it(queryMap);
+		while (it.hasNext()) {
+			it.next();
+			where.insert(it.key(), it.value());
+		}
+		query.insert("where", where);
+	}
+
+	return makePatchRequest(url, query, body, results);
+}
+
+int NetworkManager::makePatchRequest(const QString& url, const QJsonObject& queryMap, const QJsonObject& body, QJsonDocument* results)
+{
 	int result = 0;
 	QEventLoop loop;
 
@@ -563,7 +584,7 @@ int NetworkManager::makePatchRequest(const QString& url, const QStringMap& query
 	std::string log = "";
 	log.append("Making Patch request to: " + url.toStdString());
 	if (!queryMap.isEmpty())
-		log.append("\nRunning query number : " + queryMap["number"].toStdString());
+		log.append("\nRunning query number : " + (queryMap["number"].isUndefined() ? "undefined" : queryMap["number"].toString().toStdString()));
 	if (!doc.isEmpty())
 		log.append("\nquery : " + doc.toJson().toStdString());
 

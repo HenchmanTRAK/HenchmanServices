@@ -20,6 +20,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <ctime>
 
 #include <QCoreApplication>
 #include <QEventLoop>
@@ -135,6 +136,13 @@ static QMap<QString, table_enums> table_map = {
 	{"portaemployeeitemtransactions", portaemployeeitemtransactions},
 	{"lokkaemployeeitemtransactions", lokkaemployeeitemtransactions},
 	{"tblcounterid", tblcounterid}
+};
+
+struct s_UpdateLocalTableOptions {
+	bool AddEmpId = 0;
+	bool AddCreatedAt = 0;
+	bool AddUpdatedAd = 0;
+	bool CreateUniqueIndex = 0;
 };
 
 /**
@@ -585,6 +593,7 @@ private:
 
 	void processDeleteStatement( QString& query, QJsonObject& data, bool& skipQuery);
 
+	void handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns = QStringList(), const s_UpdateLocalTableOptions* options = nullptr);
 };
 
 Q_DECLARE_METATYPE(DatabaseManager);

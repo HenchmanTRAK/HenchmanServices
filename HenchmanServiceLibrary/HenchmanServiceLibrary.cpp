@@ -584,7 +584,7 @@ HenchmanService::HenchmanService(QObject *parent)
 
 	std::vector<stringmap> result;
 
-	sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_username_password ON " + tableName + "(username,password)", result);
+	sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_username_password ON " + tableName + "(username,password)", &result);
 
 	columns.clear();
 

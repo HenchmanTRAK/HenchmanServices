@@ -58,19 +58,28 @@ public:
 	EmployeesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails());
 	~EmployeesManager();
 
-	int GetLocalEmployeeCount();
+	int GetLocalEmployeeCount(const QList<QString>& conditions = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
 
-	int GetRemoteEmployeeCount();
+	int GetRemoteEmployeeCount(const QJsonObject& select= QJsonObject(), const QJsonObject& where = QJsonObject());
 
-	QJsonArray GetRemoteEmployees(const QJsonArray& columns = QJsonArray(), const QJsonObject& where = QJsonObject());
+	QJsonArray GetRemoteEmployees(const QJsonArray& columns = QJsonArray(), const QJsonObject& where = QJsonObject(), const QJsonObject& p_select = QJsonObject());
 
 	QJsonArray GetLocalEmployees(const QString& query = QString(""), const QJsonObject& placeholders = QJsonObject());
 
-	int SendEmployeeToRemote(const QJsonObject& employee = QJsonObject(), const QJsonObject& data = QJsonObject());
+	QJsonArray GetGroupedRemoteEmployees(const QJsonArray& columns = QJsonArray(), const QJsonArray& grouped_columns = QJsonArray(), const QString& type = QString("COUNT"), const QString& separator = QString(""), const QJsonObject& where = QJsonObject());
 
+	int SendEmployeeToRemote(const QJsonObject& employee = QJsonObject(), const QJsonObject& data = QJsonObject());
+	
+	int UpdateRemoteEmployee(const QJsonObject& employee = QJsonObject(), const QJsonObject& data = QJsonObject());
+	
+	QJsonArray UpdateLocalEmployee(const QList<QString>& update = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
+
+	
 	int ClearCloudUpdate();
 
 	QJsonArray GetColumns();
+
+	static void breakoutValuesToUpdate(const QString& currentDateTime, const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values);
 };
 
 Q_DECLARE_METATYPE(EmployeesManager);

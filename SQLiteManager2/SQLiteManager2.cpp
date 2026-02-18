@@ -23,7 +23,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	LOG << "Fetching values from ini file";
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
 	ini.beginGroup("SYSTEM");
-	databaseName = ini.value("Database", "").toString().toStdString();
+	databaseName = ini.value("Database", "").toString();
 	databaseLocation = ini.value("DatabaseLocation", "").toString();
 	ini.endGroup();
 	
@@ -36,13 +36,13 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 		LOG << "Database name in ini: " << databaseName;
 		LOG << "Database name in registry: " << dbName;
 		// HenchmanServiceException
-		if(databaseName.empty() && dbName.empty())
+		if(databaseName.isEmpty() && dbName.empty())
 			throw HenchmanServiceException("No database name specified in service.ini");
 
-		if(databaseName.empty() && !dbName.empty())
-			databaseName = dbName;
+		if(databaseName.isEmpty() && !dbName.empty())
+			databaseName = QString::fromStdString(dbName);
 		if(databaseName != dbName)
-			if (rtManager.SetVal("DatabaseName", REG_SZ, (char*)databaseName.c_str(), (databaseName.length() + 1)))
+			if (rtManager.SetVal("DatabaseName", REG_SZ, databaseName.toStdString().data(), (databaseName.length() + 1)))
 				throw HenchmanServiceException("Failed to set SERVICE_NAME to registry");
 			//RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
 
@@ -51,7 +51,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 			throw HenchmanServiceException("QSQLITE database driver was not found");
 
 		LOG << "Checking if database has been previously defined";
-		CreateNewDatabase(&db, QString::fromStdString(databaseName));
+		CreateNewDatabase(&db, databaseName);
 		
 		LOG << "Checking if database file is hidden";
 		int attr = GetFileAttributesA(db.databaseName().toUtf8());
@@ -105,39 +105,28 @@ void SQLiteManager2::CreateNewDatabase(QSqlDatabase* targetDatabase, const QStri
 	targetDatabase = &db;
 }
 
-
-void SQLiteManager2::ExecQuery(const std::string& queryText)
+void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 {
-	std::vector<stringmap> results;
-	return ExecQuery(queryText, results);
-}
-
-void SQLiteManager2::ExecQuery(
-	const std::string& queryText, 
-	std::vector<stringmap>& results
-)
-{
-	std::vector<stringmap> resultVector;
-	stringmap queryResult;
+	QJsonArray resultsArray;
 
 	QMutexLocker locket(&mutex);
 
 	QSqlDatabase db;
 
 	if (!db.thread()->isCurrentThread()) {
-		QSqlDatabase::removeDatabase(QString::fromStdString(databaseName));
-		CreateNewDatabase(&db, QString::fromStdString(databaseName));
+		QSqlDatabase::removeDatabase(databaseName);
+		CreateNewDatabase(&db, databaseName);
 
 		qDebug() << "Global Manager thread is current: " << this->thread()->isCurrentThread();
-		qDebug() << "Global QSqlDatabase thread is current: " << QSqlDatabase::database(QString::fromStdString(databaseName)).thread()->isCurrentThread();
+		qDebug() << "Global QSqlDatabase thread is current: " << QSqlDatabase::database(databaseName).thread()->isCurrentThread();
 		qDebug() << "Local QSqlDatabase thread is current: " << db.thread()->isCurrentThread();
 	}
-	
-	db = QSqlDatabase::database(QString::fromStdString(databaseName));
-		
+
+	db = QSqlDatabase::database(databaseName);
+
 	try {
 		// HenchmanServiceException
-		if(!db.isOpen())
+		if (!db.isOpen())
 			if (!db.open())
 			{
 				throw HenchmanServiceException("Failed to open database");
@@ -151,7 +140,7 @@ void SQLiteManager2::ExecQuery(
 		db.transaction();
 		QSqlQuery query(db);
 
-		if (!query.exec(QString::fromStdString(queryText)))
+		if (!query.exec(queryText))
 		{
 			throw HenchmanServiceException(
 				"Failed to execute query: " +
@@ -169,27 +158,26 @@ void SQLiteManager2::ExecQuery(
 		qDebug() << "Query Successful";
 		while (query.next())
 		{
-			queryResult.clear();
+			QJsonObject queryResult;
 			qDebug() << query.record();
 			for (int i = 0; i <= query.record().count() - 1; i++)
 			{
-				std::string key = query.record().fieldName(i).toStdString();
-				std::string value = query.value(i).toString().toStdString();
+				QString key = query.record().fieldName(i);
+				QString value = query.value(i).toString();
 				queryResult[key] = value;
 			}
 
-			resultVector.push_back(queryResult);
+			resultsArray.push_back(queryResult);
 		}
-		qDebug() << resultVector;
-		query.clear();
-		query.finish();
+		qDebug() << resultsArray;
+
 		if (!db.commit())
 			throw HenchmanServiceException("Failed to commit transaction");
 		db.close();
 
 	}
 	catch (std::exception& e)
-	//catch (const HenchmanServiceException& e)
+		//catch (const HenchmanServiceException& e)
 	{
 		ServiceHelper().WriteToError("An exception was thrown: " + (std::string)e.what());
 		if (db.isOpen())
@@ -199,8 +187,113 @@ void SQLiteManager2::ExecQuery(
 		}
 		//throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
 	}
-	//if (results)
-	resultVector.swap(results);
+	if (results) {
+		resultsArray.swap(*results);
+	}
+}
+
+void SQLiteManager2::ExecQuery(const std::string& queryText, QJsonArray* results)
+{
+	ExecQuery(QString::fromStdString(queryText), results);
+}
+
+void SQLiteManager2::ExecQuery(const char* queryText, QJsonArray* results)
+{
+	ExecQuery(QString(queryText), results);
+}
+
+void SQLiteManager2::ExecQuery(
+	const std::string& queryText, 
+	std::vector<stringmap>* results
+)
+{
+	QJsonArray tempResults;
+	ExecQuery(queryText, &tempResults);
+
+	if(tempResults.isEmpty() || !results)
+		return;
+
+	std::vector<stringmap> tempVector;
+
+	for (auto tempResult : tempResults)
+	{
+		if (!tempResult.isObject())
+			continue;
+		QJsonObject tempResultObject(tempResult.toObject());
+		stringmap holder;
+		
+		for (auto entry : tempResultObject.keys())
+		{
+			holder[entry.toStdString()] = tempResultObject.value(entry).toString().toStdString();
+		}
+
+		tempVector.push_back(holder);
+	}
+
+	tempVector.swap(*results);
+}
+
+void SQLiteManager2::ExecQuery(
+	const QString& queryText,
+	std::vector<stringmap>* results
+)
+{
+	QJsonArray tempResults;
+	ExecQuery(queryText, &tempResults);
+
+	if (tempResults.isEmpty() || !results)
+		return;
+
+	std::vector<stringmap> tempVector;
+
+	for (auto tempResult : tempResults)
+	{
+		if (!tempResult.isObject())
+			continue;
+		QJsonObject tempResultObject(tempResult.toObject());
+		stringmap holder;
+
+		for (auto entry : tempResultObject.keys())
+		{
+			holder[entry.toStdString()] = tempResultObject.value(entry).toString().toStdString();
+		}
+
+		tempVector.push_back(holder);
+	}
+
+	tempVector.swap(*results);
+}
+
+void SQLiteManager2::ExecQuery(
+	const char* queryText,
+	std::vector<stringmap>* results
+)
+{
+	ExecQuery(QString(queryText), results);
+}
+
+void SQLiteManager2::ExecQuery(
+	const std::string& queryText
+)
+{
+	QJsonArray placeholder;
+	ExecQuery(queryText, &placeholder);
+}
+
+void SQLiteManager2::ExecQuery(
+	const QString& queryText
+)
+{
+	QJsonArray placeholder;
+	ExecQuery(queryText, &placeholder);
+}
+
+void SQLiteManager2::ExecQuery(
+	const char* queryText
+)
+{
+	QJsonArray placeholder;
+	ExecQuery(QString(queryText), &placeholder);
 }
 
 int SQLiteManager2::CreateTable(
@@ -480,7 +573,7 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 
 	try {
 
-		ExecQuery(queryText.str(), results);
+		ExecQuery(queryText.str(), &results);
 
 		for(const auto& result : results){
 			for (const auto& [key, value] : result) {

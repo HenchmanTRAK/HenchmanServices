@@ -181,6 +181,30 @@ void DatabaseManager::attachThreadController(QMutex* threadController)
 	p_thread_controller = threadController;
 }
 
+void DatabaseManager::handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns, const s_UpdateLocalTableOptions* options)
+{
+
+	if (!options)
+		return;
+
+	if (options->CreateUniqueIndex) {
+		if (unique_columns.isEmpty())
+			throw HenchmanServiceException("Cannot add unique index without providing columns");
+		(void)sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + unique_columns.join("_") + " ON " + table + "(" + unique_columns.join(",") + ")");
+	}
+
+	if (options->AddCreatedAt)
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP()");
+
+	if (options->AddUpdatedAd)
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP()");
+
+	if (options->AddEmpId) {
+		(void)sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE "+ table +" ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+	}
+}
+
 // Misc Syncs
 int DatabaseManager::addToolsIfNotExists()
 {
@@ -248,11 +272,10 @@ int DatabaseManager::addToolsIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
+	//std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_"+ uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(", ").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_"+ uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(", ").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -757,8 +780,10 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	/*
 	 * Actions that need to be taken and when;
-	 *	- If Entries on remote is less that local: done
-	 *		update remote with local entires
+	 *	- If Entries on remote is less that local: DONE
+	 *		Fetch what entries are on remote
+	 *		Compare entries based on updatedAt date
+	 *		update remote and local entries based on must updated
 	 * 
 	 *	- If Entries on remote is the same as local:
 	 *		fetch entries from remote and local which have changed since last sync
@@ -784,14 +809,25 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	}*/
 
+	std::string tableName = "employees";
+
 	QJsonArray tableColumns = employeesManager.GetColumns();
+	QJsonArray sqliteTableColumns;
+
+	(void)sqliteManager.ExecQuery(
+		"pragma table_info(" + tableName + ")",
+		&sqliteTableColumns
+	);
+
+	qDebug() << QJsonDocument(sqliteTableColumns).toJson().toStdString().data();
 	
 	int hadEmpId = 0;
 
 	//qDebug() << colQueryResults;
 
-	std::string tableName = "employees";
+	
 	std::vector<std::string> columns;
+	QStringList skippedColumns;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 	QStringList uniqueIndexCols = { "custId", "userId"};
@@ -801,8 +837,10 @@ int DatabaseManager::addEmployeesIfNotExists()
 			throw HenchmanServiceException("Failed to retrieve list of columns for employees table");
 		QJsonObject column = tableColumn.toObject();
 
-		if (skipTargetCols.contains(column.value("Field").toString()))
+		if (skipTargetCols.contains(column.value("Field").toString())) {
+			skippedColumns.push_back(column.value("Field").toString());
 			continue;
+		}
 
 		if (column.value("Field").toString() == "empId") {
 			hadEmpId = 1;
@@ -820,6 +858,8 @@ int DatabaseManager::addEmployeesIfNotExists()
 				: (column.value("Null").toString() == "NO" ? "NOT NULL DEFAULT " + (column.value("Default").toString() == "" ? "''" : column.value("Default").toString()) : "NULL" + (column.value("Default").toString() == "" ? "" : " DEFAULT " + column.value("Default").toString())))).toStdString());
 	}
 
+	(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId");
+
 	(void)sqliteManager.CreateTable(
 		tableName,
 		columns
@@ -828,21 +868,22 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	//std::vector<stringmap> result;
 
-	(void)sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")");
+	s_UpdateLocalTableOptions update_options;
+	update_options.CreateUniqueIndex = true;
+	update_options.AddCreatedAt = !skippedColumns.contains("createdAt");
+	update_options.AddUpdatedAd = !skippedColumns.contains("updatedAt");
+	update_options.AddEmpId = !hadEmpId;
 
-
-	if (!hadEmpId) {
-		(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId");
-		(void)queryManager.ExecuteTargetSql("ALTER TABLE employees ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
-		(void)sqliteManager.ExecQuery("ALTER TABLE " + tableName + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
-	}
+	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
 
 	columns.clear();
 
-	webportalResults = employeesManager.GetRemoteEmployees(QJsonArray({ "custId", "userId", "empId" }), where);
+	webportalResults = employeesManager.GetRemoteEmployees(QJsonArray({ "custId", "userId", "empId", "updatedAt"}), where);
 
+	QJsonArray webportalGroupedResults = employeesManager.GetGroupedRemoteEmployees(QJsonArray({ "custId", "userId", "empId" }), QJsonArray({ "updatedAt" }), "MIN", nullptr, where);
 	
 	qDebug() << webportalResults;
+	qDebug() << webportalGroupedResults;
 	qDebug() << webportalResults.empty();
 	//qDebug() << webportalEmployeeIds.empty;
 
@@ -850,39 +891,115 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	QString employeeSelect;
 	QJsonObject placeholderMap;
+	
 	//QVariantMap vMapConditionals = {};
 
 	if (webportalResults.empty())
 		employeeSelect = "SELECT * FROM employees WHERE userId <> '' AND userId IS NOT NULL ORDER BY id DESC LIMIT " + QString::number(queryLimit);
 	else {
 		QJsonArray employeeIds;
-		QFutureSynchronizer<void> synchronizer;
-
-		synchronizer.addFuture(QtConcurrent::map(webportalResults, [=, &employeeIds](const QJsonValue& employee) {
+		QJsonArray updatedAtDates;
+		
+		for (const QJsonValue& employee : webportalResults)
+		{
 			if (!employee.isObject())
-				return;
+				continue;
 
-			employeeIds.push_back(employee.toObject().value("empId"));
+			QJsonObject employeeObject = employee.toObject();
 
-		}));
-		
-		synchronizer.waitForFinished();
+			if (employeeObject.isEmpty() || employeeObject.value("empId").isNull() || employeeObject.value("empId").isUndefined())
+				continue;
 
-		employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) ORDER BY id ASC LIMIT " + QString::number(queryLimit);
-		
+			employeeIds.push_back(employeeObject.value("empId"));
+			updatedAtDates.push_back(employeeObject.value("updatedAt"));
+
+		}
+
 		placeholderMap.insert("empIds", employeeIds);
+		
+		if(webportalGroupedResults.size() <= 0)
+			employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) ORDER BY id ASC LIMIT " + QString::number(queryLimit);
+		else {
+			employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) OR updatedAt NOT IN (:updatedAts) ORDER BY updatedAt ASC, id ASC LIMIT " + QString::number(queryLimit);
+			placeholderMap.insert("updatedAts", updatedAtDates);
+		}
+		
 	}
 
 	//std::vector sqlQueryResults = queryManager.ExecuteTargetSql(employeeSelect, vMapConditionals);
 	QJsonArray queryResults = employeesManager.GetLocalEmployees(employeeSelect, placeholderMap);
+
+	qDebug() << QJsonDocument(queryResults).toJson().toStdString().data();
 
 	for (const auto& queryResult : queryResults) {
 		if (!queryResult.isObject())
 			continue;
 		QJsonObject result = queryResult.toObject();
 
+		result[QString::fromStdString(trakId)] = trakIdNum;
 
-		qDebug() << result;
+		if (placeholderMap.value("empIds").toArray().contains(result.value("empId")))
+		{
+			
+			QJsonObject where;
+			where.insert("custId", result.value("custId"));
+			where.insert("empId", result.value("empId"));
+			where.insert("userId", result.value("userId"));
+			where.insert(QString::fromStdString(trakId), trakIdNum);
+			QJsonObject webportalEntry = employeesManager.GetRemoteEmployees(QJsonArray(), where).at(0).toObject();
+
+			qDebug() << "Local: " << QJsonDocument(result).toJson().toStdString().data();
+			qDebug() << "Remote: " << QJsonDocument(webportalEntry).toJson().toStdString().data();
+
+			QString currentDateTime = QDateTime::currentDateTime().toString(Qt::ISODate).replace("T", " ");
+
+			if (webportalEntry.value("updatedAt") == result.value("updatedAt"))
+				continue;
+
+			QDateTime webportalUpdate = QDateTime::fromString(webportalEntry.value("updatedAt").toString(), Qt::ISODate);
+			QDateTime localUpdate = QDateTime::fromString(result.value("updatedAt").toString().replace("T", " ").slice(0, result.value("updatedAt").toString().indexOf(".")), Qt::ISODate);
+
+			if (webportalUpdate == localUpdate)
+				continue;
+				
+			
+			QJsonObject body;
+			QList<QString> set;
+			QJsonObject update;
+
+			if (webportalUpdate > localUpdate)
+			{
+				employeesManager.breakoutValuesToUpdate(currentDateTime, result, webportalEntry, &set, &update);
+
+				webportalEntry["updatedAt"] = currentDateTime;
+
+				(void)employeesManager.UpdateLocalEmployee(set, webportalEntry);
+
+				body.insert("update", update);
+				body.insert("where", where);
+
+				(void)employeesManager.UpdateRemoteEmployee(result, body);
+
+			}
+
+			if (webportalUpdate < localUpdate)
+			{
+				employeesManager.breakoutValuesToUpdate(currentDateTime, webportalEntry, result, &set, &update);
+
+				body.insert("update", update);
+				body.insert("where", where);
+
+				(void)employeesManager.UpdateRemoteEmployee(result, body);
+
+				result["updatedAt"] = currentDateTime;
+
+				(void)employeesManager.UpdateLocalEmployee(set, result);
+			}
+
+			continue;
+		}
+
+		//qDebug() << result;
 
 		std::map<std::string, std::string> sqliteData;
 		QJsonObject data;
@@ -1041,11 +1158,8 @@ int DatabaseManager::addJobsIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -1291,11 +1405,8 @@ int DatabaseManager::addKabsIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -1467,11 +1578,8 @@ int DatabaseManager::addDrawersIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -1686,11 +1794,8 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -1955,7 +2060,7 @@ int DatabaseManager::createKabtrakTransactionsTable() {
 
 	sqliteManager.ExecQuery(
 		"PRAGMA table_info(" + tableName + ")",
-		results
+		&results
 	);
 
 	if (colQueryResults.size() <= 1 || !results.empty())
@@ -1994,11 +2099,8 @@ int DatabaseManager::createKabtrakTransactionsTable() {
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -2122,11 +2224,8 @@ int DatabaseManager::addCribsIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -2297,11 +2396,9 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
 
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -2457,11 +2554,8 @@ int DatabaseManager::addCribToolsIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -2652,11 +2746,8 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -2814,11 +2905,8 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -2989,11 +3077,8 @@ int DatabaseManager::addCribKitsIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -3109,7 +3194,7 @@ int DatabaseManager::createCribtrakTransactionsTable() {
 
 	sqliteManager.ExecQuery(
 		"PRAGMA table_info(" + tableName + ")",
-		results
+		&results
 	);
 
 	if (colQueryResults.size() <= 1 || !results.empty())
@@ -3148,11 +3233,8 @@ int DatabaseManager::createCribtrakTransactionsTable() {
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -3282,11 +3364,8 @@ int DatabaseManager::addPortasIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -3450,11 +3529,8 @@ int DatabaseManager::addItemKitsIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -3629,11 +3705,8 @@ int DatabaseManager::addKitCategoryIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -3800,11 +3873,8 @@ int DatabaseManager::addKitLocationIfNotExists()
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
@@ -3911,7 +3981,7 @@ int DatabaseManager::createPortatrakTransactionsTable() {
 
 	sqliteManager.ExecQuery(
 		"PRAGMA table_info(" + tableName + ")",
-		results
+		&results
 	);
 
 	if (colQueryResults.size() <= 1 || !results.empty())
@@ -3950,11 +4020,8 @@ int DatabaseManager::createPortatrakTransactionsTable() {
 		columns
 	);
 
-	std::vector<stringmap> result;
-
 	sqliteManager.ExecQuery(
-		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")",
-		result
+		"CREATE UNIQUE INDEX IF NOT EXISTS unique_" + uniqueIndexCols.join("_").toStdString() + " ON " + tableName + "(" + uniqueIndexCols.join(",").toStdString() + ")"
 	);
 
 	columns.clear();
