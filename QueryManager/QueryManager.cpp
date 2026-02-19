@@ -67,6 +67,7 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 			if (statement.trimmed() == "")
 				continue;
 			LOG << "Executing: " << statement.toStdString();
+
 			QMap<QString, QVariant> boundValues;
 			if (params.size() > 0) {
 				/*query.prepare(statement);*/
@@ -74,15 +75,17 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 					QString key = it.key();
 					QVariant value = it.value().toVariant();
 					//qDebug() << key << ": " << value;
-
+					key = ":" + key;
 					qDebug() << value.typeName();
 
 					if (value.canConvert<QString>()) {
-						boundValues.insert(":" + key, "'" + value.toString() + "'");
+						boundValues.insert(key, value.toString());
 						continue;
 					}
 
 					if (value.canConvert<QJsonArray>()) {
+						
+						
 						QStringList values;
 						foreach(QJsonValue val, value.toJsonArray()) {
 							//qDebug() << val;
@@ -91,25 +94,33 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 						//qDebug() << values;
 						//qDebug() << "Binding " << QString::fromStdString(":" + key) << " with " << values.join(",");
 						QString val = values.join(",");
-						boundValues.insert(":" + key, val);
+
+						QString firstSection = statement.sliced(0, statement.indexOf(key));
+						QString secondSection = statement.sliced(statement.indexOf(key) + key.size());
+						statement = firstSection + val + secondSection;
+						//boundValues.insert(":" + key, val);
 						continue;
 					}
 
-					boundValues.insert(":" + key, value);
+					boundValues.insert(key, value);
 				}
 			}
 			qDebug() << boundValues;
 
-			QMapIterator it(boundValues);
+			query.prepare(statement);
 
+			QMapIterator it(boundValues);
+			
 			while (it.hasNext()) {
 				it.next();
-				statement.replace(it.key(), it.value().toString());
+				query.bindValue(it.key(), it.value());
 			}
+
+			qDebug() << statement;
 
 			QJsonArray multi_query_results;
 
-			if (query.exec(statement))
+			if (query.exec())
 			{
 				qDebug() << query.executedQuery();
 				successCount++;

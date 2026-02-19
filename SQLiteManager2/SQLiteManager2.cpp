@@ -298,6 +298,21 @@ void SQLiteManager2::ExecQuery(
 
 int SQLiteManager2::CreateTable(
 	const std::string& newTable,
+	const QJsonArray& columns
+)
+{
+	std::vector<std::string> table_columns;
+
+	for (const auto& column : columns)
+	{
+		table_columns.push_back(column.toString().toStdString());
+	}
+
+	return CreateTable(newTable, table_columns);
+}
+
+int SQLiteManager2::CreateTable(
+	const std::string& newTable,
 	const std::vector<std::string>& columns
 )
 {

@@ -8,8 +8,10 @@
 
 #include <iostream>
 #include <string>
+#include <strsafe.h>
 
 #include <windows.h>
+#include <stdio.h>
 
 
 // This class is exported from the dll
@@ -63,6 +65,9 @@ namespace RegistryManager {
 
 		// TODO: add your methods here.
 
+		DWORD GetValSize(const TCHAR* lpValue, DWORD type);
+		LONG GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size);
+
 		/**
 		 * @brief The function to set a string value of a registry key.
 		 *
@@ -92,5 +97,8 @@ namespace RegistryManager {
 		static int RemoveTargetKey(HKEY hRootKey, LPCTSTR strKey);
 
 		int RemoveValue(LPCTSTR lpValue);
+
+		HRESULT GetSystemError(const TCHAR* msg, const DWORD& errorCode, const LPCTSTR& buffer, const DWORD& bufferSize) const;
+
 	};
 }

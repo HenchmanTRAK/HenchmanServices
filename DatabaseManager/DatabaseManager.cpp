@@ -181,27 +181,34 @@ void DatabaseManager::attachThreadController(QMutex* threadController)
 	p_thread_controller = threadController;
 }
 
-void DatabaseManager::handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns, const s_UpdateLocalTableOptions* options)
+void DatabaseManager::handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns, s_UpdateLocalTableOptions* options)
 {
 
 	if (!options)
 		return;
 
-	if (options->CreateUniqueIndex) {
-		if (unique_columns.isEmpty())
-			throw HenchmanServiceException("Cannot add unique index without providing columns");
-		(void)sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + unique_columns.join("_") + " ON " + table + "(" + unique_columns.join(",") + ")");
+	if (options->AddCreatedAt) {
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP()");
+		options->AddCreatedAt = false;
 	}
 
-	if (options->AddCreatedAt)
-		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP()");
-
-	if (options->AddUpdatedAd)
+	if (options->AddUpdatedAd) {
 		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP()");
+		options->AddUpdatedAd = false;
+
+	}
 
 	if (options->AddEmpId) {
 		(void)sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
 		(void)queryManager.ExecuteTargetSql("ALTER TABLE "+ table +" ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+		options->AddEmpId = false;
+	}
+
+	if (options->CreateUniqueIndex) {
+		if (unique_columns.isEmpty())
+			throw HenchmanServiceException("Cannot add unique index without providing columns");
+		(void)sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + unique_columns.join("_") + " ON " + table + "(" + unique_columns.join(",") + ")");
+		options->CreateUniqueIndex = false;
 	}
 }
 
@@ -709,34 +716,8 @@ int DatabaseManager::addUsersIfNotExists()
 				//databaseTablesChecked[targetKey]++;
 			}
 		}
-		/*else {
-			LOG << "No rows were altered on db";
-			databaseTablesChecked[targetKey]++;
-		}*/
-
-		//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
 
 	}
-
-	//rtManager.SetVal((targetKey + "Checked").toUtf8(), REG_DWORD, (DWORD*)&databaseTablesChecked[targetKey], sizeof(DWORD));
-	//QTimer::singleShot(1000, this->parent(), &QCoreApplication::quit);
-	//netManager->finished(NULL);
-
-	/*if (rowCheck[1][rowCheck[1].firstKey()].toInt() <= databaseTablesChecked[targetKey])
-	{
-		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size)) {
-			size = 1024;
-			rtManager.SetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, timeStamp[0].data(), timeStamp[0].size());
-			rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer, size);
-		}
-		std::string timestamp(buffer);
-		queryManager.ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND DatePosted < '" + timestamp + "' AND (posted = 0 OR posted = 2)");
-	}*/
-
-	/*if (restManager) {
-		restManager->deleteLater();
-		restManager = nullptr;
-	}*/
 
 	networkManager.cleanManager();
 
@@ -758,25 +739,11 @@ int DatabaseManager::addEmployeesIfNotExists()
 	WebportalDetails webportalDetails;
 	webportalDetails.api_url = apiUrl;
 	webportalDetails.api_key = apiKey;
-
+	webportalDetails.query_limit = queryLimit;
 
 	EmployeesManager employeesManager(this, trakDetails, webportalDetails);
 
 	databaseTablesChecked[targetKey] = employeesManager.GetLocalEmployeeCount();
-
-	QJsonDocument reply;
-
-	QJsonObject query;
-	QJsonObject where;
-	QJsonObject select;
-
-	QJsonArray webportalResults;
-	QJsonObject webportalToolCount;
-	
-	int webportalEmployeeCount = employeesManager.GetRemoteEmployeeCount();
-
-	LOG << "Local Emp Count:" << databaseTablesChecked[targetKey];
-	LOG << "Remote Emp Count:" << webportalEmployeeCount;
 
 	/*
 	 * Actions that need to be taken and when;
@@ -799,64 +766,77 @@ int DatabaseManager::addEmployeesIfNotExists()
 	 *	- Add support for excluding entries based on list of values
 	 */
 
-	if (employeesManager.ClearCloudUpdate())
-		return 0;
-
-
-
-	/*if (databaseTablesChecked[targetKey] <= webportalToolCount["total"].toInt())
-	{
-
-	}*/
+	//int should = employeesManager.GetCurrentState();
+	int should = -1;
 
 	std::string tableName = "employees";
 
 	QJsonArray tableColumns = employeesManager.GetColumns();
-	QJsonArray sqliteTableColumns;
 
-	(void)sqliteManager.ExecQuery(
-		"pragma table_info(" + tableName + ")",
-		&sqliteTableColumns
-	);
+	s_UpdateLocalTableOptions update_options;
 
-	qDebug() << QJsonDocument(sqliteTableColumns).toJson().toStdString().data();
-	
-	int hadEmpId = 0;
-
-	//qDebug() << colQueryResults;
-
-	
-	std::vector<std::string> columns;
+	QJsonArray columns;
 	QStringList skippedColumns;
+	QStringList uniqueIndexCols = { "custId", "userId" };
+	QJsonArray mysqlColumnNames;
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
-	QStringList uniqueIndexCols = { "custId", "userId"};
 
-	for (const auto& tableColumn : tableColumns) {
+	update_options.AddEmpId = true;
+
+	QMutex mutex;
+
+	QFuture<void> mysqlTableColumns(QtConcurrent::map(tableColumns, [=, &columns, &skippedColumns, &uniqueIndexCols, &update_options, &mysqlColumnNames, &mutex](const QJsonValueRef& tableColumn) {
 		if (!tableColumn.isObject())
 			throw HenchmanServiceException("Failed to retrieve list of columns for employees table");
 		QJsonObject column = tableColumn.toObject();
 
-		if (skipTargetCols.contains(column.value("Field").toString())) {
-			skippedColumns.push_back(column.value("Field").toString());
-			continue;
+		QString field = column.value("Field").toString();
+
+		if (skipTargetCols.contains(field)) {
+			skippedColumns.push_back(field);
+			return;
 		}
 
-		if (column.value("Field").toString() == "empId") {
-			hadEmpId = 1;
+		if (field == "empId") {
+			update_options.AddEmpId = false;
+
+			if (!uniqueIndexCols.contains("empId"))
+				uniqueIndexCols.push_back("empId");
 		}
-		if (hadEmpId && !uniqueIndexCols.contains("empId")) {
-			uniqueIndexCols.push_back("empId");
-		}
-			
+
 		if (dates.contains(column.value("Type").toString().toLower()))
 			column["Type"] = "TEXT";
 
-		columns.push_back((column.value("Field").toString() + " " + column.value("Type").toString().toUpper() + " " +
-			(uniqueIndexCols.contains(column.value("Field").toString())
+		QMutexLocker locker(&mutex);
+
+		mysqlColumnNames.append(field);
+
+		columns.append((
+			field + " " + column.value("Type").toString().toUpper() + " " +
+			(uniqueIndexCols.contains(field)
 				? "NOT NULL DEFAULT " + QString(column.value("Type").toString().toUpper() == "INT" ? "0" : "''") + ""
-				: (column.value("Null").toString() == "NO" ? "NOT NULL DEFAULT " + (column.value("Default").toString() == "" ? "''" : column.value("Default").toString()) : "NULL" + (column.value("Default").toString() == "" ? "" : " DEFAULT " + column.value("Default").toString())))).toStdString());
-	}
+				: (column.value("Null").toString() == "NO"
+					? "NOT NULL DEFAULT " + (column.value("Default").toString() == ""
+						? "''"
+						: column.value("Default").toString())
+					: "NULL" + (column.value("Default").toString() == ""
+						? ""
+						: " DEFAULT " + column.value("Default").toString()
+						)
+					)
+				)
+			));
+		}));
+
+
+
+	//qDebug() << colQueryResults;
+
+
+	mysqlTableColumns.waitForFinished();
+
+	qDebug() << columns;
 
 	(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId");
 
@@ -865,242 +845,64 @@ int DatabaseManager::addEmployeesIfNotExists()
 		columns
 	);
 
+	QJsonArray sqliteTableColumns;
 
-	//std::vector<stringmap> result;
+	(void)sqliteManager.ExecQuery(
+		"pragma table_info(" + tableName + ")",
+		&sqliteTableColumns
+	);
 
-	s_UpdateLocalTableOptions update_options;
+	QFuture<QJsonArray> sqliteTableColumnsFuture(QtConcurrent::run([=]() {
+		QJsonArray sqliteTableColumnNames;
+		for (const auto& sqliteTableColumn : sqliteTableColumns)
+		{
+			if (!sqliteTableColumn.isObject())
+				continue;
+			QJsonObject sqliteColumn = sqliteTableColumn.toObject();
+			sqliteTableColumnNames.append(sqliteColumn.value("name"));
+		}
+		return sqliteTableColumnNames;
+		})
+	);
+
+
+	QJsonArray sqliteTableColumnNames = sqliteTableColumnsFuture.result();
+
 	update_options.CreateUniqueIndex = true;
-	update_options.AddCreatedAt = !skippedColumns.contains("createdAt");
-	update_options.AddUpdatedAd = !skippedColumns.contains("updatedAt");
-	update_options.AddEmpId = !hadEmpId;
+	update_options.AddCreatedAt = !sqliteTableColumnNames.contains("createdAt");
+	update_options.AddUpdatedAd = !sqliteTableColumnNames.contains("updatedAt");
+	update_options.AddEmpId = !sqliteTableColumnNames.contains("empId");
 
 	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
-
-	columns.clear();
-
-	webportalResults = employeesManager.GetRemoteEmployees(QJsonArray({ "custId", "userId", "empId", "updatedAt"}), where);
-
-	QJsonArray webportalGroupedResults = employeesManager.GetGroupedRemoteEmployees(QJsonArray({ "custId", "userId", "empId" }), QJsonArray({ "updatedAt" }), "MIN", nullptr, where);
 	
-	qDebug() << webportalResults;
-	qDebug() << webportalGroupedResults;
-	qDebug() << webportalResults.empty();
-	//qDebug() << webportalEmployeeIds.empty;
-
-	ServiceHelper().WriteToLog("Exporting Employees");
-
-	QString employeeSelect;
-	QJsonObject placeholderMap;
-	
-	//QVariantMap vMapConditionals = {};
-
-	if (webportalResults.empty())
-		employeeSelect = "SELECT * FROM employees WHERE userId <> '' AND userId IS NOT NULL ORDER BY id DESC LIMIT " + QString::number(queryLimit);
-	else {
-		QJsonArray employeeIds;
-		QJsonArray updatedAtDates;
-		
-		for (const QJsonValue& employee : webportalResults)
-		{
-			if (!employee.isObject())
-				continue;
-
-			QJsonObject employeeObject = employee.toObject();
-
-			if (employeeObject.isEmpty() || employeeObject.value("empId").isNull() || employeeObject.value("empId").isUndefined())
-				continue;
-
-			employeeIds.push_back(employeeObject.value("empId"));
-			updatedAtDates.push_back(employeeObject.value("updatedAt"));
-
+	do {
+		if (EMPLOYEES_ALL_UPDATED(should)) {
+			employeesManager.ClearCloudUpdate();
+			break;
 		}
 
-		placeholderMap.insert("empIds", employeeIds);
-		
-		if(webportalGroupedResults.size() <= 0)
-			employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) ORDER BY id ASC LIMIT " + QString::number(queryLimit);
-		else {
-			employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) OR updatedAt NOT IN (:updatedAts) ORDER BY updatedAt ASC, id ASC LIMIT " + QString::number(queryLimit);
-			placeholderMap.insert("updatedAts", updatedAtDates);
-		}
-		
-	}
+		should = employeesManager.GetCurrentState();
 
-	//std::vector sqlQueryResults = queryManager.ExecuteTargetSql(employeeSelect, vMapConditionals);
-	QJsonArray queryResults = employeesManager.GetLocalEmployees(employeeSelect, placeholderMap);
-
-	qDebug() << QJsonDocument(queryResults).toJson().toStdString().data();
-
-	for (const auto& queryResult : queryResults) {
-		if (!queryResult.isObject())
-			continue;
-		QJsonObject result = queryResult.toObject();
-
-		result[QString::fromStdString(trakId)] = trakIdNum;
-
-		if (placeholderMap.value("empIds").toArray().contains(result.value("empId")))
-		{
-			
-			QJsonObject where;
-			where.insert("custId", result.value("custId"));
-			where.insert("empId", result.value("empId"));
-			where.insert("userId", result.value("userId"));
-			where.insert(QString::fromStdString(trakId), trakIdNum);
-			QJsonObject webportalEntry = employeesManager.GetRemoteEmployees(QJsonArray(), where).at(0).toObject();
-
-			qDebug() << "Local: " << QJsonDocument(result).toJson().toStdString().data();
-			qDebug() << "Remote: " << QJsonDocument(webportalEntry).toJson().toStdString().data();
-
-			QString currentDateTime = QDateTime::currentDateTime().toString(Qt::ISODate).replace("T", " ");
-
-			if (webportalEntry.value("updatedAt") == result.value("updatedAt"))
-				continue;
-
-			QDateTime webportalUpdate = QDateTime::fromString(webportalEntry.value("updatedAt").toString(), Qt::ISODate);
-			QDateTime localUpdate = QDateTime::fromString(result.value("updatedAt").toString().replace("T", " ").slice(0, result.value("updatedAt").toString().indexOf(".")), Qt::ISODate);
-
-			if (webportalUpdate == localUpdate)
-				continue;
-				
-			
-			QJsonObject body;
-			QList<QString> set;
-			QJsonObject update;
-
-			if (webportalUpdate > localUpdate)
-			{
-				employeesManager.breakoutValuesToUpdate(currentDateTime, result, webportalEntry, &set, &update);
-
-				webportalEntry["updatedAt"] = currentDateTime;
-
-				(void)employeesManager.UpdateLocalEmployee(set, webportalEntry);
-
-				body.insert("update", update);
-				body.insert("where", where);
-
-				(void)employeesManager.UpdateRemoteEmployee(result, body);
-
-			}
-
-			if (webportalUpdate < localUpdate)
-			{
-				employeesManager.breakoutValuesToUpdate(currentDateTime, webportalEntry, result, &set, &update);
-
-				body.insert("update", update);
-				body.insert("where", where);
-
-				(void)employeesManager.UpdateRemoteEmployee(result, body);
-
-				result["updatedAt"] = currentDateTime;
-
-				(void)employeesManager.UpdateLocalEmployee(set, result);
-			}
-
+		if (EMPLOYEES_(should, employeesManager.SYNC_PORTAL)) {
+			should = employeesManager.SyncWebportalEmployees();
 			continue;
 		}
 
-		//qDebug() << result;
-
-		std::map<std::string, std::string> sqliteData;
-		QJsonObject data;
-
-		QFuture<void> parserFuture = QtConcurrent::run([=, &result, &sqliteData, &data]() {
-
-			for (auto it = result.constBegin(); it != result.constEnd(); ++it)
-			{
-				QString key = it.key();
-				QString val;
-			
-				//if(it.value().isString())
-				val = it.value().toString().trimmed().simplified();
-			
-				if (val.isEmpty() || val == "''")
-					continue;
-				if (!skipTargetCols.contains(key))
-					sqliteData[key.toStdString()] = val.toStdString();
-				data[key] = val;
-			}
-
-
-		});
-
-		parserFuture.waitForFinished();
-
-
-		if (!data.contains("userId"))
+		if (EMPLOYEES_(should, employeesManager.SYNC_LOCAL)) {
+			should = employeesManager.SyncLocalEmployees();
 			continue;
-
-		data[QString::fromStdString(trakId)] = trakIdNum;
-
-		QVariant empId;
-
-		if (data.contains("empId")) {
-			empId = data.value("empId").toVariant();
-		}
-		else if (result.contains("empId")) {
-			QJsonArray userEmpId = queryManager.ExecuteTargetSql("SELECT empId as uuid FROM users WHERE custId = :custId AND userId = :userId", data);
-
-			if (userEmpId.size() >= 1) {
-				empId = userEmpId.at(0).toObject().value("uuid").toVariant();
-			}
 		}
 		
-		
-		if(empId.isNull()) 
-		{
-			std::vector uuidVector = queryManager.ExecuteTargetSql("SELECT REGEXP_REPLACE(UUID(), '-', '') as uuid");
-
-			empId = uuidVector.at(1).value("uuid");
-
-			qDebug() << uuidVector;
+		if (EMPLOYEES_(should, employeesManager.UPDATE_OUTDATED)) {
+			should = employeesManager.UpdateOutdatedEmployees();
+			continue;
 		}
+	} while (true);
 
-		if (!webportalResults.isEmpty()) {
-			QJsonObject webportalEmployee;
-			QFutureSynchronizer<void> synchronizer;
+	update_options.CreateUniqueIndex = true;
+	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
 
-			synchronizer.addFuture(QtConcurrent::map(webportalResults, [=, &empId, &data](const QJsonValue& employee) {
-				qDebug() << employee;
-				if (!employee.isObject())
-					return;
-				QJsonObject employeeObject = employee.toObject();
-
-				if (employeeObject.value("empId").toString() == data.value("empId").toString()) return;
-				if (employeeObject.value("userId").toString() != data.value("userId").toString()) return;
-
-				empId = employeeObject.value("empId").toVariant();
-
-			}));
-
-			synchronizer.waitForFinished();
-		}
-
-		if (empId.toString() != data.value("empId").toString()) {
-
-			(void)queryManager.ExecuteTargetSql("UPDATE employees SET empId = :empId WHERE userId = :userId", std::map<std::string, QVariant>({
-				{"empId", empId},
-				{"userId", data.value("userId").toVariant()},
-				}));
-
-			data["empId"] = empId.toString();
-		}
-		sqliteData["empId"] = empId.toString().toStdString();
-
-#if true
-		sqliteManager.AddEntry(
-			tableName,
-			sqliteData
-		);
-#endif
-
-		sqliteData.clear();
-
-		qDebug() << data;
-
-		(void)employeesManager.SendEmployeeToRemote(result, data);
-	}
-
-	return 1;
+	return employeesManager.ALL_UPDATED;
 }
 int DatabaseManager::addJobsIfNotExists()
 {

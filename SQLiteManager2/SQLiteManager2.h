@@ -125,6 +125,11 @@ public:
 		const std::vector<std::string>& columns
 	);
 
+	int CreateTable(
+		const std::string& table,
+		const QJsonArray& columns
+	);
+
 	/**
 	 * @brief Adds an entry to a table in the SQLite database.
 	 *

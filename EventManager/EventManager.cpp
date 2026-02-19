@@ -129,7 +129,7 @@ void CEventManager::ReportCustomEvent(const LPCTSTR& function, const LPCTSTR& ms
 
 	if (hEventSource != nullptr)
 	{
-		TCHAR buffer[1024];
+		TCHAR buffer[1024] = "\0";
 		DWORD buffSize = 1024;
 
 		lpszStrings[0] = eventSource;
@@ -168,8 +168,8 @@ void CEventManager::ReportCustomEvent(const LPCTSTR& function, const LPCTSTR& ms
 			lpszStrings,	// array of strings
 			NULL			// no binary data
 		);
-		if (hEventSource)
-			DeregisterEventSource(hEventSource);
+		/*if (hEventSource)
+			DeregisterEventSource(hEventSource);*/
 	}
 
 }

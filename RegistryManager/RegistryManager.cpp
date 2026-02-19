@@ -71,11 +71,62 @@ CRegistryManager::~CRegistryManager()
 		RegCloseKey(hkRegistryKey);
 }
 
+HRESULT CRegistryManager::GetSystemError(const TCHAR* msg, const DWORD& errorCode, const LPCTSTR& buffer, const DWORD& bufferSize) const
+{
+
+	HRESULT rs = StringCchPrintf((LPTSTR)buffer,
+		bufferSize,
+		TEXT(msg),
+		errorCode
+	);
+
+	return rs;
+}
+
+LONG CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size)
+{
+	LONG nError = RegGetValue(hkRegistryKey, NULL, lpValue, RRF_RT_ANY | RRF_NOEXPAND | RRF_ZEROONFAILURE, &type, NULL, size);
+
+	//if (nError == ERROR_FILE_NOT_FOUND)
+	//	data = 0; // The value will be created and set to data next time SetVal() is called.
+	//else
+	if (nError)
+	{
+		tstring err = "Error: ";
+		err.append(std::to_string(nError)).append(" Could not get data from registry value: ").append(lpValue).append("\n");
+		//throw std::runtime_error(err.c_str());
+		cout << err.c_str();
+		//cout << "Error: " << nError << " Could not get data from registry value " << lpValue << "\n";
+	}
+
+	return nError;
+}
+
+DWORD CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type)
+{
+	LPDWORD size;
+	LONG nError = RegGetValue(hkRegistryKey, NULL, lpValue, RRF_RT_ANY | RRF_NOEXPAND | RRF_ZEROONFAILURE, &type, NULL, size);
+
+	//if (nError == ERROR_FILE_NOT_FOUND)
+	//	data = 0; // The value will be created and set to data next time SetVal() is called.
+	//else
+	if (nError)
+	{
+		tstring err = "Error: ";
+		err.append(std::to_string(nError)).append(" Could not get data from registry value: ").append(lpValue).append("\n");
+		//throw std::runtime_error(err.c_str());
+		cout << err.c_str();
+		//cout << "Error: " << nError << " Could not get data from registry value " << lpValue << "\n";
+	}
+
+	return *size;
+}
+
 LONG CRegistryManager::SetVal(const TCHAR* lpValue, DWORD type, const PVOID& data, const DWORD& size)
 {
 
 	//std::cout << "supplied value: " << (char *)data << " with size of: " << size << "\n";
-
+	LPDWORD errorBuffer;
 	LONG nError = RegSetKeyValue(hkRegistryKey, NULL, lpValue, type, data, size);
 	if (nError)
 	{

@@ -593,7 +593,7 @@ private:
 
 	void processDeleteStatement( QString& query, QJsonObject& data, bool& skipQuery);
 
-	void handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns = QStringList(), const s_UpdateLocalTableOptions* options = nullptr);
+	void handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns = QStringList(), s_UpdateLocalTableOptions* options = nullptr);
 };
 
 Q_DECLARE_METATYPE(DatabaseManager);
