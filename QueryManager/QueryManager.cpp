@@ -34,6 +34,171 @@ QJsonArray QueryManager::ExecuteTargetSql(const QString& sqlQuery, const QJsonOb
 	return ExecuteTargetSql(sqlQuery.toStdString(), params);
 }
 
+QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const QMap<QString, QVariant>& params)
+{
+	QMutexLocker locker(p_thread_controller);
+
+	int successCount = 0;
+
+	//QList<QVariant> results;
+	QJsonArray results;
+
+	QSqlDatabase db = QSqlDatabase::database(schema);
+
+
+	try {
+		if (!db.isOpen()) {
+			if (!db.open())
+				throw HenchmanServiceException("Failed to open DB Connection");
+		}
+		db.transaction();
+
+		QSqlQuery query(db);
+
+		QStringList sqlStatements = sqlQuery.split(';', Qt::SkipEmptyParts);
+
+		qDebug() << "SQL Statements to Execute:" << sqlStatements;
+
+		if (!query.exec("USE " + schema + ";"))
+			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
+			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + schema.toStdString() + ";");
+
+		for (QString& statement : sqlStatements)
+		{
+			if (statement.trimmed() == "")
+				continue;
+			LOG << "Executing: " << statement.toStdString();
+
+			QMap<QString, QVariant> boundValues;
+			if (!params.isEmpty()) {
+				/*query.prepare(statement);*/
+				for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
+					QString key = it.key();
+					QVariant value = it.value();
+					//qDebug() << key << ": " << value;
+					key = ":" + key;
+					//qDebug() << value.typeName();
+					if (statement.contains("updatedAt")) {
+						qDebug() << it.key();
+						qDebug() << value;
+						qDebug() << "statement";
+					}
+
+					if (value.canConvert<QString>()) {
+						boundValues.insert(key, value.toString());
+						continue;
+					}
+
+					if (value.canConvert<QJsonArray>()) {
+						QStringList values;
+						foreach(QJsonValue val, value.toJsonArray()) {
+							//qDebug() << val;
+							values << "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
+						}
+						//qDebug() << values;
+						//qDebug() << "Binding " << QString::fromStdString(":" + key) << " with " << values.join(",");
+						QString val = values.join(",");
+
+						QString firstSection = statement.sliced(0, statement.indexOf(key));
+						QString secondSection = statement.sliced(statement.indexOf(key) + key.size());
+						statement = firstSection + val + secondSection;
+						//boundValues.insert(":" + key, val);
+						continue;
+					}
+
+					boundValues.insert(key, value);
+				}
+			}
+
+			query.prepare(statement);
+
+			QMapIterator it(boundValues);
+
+			while (it.hasNext()) {
+				it.next();
+				query.bindValue(it.key(), it.value());
+			}
+
+			//QList<QVariant> multi_query_results;
+			QJsonArray multi_query_results;
+
+			if (query.exec())
+			{
+				//qDebug() << query.executedQuery();
+				successCount++;
+				QSqlRecord record(query.record());
+
+				while (query.next())
+				{
+					//QMap<QString, QVariant> queryResult;
+					QJsonObject queryResult;
+					for (int i = 0; i <= record.count() - 1; i++)
+					{
+						qDebug() << query.value(i).typeName();
+						switch (query.value(i).typeId()) {
+						case QVariant::String: {
+							queryResult.insert(record.fieldName(i), query.value(i).toString());
+							break;
+						}
+						case QVariant::Int: {
+							queryResult.insert(record.fieldName(i), query.value(i).toInt());
+							break;
+						}
+						case QVariant::Date: {
+							queryResult.insert(record.fieldName(i), query.value(i).toDate().toString(Qt::ISODateWithMs));
+							break;
+						}
+						case QVariant::Time: {
+							queryResult.insert(record.fieldName(i), query.value(i).toTime().toString(Qt::ISODateWithMs));
+							break;
+						}
+						case QVariant::DateTime: {
+							qDebug() << "Returned Val" << query.value(i).toDateTime();
+							qDebug() << "UTC Val" << query.value(i).toDateTime().toUTC();
+							queryResult.insert(record.fieldName(i), query.value(i).toDateTime().toUTC().toString(Qt::ISODateWithMs));
+							break;
+						}
+						default: {
+							queryResult.insert(record.fieldName(i), query.value(i).toJsonValue());
+							break;
+						}
+						}
+						//queryResult[record.fieldName(i)] = query.value(i).toString();
+					}
+					if (sqlStatements.size() > 1)
+						multi_query_results.push_back(queryResult);
+					else
+						results.push_back(queryResult);
+					qDebug() << queryResult;
+				}
+				if (sqlStatements.size() > 1)
+					results.push_back(multi_query_results);
+			}
+			else {
+				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+			}
+		}
+
+		if (!db.commit())
+			db.rollback();
+		db.close();
+	}
+	catch (std::exception& e)
+	{
+		if (db.isOpen()) {
+			db.rollback();
+			//if (!db.commit())
+			db.close();
+		}
+		ServiceHelper().WriteToError(e.what());
+		/*if (!queryResult.empty())
+			resultVector[0] = queryResult;*/
+
+	}
+
+	return results;
+}
+
 QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJsonObject& params)
 {
 	QMutexLocker locker(p_thread_controller);
@@ -58,6 +223,8 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 
 		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
 
+		qDebug() << "SQL Statements to Execute:" << sqlStatements;
+
 		if (!query.exec("USE " + schema + ";"))
 			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
 			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + schema.toStdString() + ";");
@@ -69,23 +236,26 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 			LOG << "Executing: " << statement.toStdString();
 
 			QMap<QString, QVariant> boundValues;
-			if (params.size() > 0) {
+			if (!params.isEmpty()) {
 				/*query.prepare(statement);*/
 				for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
 					QString key = it.key();
 					QVariant value = it.value().toVariant();
 					//qDebug() << key << ": " << value;
 					key = ":" + key;
-					qDebug() << value.typeName();
+					//qDebug() << value.typeName();
+					if (statement.contains("updatedAt")) {
+						qDebug() << "key";
+						qDebug() << value;
+						qDebug() << "statement";
+					}
 
 					if (value.canConvert<QString>()) {
 						boundValues.insert(key, value.toString());
 						continue;
 					}
 
-					if (value.canConvert<QJsonArray>()) {
-						
-						
+					if (value.canConvert<QJsonArray>()) {						
 						QStringList values;
 						foreach(QJsonValue val, value.toJsonArray()) {
 							//qDebug() << val;
@@ -105,7 +275,6 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 					boundValues.insert(key, value);
 				}
 			}
-			qDebug() << boundValues;
 
 			query.prepare(statement);
 
@@ -116,13 +285,11 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 				query.bindValue(it.key(), it.value());
 			}
 
-			qDebug() << statement;
-
 			QJsonArray multi_query_results;
 
 			if (query.exec())
 			{
-				qDebug() << query.executedQuery();
+				//qDebug() << query.executedQuery();
 				successCount++;
 				QSqlRecord record(query.record());
 
@@ -131,12 +298,42 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 					QJsonObject queryResult;
 					for (int i = 0; i <= record.count() - 1; i++)
 					{
-						queryResult[record.fieldName(i)] = query.value(i).toString();
+						qDebug() << query.value(i).typeName();
+						switch (query.value(i).typeId()) {
+						case QVariant::String: {
+							queryResult.insert(record.fieldName(i), query.value(i).toString());
+							break;
+						}
+						case QVariant::Int: {
+							queryResult.insert(record.fieldName(i), query.value(i).toInt());
+							break;
+						}
+						case QVariant::Date: {
+							queryResult.insert(record.fieldName(i), query.value(i).toDate().toString(Qt::ISODateWithMs));
+							break;
+						}
+						case QVariant::Time: {
+							queryResult.insert(record.fieldName(i), query.value(i).toTime().toString(Qt::ISODateWithMs));
+							break;
+						}
+						case QVariant::DateTime: {
+							qDebug() << "Returned Val" << query.value(i).toDateTime();
+							qDebug() << "UTC Val" << query.value(i).toDateTime().toUTC();
+							queryResult.insert(record.fieldName(i), query.value(i).toDateTime().toUTC().toString(Qt::ISODateWithMs));
+							break;
+						}
+						default: {
+							queryResult.insert(record.fieldName(i), query.value(i).toJsonValue());
+							break;
+						}
+						}
+						//queryResult[record.fieldName(i)] = query.value(i).toString();
 					}
 					if (sqlStatements.size() > 1)
 						multi_query_results.push_back(queryResult);
 					else
 						results.push_back(queryResult);
+					qDebug() << queryResult;
 				}
 				if (sqlStatements.size() > 1)
 					results.push_back(multi_query_results);

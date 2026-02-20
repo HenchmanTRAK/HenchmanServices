@@ -159,7 +159,7 @@ void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 		while (query.next())
 		{
 			QJsonObject queryResult;
-			qDebug() << query.record();
+			//qDebug() << query.record();
 			for (int i = 0; i <= query.record().count() - 1; i++)
 			{
 				QString key = query.record().fieldName(i);
@@ -169,7 +169,7 @@ void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 
 			resultsArray.push_back(queryResult);
 		}
-		qDebug() << resultsArray;
+		//qDebug() << resultsArray;
 
 		if (!db.commit())
 			throw HenchmanServiceException("Failed to commit transaction");

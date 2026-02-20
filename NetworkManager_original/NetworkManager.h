@@ -1,8 +1,8 @@
 
 #pragma once
 
-//#ifndef NETWORK_MANAGER_LIBRARY_H
-//#define NETWORK_MANAGER_LIBRARY_H
+#ifndef NETWORK_MANAGER_LIBRARY_H
+#define NETWORK_MANAGER_LIBRARY_H
 
 
 //#ifdef NETWORK_MANAGER_EXPORTS
@@ -177,8 +177,8 @@ signals:
 	void requestFinished(const QJsonDocument& requestResult);
 };
 
- Q_DECLARE_METATYPE(NetworkManager);
+ //Q_DECLARE_METATYPE(NetworkManager);
 
-//#include "NetworkManager.moc"
+#include "NetworkManager.moc"
 
-//#endif
+#endif

@@ -141,7 +141,9 @@ static QMap<QString, table_enums> table_map = {
 struct s_UpdateLocalTableOptions {
 	bool AddEmpId = 0;
 	bool AddCreatedAt = 0;
-	bool AddUpdatedAd = 0;
+	bool UpdateCreatedAt = 0;
+	bool AddUpdatedAt = 0;
+	bool UpdateUpatedAt = 0;
 	bool CreateUniqueIndex = 0;
 };
 

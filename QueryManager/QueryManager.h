@@ -73,6 +73,8 @@ public:
 	QJsonArray ExecuteTargetSql(const QString& sqlQuery, const QJsonObject& params);
 	QJsonArray ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObject& params);
 
+	QJsonArray ExecuteTargetSql_Array(const QString& sqlQuery, const QMap<QString, QVariant>& params);
+
 	/**
 	* @brief Executes a target SQL script file on a local database.
 	*

@@ -188,14 +188,23 @@ void DatabaseManager::handleUpdatingLocalDB(const QString& table, const QStringL
 		return;
 
 	if (options->AddCreatedAt) {
-		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP()");
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP");
 		options->AddCreatedAt = false;
 	}
 
-	if (options->AddUpdatedAd) {
-		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP() ON UPDATE CURRENT_TIMESTAMP()");
-		options->AddUpdatedAd = false;
+	if (options->UpdateCreatedAt) {
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ALTER createdAt SET DEFAULT CURRENT_TIMESTAMP");
+		options->UpdateCreatedAt = false;
+	}
 
+	if (options->AddUpdatedAt) {
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ADD updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+		options->AddUpdatedAt = false;
+	}
+
+	if (options->UpdateUpatedAt) {
+		(void)queryManager.ExecuteTargetSql("ALTER TABLE " + table + " ALTER updatedAt SET DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+		options->UpdateUpatedAt = false;
 	}
 
 	if (options->AddEmpId) {
@@ -767,11 +776,12 @@ int DatabaseManager::addEmployeesIfNotExists()
 	 */
 
 	//int should = employeesManager.GetCurrentState();
-	int should = -1;
 
 	std::string tableName = "employees";
 
 	QJsonArray tableColumns = employeesManager.GetColumns();
+
+	qDebug() << tableColumns;
 
 	s_UpdateLocalTableOptions update_options;
 
@@ -782,6 +792,8 @@ int DatabaseManager::addEmployeesIfNotExists()
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
 
+	update_options.AddCreatedAt = true;
+	update_options.AddUpdatedAt = true;
 	update_options.AddEmpId = true;
 
 	QMutex mutex;
@@ -793,17 +805,30 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 		QString field = column.value("Field").toString();
 
-		if (skipTargetCols.contains(field)) {
-			skippedColumns.push_back(field);
-			return;
-		}
-
 		if (field == "empId") {
 			update_options.AddEmpId = false;
 
 			if (!uniqueIndexCols.contains("empId"))
 				uniqueIndexCols.push_back("empId");
 		}
+
+		if (field == "createdAt") {
+			update_options.AddCreatedAt = false;
+			/*if (!column.value("Default").toString().contains("CURRENT_TIMESTAMP"))
+				update_options.UpdateCreatedAt = true;*/
+		}
+		if (field == "updatedAt") {
+			update_options.AddUpdatedAt = false;
+			/*if (!column.value("Default").toString().contains("CURRENT_TIMESTAMP"))
+				update_options.UpdateUpatedAt = true;*/
+		}
+
+
+		if (skipTargetCols.contains(field)) {
+			skippedColumns.push_back(field);
+			return;
+		}
+
 
 		if (dates.contains(column.value("Type").toString().toLower()))
 			column["Type"] = "TEXT";
@@ -836,7 +861,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	mysqlTableColumns.waitForFinished();
 
-	qDebug() << columns;
+	//qDebug() << columns;
 
 	(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId");
 
@@ -869,12 +894,11 @@ int DatabaseManager::addEmployeesIfNotExists()
 	QJsonArray sqliteTableColumnNames = sqliteTableColumnsFuture.result();
 
 	update_options.CreateUniqueIndex = true;
-	update_options.AddCreatedAt = !sqliteTableColumnNames.contains("createdAt");
-	update_options.AddUpdatedAd = !sqliteTableColumnNames.contains("updatedAt");
-	update_options.AddEmpId = !sqliteTableColumnNames.contains("empId");
 
 	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
 	
+	int should = -1;
+
 	do {
 		if (EMPLOYEES_ALL_UPDATED(should)) {
 			employeesManager.ClearCloudUpdate();

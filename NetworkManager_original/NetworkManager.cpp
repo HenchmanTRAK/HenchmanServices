@@ -1,7 +1,6 @@
 
 #include "NetworkManager.h"
 
-
 //class NetworkManager : public QObject
 //{
 //	Q_OBJECT
@@ -77,13 +76,14 @@ void NetworkManager::createManager()
 	if (!restManager) {
 		restManager = new QRestAccessManager(netManager, this);
 
-#if false
 		QJsonDocument results;
 
-		makeOptionsRequest(api_url.sliced(0, api_url.lastIndexOf("/")) + "/auth/key", QJsonObject(), &results);
+		makeOptionsRequest(api_key.sliced(0, api_url.lastIndexOf("/")) + "/auth/key", QJsonObject(), &results);
 
 		qDebug() << results;
-#endif
+
+
+
 	}
 
 	return;
@@ -294,9 +294,9 @@ int NetworkManager::makeOptionsRequest(const QString& url, const QJsonObject& qu
 
 	ServiceHelper().WriteToCustomLog("Making Options query to: " + request.url().toString().toStdString(), "queries");
 
-	QByteArray body;
+	QJsonDocument body;
 
-	QNetworkReply* reply = restManager->sendCustomRequest(request, "OPTIONS", body, &loop, [&result, &results, this](QRestReply& reply) {
+	QNetworkReply* reply = restManager->sendCustomRequest(request, "OPTIONS", body.toJson(), &loop, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -1066,3 +1066,5 @@ void NetworkManager::finishRequest(const QJsonDocument& result)
 //{
 //	qDebug() << "NetworkManager::requestFinished" << result;
 //}
+
+//#include "NetworkManager.moc"

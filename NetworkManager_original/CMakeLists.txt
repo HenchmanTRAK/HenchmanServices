@@ -10,9 +10,11 @@ qt_add_library(NetworkManager SHARED NetworkManager.cpp NetworkManager.h)
 #add_library(NetworkManager SHARED "NetworkManager.cpp" "NetworkManager.h" ${MOC_SOURCES})
 qt_disable_unicode_defines(NetworkManager)
 
-#QT_WRAP_CPP(
-#	NetworkManager NetworkManager.cpp
-#)
+QT_WRAP_CPP(
+	NetworkManager NetworkManager.cpp
+)
+
+
 
 #qt_wrap_cpp(NetworkManager NetworkManager.h)
 

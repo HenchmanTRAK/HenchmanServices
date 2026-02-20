@@ -54,6 +54,7 @@ class EmployeesManager : public QObject
 private:
 	int local_employees_count = 0;
 	int remote_employees_count = 0;
+	QString time_zone;
 
 	TrakDetails trak_details;
 	WebportalDetails webportal_details;
