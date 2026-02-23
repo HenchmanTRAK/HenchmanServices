@@ -213,10 +213,16 @@ void TRAKManager::CreateDataModule()
 
 int TRAKManager::exportGeneralTables(DatabaseManager& databaseManager)
 {
-	return (databaseManager.addEmployeesIfNotExists() |
-		databaseManager.addUsersIfNotExists() |
-		databaseManager.addToolsIfNotExists() |
-		databaseManager.addJobsIfNotExists());
+	if (databaseManager.addEmployeesIfNotExists())
+		return 1;
+	if (databaseManager.addUsersIfNotExists())
+		return 1;
+	if (databaseManager.addToolsIfNotExists())
+		return 1;
+	if (databaseManager.addJobsIfNotExists())
+		return 1;
+	return 0;
+
 }
 
 int TRAKManager::UploadCurrentStateToRemote(DatabaseManager& databaseManager)

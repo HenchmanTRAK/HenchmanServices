@@ -70,8 +70,8 @@ static QString parseTimeValue(const QString& time) {
 	return splitTime.join(":");
 }
 
-DatabaseManager::DatabaseManager(QObject* parent) 
-: QObject(parent), sqliteManager(parent), networkManager(parent), queryManager(parent)
+DatabaseManager::DatabaseManager(QObject* parent)
+	: QObject(parent), sqliteManager(parent), networkManager(parent), queryManager(parent)
 {
 	timeStamp = ServiceHelper().timestamp();
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
@@ -183,7 +183,7 @@ void DatabaseManager::attachThreadController(QMutex* threadController)
 
 void DatabaseManager::handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns, s_UpdateLocalTableOptions* options)
 {
-
+	QueryManager queryManager(this, db_info);
 	if (!options)
 		return;
 
@@ -224,6 +224,8 @@ void DatabaseManager::handleUpdatingLocalDB(const QString& table, const QStringL
 // Misc Syncs
 int DatabaseManager::addToolsIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
+
 	QLoggingCategory category("databasemanager");
 	LOG << "Adding Tools to Webportal";
 	QString targetKey = "tools";
@@ -403,6 +405,7 @@ int DatabaseManager::addToolsIfNotExists()
 }
 int DatabaseManager::addUsersIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Users to Webportal";
 	QString targetKey = "users";
 	timeStamp = ServiceHelper().timestamp();
@@ -739,7 +742,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	timeStamp = ServiceHelper().timestamp();
 
 	TrakDetails trakDetails;
-	trakDetails.schema = queryManager.getSchema();
+	/*trakDetails.schema = queryManager.getSchema();*/
 	trakDetails.cust_id = custId;
 	trakDetails.trak_type = QString::fromStdString(trakType);
 	trakDetails.trak_id_type = QString::fromStdString(trakId);
@@ -750,7 +753,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	webportalDetails.api_key = apiKey;
 	webportalDetails.query_limit = queryLimit;
 
-	EmployeesManager employeesManager(this, trakDetails, webportalDetails);
+	EmployeesManager employeesManager(this, trakDetails, webportalDetails, db_info);
 
 	databaseTablesChecked[targetKey] = employeesManager.GetLocalEmployeeCount();
 
@@ -899,6 +902,8 @@ int DatabaseManager::addEmployeesIfNotExists()
 	
 	int should = -1;
 
+	int returnVal = employeesManager.ALL_UPDATED;
+
 	do {
 		if (EMPLOYEES_ALL_UPDATED(should)) {
 			employeesManager.ClearCloudUpdate();
@@ -909,27 +914,29 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 		if (EMPLOYEES_(should, employeesManager.SYNC_PORTAL)) {
 			should = employeesManager.SyncWebportalEmployees();
-			continue;
 		}
 
 		if (EMPLOYEES_(should, employeesManager.SYNC_LOCAL)) {
 			should = employeesManager.SyncLocalEmployees();
-			continue;
 		}
 		
 		if (EMPLOYEES_(should, employeesManager.UPDATE_OUTDATED)) {
 			should = employeesManager.UpdateOutdatedEmployees();
-			continue;
 		}
+
+		if (should != employeesManager.ALL_UPDATED)
+			returnVal = 1;
 	} while (true);
 
 	update_options.CreateUniqueIndex = true;
 	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
 
-	return employeesManager.ALL_UPDATED;
+	//return returnVal;
+	return 1;
 }
 int DatabaseManager::addJobsIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Jobs to Webportal";
 	QString targetKey = "jobs";
 	timeStamp = ServiceHelper().timestamp();
@@ -1116,6 +1123,7 @@ int DatabaseManager::addJobsIfNotExists()
 // KabTRAK Syncs
 int DatabaseManager::addKabsIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Kabs to Webportal";
 	QString targetKey = "kabs";
 	timeStamp = ServiceHelper().timestamp();
@@ -1352,6 +1360,7 @@ int DatabaseManager::addKabsIfNotExists()
 }
 int DatabaseManager::addDrawersIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Drawers to Webportal";
 	QString targetKey = "kabDrawers";
 	timeStamp = ServiceHelper().timestamp();
@@ -1518,6 +1527,7 @@ int DatabaseManager::addDrawersIfNotExists()
 }
 int DatabaseManager::addToolsInDrawersIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Kab Tools to Webportal";
 	QString targetKey = "kabDrawerBins";
 	timeStamp = ServiceHelper().timestamp();
@@ -1872,7 +1882,9 @@ int DatabaseManager::addToolsInDrawersIfNotExists()
 
 	return 1;
 }
-int DatabaseManager::createKabtrakTransactionsTable() {
+int DatabaseManager::createKabtrakTransactionsTable() 
+{
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Kabtrak Transactions Table to Service SQLite Database";
 
 	std::string tableName = "kabemployeeitemtransactions";
@@ -1936,6 +1948,7 @@ int DatabaseManager::createKabtrakTransactionsTable() {
 // CribTRAK Syncs
 int DatabaseManager::addCribsIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Cribs to Webportal";
 	QString targetKey = "cribs";
 	timeStamp = ServiceHelper().timestamp();
@@ -2151,6 +2164,7 @@ int DatabaseManager::addCribsIfNotExists()
 }
 int DatabaseManager::addCribToolLocationIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding CribToolLocations to Webportal";
 	QString targetKey = "toolLocation";
 	timeStamp = ServiceHelper().timestamp();
@@ -2316,6 +2330,7 @@ int DatabaseManager::addCribToolLocationIfNotExists()
 }
 int DatabaseManager::addCribToolsIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding CribTools to Webportal";
 	QString targetKey = "cribtools";
 	timeStamp = ServiceHelper().timestamp();
@@ -2510,6 +2525,7 @@ int DatabaseManager::addCribToolsIfNotExists()
 }
 int DatabaseManager::addCribToolTransferIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding CribToolTransfer to Webportal";
 	QString targetKey = "tooltransfer";
 	timeStamp = ServiceHelper().timestamp();
@@ -2668,6 +2684,7 @@ int DatabaseManager::addCribToolTransferIfNotExists()
 }
 int DatabaseManager::addCribConsumablesIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Cribtrak Consumables to Webportal";
 	QString targetKey = "cribconsumables";
 	timeStamp = ServiceHelper().timestamp();
@@ -2841,6 +2858,7 @@ int DatabaseManager::addCribConsumablesIfNotExists()
 }
 int DatabaseManager::addCribKitsIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding CribTools to Webportal";
 	QString targetKey = "kittools";
 	timeStamp = ServiceHelper().timestamp();
@@ -3006,7 +3024,9 @@ int DatabaseManager::addCribKitsIfNotExists()
 
 	return 1;
 }
-int DatabaseManager::createCribtrakTransactionsTable() {
+int DatabaseManager::createCribtrakTransactionsTable() 
+{
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Cribtrak Transactions Table to Service SQLite Database";
 
 	std::string tableName = "cribemployeeitemtransactions";
@@ -3075,6 +3095,7 @@ int DatabaseManager::createCribtrakTransactionsTable() {
 // PortaTRAK Syncs
 int DatabaseManager::addPortasIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Portas to Webportal";
 	QString targetKey = "scales";
 	timeStamp = ServiceHelper().timestamp();
@@ -3293,6 +3314,7 @@ int DatabaseManager::addPortasIfNotExists()
 }
 int DatabaseManager::addItemKitsIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Kits to Webportal";
 	QString targetKey = "itemkits";
 	timeStamp = ServiceHelper().timestamp();
@@ -3460,6 +3482,7 @@ int DatabaseManager::addItemKitsIfNotExists()
 }
 int DatabaseManager::addKitCategoryIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Kit Categories to Webportal";
 	QString targetKey = "kitCategory";
 	timeStamp = ServiceHelper().timestamp();
@@ -3628,6 +3651,7 @@ int DatabaseManager::addKitCategoryIfNotExists()
 }
 int DatabaseManager::addKitLocationIfNotExists()
 {
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Kit Locations to Webportal";
 	QString targetKey = "kitLocation";
 	timeStamp = ServiceHelper().timestamp();
@@ -3793,7 +3817,9 @@ int DatabaseManager::addKitLocationIfNotExists()
 
 	return 1;
 }
-int DatabaseManager::createPortatrakTransactionsTable() {
+int DatabaseManager::createPortatrakTransactionsTable() 
+{
+	QueryManager queryManager(this, db_info);
 	LOG << "Adding Portatrak Transactions Table to Service SQLite Database";
 
 	std::string tableName = "portaemployeeitemtransactions";
@@ -3857,6 +3883,7 @@ int DatabaseManager::createPortatrakTransactionsTable() {
 
 int DatabaseManager::connectToRemoteDB()
 {
+	QueryManager queryManager(this, db_info);
 	ServiceHelper().WriteToLog(std::string("Attempting to connect to Remote Database"));
 	timeStamp = ServiceHelper().timestamp();
 	QString targetSchema;
@@ -4247,77 +4274,107 @@ int DatabaseManager::connectToRemoteDB()
 int DatabaseManager::connectToLocalDB()
 {
 	timeStamp = ServiceHelper().timestamp();
-	QSqlDatabase db;
+	int returnVal = 0;
+	QSqlDatabase db = QSqlDatabase();
 
 	LOG << "Test Log";
 	try {
 		//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database"));
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").c_str());
-		TCHAR buffer[1024] = "\0";
-		DWORD size = 1024;
+		DWORD size;
 		if (databaseDriver == "") {
-
+			rtManager.GetValSize("Database", REG_SZ, &size);
+			TCHAR* buffer = new TCHAR[size];
 			//QString dbtype = RegistryManager::GetStrVal(hKey, "Database", REG_SZ).data();
-			rtManager.GetVal("Database", REG_SZ, (TCHAR *)buffer, size);
-			databaseDriver = buffer;
+			rtManager.GetVal("Database", REG_SZ, buffer, size);
+			databaseDriver = QString(buffer);
+			delete[] buffer;
 		}
+		db_info.driver = databaseDriver;
 
-		LOG << databaseDriver << " | " << databaseDriver.size();
-		if (!QSqlDatabase::isDriverAvailable(databaseDriver))
+		LOG << db_info.driver << " | " << db_info.driver.size();
+		if (!QSqlDatabase::isDriverAvailable(db_info.driver))
 		{
-			//ServiceHelper().WriteToError((string)("Provided Database Driver is not available"));
-			//RegCloseKey(hKey);
-			/*ServiceHelper().WriteToError((string)("The following Databases are supported"));
-			ServiceHelper().WriteToError(checkValidDrivers());
-			return 0;*/
-			// HenchmanServiceException
 			throw HenchmanServiceException("Provided database driver is not available");
 		}
 
 		//QString schema = RegistryManager::GetStrVal(hKey, "Schema", REG_SZ).data();
-		size = 1024;
-		rtManager.GetVal("Schema", REG_SZ, (TCHAR*)buffer, size);
+		rtManager.GetValSize("Schema", REG_SZ, &size);
+		TCHAR* buffer = new TCHAR[size];
+		rtManager.GetVal("Schema", REG_SZ, buffer, size);
 		QString schema(buffer);
+		db_info.schema = QString(buffer);
+		delete[] buffer;
 		LOG << schema;
 
-		if (!QSqlDatabase::contains(schema))
-		{
+		//queryManager.setSchema(schema);
 
-			//QString server = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Server", REG_SZ));
-			size = 1024;
-			rtManager.GetVal("Server", REG_SZ, (TCHAR *)buffer, size);
-			QString server(buffer);
+		if (QSqlDatabase::contains(schema))
+			return 1;
 
-			//int port = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Port", REG_SZ)).toInt();
-			size = 1024;
-			rtManager.GetVal("Port", REG_SZ, (TCHAR *)buffer, size);
-			int port = QString(buffer).toInt();
-			//int installDir(buffer);
+		rtManager.GetValSize("Server", REG_SZ, &size);
+		buffer = new TCHAR[size];
+		rtManager.GetVal("Server", REG_SZ, (TCHAR *)buffer, size);
+		QString server(buffer);
+		db_info.server = QString(buffer);
+		delete[] buffer;
 
-			//QString user = QString::fromStdString(RegistryManager::GetStrVal(hKey, "Username", REG_SZ));
-			size = 1024;
-			rtManager.GetVal("Username", REG_SZ, (char*)buffer, size);
-			QString user(buffer);
+		rtManager.GetValSize("Port", REG_SZ, &size);
+		buffer = new TCHAR[size];
+		rtManager.GetVal("Port", REG_SZ, (TCHAR *)buffer, size);
+		int port = QString(buffer).toInt();
+		db_info.port = QString(buffer).toInt();
+		delete[] buffer;
 
-			//string pass = RegistryManager::GetStrVal(hKey, "Password", REG_SZ);
-			size = 1024;
-			rtManager.GetVal("Password", REG_SZ, (char*)buffer, size);
-			QString pass(buffer);
+		rtManager.GetValSize("Username", REG_SZ, &size);
+		buffer = new TCHAR[size];
+		rtManager.GetVal("Username", REG_SZ, (char*)buffer, size);
+		QString user(buffer);
+		db_info.username = QString(buffer);
+		delete[] buffer;
 
-			ServiceHelper().WriteToLog((std::string)"Creating session to db");
-					
-			db = QSqlDatabase::addDatabase(databaseDriver, schema);
-			db.setHostName(server);
-			db.setPort(port);
-			db.setUserName(user);
-			if (!pass.isEmpty())
-				db.setPassword(pass);
-			db.setConnectOptions("CLIENT_COMPRESS;");
-		}
-		else {
-			db = QSqlDatabase::database(schema);
-		}
+		rtManager.GetValSize("Password", REG_SZ, &size);
+		buffer = new TCHAR[size];
+		rtManager.GetVal("Password", REG_SZ, (char*)buffer, size);
+		QString pass(buffer);
+		db_info.password = QString(buffer);
+		delete[] buffer;
+
+		db_info.conn_options.append("CLIENT_COMPRESS;");
 		
+		queryManager.set_database_details(db_info);
+		/*queryManager = QueryManager(this, db_info);*/
+
+		if (db_info.driver.isEmpty())
+			throw HenchmanServiceException("Must provide a Database Driver for QueryManager to get connection");
+
+		if (!QSqlDatabase::isDriverAvailable(db_info.driver))
+		{
+			throw HenchmanServiceException("Provided database driver is not available");
+		}
+
+		if (db_info.schema.isEmpty())
+			throw HenchmanServiceException("Must provide a Database Schema for QueryManager to connect to");
+
+		QSqlDatabase db;
+
+		if (QSqlDatabase::contains(db_info.schema)) {
+			db = QSqlDatabase::database(db_info.schema);
+		}else {
+			ServiceHelper().WriteToLog((std::string)"Creating session to db");
+
+			db = QSqlDatabase::addDatabase(db_info.driver, db_info.schema);
+			db.setHostName(db_info.server);
+			db.setPort(db_info.port);
+			db.setUserName(db_info.username);
+			if (!db_info.password.isEmpty())
+				db.setPassword(db_info.password);
+			db.setConnectOptions(db_info.conn_options.join(""));
+			db.setDatabaseName(db_info.schema);
+		}
+
+		//db = QSqlDatabase::database(db_info.schema);
+
 		//RegCloseKey(hKey);
 
 		if (!db.open())
@@ -4343,7 +4400,6 @@ int DatabaseManager::connectToLocalDB()
 				break;
 			}
 		}
-		query.clear();
 
 		if (!dbFound) {
 			ServiceHelper().WriteToLog((std::string)"Generating Database");
@@ -4357,17 +4413,12 @@ int DatabaseManager::connectToLocalDB()
 			}
 		}
 
-		query.clear();
 		query.finish();
 
 		if (!db.commit())
 			db.rollback();
 
 		db.close();
-
-		db.setDatabaseName(schema);
-
-		queryManager.setSchema(schema);
 
 	}
 	catch (std::exception& e)
@@ -4379,9 +4430,13 @@ int DatabaseManager::connectToLocalDB()
 		}
 
 		ServiceHelper().WriteToError(e.what());
-		return 0;
+		returnVal = 0;
 	}
-	return 1;
+	returnVal = 1;
+
+	/*queryManager->deleteLater();
+	queryManager = nullptr;*/
+	return returnVal;
 }
 
 void DatabaseManager::processKeysAndValues(const QStringMap &map, QString (&results)[])
@@ -4413,7 +4468,7 @@ void DatabaseManager::processKeysAndValues(const QStringMap &map, QString (&resu
 
 void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data,  bool& skipQuery)
 {
-	
+	QueryManager queryManager(this, db_info);
 	QString targetQuery = query;
 	
 	QStringList splitQuery;
@@ -5323,6 +5378,7 @@ void DatabaseManager::processInsertStatement(QString& query, QJsonObject& data, 
 
 void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, bool& skipQuery)
 {
+	QueryManager queryManager(this, db_info);
 	QStringList splitQueryForParsing = ServiceHelper::ExplodeString(query, " ");
 	//qDebug() << splitQueryForParsing;
 	QStringList querySections = query.split(" SET ", Qt::SkipEmptyParts, Qt::CaseInsensitive);
@@ -6341,7 +6397,7 @@ void DatabaseManager::processUpdateStatement(QString& query, QJsonObject& data, 
 
 void DatabaseManager::processDeleteStatement(QString& query, QJsonObject& data, bool& skipQuery)
 {
-	
+	QueryManager queryManager(this, db_info);
 	QStringList splitQuery = query.split(" WHERE ", Qt::SkipEmptyParts, Qt::CaseInsensitive);
 	//QStringList querySections = ServiceHelper::ExplodeString(query, splitBy.data());
 	//qDebug() << splitQuery;
@@ -6624,4 +6680,25 @@ void DatabaseManager::performCleanup()
 		sock->deleteLater();
 		sock = nullptr;
 	}*/
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + targetApp + "\\Database").c_str());
+	DWORD size;
+	rtManager.GetValSize("Schema", REG_SZ, &size);
+	
+	TCHAR* buffer = new TCHAR[size];
+	rtManager.GetVal("Schema", REG_SZ, (TCHAR*)buffer, size);
+	QString schema(buffer);
+	delete[] buffer;
+
+	if (QSqlDatabase::contains(schema))
+	{
+		try {
+			QSqlDatabase db = QSqlDatabase::database(schema);
+
+			if (db.isOpen())
+				db.close();
+		} catch(void*)
+		{}
+
+		QSqlDatabase::removeDatabase(schema);
+	}
 }

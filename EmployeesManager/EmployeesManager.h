@@ -16,6 +16,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QMap>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonDocument>
@@ -58,6 +59,7 @@ private:
 
 	TrakDetails trak_details;
 	WebportalDetails webportal_details;
+	s_DATABASE_INFO db_info;
 
 	SQLiteManager2 sqliteManager;
 	QueryManager queryManager;
@@ -73,7 +75,7 @@ public:
 	};
 
 public:
-	EmployeesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails());
+	EmployeesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
 	~EmployeesManager();
 
 	int GetLocalEmployeeCount(const QList<QString>& conditions = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
@@ -92,6 +94,7 @@ public:
 	int UpdateRemoteEmployee(const QJsonObject& employee = QJsonObject(), const QJsonObject& data = QJsonObject());
 	
 	QJsonArray UpdateLocalEmployee(const QList<QString>& update = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
+	QMap<int, QList<QVariantMap>> UpdateLocalEmployee(const QList<QString>& update = QList<QString>(), const QVariantMap& placeholders = QVariantMap());
 
 	int UpdateOutdatedEmployees();
 
@@ -107,6 +110,7 @@ public:
 
 private:
 	static void breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values);
+	static void breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values);
 	
 	void HandleUpdatingEmployeeEntries(const QJsonObject& local, const QJsonObject& remote);
 

@@ -319,11 +319,10 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	//EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
 
 	evntManager.ReportCustomEvent(svcController->mService.serviceName, "Service is running", 0);
-
 	
 	QCoreApplication* a = new QCoreApplication(argc, argv);
 	HenchmanService hsService(a);
-	
+
 	while (testing || WaitForSingleObject(svcController->mService.serviceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 		
@@ -354,13 +353,17 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	
 	evntManager.ReportCustomEvent(svcController->mService.serviceName, "Service has exited", 0);
 
-	a->deleteLater();
+	a->exit(0);
+
+	delete a;
+
 	return ERROR_SUCCESS;
 }
 
 HenchmanService::HenchmanService(QObject *parent)
-: QObject(parent), sqliteManager(this)
+: QObject(parent), sqliteManager(parent)
 {
+
 	enum ini_keys_enum {
 		Apache_DIR,
 		MySQL_DIR,

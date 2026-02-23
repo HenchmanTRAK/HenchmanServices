@@ -75,7 +75,8 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 
 SQLiteManager2::~SQLiteManager2()
 {
-
+	if(QSqlDatabase::contains(databaseName))
+		QSqlDatabase::removeDatabase(databaseName);
 }
 
 void SQLiteManager2::CreateNewDatabase(QSqlDatabase* targetDatabase, const QString& databaseName)
@@ -86,7 +87,7 @@ void SQLiteManager2::CreateNewDatabase(QSqlDatabase* targetDatabase, const QStri
 			db = QSqlDatabase::database(databaseName);
 		else {
 			db = QSqlDatabase::addDatabase(databaseDriver, databaseName);
-			db.setDatabaseName(databaseLocation + "\\" + databaseName);
+			db.setDatabaseName(databaseName);
 		}
 
 		LOG << "Initializing Database";

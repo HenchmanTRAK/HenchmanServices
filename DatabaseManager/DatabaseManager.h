@@ -173,7 +173,7 @@ class DATABASE_MANAGER_EXPORT DatabaseManager : public QObject
 	Q_OBJECT
 
 private:
-
+	s_DATABASE_INFO db_info = s_DATABASE_INFO();
 	
 
 	/**

@@ -16,9 +16,11 @@
 //#endif
 
 #include <vector>
+#include <variant>
 
 #include <QObject>
 #include <QString>
+#include <QMap>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QJsonArray>
@@ -27,25 +29,51 @@
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QSqlError>
+#include <QSqlDriver>
 
 #include "ServiceHelper.h"
 #include "HenchmanServiceException.h"
+
+
+struct s_TZ_INFO {
+	QString time_zone = "";
+	int time_zone_offset = 0;
+};
+
+struct s_DATABASE_INFO {
+	QString driver = "";
+	QString schema = "";
+	QString username = "";
+	QString password = "";
+	QString server = "";
+	int port = 0;
+	QStringList conn_options = QStringList();
+};
 
 // QUERY_MANAGER_EXPORT
 class QueryManager : public QObject
 {
 	Q_OBJECT
 
+//public:
+
 private:
-	QMutex* p_thread_controller = nullptr;
-	QString schema;
+	QMutex p_thread_controller = QMutex();
+
+	s_TZ_INFO tz_info;
+	s_DATABASE_INFO db_info;
 
 public:
-	QueryManager(QObject* parent = nullptr, const QString &target_schema = "");
+	QueryManager(QObject* parent = nullptr, const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
+
 	~QueryManager();
 
 	void setSchema(const QString& new_schema = "");
+	void set_database_details(const s_DATABASE_INFO& database_info);
+
 	QString getSchema();
+
+	QSqlDatabase GetDatabaseConnection();
 
 	/**
 	 * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
@@ -61,7 +89,7 @@ public:
 	*/
 	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery, const std::map<std::string, QVariant>& params = std::map<std::string, QVariant>());
 
-	std::vector<QStringMap> ExecuteTargetSql(const std::wstring& sqlQuery) const;
+	std::vector<QStringMap> ExecuteTargetSql(const std::wstring& sqlQuery);
 
 	/*std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params = QStringMap());*/
 
@@ -73,7 +101,9 @@ public:
 	QJsonArray ExecuteTargetSql(const QString& sqlQuery, const QJsonObject& params);
 	QJsonArray ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObject& params);
 
-	QJsonArray ExecuteTargetSql_Array(const QString& sqlQuery, const QMap<QString, QVariant>& params);
+	QJsonArray ExecuteTargetSql_Array(const QString& sqlQuery, const QVariantMap& params);
+	
+	QMap<int, QList<QVariantMap>> ExecuteTargetSql_Map(const QString& sqlQuery, const QVariantMap& params);
 
 	/**
 	* @brief Executes a target SQL script file on a local database.
@@ -86,9 +116,13 @@ public:
 	*
 	* @throws None
 	*/
-	int ExecuteTargetSqlScript(const std::string& filepath) const;
+	int ExecuteTargetSqlScript(const std::string& filepath);
+
+	s_TZ_INFO GetTimezone();
+//private:
+
 };
 
-Q_DECLARE_METATYPE(QueryManager);
+//Q_DECLARE_METATYPE(QueryManager);
 
 #endif
