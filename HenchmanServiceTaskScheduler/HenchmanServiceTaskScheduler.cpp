@@ -361,7 +361,8 @@ int TaskScheduler::addNewTask(const LPCTSTR& szTaskName, const LPCTSTR& strExecu
 		//variant_t(bstr_t(pszPwd)),
 		variant_t(),
 		variant_t(),
-		TASK_LOGON_INTERACTIVE_TOKEN,
+		//TASK_LOGON_INTERACTIVE_TOKEN,
+		TASK_LOGON_SERVICE_ACCOUNT,
 		variant_t(TEXT("")),
 		&pRegisteredTask);
 
@@ -630,7 +631,7 @@ HRESULT TaskScheduler::createTaskPrincipal()
 		return 1;
 	}
 
-	hr = pPrincipal->put_Id(bstr_t(TEXT("Principal1")));
+	hr = pPrincipal->put_Id(bstr_t(TEXT("Administrator")));
 	if (FAILED(hr))
 		printf("\nCannot put the principal ID: %x", hr);
 
@@ -639,7 +640,8 @@ HRESULT TaskScheduler::createTaskPrincipal()
 		printf("\nCannot put principal run level to heightest: %x", hr);
 
 	//  Set up principal logon type to interactive logon
-	hr = pPrincipal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
+	//hr = pPrincipal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
+	hr = pPrincipal->put_LogonType(TASK_LOGON_SERVICE_ACCOUNT);
 	releaseTargetInterface(pPrincipal);
 	if (FAILED(hr))
 	{
