@@ -630,6 +630,10 @@ HRESULT TaskScheduler::createTaskPrincipal()
 		return 1;
 	}
 
+	hr = pPrincipal->put_Id(bstr_t(TEXT("Principal1")));
+	if (FAILED(hr))
+		printf("\nCannot put the principal ID: %x", hr);
+
 	hr = pPrincipal->put_RunLevel(TASK_RUNLEVEL_HIGHEST);
 	if (FAILED(hr))
 		printf("\nCannot put principal run level to heightest: %x", hr);
