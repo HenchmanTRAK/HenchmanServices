@@ -950,6 +950,8 @@ int EmployeesManager::SyncLocalEmployees()
 
 		QJsonArray employeeTableColumnNames = employeeColumnFuture.result();
 
+		QStringList datetimeCols = { "updatedAt", "createdAt" };
+
 		QFuture<std::map<std::string, std::string>> parserFuture(QtConcurrent::run([=, &result, &data, &mutex, &employeeTableColumnNames]() {
 			std::map<std::string, std::string> sqliteData;
 			for (auto it = result.constBegin(); it != result.constEnd(); ++it)
@@ -960,11 +962,20 @@ int EmployeesManager::SyncLocalEmployees()
 				//if(it.value().isString())
 				val = it.value().toVariant().toString().trimmed().simplified();
 
+				qDebug() << key << ": " << val;
+
 				if (val.isEmpty() || val == "''")
 					continue;
 
 				if (!employeeTableColumnNames.contains(key))
 					continue;
+
+				if (datetimeCols.contains(key))
+				{
+					qDebug() << val;
+					val = QDateTime::fromString(val, Qt::ISODateWithMs).toLocalTime().toString(Qt::ISODateWithMs);
+					qDebug() << val;
+				}
 
 				qDebug() << "skipTargetCols contains" << key << skipTargetCols.contains(key);
 				QMutexLocker locker(&mutex);

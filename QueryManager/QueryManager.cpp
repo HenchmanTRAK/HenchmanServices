@@ -21,13 +21,13 @@ QueryManager::~QueryManager()
 	}
 
 
-	try {
-		if (!QSqlDatabase::contains(db_info.schema))
-		{
-			qDebug() << "connection to " << db_info.schema << " doesnt exist";
-			return;
-		}
+	if (!QSqlDatabase::contains(db_info.schema))
+	{
+		qDebug() << "connection to " << db_info.schema << " doesnt exist";
+		return;
+	}
 
+	try {
 		QSqlDatabase db = QSqlDatabase::database(db_info.schema);
 		if (db.isOpen()) {
 			db.close();
@@ -176,7 +176,7 @@ QMap<int, QList<QVariantMap>> QueryManager::ExecuteTargetSql_Map(const QString& 
 					
 					if (value.typeId() == QVariant::DateTime) {
 						qDebug() << value;
-						boundValues.insert(key, value.toDateTime());
+						boundValues.insert(key, value.toDateTime().toString(Qt::ISODateWithMs));
 						continue;
 					}
 

@@ -764,11 +764,11 @@ int DatabaseManager::addEmployeesIfNotExists()
 	 *		Compare entries based on updatedAt date
 	 *		update remote and local entries based on must updated
 	 * 
-	 *	- If Entries on remote is the same as local:
+	 *	- If Entries on remote is the same as local: DONE
 	 *		fetch entries from remote and local which have changed since last sync
 	 *		update local and remote based on recency of changes
 	 * 
-	 *	- If Entires on remote is greater than local:
+	 *	- If Entires on remote is greater than local: DONE
 	 *		fetch entries from remote that are not on local
 	 *		add missing entries to local
 	 * 
@@ -785,6 +785,42 @@ int DatabaseManager::addEmployeesIfNotExists()
 	QJsonArray tableColumns = employeesManager.GetColumns();
 
 	qDebug() << tableColumns;
+
+	QJsonArray sqliteTableColumns;
+
+	(void)sqliteManager.ExecQuery(
+		"pragma table_info(" + tableName + ")",
+		&sqliteTableColumns
+	);
+
+
+	QFuture<QJsonArray> mysqlTableColumnsFuture(QtConcurrent::run([=, &tableColumns]() {
+		QJsonArray mysqlTableColumnNames;
+		for (const auto& mysqlTableColumn : tableColumns)
+		{
+			if (!mysqlTableColumn.isObject())
+				continue;
+			QJsonObject mysqlColumn = mysqlTableColumn.toObject();
+			mysqlTableColumnNames.append(mysqlColumn.value("name"));
+		}
+		return mysqlTableColumnNames;
+		})
+	);
+
+	QFuture<QJsonArray> sqliteTableColumnsFuture(QtConcurrent::run([=, &sqliteTableColumns]() {
+		QJsonArray sqliteTableColumnNames;
+		for (const auto& sqliteTableColumn : sqliteTableColumns)
+		{
+			if (!sqliteTableColumn.isObject())
+				continue;
+			QJsonObject sqliteColumn = sqliteTableColumn.toObject();
+			sqliteTableColumnNames.append(sqliteColumn.value("Field"));
+		}
+		return sqliteTableColumnNames;
+		})
+	);
+
+	
 
 	s_UpdateLocalTableOptions update_options;
 
@@ -855,50 +891,46 @@ int DatabaseManager::addEmployeesIfNotExists()
 					)
 				)
 			));
-		}));
-
-
-
-	//qDebug() << colQueryResults;
-
-
-	mysqlTableColumns.waitForFinished();
-
-	//qDebug() << columns;
-
-	(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId");
-
-	(void)sqliteManager.CreateTable(
-		tableName,
-		columns
-	);
-
-	QJsonArray sqliteTableColumns;
-
-	(void)sqliteManager.ExecQuery(
-		"pragma table_info(" + tableName + ")",
-		&sqliteTableColumns
-	);
-
-	QFuture<QJsonArray> sqliteTableColumnsFuture(QtConcurrent::run([=]() {
-		QJsonArray sqliteTableColumnNames;
-		for (const auto& sqliteTableColumn : sqliteTableColumns)
-		{
-			if (!sqliteTableColumn.isObject())
-				continue;
-			QJsonObject sqliteColumn = sqliteTableColumn.toObject();
-			sqliteTableColumnNames.append(sqliteColumn.value("name"));
-		}
-		return sqliteTableColumnNames;
 		})
 	);
 
 
 	QJsonArray sqliteTableColumnNames = sqliteTableColumnsFuture.result();
+	QJsonArray mysqlTableColumnsNames = mysqlTableColumnsFuture.result();
 
-	update_options.CreateUniqueIndex = true;
+	int performTableUpdate = false;
 
-	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
+	if (mysqlTableColumnsNames.size() == sqliteTableColumnNames.size())
+	{
+		for (int i = 0; i < mysqlTableColumnsNames.size(); ++i)
+		{
+			if (sqliteTableColumnNames.contains(mysqlTableColumnsNames.at(i)))
+				continue;
+			performTableUpdate = true;
+			break;
+		}
+	}
+
+	if (performTableUpdate)
+	{
+	
+
+		mysqlTableColumns.waitForFinished();
+
+		//qDebug() << columns;
+
+		(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId");
+
+		(void)sqliteManager.CreateTable(
+			tableName,
+			columns
+		);
+	
+		update_options.CreateUniqueIndex = true;
+
+		handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
+
+	}
 	
 	int should = -1;
 
@@ -928,11 +960,13 @@ int DatabaseManager::addEmployeesIfNotExists()
 			returnVal = 1;
 	} while (true);
 
+	mysqlTableColumns.waitForFinished();
+
 	update_options.CreateUniqueIndex = true;
 	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
 
-	//return returnVal;
-	return 1;
+	return returnVal;
+	//return 1;
 }
 int DatabaseManager::addJobsIfNotExists()
 {
@@ -6691,13 +6725,13 @@ void DatabaseManager::performCleanup()
 
 	if (QSqlDatabase::contains(schema))
 	{
-		try {
+		/*try {
 			QSqlDatabase db = QSqlDatabase::database(schema);
 
 			if (db.isOpen())
 				db.close();
 		} catch(void*)
-		{}
+		{}*/
 
 		QSqlDatabase::removeDatabase(schema);
 	}
