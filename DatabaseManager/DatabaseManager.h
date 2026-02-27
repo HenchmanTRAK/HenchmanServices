@@ -65,6 +65,7 @@
 #include "NetworkManager.h"
 #include "QueryManager.h"
 #include "EmployeesManager.h"
+#include "UsersManager.h"
 
 
 //#define QT_NO_DEBUG_OUTPUT
@@ -140,6 +141,7 @@ static QMap<QString, table_enums> table_map = {
 
 struct s_UpdateLocalTableOptions {
 	bool AddEmpId = 0;
+	bool AddEmpIdSqliteOnly = 0;
 	bool AddCreatedAt = 0;
 	bool UpdateCreatedAt = 0;
 	bool AddUpdatedAt = 0;
@@ -364,6 +366,7 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
 	int addUsersIfNotExists();
+	int addUsersIfNotExistsOld();
 
 	/**
 	 * @brief Adds employees to the database if they do not already exist.

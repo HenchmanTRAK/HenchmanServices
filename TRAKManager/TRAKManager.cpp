@@ -211,21 +211,21 @@ void TRAKManager::CreateDataModule()
 }
 		//cout << "Connecting to Local MySQL Database" << endl;
 
-int TRAKManager::exportGeneralTables(DatabaseManager& databaseManager)
+int TRAKManager::exportGeneralTables(DatabaseManager* databaseManager)
 {
-	if (databaseManager.addEmployeesIfNotExists())
+	if (databaseManager->addEmployeesIfNotExists())
 		return 1;
-	if (databaseManager.addUsersIfNotExists())
+	if (databaseManager->addUsersIfNotExists())
 		return 1;
-	if (databaseManager.addToolsIfNotExists())
+	if (databaseManager->addToolsIfNotExists())
 		return 1;
-	if (databaseManager.addJobsIfNotExists())
+	if (databaseManager->addJobsIfNotExists())
 		return 1;
 	return 0;
 
 }
 
-int TRAKManager::UploadCurrentStateToRemote(DatabaseManager& databaseManager)
+int TRAKManager::UploadCurrentStateToRemote(DatabaseManager* databaseManager)
 {
 	/*if (!databaseManager)
 		return 1;*/
@@ -236,26 +236,26 @@ int TRAKManager::UploadCurrentStateToRemote(DatabaseManager& databaseManager)
 	switch (traktype)
 	{
 	case kabtrak: {
-		return (databaseManager.addKabsIfNotExists() |
-			databaseManager.addDrawersIfNotExists() |
-			databaseManager.addToolsInDrawersIfNotExists() |
-			databaseManager.createKabtrakTransactionsTable());
+		return (databaseManager->addKabsIfNotExists() |
+			databaseManager->addDrawersIfNotExists() |
+			databaseManager->addToolsInDrawersIfNotExists() |
+			databaseManager->createKabtrakTransactionsTable());
 	}
 	case cribtrak: {
-		return (databaseManager.addCribsIfNotExists() |
-			databaseManager.addCribToolLocationIfNotExists() |
-			databaseManager.addCribToolsIfNotExists() |
-			databaseManager.addCribConsumablesIfNotExists() |
-			databaseManager.addCribToolTransferIfNotExists() | 
-			databaseManager.addCribKitsIfNotExists() |
-			databaseManager.createCribtrakTransactionsTable());
+		return (databaseManager->addCribsIfNotExists() |
+			databaseManager->addCribToolLocationIfNotExists() |
+			databaseManager->addCribToolsIfNotExists() |
+			databaseManager->addCribConsumablesIfNotExists() |
+			databaseManager->addCribToolTransferIfNotExists() | 
+			databaseManager->addCribKitsIfNotExists() |
+			databaseManager->createCribtrakTransactionsTable());
 	}
 	case portatrak: {
-		return (databaseManager.addPortasIfNotExists() |
-			databaseManager.addItemKitsIfNotExists() |
-			databaseManager.addKitCategoryIfNotExists() |
-			databaseManager.addKitLocationIfNotExists() |
-			databaseManager.createPortatrakTransactionsTable());
+		return (databaseManager->addPortasIfNotExists() |
+			databaseManager->addItemKitsIfNotExists() |
+			databaseManager->addKitCategoryIfNotExists() |
+			databaseManager->addKitLocationIfNotExists() |
+			databaseManager->createPortatrakTransactionsTable());
 	}
 	default: {
 	

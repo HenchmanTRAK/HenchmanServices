@@ -75,8 +75,8 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 
 SQLiteManager2::~SQLiteManager2()
 {
-	if(QSqlDatabase::contains(databaseName))
-		QSqlDatabase::removeDatabase(databaseName);
+	/*if(QSqlDatabase::contains(databaseName))
+		QSqlDatabase::removeDatabase(databaseName);*/
 }
 
 void SQLiteManager2::CreateNewDatabase(QSqlDatabase* targetDatabase, const QString& databaseName)

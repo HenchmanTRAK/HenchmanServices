@@ -9,8 +9,15 @@ message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
 target_compile_definitions(DatabaseManager PRIVATE DATABASE_MANAGER)
 
 target_link_libraries(
+	DatabaseManager INTERFACE
+	EmployeesManager
+	UsersManager
+)
+
+target_link_libraries(
 	DatabaseManager PRIVATE
 	EmployeesManager
+	UsersManager
 	QueryManager
 	NetworkManager
 	SQLiteManager2

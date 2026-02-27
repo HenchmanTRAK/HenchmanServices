@@ -207,6 +207,14 @@ void DatabaseManager::handleUpdatingLocalDB(const QString& table, const QStringL
 		options->UpdateUpatedAt = false;
 	}
 
+	if (options->AddEmpIdSqliteOnly && !options->AddEmpId) {
+		(void)sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+		options->AddEmpIdSqliteOnly = false;
+	}
+	else {
+		options->AddEmpIdSqliteOnly = false;
+	}
+	
 	if (options->AddEmpId) {
 		(void)sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
 		(void)queryManager.ExecuteTargetSql("ALTER TABLE "+ table +" ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
@@ -403,7 +411,7 @@ int DatabaseManager::addToolsIfNotExists()
 
 	return 1;
 }
-int DatabaseManager::addUsersIfNotExists()
+int DatabaseManager::addUsersIfNotExistsOld()
 {
 	QueryManager queryManager(this, db_info);
 	LOG << "Adding Users to Webportal";
@@ -735,6 +743,230 @@ int DatabaseManager::addUsersIfNotExists()
 
 	return 1;
 }
+
+int DatabaseManager::addUsersIfNotExists()
+{
+	LOG << "Adding Users to Webportal";
+	QString targetKey = "users";
+	timeStamp = ServiceHelper().timestamp();
+
+	TrakDetails trakDetails;
+	/*trakDetails.schema = queryManager.getSchema();*/
+	trakDetails.cust_id = custId;
+	trakDetails.trak_type = QString::fromStdString(trakType);
+	trakDetails.trak_id_type = QString::fromStdString(trakId);
+	trakDetails.trak_id = trakIdNum;
+
+	WebportalDetails webportalDetails;
+	webportalDetails.api_url = apiUrl;
+	webportalDetails.api_key = apiKey;
+	webportalDetails.query_limit = queryLimit;
+
+	UsersManager usersManager(this, trakDetails, webportalDetails, db_info);
+
+	databaseTablesChecked[targetKey] = usersManager.GetLocalCount();
+
+	std::string tableName = "users";
+
+	QJsonArray tableColumns = usersManager.GetColumns();
+
+	qDebug() << tableColumns;
+
+	QJsonArray sqliteTableColumns;
+
+	(void)sqliteManager.ExecQuery(
+		"pragma table_info(" + tableName + ")",
+		&sqliteTableColumns
+	);
+
+	
+
+	QFuture<QJsonArray> mysqlTableColumnsFuture(QtConcurrent::run([=, &tableColumns]() {
+		QJsonArray mysqlTableColumnNames;
+		for (const auto& mysqlTableColumn : tableColumns)
+		{
+			if (!mysqlTableColumn.isObject())
+				continue;
+			QJsonObject mysqlColumn = mysqlTableColumn.toObject();
+			
+			mysqlTableColumnNames.append(mysqlColumn.value("Field").toString());
+		}
+
+		return mysqlTableColumnNames;
+		})
+	);
+
+	QFuture<QJsonArray> sqliteTableColumnsFuture(QtConcurrent::run([=, &sqliteTableColumns]() {
+		QJsonArray sqliteTableColumnNames;
+		for (const auto& sqliteTableColumn : sqliteTableColumns)
+		{
+			if (!sqliteTableColumn.isObject())
+				continue;
+			QJsonObject sqliteColumn = sqliteTableColumn.toObject();
+			
+			sqliteTableColumnNames.append(sqliteColumn.value("name").toString());
+		}
+
+		return sqliteTableColumnNames;
+		})
+	);
+
+
+
+	s_UpdateLocalTableOptions update_options;
+
+	QJsonArray columns;
+	QStringList skippedColumns;
+	QStringList uniqueIndexCols = { "custId", "userId", "kabId", "cribId", "scaleId" };
+	QJsonArray mysqlColumnNames;
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
+
+	update_options.AddCreatedAt = true;
+	update_options.AddUpdatedAt = true;
+	update_options.AddEmpId = true;
+
+	QMutex mutex;
+
+	QFuture<void> mysqlTableColumns(QtConcurrent::map(tableColumns, [=, &columns, &skippedColumns, &uniqueIndexCols, &update_options, &mysqlColumnNames, &mutex](const QJsonValueRef& tableColumn) {
+		if (!tableColumn.isObject())
+			throw HenchmanServiceException("Failed to retrieve list of columns for users table");
+		QJsonObject column = tableColumn.toObject();
+
+		QString field = column.value("Field").toString();
+
+		if (field == "empId") {
+			update_options.AddEmpId = false;
+
+			if (!uniqueIndexCols.contains("empId"))
+				uniqueIndexCols.push_back("empId");
+		}
+
+		if (field == "createdAt") {
+			update_options.AddCreatedAt = false;
+			/*if (!column.value("Default").toString().contains("CURRENT_TIMESTAMP"))
+				update_options.UpdateCreatedAt = true;*/
+		}
+		if (field == "updatedAt") {
+			update_options.AddUpdatedAt = false;
+			/*if (!column.value("Default").toString().contains("CURRENT_TIMESTAMP"))
+				update_options.UpdateUpatedAt = true;*/
+		}
+
+
+		if (skipTargetCols.contains(field)) {
+			skippedColumns.push_back(field);
+			return;
+		}
+
+
+		if (dates.contains(column.value("Type").toString().toLower()))
+			column["Type"] = "TEXT";
+
+		QMutexLocker locker(&mutex);
+
+		mysqlColumnNames.append(field);
+
+		columns.append((
+			field + " " + column.value("Type").toString().toUpper() + " " +
+			(uniqueIndexCols.contains(field)
+				? "NOT NULL DEFAULT " + QString(column.value("Type").toString().toUpper() == "INT" ? "0" : "''") + ""
+				: (column.value("Null").toString() == "NO"
+					? "NOT NULL DEFAULT " + (column.value("Default").toString() == ""
+						? "''"
+						: column.value("Default").toString())
+					: "NULL" + (column.value("Default").toString() == ""
+						? ""
+						: " DEFAULT " + column.value("Default").toString()
+						)
+					)
+				)
+			));
+		})
+	);
+
+
+	QJsonArray sqliteTableColumnNames = sqliteTableColumnsFuture.result();
+	QJsonArray mysqlTableColumnsNames = mysqlTableColumnsFuture.result();
+
+	qDebug() << "sqliteTableColumnNames" << sqliteTableColumnNames;
+	qDebug() << "sqliteTableColumnNames" << sqliteTableColumnNames.size();
+	qDebug() << "mysqlTableColumnsNames" << mysqlTableColumnsNames;
+	qDebug() << "mysqlTableColumnsNames" << mysqlTableColumnsNames.size();
+
+	int performTableUpdate = mysqlTableColumnsNames.size() != sqliteTableColumnNames.size();
+
+	if (!performTableUpdate)
+	{
+		for (int i = 0; i < mysqlTableColumnsNames.size(); ++i)
+		{
+			if (sqliteTableColumnNames.contains(mysqlTableColumnsNames.at(i)))
+				continue;
+			performTableUpdate = true;
+			break;
+		}
+	}
+	
+
+	if (performTableUpdate)
+	{
+
+
+		mysqlTableColumns.waitForFinished();
+
+		//qDebug() << columns;
+
+		(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId_kabId_cribId_scaleId");
+
+		(void)sqliteManager.CreateTable(
+			tableName,
+			columns
+		);
+
+		update_options.CreateUniqueIndex = true;
+		update_options.AddEmpIdSqliteOnly = !sqliteTableColumnNames.contains("empId");
+
+		handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
+
+	}
+
+	int should = -1;
+
+	int returnVal = usersManager.ALL_UPDATED;
+
+	do {
+		if (ENTRIES_ALL_UPDATED(should)) {
+			usersManager.ClearCloudUpdate();
+			break;
+		}
+
+		should = usersManager.GetCurrentState();
+
+		if (ENTRIES_(should, usersManager.SYNC_PORTAL)) {
+			should = usersManager.SyncWebportal();
+		}
+
+		if (ENTRIES_(should, usersManager.SYNC_LOCAL)) {
+			should = usersManager.SyncLocal();
+		}
+
+		if (ENTRIES_(should, usersManager.UPDATE_OUTDATED)) {
+			should = usersManager.UpdateOutdated();
+		}
+
+		if (should != usersManager.ALL_UPDATED)
+			returnVal = 1;
+	} while (true);
+
+	mysqlTableColumns.waitForFinished();
+
+	update_options.CreateUniqueIndex = true;
+	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
+
+	return returnVal;
+	//return 1;
+}
+
 int DatabaseManager::addEmployeesIfNotExists()
 {
 	LOG << "Adding Employees to Webportal";
@@ -753,9 +985,9 @@ int DatabaseManager::addEmployeesIfNotExists()
 	webportalDetails.api_key = apiKey;
 	webportalDetails.query_limit = queryLimit;
 
-	EmployeesManager employeesManager(this, trakDetails, webportalDetails, db_info);
+	EmployeesManager employeesManager(this->parent(), trakDetails, webportalDetails, db_info);
 
-	databaseTablesChecked[targetKey] = employeesManager.GetLocalEmployeeCount();
+	databaseTablesChecked[targetKey] = employeesManager.GetLocalCount();
 
 	/*
 	 * Actions that need to be taken and when;
@@ -801,7 +1033,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 			if (!mysqlTableColumn.isObject())
 				continue;
 			QJsonObject mysqlColumn = mysqlTableColumn.toObject();
-			mysqlTableColumnNames.append(mysqlColumn.value("name"));
+			mysqlTableColumnNames.append(mysqlColumn.value("Field").toString());
 		}
 		return mysqlTableColumnNames;
 		})
@@ -814,7 +1046,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 			if (!sqliteTableColumn.isObject())
 				continue;
 			QJsonObject sqliteColumn = sqliteTableColumn.toObject();
-			sqliteTableColumnNames.append(sqliteColumn.value("Field"));
+			sqliteTableColumnNames.append(sqliteColumn.value("name").toString());
 		}
 		return sqliteTableColumnNames;
 		})
@@ -937,23 +1169,23 @@ int DatabaseManager::addEmployeesIfNotExists()
 	int returnVal = employeesManager.ALL_UPDATED;
 
 	do {
-		if (EMPLOYEES_ALL_UPDATED(should)) {
+		if (ENTRIES_ALL_UPDATED(should)) {
 			employeesManager.ClearCloudUpdate();
 			break;
 		}
 
 		should = employeesManager.GetCurrentState();
 
-		if (EMPLOYEES_(should, employeesManager.SYNC_PORTAL)) {
-			should = employeesManager.SyncWebportalEmployees();
+		if (ENTRIES_(should, employeesManager.SYNC_PORTAL)) {
+			should = employeesManager.SyncWebportal();
 		}
 
-		if (EMPLOYEES_(should, employeesManager.SYNC_LOCAL)) {
-			should = employeesManager.SyncLocalEmployees();
+		if (ENTRIES_(should, employeesManager.SYNC_LOCAL)) {
+			should = employeesManager.SyncLocal();
 		}
 		
-		if (EMPLOYEES_(should, employeesManager.UPDATE_OUTDATED)) {
-			should = employeesManager.UpdateOutdatedEmployees();
+		if (ENTRIES_(should, employeesManager.UPDATE_OUTDATED)) {
+			should = employeesManager.UpdateOutdated();
 		}
 
 		if (should != employeesManager.ALL_UPDATED)
@@ -6733,6 +6965,6 @@ void DatabaseManager::performCleanup()
 		} catch(void*)
 		{}*/
 
-		QSqlDatabase::removeDatabase(schema);
+		//QSqlDatabase::removeDatabase(schema);
 	}
 }

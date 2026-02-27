@@ -1,19 +1,23 @@
 
-#include "EmployeesManager.h"
+#include "UsersManager.h"
 
 //auto EMPLOYEES_ALL_UPDATED = [](int val) { return val == EmployeesManager::NEXTSTEP::ALL_UPDATED ? 1 : 0; };
 
-EmployeesManager::EmployeesManager(QObject* parent, const TrakDetails& trakDetails, const WebportalDetails& webportalDetails, const s_DATABASE_INFO& database_info)
+UsersManager::UsersManager(QObject* parent, const TrakDetails& trakDetails, const WebportalDetails& webportalDetails, const s_DATABASE_INFO& database_info)
 	:TRAKEntriesManager(parent, trakDetails, webportalDetails, database_info)
-{	
-	registryEntry = "employeesChecked";
+{
+	registryEntry = "usersChecked";
 
 	try {
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
 		(void)rtManager.GetVal(registryEntry, REG_SZ, (DWORD*)&local_count, sizeof(DWORD));
 
-		QJsonArray rowCheck = queryManager.ExecuteTargetSql("SELECT COUNT(*) FROM employees WHERE userId <> '' AND userId IS NOT NULL", QJsonObject());
+		QJsonObject placeholders;
+
+		placeholders.insert(trak_details.trak_id_type, trak_details.trak_id);
+
+		QJsonArray rowCheck = queryManager.ExecuteTargetSql(QString("SELECT COUNT(*) FROM users WHERE userId <> '' AND userId IS NOT NULL"), placeholders);
 		int local_emp_count = rowCheck.at(0).toObject().value("COUNT(*)").toInt();
 		if (!local_count || local_count != local_emp_count) {
 			local_count = local_emp_count;
@@ -23,122 +27,127 @@ EmployeesManager::EmployeesManager(QObject* parent, const TrakDetails& trakDetai
 	}
 	catch (void*)
 	{
-		
-	}	
+
+	}
 }
 
-EmployeesManager::~EmployeesManager()
+UsersManager::~UsersManager()
 {
 	//TRAKEntriesManager::~TRAKEntriesManager();
 }
 
-void EmployeesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values)
+void UsersManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values)
 {
 	TRAKEntriesManager::breakoutValuesToUpdate(older, newer, set_values, updated_values);
 }
 
-void EmployeesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values)
+void UsersManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values)
 {
 
 	TRAKEntriesManager::breakoutValuesToUpdate(older, newer, set_values, updated_values);
 };
 
 
-QJsonArray EmployeesManager::GetColumns()
+QJsonArray UsersManager::GetColumns()
 {
 	QJsonObject overloader;
 	std::string colQuery =
-		"SHOW COLUMNS from employees";
+		"SHOW COLUMNS from users";
 	QJsonArray colQueryResults = queryManager.ExecuteTargetSql(colQuery, overloader);
 
 	return colQueryResults;
 }
 
-int EmployeesManager::GetLocalCount(const QList<QString> & p_conditions, const QJsonObject& placeholders)
+int UsersManager::GetLocalCount(const QList<QString>& p_conditions, const QJsonObject& p_placeholders)
 {
-	int local_employees = 0;
+	int local_users = 0;
 
 	try {
 		QList<QString> conditions(p_conditions);
+		QJsonObject placeholders(p_placeholders);
 
 
 		if (conditions.isEmpty() && local_count == 0) {
 			conditions.append("userId <> ''");
 			conditions.append("userId IS NOT NULL");
-		} else if(conditions.isEmpty())
+			//conditions.append(trak_details.trak_id_type +  " = :" + trak_details.trak_id_type);
+			//placeholders.insert(trak_details.trak_id_type, trak_details.trak_id);
+		}
+		else if (conditions.isEmpty())
 			throw std::exception();
 
-		QJsonArray rowCount = queryManager.ExecuteTargetSql("SELECT COUNT(*) as total FROM employees WHERE " + conditions.join(" AND "), placeholders);
+		QJsonArray rowCount = queryManager.ExecuteTargetSql("SELECT COUNT(*) as total FROM users WHERE " + conditions.join(" AND "), placeholders);
 
 		if (rowCount.size() <= 0 || !rowCount.at(0).isObject()) {
 			throw std::exception();
 		}
 
-		local_employees = rowCount.at(0).toObject().value("total").toVariant().toInt();
-	}catch (const std::exception& e) {
-		local_employees = local_count;
+		local_users = rowCount.at(0).toObject().value("total").toVariant().toInt();
 	}
-	return local_employees;
+	catch (const std::exception& e) {
+		local_users = local_count;
+	}
+	return local_users;
 }
 
-int EmployeesManager::GetRemoteCount(const QJsonObject& p_select, const QJsonObject& p_where, QJsonObject * p_returned_data)
+int UsersManager::GetRemoteCount(const QJsonObject& p_select, const QJsonObject& p_where, QJsonObject* p_returned_data)
 {
 
-	int remote_employees = 0;
+	int remote_users = 0;
 
 	try {
 		QJsonObject query;
 		QJsonObject where(p_where);
 		QJsonObject select(p_select);
 
-		if(!where.contains("custId"))
+		if (!where.contains("custId"))
 			(void)where.insert("custId", QString::number(trak_details.cust_id));
-		
+
 		if (!where.contains(trak_details.trak_id_type))
 			(void)where.insert(trak_details.trak_id_type, trak_details.trak_id);
-		
+
 		if (!select.contains("count"))
 			(void)select.insert("count", "total");
 
 		(void)query.insert("where", where);
 		(void)query.insert("select", select);
-		
+
 		QJsonDocument reply;
 
-		if (!networkManager.makeGetRequest(webportal_details.api_url + "/employees", query, &reply))
+		if (!networkManager.makeGetRequest(webportal_details.api_url + "/users", query, &reply))
 		{
 			throw std::exception();
 		}
-		
+
 		if (!reply.isObject())
 			throw std::exception();
-		
+
 		QJsonObject resultObject = reply.object();
 		if (resultObject["data"].isNull() || resultObject["data"].isUndefined())
 			throw std::exception();
-		
+
 		QJsonArray webportalResults = resultObject["data"].toArray();
 		if (!webportalResults.at(0).isObject())
 			throw std::exception();
-		
+
 		QJsonObject webportalToolCount = webportalResults.at(0).toObject();
 
-		remote_employees = webportalToolCount.value("total").toInt();
-		
+		remote_users = webportalToolCount.value("total").toInt();
+
 		if (p_returned_data)
 			webportalToolCount.swap(*p_returned_data);
-		
+
 	}
-	catch (void*)
+	catch (const std::exception& e)
 	{
-		remote_employees = remote_count;
+		remote_users = remote_count;
 	}
 
 
-	return remote_employees;
+	return remote_users;
 }
 
-QJsonArray EmployeesManager::GetRemote(const QJsonArray& columns, const QJsonObject& p_where, const QJsonObject& p_select)
+QJsonArray UsersManager::GetRemote(const QJsonArray& columns, const QJsonObject& p_where, const QJsonObject& p_select)
 {
 
 	QJsonArray returnedValues;
@@ -158,21 +167,21 @@ QJsonArray EmployeesManager::GetRemote(const QJsonArray& columns, const QJsonObj
 		(void)query.insert("where", where);
 
 		// QJsonArray({ "custId", "userId", "empId" })
-		
+
 		if (!columns.isEmpty()) {
 			(void)select.insert("columns", columns);
 		}
-		
-		if(!select.isEmpty())
+
+		if (!select.isEmpty())
 			(void)query.insert("select", select);
-		
+
 
 
 		qDebug() << query;
 
 		QJsonDocument reply;
 
-		if (!networkManager.makeGetRequest(webportal_details.api_url + "/employees", query, &reply))
+		if (!networkManager.makeGetRequest(webportal_details.api_url + "/users", query, &reply))
 		{
 			throw std::exception();
 		}
@@ -183,11 +192,11 @@ QJsonArray EmployeesManager::GetRemote(const QJsonArray& columns, const QJsonObj
 		QJsonObject resultObject = reply.object();
 		if (resultObject.value("data").isNull() || resultObject.value("data").isUndefined() || !resultObject.value("data").isArray())
 			throw std::exception();
-		
+
 		returnedValues = resultObject["data"].toArray();
 
 	}
-	catch (void*)
+	catch (const std::exception& e)
 	{
 		throw HenchmanServiceException("Failed to make get request to webportal");
 	}
@@ -195,12 +204,15 @@ QJsonArray EmployeesManager::GetRemote(const QJsonArray& columns, const QJsonObj
 	return returnedValues;
 }
 
-QJsonArray EmployeesManager::GetLocal(const QString& query, const QJsonObject& placeholders)
+QJsonArray UsersManager::GetLocal(const QString& query, const QJsonObject& placeholders)
 {
-	return queryManager.ExecuteTargetSql(query, placeholders);
+	QJsonArray retVal;
+	QJsonArray returnedResults = queryManager.ExecuteTargetSql(query, placeholders);
+	returnedResults.swap(retVal);
+	return retVal;
 }
 
-QJsonArray EmployeesManager::GetGroupedRemote(const QJsonArray& columns, const QJsonArray& grouped_columns, const QJsonArray& group_by, const QString& type, const QString& separator, const QJsonObject& p_where)
+QJsonArray UsersManager::GetGroupedRemote(const QJsonArray& columns, const QJsonArray& grouped_columns, const QJsonArray& group_by, const QString& type, const QString& separator, const QJsonObject& p_where)
 {
 
 	QJsonArray returnedValues;
@@ -217,19 +229,19 @@ QJsonArray EmployeesManager::GetGroupedRemote(const QJsonArray& columns, const Q
 
 		if (!where.contains(trak_details.trak_id_type))
 			(void)where.insert(trak_details.trak_id_type, trak_details.trak_id);
-		
+
 		(void)query.insert("where", where);
-		
+
 
 		// QJsonArray({ "custId", "userId", "empId" })
 		(void)select.insert("columns", columns);
-		
+
 		if (!group_by.isEmpty())
 			(void)group.insert("group_columns", group_by);
 
 		(void)group.insert("columns", grouped_columns);
 		(void)group.insert("group_type", type);
-		if(!separator.isEmpty())
+		if (!separator.isEmpty())
 			(void)group.insert("separator", separator);
 
 		(void)select.insert("group", group);
@@ -240,7 +252,7 @@ QJsonArray EmployeesManager::GetGroupedRemote(const QJsonArray& columns, const Q
 
 		QJsonDocument reply;
 
-		if (!networkManager.makeGetRequest(webportal_details.api_url + "/employees", query, &reply))
+		if (!networkManager.makeGetRequest(webportal_details.api_url + "/users", query, &reply))
 		{
 			throw std::exception();
 		}
@@ -255,7 +267,7 @@ QJsonArray EmployeesManager::GetGroupedRemote(const QJsonArray& columns, const Q
 		returnedValues = resultObject["data"].toArray();
 
 	}
-	catch (void*)
+	catch (const std::exception& e)
 	{
 		throw HenchmanServiceException("Failed to make get request to webportal");
 	}
@@ -263,7 +275,7 @@ QJsonArray EmployeesManager::GetGroupedRemote(const QJsonArray& columns, const Q
 	return returnedValues;
 }
 
-int EmployeesManager::SendToRemote(const QJsonObject& entry, const QJsonObject& data)
+int UsersManager::SendToRemote(const QJsonObject& entry, const QJsonObject& data)
 {
 
 	QJsonObject body;
@@ -273,9 +285,9 @@ int EmployeesManager::SendToRemote(const QJsonObject& entry, const QJsonObject& 
 
 	QJsonDocument reply;
 
-	if (networkManager.makePostRequest(webportal_details.api_url + "/employees", entry, body, &reply)) {
+	if (networkManager.makePostRequest(webportal_details.api_url + "/users", entry, body, &reply)) {
 		qDebug() << reply;
-		
+
 		if (!reply.isObject()) {
 			LOG << "Reply was not an Object";
 			//databaseTablesChecked[targetKey]++;
@@ -295,9 +307,9 @@ int EmployeesManager::SendToRemote(const QJsonObject& entry, const QJsonObject& 
 	return 0;
 }
 
-int EmployeesManager::CreateLocal(const QJsonObject& entry)
+int UsersManager::CreateLocal(const QJsonObject& entry)
 {
-	QJsonArray results = queryManager.ExecuteTargetSql("INSERT INTO employees (" + entry.keys().join(", ") + ") VALUES (:" + entry.keys().join(",:") + ")", entry);
+	QJsonArray results = queryManager.ExecuteTargetSql("INSERT INTO users (" + entry.keys().join(", ") + ") VALUES (:" + entry.keys().join(",:") + ")", entry);
 
 	if (results.size() == 0)
 		return 0;
@@ -305,7 +317,7 @@ int EmployeesManager::CreateLocal(const QJsonObject& entry)
 	return 1;
 }
 
-int EmployeesManager::UpdateRemote(const QJsonObject& entry, const QJsonObject& data)
+int UsersManager::UpdateRemote(const QJsonObject& entry, const QJsonObject& data)
 {
 	QJsonObject body;
 	body["data"] = data;
@@ -314,7 +326,7 @@ int EmployeesManager::UpdateRemote(const QJsonObject& entry, const QJsonObject& 
 
 	QJsonDocument reply;
 
-	if (networkManager.makePatchRequest(webportal_details.api_url + "/employees", entry, body, &reply)) {
+	if (networkManager.makePatchRequest(webportal_details.api_url + "/users", entry, body, &reply)) {
 		qDebug() << reply;
 
 		if (!reply.isObject()) {
@@ -336,19 +348,19 @@ int EmployeesManager::UpdateRemote(const QJsonObject& entry, const QJsonObject& 
 	return 0;
 }
 
-QJsonArray EmployeesManager::UpdateLocal(const QList<QString>& update, const QJsonObject& placeholders)
+QJsonArray UsersManager::UpdateLocal(const QList<QString>& update, const QJsonObject& placeholders)
 {
-	return queryManager.ExecuteTargetSql("UPDATE employees SET " + update.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId", placeholders);
+	return queryManager.ExecuteTargetSql("UPDATE users SET " + update.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId", placeholders);
 }
 
-QMap<int, QList<QVariantMap>> EmployeesManager::UpdateLocal(const QList<QString>& update, const QVariantMap& placeholders)
+QMap<int, QList<QVariantMap>> UsersManager::UpdateLocal(const QList<QString>& update, const QVariantMap& placeholders)
 {
-	QString queryToExec = "UPDATE employees SET " + update.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId";
+	QString queryToExec = "UPDATE users SET " + update.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId";
 	QVariantMap newPlaceholders = placeholders;
 	return queryManager.ExecuteTargetSql_Map(queryToExec, newPlaceholders);
 }
 
-void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonObject& remote)
+void UsersManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonObject& remote)
 {
 
 	qDebug() << "Local: " << QJsonDocument(local).toJson().toStdString().data();
@@ -370,7 +382,7 @@ void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJs
 		qInfo() << "Local and Remote did not share raw values but are in sync";
 		return;
 	}
-	
+
 	QDateTime currentDateTime = QDateTime::currentDateTimeUtc();
 
 	qDebug() << "remoteUpdate" << remoteUpdate;
@@ -388,7 +400,7 @@ void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJs
 
 	if (remoteUpdate > localUpdate)
 	{
-		qInfo() << "Remote Employee is newer that Local";
+		qInfo() << "Remote is newer that Local";
 		qInfo() << "Updating Local entry to match Remote";
 
 		(void)TRAKEntriesManager::breakoutValuesToUpdate(local, remote, &set, &placeholders);
@@ -406,9 +418,9 @@ void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJs
 		qDebug() << update;
 		qDebug() << where;
 
-		QString queryToExec = "UPDATE employees SET " + set.join(", ") + " WHERE custId = :custId AND empId = :empId";
+		QString queryToExec = "UPDATE users SET " + set.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId";
 		(void)queryManager.ExecuteTargetSql_Map(queryToExec, placeholders);
-		
+
 		update.insert("updatedAt", currentDateTime.toString(Qt::ISODate));
 		where.insert("custId", placeholders.value("custId").toJsonValue());
 		where.insert("empId", placeholders.value("empId").toJsonValue());
@@ -424,7 +436,7 @@ void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJs
 
 	if (remoteUpdate < localUpdate)
 	{
-		qInfo() << "Remote Employee is older that Local";
+		qInfo() << "Remote is older that Local";
 		qInfo() << "Updating Remote entry to match Local";
 		(void)TRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &placeholders);
 		(void)TRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &update);
@@ -441,7 +453,7 @@ void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJs
 		qDebug() << update;
 		qDebug() << where;
 
-		QString queryToExec = "UPDATE employees SET " + set.join(", ") + " WHERE custId = :custId AND empId = :empId";
+		QString queryToExec = "UPDATE users SET " + set.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId";
 		(void)queryManager.ExecuteTargetSql_Map(queryToExec, placeholders);
 
 		update.insert("updatedAt", currentDateTime.toString(Qt::ISODate));
@@ -458,75 +470,78 @@ void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJs
 	}
 }
 
-int EmployeesManager::SyncWebportal()
+int UsersManager::SyncWebportal()
 {
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
 
-	QJsonArray webportalResults = GetRemote(QJsonArray({ "custId", "userId", "empId", "updatedAt" }));
+	QJsonArray webportalResults = GetRemote(QJsonArray({ "custId", "userId", "empId", trak_details.trak_id_type, "updatedAt" }));
 
-	if(!webportalResults.isEmpty() && remote_count != webportalResults.size())
+	if (!webportalResults.isEmpty() && remote_count != webportalResults.size())
 		remote_count = webportalResults.size();
 
-	QJsonArray webportalGroupedResults = GetGroupedRemote(QJsonArray({ "custId", "userId", "empId" }), QJsonArray({ "updatedAt" }), QJsonArray({ "custId", "userId", "empId" }), "MIN", nullptr);
+	QJsonArray webportalGroupedResults = GetGroupedRemote(QJsonArray({ "custId", "userId", "empId", trak_details.trak_id_type }), QJsonArray({ "updatedAt" }), QJsonArray({ "custId", "userId", "empId", trak_details.trak_id_type, }), "MIN", nullptr);
 
 	qDebug() << webportalResults;
 	qDebug() << webportalGroupedResults;
 	qDebug() << webportalResults.empty();
 	//qDebug() << webportalEmployeeIds.empty;
 
-	ServiceHelper().WriteToLog("Exporting Employees");
+	ServiceHelper().WriteToLog("Exporting Users");
 
-	QString employeeSelect;
+	QString select;
 	QJsonObject placeholderMap;
 
 	//QVariantMap vMapConditionals = {};
 
 	if (webportalResults.empty())
-		employeeSelect = "SELECT * FROM employees WHERE userId <> '' AND userId IS NOT NULL ORDER BY id DESC LIMIT " + QString::number(webportal_details.query_limit);
+		select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL ORDER BY id DESC LIMIT " + QString::number(webportal_details.query_limit);
 	else {
 		QJsonArray employeeIds;
+		QJsonArray userIds;
 		QJsonArray updatedAtDates;
 
-		for (const QJsonValue& employee : webportalResults)
+		for (const QJsonValue& entry : webportalResults)
 		{
-			if (!employee.isObject())
+			if (!entry.isObject())
 				continue;
 
-			QJsonObject employeeObject = employee.toObject();
+			QJsonObject entryObject = entry.toObject();
 
-			if (employeeObject.isEmpty() || employeeObject.value("empId").isNull() || employeeObject.value("empId").isUndefined())
+			if (entryObject.isEmpty() || entryObject.value("empId").isNull() || entryObject.value("empId").isUndefined())
 				continue;
 
-			employeeIds.push_back(employeeObject.value("empId"));
-			updatedAtDates.push_back(employeeObject.value("updatedAt"));
+			employeeIds.push_back(entryObject.value("empId"));
+			userIds.push_back(entryObject.value("userId"));
+			updatedAtDates.push_back(entryObject.value("updatedAt"));
 
 		}
 
 		placeholderMap.insert("empIds", employeeIds);
+		placeholderMap.insert("userIds", userIds);
 		placeholderMap.insert("tz", time_zone);
 
 		if (webportalGroupedResults.size() <= 0)
-			employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) ORDER BY id ASC LIMIT " + QString::number(webportal_details.query_limit);
+			select = "SELECT * FROM users WHERE empId NOT IN (:empIds) AND userId NOT IN (:userIds) ORDER BY id ASC LIMIT " + QString::number(webportal_details.query_limit);
 		else {
-			employeeSelect = "SELECT * FROM employees WHERE empId NOT IN (:empIds) OR CONVERT_TZ(updatedAt, :tz, '+00:00') NOT IN (:updatedAts) ORDER BY updatedAt ASC, id ASC LIMIT " + QString::number(webportal_details.query_limit);
+			select = "SELECT * FROM users WHERE (empId NOT IN (:empIds) AND userId NOT IN (:userIds)) OR CONVERT_TZ(updatedAt, :tz, '+00:00') NOT IN (:updatedAts) ORDER BY updatedAt ASC, id ASC LIMIT " + QString::number(webportal_details.query_limit);
 			placeholderMap.insert("updatedAts", updatedAtDates);
 		}
 
 	}
 
 	//std::vector sqlQueryResults = queryManager.ExecuteTargetSql(employeeSelect, vMapConditionals);
-	QJsonArray queryResults = GetLocal(employeeSelect, placeholderMap);
+	QJsonArray queryResults = GetLocal(select, placeholderMap);
 
 	qDebug() << QJsonDocument(queryResults).toJson().toStdString().data();
 
 	for (const auto& queryResult : queryResults) {
 		if (!queryResult.isObject())
 			continue;
+		
 		QJsonObject result = queryResult.toObject();
 
-		
 
-		if (placeholderMap.value("empIds").toArray().contains(result.value("empId")))
+		if (placeholderMap.value("userIds").toArray().contains(result.value("userId")) && placeholderMap.value("empIds").toArray().contains(result.value("empId")))
 		{
 			result[trak_details.trak_id_type] = trak_details.trak_id;
 
@@ -568,7 +583,7 @@ int EmployeesManager::SyncWebportal()
 			}
 
 
-		});
+			});
 
 		parserFuture.waitForFinished();
 
@@ -576,7 +591,7 @@ int EmployeesManager::SyncWebportal()
 		if (!data.contains("userId"))
 			continue;
 
-		if(!data.contains(trak_details.trak_id_type) || data.value(trak_details.trak_id_type).toString() != trak_details.trak_id)
+		if (!data.contains(trak_details.trak_id_type) || data.value(trak_details.trak_id_type).toString() != trak_details.trak_id)
 			data[trak_details.trak_id_type] = trak_details.trak_id;
 
 		QVariant empId;
@@ -585,7 +600,7 @@ int EmployeesManager::SyncWebportal()
 			empId = data.value("empId").toVariant();
 		}
 		else if (result.contains("empId")) {
-			QJsonArray userEmpId = queryManager.ExecuteTargetSql("SELECT empId as uuid FROM users WHERE custId = :custId AND userId = :userId", data);
+			QJsonArray userEmpId = queryManager.ExecuteTargetSql("SELECT empId as uuid FROM employees WHERE custId = :custId AND userId = :userId", data);
 
 			if (userEmpId.size() >= 1) {
 				empId = userEmpId.at(0).toObject().value("uuid").toVariant();
@@ -606,16 +621,16 @@ int EmployeesManager::SyncWebportal()
 			QJsonObject webportalEmployee;
 			QFutureSynchronizer<void> synchronizer;
 
-			synchronizer.addFuture(QtConcurrent::map(webportalResults, [=, &empId, &data](const QJsonValue& employee) {
-				qDebug() << employee;
-				if (!employee.isObject())
+			synchronizer.addFuture(QtConcurrent::map(webportalResults, [=, &empId, &data](const QJsonValue& result) {
+				qDebug() << result;
+				if (!result.isObject())
 					return;
-				QJsonObject employeeObject = employee.toObject();
+				QJsonObject resultObject = result.toObject();
 
-				if (employeeObject.value("empId").toString() == data.value("empId").toString()) return;
-				if (employeeObject.value("userId").toString() != data.value("userId").toString()) return;
+				if (resultObject.value("empId").toString() == data.value("empId").toString()) return;
+				if (resultObject.value("userId").toString() != data.value("userId").toString()) return;
 
-				empId = employeeObject.value("empId").toVariant();
+				empId = resultObject.value("empId").toVariant();
 
 				}));
 
@@ -625,9 +640,10 @@ int EmployeesManager::SyncWebportal()
 		if (empId.toString() != data.value("empId").toString()) {
 			QJsonObject placeholder;
 			placeholder.insert("empId", empId.toJsonValue());
+			placeholder.insert("oldEmpId", data.value("empId"));
 			placeholder.insert("userId", data.value("userId"));
 
-			(void)queryManager.ExecuteTargetSql("UPDATE employees SET empId = :empId WHERE userId = :userId", placeholder);
+			(void)queryManager.ExecuteTargetSql("UPDATE users SET empId = :empId WHERE userId = :userId AND empId = :oldEmpId", placeholder);
 
 			data["empId"] = empId.toString();
 
@@ -636,7 +652,7 @@ int EmployeesManager::SyncWebportal()
 
 #if true
 		sqliteManager.AddEntry(
-			"employees",
+			"users",
 			sqliteData
 		);
 #endif
@@ -654,9 +670,9 @@ int EmployeesManager::SyncWebportal()
 	return NEXTSTEP::CHECK_NEXT_STEP;
 }
 
-int EmployeesManager::SyncLocal()
+int UsersManager::SyncLocal()
 {
-	QStringList skipTargetCols = { "id", trak_details.trak_id_type};
+	QStringList skipTargetCols = { "id"};
 
 	//QJsonArray({ "custId", "userId", "empId", "updatedAt" })
 	QJsonArray webportalResults = GetRemote();
@@ -664,19 +680,19 @@ int EmployeesManager::SyncLocal()
 	if (!webportalResults.isEmpty() && remote_count != webportalResults.size())
 		remote_count = webportalResults.size();
 
-	QJsonArray employeeColumns = GetColumns();
+	QJsonArray columns = GetColumns();
 
-	QFuture<QJsonArray>employeeColumnFuture(QtConcurrent::run([=, &employeeColumns]()
-		{
-			QJsonArray columnNames;
+	/*QFuture<QJsonArray>columnFuture(QtConcurrent::run([=, &columns]()
+		{*/
+	QJsonArray columnNames;
 
-			for (const auto& employeeColumn : employeeColumns)
-			{
-				columnNames.append(employeeColumn.toObject().value("Field"));
-			}
-			return columnNames;
+	for (const auto& column : columns)
+	{
+		columnNames.append(column.toObject().value("Field"));
+	}
+			/*return columnNames;
 		})
-	);
+	);*/
 
 	//QJsonArray webportalGroupedResults = GetGroupedRemoteEmployees(QJsonArray({ "custId", "userId", "empId" }), QJsonArray({ "updatedAt" }), QJsonArray({ "custId", "userId", "empId" }), "MIN", nullptr);
 
@@ -685,28 +701,28 @@ int EmployeesManager::SyncLocal()
 	qDebug() << webportalResults.empty();
 	//qDebug() << webportalEmployeeIds.empty;
 
-	ServiceHelper().WriteToLog("Exporting Employees");
+	ServiceHelper().WriteToLog("Importing Users");
 
-	QString employeeSelect;
-	QJsonObject placeholderMap;
+	QString querySelect;
+	QVariantMap placeholderMap;
 
 	//QVariantMap vMapConditionals = {};
 
 	//if (webportalResults.empty())
 	QJsonArray employeeIds;
 	QJsonArray userIds;
-	for (const QJsonValue& employee : webportalResults)
+	for (const QJsonValue& result : webportalResults)
 	{
-		if (!employee.isObject())
+		if (!result.isObject())
 			continue;
 
-		QJsonObject employeeObject = employee.toObject();
+		QJsonObject resultObject = result.toObject();
 
-		if (employeeObject.isEmpty() || employeeObject.value("empId").isNull() || employeeObject.value("empId").isUndefined())
+		if (resultObject.isEmpty() || resultObject.value("empId").isNull() || resultObject.value("empId").isUndefined() || resultObject.value("userId").isNull() || resultObject.value("userId").isUndefined())
 			continue;
 
-		employeeIds.push_back(employeeObject.value("empId"));
-		userIds.push_back(employeeObject.value("userId"));
+		employeeIds.append(resultObject.value("empId"));
+		userIds.append(resultObject.value("userId"));
 
 	}
 
@@ -715,34 +731,36 @@ int EmployeesManager::SyncLocal()
 
 	qDebug() << placeholderMap;
 
-	employeeSelect = "SELECT * FROM employees WHERE userId <> '' AND userId IS NOT NULL AND (empId IN (:empIds) OR userId IN (:userIds)) ORDER BY id DESC";
-
-	QJsonArray queryResults = GetLocal(employeeSelect, placeholderMap);
+	QJsonArray queryResults; //= GetLocal("SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (empId IN (:empIds) OR userId IN (:userIds))", placeholderMap);
 	//else {
+
+	queryManager.ExecuteTargetSql("SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (empId IN (:empIds) OR userId IN (:userIds))", placeholderMap, &queryResults);
 
 	qDebug() << "queryResults" << queryResults;
 
 	employeeIds = QJsonArray();
 	userIds = QJsonArray();
 
-	placeholderMap = QJsonObject();
+	placeholderMap = QVariantMap();
 	//placeholderMap.erase(placeholderMap.find("empIds"));
 
-	for (const QJsonValue& employee : queryResults)
+	for (const QJsonValue& result : queryResults)
 	{
-		if (!employee.isObject())
+		if (!result.isObject())
 			continue;
 
-		QJsonObject employeeObject = employee.toObject();
+		QJsonObject resultObject = result.toObject();
 
-		if (employeeObject.isEmpty() || employeeObject.value("empId").isNull() || employeeObject.value("empId").isUndefined())
+		if (resultObject.isEmpty() || resultObject.value("empId").isNull() || resultObject.value("empId").isUndefined())
 			continue;
 
-		employeeIds.push_back(employeeObject.value("empId"));
+		employeeIds.push_back(resultObject.value("empId"));
+		userIds.push_back(resultObject.value("userId"));
 
 	}
 
 	placeholderMap.insert("empIds", employeeIds);
+	placeholderMap.insert("userIds", userIds);
 
 	qDebug() << placeholderMap;
 
@@ -758,7 +776,7 @@ int EmployeesManager::SyncLocal()
 	//}
 
 	//std::vector sqlQueryResults = queryManager.ExecuteTargetSql(employeeSelect, vMapConditionals);
-	
+
 
 
 
@@ -769,12 +787,12 @@ int EmployeesManager::SyncLocal()
 	for (const QJsonValueRef& webportalResult : webportalResults) {
 		if (!webportalResult.isObject())
 			continue;
-		
+
 		QJsonObject result = webportalResult.toObject();
 
 		qDebug() << QJsonDocument(result).toJson().toStdString().data();
 
-		if (placeholderMap.value("empIds").toArray().contains(result.value("empId")))
+		if (placeholderMap.value("userIds").toJsonArray().contains(result.value("userId")))
 		{
 			QJsonObject where;
 			where.insert("custId", result.value("custId"));
@@ -782,15 +800,15 @@ int EmployeesManager::SyncLocal()
 			where.insert("userId", result.value("userId"));
 			where.insert(trak_details.trak_id_type, trak_details.trak_id);
 			/*QJsonObject webportalEntry = GetRemoteEmployees(QJsonArray(), where).at(0).toObject();*/
-			QJsonArray localEntries = GetLocal("SELECT * FROM employees WHERE empId = :empId OR userId = :userId", where);
+			QJsonArray localEntries = GetLocal("SELECT * FROM users WHERE empId = :empId OR userId = :userId", where);
 
 			if (!localEntries.isEmpty()) {
 				QJsonObject localEntry = localEntries.at(0).toObject();
-				
+
 				qDebug() << "Local: " << QJsonDocument(localEntry).toJson().toStdString().data();
 				qDebug() << "Remote: " << QJsonDocument(result).toJson().toStdString().data();
 				localEntry[trak_details.trak_id_type] = trak_details.trak_id;
-				
+
 				HandleUpdatingEntries(localEntry, result);
 				continue;
 			}
@@ -799,14 +817,15 @@ int EmployeesManager::SyncLocal()
 
 		//qDebug() << result;
 
-		
+
 		QJsonObject data;
 
-		QJsonArray employeeTableColumnNames = employeeColumnFuture.result();
+		//QJsonArray tableColumnNames = columnFuture.result();
+		QJsonArray tableColumnNames = columnNames;
 
 		QStringList datetimeCols = { "updatedAt", "createdAt" };
 
-		QFuture<std::map<std::string, std::string>> parserFuture(QtConcurrent::run([=, &result, &data, &mutex, &employeeTableColumnNames]() {
+		QFuture<std::map<std::string, std::string>> parserFuture(QtConcurrent::run([=, &result, &data, &mutex, &tableColumnNames]() {
 			std::map<std::string, std::string> sqliteData;
 			for (auto it = result.constBegin(); it != result.constEnd(); ++it)
 			{
@@ -821,7 +840,7 @@ int EmployeesManager::SyncLocal()
 				if (val.isEmpty() || val == "''")
 					continue;
 
-				if (!employeeTableColumnNames.contains(key))
+				if (!tableColumnNames.contains(key))
 					continue;
 
 				if (datetimeCols.contains(key))
@@ -842,11 +861,11 @@ int EmployeesManager::SyncLocal()
 			return sqliteData;
 			})
 		);
-		
+
 
 #if true
 		sqliteManager.AddEntry(
-			"employees",
+			"users",
 			parserFuture.result()
 		);
 #endif
@@ -857,12 +876,12 @@ int EmployeesManager::SyncLocal()
 		/*if (!data.contains(trak_details.trak_id_type) || data.value(trak_details.trak_id_type).toString() != trak_details.trak_id)
 			data[trak_details.trak_id_type] = trak_details.trak_id;*/
 
-		//qDebug() << data;
+			//qDebug() << data;
 
-		/*if (SendEmployeeToRemote(result, data))
-		{
-			++remote_employees_count;
-		}*/
+			/*if (SendEmployeeToRemote(result, data))
+			{
+				++remote_employees_count;
+			}*/
 		if (CreateLocal(data))
 			++local_count;
 	}
@@ -875,27 +894,27 @@ int EmployeesManager::SyncLocal()
 	return NEXTSTEP::CHECK_NEXT_STEP;
 }
 
-int EmployeesManager::UpdateOutdated()
+int UsersManager::UpdateOutdated()
 {
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
 	DWORD size = sizeof(TCHAR);
-	(void)rtManager.GetValSize("employeesCheckedDate", REG_SZ, &size);
-	
+	(void)rtManager.GetValSize("usersCheckedDate", REG_SZ, &size);
+
 	if (!size) {
 		(void)UpdateCheckedTime();
-		(void)rtManager.GetValSize("employeesCheckedDate", REG_SZ, &size);
+		(void)rtManager.GetValSize("usersCheckedDate", REG_SZ, &size);
 	}
-	
+
 	TCHAR* buffer = new TCHAR[size];
 
-	(void)rtManager.GetVal("employeesCheckedDate", REG_SZ, buffer, size);
+	(void)rtManager.GetVal("usersCheckedDate", REG_SZ, buffer, size);
 
 	QString lastCheckedDateTime(buffer);
 	delete[] buffer;
 
 	qDebug() << "lastCheckedDateTime" << lastCheckedDateTime;
-	
+
 	QDateTime last_checked_date(QDateTime::fromString(lastCheckedDateTime, Qt::ISODate));
 
 	QMap<QString, QVariant> placeholder;
@@ -906,105 +925,108 @@ int EmployeesManager::UpdateOutdated()
 
 	qDebug() << "placeholder" << placeholder;
 
-	QJsonArray outdatedLocalEmployees = queryManager.ExecuteTargetSql_Array("SELECT * FROM employees WHERE CONVERT_TZ(updatedAt, :tz, '+00:00') >= :last_checked_date", placeholder);
+	QJsonArray outdatedLocals = queryManager.ExecuteTargetSql_Array("SELECT * FROM users WHERE CONVERT_TZ(updatedAt, :tz, '+00:00') >= :last_checked_date", placeholder);
 
-	qDebug() << "outdatedLocalEmployees" << outdatedLocalEmployees;
+	qDebug() << "outdatedLocals" << outdatedLocals;
 
 	QJsonObject select;
 	select.insert("outdated", lastCheckedDateTime);
 
-	QJsonArray outdatedRemoteEmployees = GetRemote(QJsonArray(), QJsonObject(), select);
+	QJsonArray outdatedRemotes = GetRemote(QJsonArray(), QJsonObject(), select);
 
-	qDebug() << "local_employeees_that_need_updating: " << outdatedLocalEmployees.size();
-	qDebug() << "remote_employeees_that_need_updating: " << outdatedRemoteEmployees.size();
+	qDebug() << "local_that_need_updating: " << outdatedLocals.size();
+	qDebug() << "remote_that_need_updating: " << outdatedRemotes.size();
 
-	if (!outdatedLocalEmployees.size() && !outdatedRemoteEmployees.size())
+	if (!outdatedLocals.size() && !outdatedRemotes.size())
 		return UpdateCheckedTime();
-	
-	if (outdatedLocalEmployees.size() >= outdatedRemoteEmployees.size())
+
+	if (outdatedLocals.size() >= outdatedRemotes.size())
 	{
 		//qDebug() << "outdatedLocalEmployees: " << QJsonDocument(outdatedLocalEmployees).toJson().toStdString().data();
 		//qDebug() << "outdatedRemoteEmployees: " << QJsonDocument(outdatedRemoteEmployees).toJson().toStdString().data();
 
-		for (const auto& outdatedLocalEmployee : outdatedLocalEmployees)
+		for (const auto& outdatedLocal : outdatedLocals)
 		{
-			if (!outdatedLocalEmployee.isObject())
+			if (!outdatedLocal.isObject())
 				continue;
-			QJsonObject localEmployee = outdatedLocalEmployee.toObject();
-			QJsonObject remoteEmployee;
+			QJsonObject local = outdatedLocal.toObject();
+			QJsonObject remote;
 
-			for (const auto& outdatedRemoteEmployee : outdatedRemoteEmployees) {
-				if (!outdatedRemoteEmployee.isObject())
+			for (const auto& outdatedRemote : outdatedRemotes) {
+				if (!outdatedRemote.isObject())
 					continue;
 
-				QJsonObject outdatedRemoteEmployeeObject = outdatedRemoteEmployee.toObject();
-				if (outdatedRemoteEmployeeObject.value("empId") != localEmployee.value("empId"))
+				QJsonObject outdatedRemoteObject = outdatedRemote.toObject();
+				if (outdatedRemoteObject.value("empId") != local.value("empId") && outdatedRemoteObject.value("userId") != local.value("userId"))
 					continue;
 
-				remoteEmployee = outdatedRemoteEmployeeObject;
+				remote = outdatedRemoteObject;
 				break;
 			}
 
-			qDebug() << "localEmployee: " << localEmployee;
-			qDebug() << "remoteEmployee: " << remoteEmployee;
+			qDebug() << "local: " << local;
+			qDebug() << "remote: " << remote;
 
-			if (remoteEmployee.isEmpty()) {
+			if (remote.isEmpty()) {
 				//select.erase(select.find("outdated"));
 				QJsonObject where;
-				where.insert("empId", localEmployee.value("empId"));
-				QJsonArray targetRemoteEmployee = GetRemote(QJsonArray(), where);
+				where.insert("empId", local.value("empId"));
+				where.insert("userId", local.value("userId"));
+				where.insert(trak_details.trak_id_type, trak_details.trak_id);
+				QJsonArray targetRemote = GetRemote(QJsonArray(), where);
 
-				if (targetRemoteEmployee.isEmpty())
-					throw HenchmanServiceException("Needed employee instance from remote but failed to find one");
+				if (targetRemote.isEmpty())
+					throw HenchmanServiceException("Needed user instance from remote but failed to find one");
 
-				remoteEmployee = targetRemoteEmployee.at(0).toObject();
+				remote = targetRemote.at(0).toObject();
 			}
 
-			qDebug() << "localEmployee: " << localEmployee;
-			qDebug() << "remoteEmployee: " << remoteEmployee;
+			qDebug() << "local: " << local;
+			qDebug() << "remote: " << remote;
 
-			HandleUpdatingEntries(localEmployee, remoteEmployee);
+			HandleUpdatingEntries(local, remote);
 		}
 	}
 	else {
-		for (const auto& outdatedRemoteEmployee : outdatedRemoteEmployees)
+		for (const auto& outdatedRemote : outdatedRemotes)
 		{
-			if (!outdatedRemoteEmployee.isObject())
+			if (!outdatedRemote.isObject())
 				continue;
-			QJsonObject localEmployee;
-			QJsonObject remoteEmployee = outdatedRemoteEmployee.toObject();
+			QJsonObject local;
+			QJsonObject remote = outdatedRemote.toObject();
 
-			for (const auto& outdatedLocalEmployee : outdatedLocalEmployees) {
-				if (!outdatedLocalEmployee.isObject())
+			for (const auto& outdatedLocal : outdatedLocals) {
+				if (!outdatedLocal.isObject())
 					continue;
 
-				QJsonObject outdatedLocalEmployeeObject = outdatedLocalEmployee.toObject();
-				if (outdatedLocalEmployeeObject.value("empId") != localEmployee.value("empId"))
+				QJsonObject outdatedLocalObject = outdatedLocal.toObject();
+				if (outdatedLocalObject.value("empId") != outdatedLocalObject.value("empId") && outdatedLocalObject.value("userId") != outdatedLocalObject.value("userId"))
 					continue;
 
-				localEmployee = outdatedLocalEmployeeObject;
+				local = outdatedLocalObject;
 				break;
 			}
 
-			qDebug() << "localEmployee: " << localEmployee;
-			qDebug() << "remoteEmployee: " << remoteEmployee;
+			qDebug() << "local: " << local;
+			qDebug() << "remote: " << remote;
 
-			if (localEmployee.isEmpty()) {
+			if (local.isEmpty()) {
 				//select.erase(select.find("outdated"));
 				QJsonObject where;
-				where.insert("empId", remoteEmployee.value("empId"));
-				QJsonArray targetLocalEmployee = GetLocal("SELECT * FROM employees WHERE empId = :empId", where);
+				where.insert("empId", remote.value("empId"));
+				where.insert("userId", remote.value("userId"));
+				QJsonArray targetLocal = GetLocal("SELECT * FROM users WHERE empId = :empId AND userId = :userId", where);
 
-				if (targetLocalEmployee.isEmpty())
-					throw HenchmanServiceException("Needed employee instance from local but failed to find one");
+				if (targetLocal.isEmpty())
+					throw HenchmanServiceException("Needed user instance from local but failed to find one");
 
-				localEmployee = targetLocalEmployee.at(0).toObject();
+				local = targetLocal.at(0).toObject();
 			}
 
-			qDebug() << "localEmployee: " << localEmployee;
-			qDebug() << "remoteEmployee: " << remoteEmployee;
+			qDebug() << "local: " << local;
+			qDebug() << "remote: " << remote;
 
-			HandleUpdatingEntries(localEmployee, remoteEmployee);
+			HandleUpdatingEntries(local, remote);
 		}
 	}
 
@@ -1013,7 +1035,8 @@ int EmployeesManager::UpdateOutdated()
 	return NEXTSTEP::CHECK_NEXT_STEP;
 }
 
-int EmployeesManager::ClearCloudUpdate()
+
+int UsersManager::ClearCloudUpdate()
 {
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 

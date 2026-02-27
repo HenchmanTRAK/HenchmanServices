@@ -21,7 +21,6 @@ target_link_libraries(
 	ServiceController
 	TRAKManager
 	DatabaseManager
-	EmployeesManager
 	QueryManager
 	NetworkManager
 	SQLiteManager2

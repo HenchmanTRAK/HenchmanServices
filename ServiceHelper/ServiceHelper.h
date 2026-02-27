@@ -79,6 +79,21 @@ enum log_type {
 	QUERIES,
 };
 
+struct TrakDetails {
+	int cust_id = 0;
+	QString schema = "";
+	QString trak_type = "";
+	QString trak_id_type = "";
+	QString trak_id = "";
+};
+
+struct WebportalDetails {
+	int cust_id = 0;
+	QString api_url = "";
+	QString api_key = "";
+	int query_limit = 0;
+};
+
 /**
  * @class ServiceHelper
  *

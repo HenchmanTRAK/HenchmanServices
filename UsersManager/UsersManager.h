@@ -1,18 +1,7 @@
-#ifndef EMPLOYEES_MANAGER_H
-#define EMPLOYEES_MANAGER_H
+#ifndef USERS_MANAGER_H
+#define USERS_MANAGER_H
 #pragma once
 
-//#ifdef EMPLOYEES_MANAGER_EXPORTS
-//#define EMPLOYEES_MANAGER_ __declspec(dllexport)
-//#else
-//#define EMPLOYEES_MANAGER_ __declspec(dllimport)
-//#endif
-
-//#if defined(EMPLOYEES_MANAGER)
-//#  define EMPLOYEES_MANAGER_EXPORT Q_DECL_EXPORT
-//#else
-//#  define EMPLOYEES_MANAGER_EXPORT Q_DECL_IMPORT
-//#endif
 
 #include <QObject>
 #include <QString>
@@ -35,29 +24,30 @@
 #include <WinError.h>
 
 
-class EmployeesManager : public TRAKEntriesManager
+
+class UsersManager : public TRAKEntriesManager
 {
 
 public:
 	using TRAKEntriesManager::TRAKEntriesManager;
-	EmployeesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
-	~EmployeesManager();
+	UsersManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
+	~UsersManager();
 
 	int GetLocalCount(const QList<QString>& conditions = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
 
-	int GetRemoteCount(const QJsonObject& select= QJsonObject(), const QJsonObject& where = QJsonObject(), QJsonObject* p_returned_data = nullptr);
+	int GetRemoteCount(const QJsonObject& select = QJsonObject(), const QJsonObject& where = QJsonObject(), QJsonObject* p_returned_data = nullptr);
 
 	QJsonArray GetRemote(const QJsonArray& columns = QJsonArray(), const QJsonObject& where = QJsonObject(), const QJsonObject& p_select = QJsonObject());
 
-	QJsonArray GetLocal(const QString& query = QString(""), const QJsonObject& placeholders = QJsonObject());
+	virtual QJsonArray GetLocal(const QString& query = QString(""), const QJsonObject& placeholders = QJsonObject());
 
 	QJsonArray GetGroupedRemote(const QJsonArray& columns = QJsonArray(), const QJsonArray& grouped_columns = QJsonArray(), const QJsonArray& group_by = QJsonArray(), const QString& type = QString("COUNT"), const QString& separator = QString(""), const QJsonObject& p_where = QJsonObject());
 
 	int SendToRemote(const QJsonObject& entry = QJsonObject(), const QJsonObject& data = QJsonObject());
 	int CreateLocal(const QJsonObject& entry = QJsonObject());
-	
+
 	int UpdateRemote(const QJsonObject& entry = QJsonObject(), const QJsonObject& data = QJsonObject());
-	
+
 	QJsonArray UpdateLocal(const QList<QString>& update = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
 	QMap<int, QList<QVariantMap>> UpdateLocal(const QList<QString>& update = QList<QString>(), const QVariantMap& placeholders = QVariantMap());
 
@@ -65,7 +55,7 @@ public:
 
 	int SyncWebportal();
 
-	int SyncLocal();
+	virtual int SyncLocal();
 
 	QJsonArray GetColumns();
 
@@ -76,10 +66,9 @@ private:
 	void breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values);
 
 	void HandleUpdatingEntries(const QJsonObject& local, const QJsonObject& remote);
-
 	
 };
 
-Q_DECLARE_METATYPE(EmployeesManager);
+Q_DECLARE_METATYPE(UsersManager);
 
 #endif

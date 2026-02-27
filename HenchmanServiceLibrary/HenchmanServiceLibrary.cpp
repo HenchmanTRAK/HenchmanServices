@@ -733,7 +733,7 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 			//return 0;
 		}
 		
-		if (!TrakM.UploadCurrentStateToRemote(dbManager))
+		if (!TrakM.UploadCurrentStateToRemote(&dbManager))
 		{
 			dbManager.connectToRemoteDB();
 		}

@@ -17,6 +17,7 @@
 
 #include <vector>
 #include <variant>
+#include <exception>
 
 #include <QObject>
 #include <QString>
@@ -58,7 +59,7 @@ class QueryManager : public QObject
 //public:
 
 private:
-	QMutex p_thread_controller = QMutex();
+	QMutex p_thread_controller;
 
 	s_TZ_INFO tz_info;
 	s_DATABASE_INFO db_info;
@@ -102,6 +103,7 @@ public:
 	QJsonArray ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObject& params);
 
 	QJsonArray ExecuteTargetSql_Array(const QString& sqlQuery, const QVariantMap& params);
+	void ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params, QJsonArray* results);
 	
 	QMap<int, QList<QVariantMap>> ExecuteTargetSql_Map(const QString& sqlQuery, const QVariantMap& params);
 

@@ -1,16 +1,16 @@
 
-qt_add_library(EmployeesManager STATIC "EmployeesManager.cpp" "EmployeesManager.h")
-qt_disable_unicode_defines(EmployeesManager)
+qt_add_library(UsersManager STATIC "UsersManager.cpp" "UsersManager.h")
+qt_disable_unicode_defines(UsersManager)
 
 # target_compile_definitions(EmployeesManager PRIVATE EMPLOYEES_MANAGER)
 
 target_link_libraries(
-	EmployeesManager INTERFACE
+	UsersManager INTERFACE
 	TRAKEntriesManager
 )
 
 target_link_libraries(
-	EmployeesManager PRIVATE
+	UsersManager PRIVATE
 	TRAKEntriesManager
 	QueryManager
 	NetworkManager
@@ -25,11 +25,12 @@ target_link_libraries(
 	Qt6::Core
 )
 
+
 target_include_directories(
-	EmployeesManager INTERFACE 
+	UsersManager INTERFACE 
 	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET EmployeesManager PROPERTY CXX_STANDARD 20)
+  set_property(TARGET UsersManager PROPERTY CXX_STANDARD 20)
 endif()
