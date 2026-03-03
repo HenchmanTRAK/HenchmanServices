@@ -1,6 +1,3 @@
-
-#ifndef QUERY_MANAGER_H
-#define QUERY_MANAGER_H
 #pragma once
 
 //#ifdef QUERY_MANAGER_EXPORTS
@@ -31,6 +28,8 @@
 #include <QSqlRecord>
 #include <QSqlError>
 #include <QSqlDriver>
+#include <QSqlResult>
+#include <QSqlQueryModel>
 
 #include "ServiceHelper.h"
 #include "HenchmanServiceException.h"
@@ -69,12 +68,12 @@ public:
 
 	~QueryManager();
 
-	void setSchema(const QString& new_schema = "");
+	void setSchema(const QString& new_schema);
 	void set_database_details(const s_DATABASE_INFO& database_info);
 
 	QString getSchema();
 
-	QSqlDatabase GetDatabaseConnection();
+	QList<QVariantMap> execute(const TCHAR* sqlQuery, const QVariantMap& placeholders);
 
 	/**
 	 * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
@@ -103,7 +102,9 @@ public:
 	QJsonArray ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObject& params);
 
 	QJsonArray ExecuteTargetSql_Array(const QString& sqlQuery, const QVariantMap& params);
+
 	void ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params, QJsonArray* results);
+	void ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params, QList<QList<QVariantMap>>* results);
 	
 	QMap<int, QList<QVariantMap>> ExecuteTargetSql_Map(const QString& sqlQuery, const QVariantMap& params);
 
@@ -125,6 +126,4 @@ public:
 
 };
 
-//Q_DECLARE_METATYPE(QueryManager);
-
-#endif
+Q_DECLARE_METATYPE(QueryManager)

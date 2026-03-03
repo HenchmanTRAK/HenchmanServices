@@ -1,19 +1,14 @@
 #include "QueryManager.h";
 
 QueryManager::QueryManager(QObject* parent, const s_DATABASE_INFO& database_info)
-	:QObject(parent), db_info(database_info), p_thread_controller()
+	:QObject(parent), db_info(database_info)
 {
-	/*p_thread_controller = new QMutex();*/
-	
+
 }
 
 QueryManager::~QueryManager()
 {
-	/*if (p_thread_controller)
-	{
-		p_thread_controller->unlock();
-		p_thread_controller = nullptr;
-	}*/
+	LOG << "Deconstructing QueryManager";
 
 	if (db_info.schema.isEmpty())
 	{
@@ -57,48 +52,6 @@ QString QueryManager::getSchema()
 	return db_info.schema;
 }
 
-QSqlDatabase QueryManager::GetDatabaseConnection()
-{
-
-	if (db_info.driver.isEmpty())
-		throw HenchmanServiceException("Must provide a Database Driver for QueryManager to get connection");
-			
-	if (!QSqlDatabase::isDriverAvailable(db_info.driver))
-	{
-		throw HenchmanServiceException("Provided database driver is not available");
-	}
-	
-	if(db_info.schema.isEmpty())
-		throw HenchmanServiceException("Must provide a Database Schema for QueryManager to connect to");
-	
-	if (QSqlDatabase::contains(db_info.schema))
-		return QSqlDatabase::database(db_info.schema);
-
-	QSqlDatabase db;
-
-	ServiceHelper().WriteToLog((std::string)"Creating session to db");
-
-	db = QSqlDatabase::addDatabase(db_info.driver, db_info.schema);
-	db.setHostName(db_info.server);
-	db.setPort(db_info.port);
-	db.setUserName(db_info.username);
-	if (!db_info.password.isEmpty())
-		db.setPassword(db_info.password);
-	db.setConnectOptions(db_info.conn_options.join(""));
-	db.setDatabaseName(db_info.schema);	
-
-	bool ok = db.open();
-
-	if (!ok) 
-		return db;
-
-	/*if (ok)
-		db.close();*/
-
-	return db;
-}
-
-
 s_TZ_INFO QueryManager::GetTimezone()
 {
 
@@ -106,14 +59,199 @@ s_TZ_INFO QueryManager::GetTimezone()
 		return tz_info;
 	}
 
-	QJsonObject db_timezone = ExecuteTargetSql("SELECT LPAD(TIME_FORMAT(TIMEDIFF(NOW(), UTC_TIMESTAMP),'%H:%i'),6,'+') as tz, TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP, NOW()) as tz_offset", QJsonObject()).at(0).toObject();
+	qDebug() << "Schema: " << db_info.schema;
 
-	qDebug() << "db_timezone" << db_timezone;
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
 
-	tz_info.time_zone = db_timezone.value("tz").toString();
-	tz_info.time_zone_offset = db_timezone.value("tz_offset").toInt();
+	if (db.isOpen())
+		qDebug() << "Database Open";
+	else if(!db.open())
+		qDebug() <<	"Failed to open Database";
+
+	{
+		QSqlQueryModel time_zone_modal(this);
+		time_zone_modal.setQuery("SELECT LPAD(TIME_FORMAT(TIMEDIFF(NOW(), UTC_TIMESTAMP),'%H:%i'),6,'+') as tz, TIMESTAMPDIFF(SECOND, UTC_TIMESTAMP, NOW()) as tz_offset", db);
+		QString tz = time_zone_modal.record(0).value("tz").toString();
+		int tz_offset = time_zone_modal.record(0).value("tz_offset").toInt();
+		time_zone_modal.clear();
+		tz_info.time_zone = tz;
+		tz_info.time_zone_offset = tz_offset;
+
+		time_zone_modal.deleteLater();
+	}
+
+	if (db.isOpen())
+		db.close();
+
+	if (!db.isOpen())
+		qDebug() << "Database Closed";
 
 	return tz_info;
+}
+
+
+QList<QVariantMap> QueryManager::execute(const TCHAR* sql, const QVariantMap& placeholders)
+{
+	QList<QVariantMap> results;
+
+	QSqlDatabase db = QSqlDatabase::database(db_info.schema, false);
+
+	if(!db.open())
+		throw HenchmanServiceException("Failed to open DB Connection");
+
+	try {
+
+		db.transaction();
+
+		QString statement(sql);
+
+		if (statement.trimmed() == "")
+			throw HenchmanServiceException("No Query was provided.");
+
+		QSqlQuery query(db);
+
+		LOG << "Executing: " << statement.toStdString();
+
+		QVariantMap boundValues;
+
+		if (statement.contains(":tz") && !placeholders.contains("tz")) {
+			GetTimezone();
+			boundValues.insert(":tz", tz_info.time_zone);
+		}
+
+		if (!placeholders.isEmpty()) {
+			QMapIterator it(placeholders);
+
+			do {
+				it.next();
+
+				QString key = it.key();
+				QVariant value = it.value();
+				key = ":" + key;
+
+				if (value.typeId() == QVariant::DateTime) {
+					boundValues.insert(key, value.toDateTime().toString(Qt::ISODateWithMs));
+					continue;
+				}
+
+				if (value.canConvert<QString>()) {
+					boundValues.insert(key, value.toString());
+					continue;
+				}
+
+				if (value.canConvert<QJsonArray>()) {
+					QStringList values;
+					foreach(QJsonValue val, value.toJsonArray()) {
+						values << "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
+					}
+					QString val = values.join(",");
+
+					QString firstSection = statement.sliced(0, statement.indexOf(key));
+					QString secondSection = statement.sliced(statement.indexOf(key) + key.size());
+					statement = firstSection + val + secondSection;
+					continue;
+				}
+
+				boundValues.insert(key, value);
+
+			} while (it.hasNext());
+		}
+
+		query.prepare(statement);
+
+		qDebug() << statement;
+		qDebug() << boundValues;
+
+		QMapIterator it(boundValues);
+
+		while (it.hasNext()) {
+			it.next();
+			query.bindValue(it.key(), it.value());
+		}
+
+		if (!query.exec())
+			throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+
+		while (query.next())
+		{
+			QSqlRecord record = query.record();
+
+			QVariantMap queryResult;
+
+			for (int i = 0; i <= record.count() - 1; i++)
+			{
+				QString column = record.fieldName(i);
+				QVariant value = query.value(i);
+
+				qDebug() << column << ": " << value;
+				switch (value.typeId()) {
+				case QVariant::String: {
+					queryResult.insert(column, value.toString());
+					break;
+				}
+				case QVariant::Int: {
+					queryResult.insert(column, value.toInt());
+					break;
+				}
+				case QVariant::Date: {
+					if (!query.value(i).toDate().isValid())
+					{
+						queryResult.insert(column, "");
+						break;
+					}
+
+					queryResult.insert(column, value.toDate().toString(Qt::ISODateWithMs));
+					break;
+				}
+				case QVariant::Time: {
+					if (!query.value(i).toTime().isValid())
+					{
+						queryResult.insert(column, "");
+						break;
+					}
+
+					queryResult.insert(column, value.toTime().toString(Qt::ISODateWithMs));
+					break;
+				}
+				case QVariant::DateTime: {
+					if (!query.value(i).toDateTime().isValid())
+					{
+						queryResult.insert(column, "");
+						break;
+					}
+
+					QDateTime dt = value.toDateTime();
+
+					dt.setOffsetFromUtc(tz_info.time_zone_offset);
+
+					queryResult.insert(column, dt.toUTC().toString(Qt::ISODateWithMs));
+					break;
+				}
+				default: {
+					queryResult.insert(column, value);
+					break;
+				}
+				}
+			}
+
+			results.append(queryResult);
+		}
+
+		query.finish();
+
+		db.commit();
+
+	}
+	catch (const std::exception& e) {
+		db.rollback();
+
+		ServiceHelper().WriteToError(e.what());
+	}
+
+	if (db.isOpen())
+		db.close();
+
+	return results;
 }
 
 QJsonArray QueryManager::ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObject& params)
@@ -123,7 +261,9 @@ QJsonArray QueryManager::ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObje
 
 QJsonArray QueryManager::ExecuteTargetSql(const QString& sqlQuery, const QJsonObject& params)
 {
-	return ExecuteTargetSql_Array(sqlQuery, params.toVariantMap());
+	QVariantMap localMap = params.toVariantMap();
+
+	return ExecuteTargetSql_Array(sqlQuery, localMap);
 }
 
 QMap<int, QList<QVariantMap>> QueryManager::ExecuteTargetSql_Map(const QString& sqlQuery, const QVariantMap& params)
@@ -135,20 +275,12 @@ QMap<int, QList<QVariantMap>> QueryManager::ExecuteTargetSql_Map(const QString& 
 	QMap<int, QList<QVariantMap>> results;
 	//QJsonArray results;
 
-	if(!QSqlDatabase::contains(db_info.schema))
-		GetDatabaseConnection();
-
-	QSqlDatabase db = QSqlDatabase::database(db_info.schema);
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
 
 	try {
-		if (db.isOpen()) {
-			db.close();
-		}
 		if (!db.open())
 			throw HenchmanServiceException("Failed to open DB Connection");
 		db.transaction();
-
-		QSqlQuery query(db);
 
 		QStringList sqlStatements = sqlQuery.split(';', Qt::SkipEmptyParts);
 
@@ -159,16 +291,25 @@ QMap<int, QList<QVariantMap>> QueryManager::ExecuteTargetSql_Map(const QString& 
 			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
 			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
 #endif
+		QSqlQuery query(db);
 
 		for (QString& statement : sqlStatements)
 		{
 			if (statement.trimmed() == "")
 				continue;
+
 			LOG << "Executing: " << statement.toStdString();
 
 			QVariantMap boundValues;
+
+			if (statement.contains(":tz") && !params.contains("tz")) {
+				GetTimezone();
+				boundValues.insert(":tz", tz_info.time_zone);
+			}
+
 			if (!params.isEmpty()) {
 				/*query.prepare(statement);*/
+				
 				for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
 					QString key = it.key();
 					QVariant value = it.value();
@@ -212,12 +353,6 @@ QMap<int, QList<QVariantMap>> QueryManager::ExecuteTargetSql_Map(const QString& 
 				}
 			}
 
-			if (query.exec("SELECT * FROM employees LIMIT 1"))
-				qDebug() << "Successfully fetched";
-			else
-				qDebug() << "Failed to Successfully fetched";
-
-
 			query.prepare(statement);
 			
 			qDebug() << statement;
@@ -242,10 +377,11 @@ QMap<int, QList<QVariantMap>> QueryManager::ExecuteTargetSql_Map(const QString& 
 			qDebug() << query.executedQuery();
 			qDebug() << query.boundValues();
 			successCount++;
-			QSqlRecord record(query.record());
 
 			while (query.next())
 			{
+				QSqlRecord record(query.record());
+
 				QVariantMap queryResult;
 				//QJsonObject queryResult;
 				for (int i = 0; i <= record.count() - 1; i++)
@@ -296,20 +432,20 @@ QMap<int, QList<QVariantMap>> QueryManager::ExecuteTargetSql_Map(const QString& 
 			/*if (sqlStatements.size() > 1)
 				*/
 			results.insert(results.size(), multi_query_results);
-		}
 
+
+			query.clear();
+		}
 		query.finish();
 
 		if (!db.commit())
 			db.rollback();
-		db.close();
 	}
-	catch (std::exception& e)
+	catch (const std::exception& e)
 	{
 		if (db.isOpen()) {
 			db.rollback();
 			//if (!db.commit())
-			db.close();
 		}
 		ServiceHelper().WriteToError(e.what());
 		/*if (!queryResult.empty())
@@ -317,209 +453,21 @@ QMap<int, QList<QVariantMap>> QueryManager::ExecuteTargetSql_Map(const QString& 
 
 	}
 
+	if (db.isOpen())
+		db.close();
+
 	return results;
 }
 
-void QueryManager::ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params, QJsonArray* results)
+void QueryManager::ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params, QList<QList<QVariantMap>>* results)
 {
 	QMutexLocker locker(&p_thread_controller);
 
 	int successCount = 0;
 
-	QSqlDatabase db;
+	QList<QList<QVariantMap>> localResults;
 
-	if (!QSqlDatabase::contains(db_info.schema))
-		db = GetDatabaseConnection();
-	else
-		db = QSqlDatabase::database(db_info.schema);
-
-	//try {
-		if (!db.isOpen()) {
-			if (!db.open())
-				throw HenchmanServiceException("Failed to open DB Connection");
-		}
-		db.transaction();
-
-		QSqlQuery query(db);
-
-		QStringList sqlStatements = sqlQuery.split(';', Qt::SkipEmptyParts);
-
-		qDebug() << "SQL Statements to Execute:" << sqlStatements;
-
-#if false
-		if (!query.exec("USE " + db_info.schema + ";"))
-			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
-			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
-#endif
-
-		for (const QString& statement : sqlStatements)
-		{
-			QString modifyableStatement = statement;
-
-			if (modifyableStatement.trimmed() == "")
-				continue;
-			LOG << "Executing: " << statement.toStdString();
-
-			QVariantMap boundValues;
-
-			if (!params.isEmpty()) {
-				/*query.prepare(statement);*/
-				for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
-					QString key = it.key();
-					QVariant value = it.value();
-					//qDebug() << key << ": " << value;
-					key = ":" + key;
-					//qDebug() << value.typeName();
-
-					if (value.typeId() == QVariant::DateTime) {
-						qDebug() << value;
-						//qDebug() << "utcOffset" << value.toDateTime().offsetFromUtc();
-
-						boundValues.insert(key, value);
-						continue;
-					}
-
-					if (value.canConvert<QString>()) {
-						boundValues.insert(key, value.toString());
-						continue;
-					}
-
-					if (value.canConvert<QJsonArray>()) {
-						QStringList values;
-						foreach(QJsonValue val, value.toJsonArray()) {
-							//qDebug() << val;
-							values << "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
-						}
-						//qDebug() << values;
-						//qDebug() << "Binding " << QString::fromStdString(":" + key) << " with " << values.join(",");
-						QString val = values.join(",");
-
-						QString firstSection = modifyableStatement.sliced(0, modifyableStatement.indexOf(key));
-						QString secondSection = modifyableStatement.sliced(modifyableStatement.indexOf(key) + key.size());
-						modifyableStatement = firstSection + val + secondSection;
-						//boundValues.insert(":" + key, val);
-						continue;
-					}
-
-					boundValues.insert(key, value);
-				}
-			}
-
-			query.prepare(modifyableStatement);
-
-			QMapIterator it(boundValues);
-
-			while (it.hasNext()) {
-				it.next();
-				query.bindValue(it.key(), it.value());
-			}
-
-			//QList<QVariant> multi_query_results;
-			QJsonArray multi_query_results;
-
-			if (!query.exec())
-				throw HenchmanServiceException("Failed executing: " + modifyableStatement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
-
-			qDebug() << query.executedQuery();
-			qDebug() << query.boundValues();
-			successCount++;
-			QSqlRecord record(query.record());
-
-			while (query.next())
-			{
-				//QMap<QString, QVariant> queryResult;
-				QJsonObject queryResult;
-
-				for (int i = 0; i < record.count(); ++i)
-				{
-
-					qDebug() << record.fieldName(i) << ": " << query.value(i);
-					switch (query.value(i).typeId()) {
-					case QVariant::String: {
-						queryResult.insert(record.fieldName(i), query.value(i).toString());
-						break;
-					}
-					case QVariant::Int: {
-						queryResult.insert(record.fieldName(i), query.value(i).toInt());
-						break;
-					}
-					case QVariant::Date: {
-						queryResult.insert(record.fieldName(i), query.value(i).toDate().toString(Qt::ISODateWithMs));
-						break;
-					}
-					case QVariant::Time: {
-						queryResult.insert(record.fieldName(i), query.value(i).toTime().toString(Qt::ISODateWithMs));
-						break;
-					}
-					case QVariant::DateTime: {
-						s_TZ_INFO tzMap = GetTimezone();
-
-						QDateTime dt = query.value(i).toDateTime();
-
-						dt.setOffsetFromUtc(tzMap.time_zone_offset);
-
-						queryResult.insert(record.fieldName(i), dt.toUTC().toString(Qt::ISODateWithMs));
-						break;
-					}
-					default: {
-						queryResult.insert(record.fieldName(i), query.value(i).toJsonValue());
-						break;
-					}
-					}
-					//queryResult[record.fieldName(i)] = query.value(i).toString();
-				}
-				if (sqlStatements.size() > 1)
-					multi_query_results.append(queryResult);
-				else
-					results->append(queryResult);
-			}
-			if (multi_query_results.size() > 0)
-				results->append(multi_query_results);
-		}
-
-		//query.finish();
-
-		if (!db.commit())
-			db.rollback();
-
-		if (db.isOpen()) {
-			db.close();
-		}
-
-		qDebug() << results;
-	//}
-	//catch (const std::exception& e) {
-	//	if (db.isOpen()) {
-	//		db.rollback();
-	//		//if (!db.commit())
-	//		db.close();
-	//	}
-	//	ServiceHelper().WriteToError(e.what());
-	//	/*if (!queryResult.empty())
-	//		resultVector[0] = queryResult;*/
-
-	//}
-
-	//if (db.isOpen()) {
-	//	db.close();
-	//}
-
-}
-
-QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const QVariantMap& params)
-{
-	//QMutexLocker locker(&p_thread_controller);
-
-	int successCount = 0;
-
-	//QList<QVariant> results;
-	QJsonArray results;
-
-	if (!QSqlDatabase::contains(db_info.schema))
-		GetDatabaseConnection();
-
-	QSqlDatabase db = QSqlDatabase::database(db_info.schema);
-
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
 
 	try {
 		if (!db.isOpen()) {
@@ -528,8 +476,6 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 		}
 		db.transaction();
 
-		QSqlQuery query(db);
-
 		QStringList sqlStatements = sqlQuery.split(';', Qt::SkipEmptyParts);
 
 		qDebug() << "SQL Statements to Execute:" << sqlStatements;
@@ -540,18 +486,27 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
 #endif
 
-		for (const QString& statement : sqlStatements)
+		QSqlQuery query(db);
+		
+		for (int i = 0; i < sqlStatements.size(); ++i)
 		{
-			QString modifyableStatement = statement;
+			QString statement = sqlStatements[i];
 
-			if (modifyableStatement.trimmed() == "")
+			if (statement.trimmed() == "")
 				continue;
+
+
 			LOG << "Executing: " << statement.toStdString();
 
 			QVariantMap boundValues;
 
+			if (statement.contains(":tz") && !params.contains("tz")) {
+				GetTimezone();
+				boundValues.insert(":tz", tz_info.time_zone);
+			}
+
 			if (!params.isEmpty()) {
-				/*query.prepare(statement);*/
+			
 				for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
 					QString key = it.key();
 					QVariant value = it.value();
@@ -563,7 +518,7 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 						qDebug() << value;
 						//qDebug() << "utcOffset" << value.toDateTime().offsetFromUtc();
 
-						boundValues.insert(key, value);
+						boundValues.insert(key, value.toDateTime());
 						continue;
 					}
 
@@ -576,15 +531,17 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 						QStringList values;
 						foreach(QJsonValue val, value.toJsonArray()) {
 							//qDebug() << val;
-							values << "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
+							QString parsedVal = "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
+							if(!values.contains(parsedVal))
+								values << parsedVal;
 						}
 						//qDebug() << values;
 						//qDebug() << "Binding " << QString::fromStdString(":" + key) << " with " << values.join(",");
 						QString val = values.join(",");
 
-						QString firstSection = modifyableStatement.sliced(0, modifyableStatement.indexOf(key));
-						QString secondSection = modifyableStatement.sliced(modifyableStatement.indexOf(key) + key.size());
-						modifyableStatement = firstSection + val + secondSection;
+						QString firstSection = statement.sliced(0, statement.indexOf(key));
+						QString secondSection = statement.sliced(statement.indexOf(key) + key.size());
+						statement = firstSection + val + secondSection;
 						//boundValues.insert(":" + key, val);
 						continue;
 					}
@@ -593,7 +550,7 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 				}
 			}
 
-			query.prepare(modifyableStatement);
+			query.prepare(statement);
 
 			QMapIterator it(boundValues);
 
@@ -602,21 +559,20 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 				query.bindValue(it.key(), it.value());
 			}
 
-			//QList<QVariant> multi_query_results;
-			QJsonArray multi_query_results;
+			QList<QVariantMap> multi_query_results;
+			//QJsonArray multi_query_results;
 
 			if (!query.exec())
-				throw HenchmanServiceException("Failed executing: " + modifyableStatement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
 
 			qDebug() << query.executedQuery();
 			qDebug() << query.boundValues();
 			successCount++;
-			QSqlRecord record(query.record());
-			
+
 			while (query.next())
 			{
-				//QMap<QString, QVariant> queryResult;
-				QJsonObject queryResult;
+				QSqlRecord record(query.record());
+				QVariantMap queryResult;
 
 				for (int i = 0; i < record.count(); ++i)
 				{
@@ -643,9 +599,9 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 						s_TZ_INFO tzMap = GetTimezone();
 
 						QDateTime dt = query.value(i).toDateTime();
-							
+
 						dt.setOffsetFromUtc(tzMap.time_zone_offset);
-							
+
 						queryResult.insert(record.fieldName(i), dt.toUTC().toString(Qt::ISODateWithMs));
 						break;
 					}
@@ -654,32 +610,25 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 						break;
 					}
 					}
-					//queryResult[record.fieldName(i)] = query.value(i).toString();
 				}
-				if (sqlStatements.size() > 1)
-					multi_query_results.append(queryResult);
-				else
-					results.append(queryResult);
-				qDebug() << queryResult;
+				multi_query_results.append(queryResult);
 			}
-			if (sqlStatements.size() > 1)
-				results.append(multi_query_results);
+			if (multi_query_results.size() > 0)
+				localResults.append(multi_query_results);
+
+			query.clear();
 		}
 
-		//query.finish();
+		query.finish();
 
 		if (!db.commit())
 			db.rollback();
-		if (db.isOpen()) {
-			db.close();
-		}
 
-		qDebug() << results;
-	} catch (const std::exception& e) {
+	}
+	catch (const std::exception& e) {
 		if (db.isOpen()) {
 			db.rollback();
 			//if (!db.commit())
-			db.close();
 		}
 		ServiceHelper().WriteToError(e.what());
 		/*if (!queryResult.empty())
@@ -691,22 +640,21 @@ QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const Q
 		db.close();
 	}
 
-	return results;
+	if (results)
+		localResults.swap(*results);
+
 }
 
-QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJsonObject& params)
+
+void QueryManager::ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params, QJsonArray* results)
 {
 	QMutexLocker locker(&p_thread_controller);
 
 	int successCount = 0;
 
-	QJsonArray results;
+	QJsonArray localResults;
 
-	if (!QSqlDatabase::contains(db_info.schema))
-		GetDatabaseConnection();
-
-	QSqlDatabase db = QSqlDatabase::database(db_info.schema);
-
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
 
 	try {
 		if (!db.isOpen()) {
@@ -715,11 +663,7 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 		}
 		db.transaction();
 
-		QSqlQuery query(db);
-
-		QString sql = QString::fromStdString(sqlQuery);
-
-		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
+		QStringList sqlStatements = sqlQuery.split(';', Qt::SkipEmptyParts);
 
 		qDebug() << "SQL Statements to Execute:" << sqlStatements;
 
@@ -729,14 +673,408 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
 #endif
 
+		QSqlQuery query(db);
+		
+		for (QString& statement : sqlStatements)
+		{
+
+			if (statement.trimmed() == "")
+				continue;
+
+			LOG << "Executing: " << statement.toStdString();
+
+			QVariantMap boundValues;
+
+			if (statement.contains(":tz") && !params.contains("tz")) {
+				GetTimezone();
+				boundValues.insert(":tz", tz_info.time_zone);
+			}
+
+			if (!params.isEmpty()) {
+				
+				for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
+					QString key = it.key();
+					QVariant value = it.value();
+					//qDebug() << key << ": " << value;
+					key = ":" + key;
+					//qDebug() << value.typeName();
+
+					if (value.typeId() == QVariant::DateTime) {
+						qDebug() << value;
+						//qDebug() << "utcOffset" << value.toDateTime().offsetFromUtc();
+
+						boundValues.insert(key, value.toDateTime());
+						continue;
+					}
+
+					if (value.canConvert<QString>()) {
+						boundValues.insert(key, value.toString());
+						continue;
+					}
+
+					if (value.canConvert<QJsonArray>()) {
+						QStringList values;
+						foreach(QJsonValue val, value.toJsonArray()) {
+							//qDebug() << val;
+							values << "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
+						}
+						//qDebug() << values;
+						//qDebug() << "Binding " << QString::fromStdString(":" + key) << " with " << values.join(",");
+						QString val = values.join(",");
+
+						QString firstSection = statement.sliced(0, statement.indexOf(key));
+						QString secondSection = statement.sliced(statement.indexOf(key) + key.size());
+						statement = firstSection + val + secondSection;
+						//boundValues.insert(":" + key, val);
+						continue;
+					}
+
+					boundValues.insert(key, value);
+				}
+			}
+
+			query.prepare(statement);
+
+			QMapIterator it(boundValues);
+
+			while (it.hasNext()) {
+				it.next();
+				query.bindValue(it.key(), it.value());
+			}
+
+			//QList<QVariant> multi_query_results;
+			QJsonArray multi_query_results;
+
+			if (!query.exec())
+				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+
+			qDebug() << query.executedQuery();
+			qDebug() << query.boundValues();
+			successCount++;
+
+			while (query.next())
+			{
+				QSqlRecord record(query.record());
+				//QMap<QString, QVariant> queryResult;
+				QJsonObject queryResult;
+
+				for (int i = 0; i < record.count(); ++i)
+				{
+
+					qDebug() << record.fieldName(i) << ": " << query.value(i);
+					switch (query.value(i).typeId()) {
+					case QVariant::String: {
+						queryResult.insert(record.fieldName(i), query.value(i).toString());
+						break;
+					}
+					case QVariant::Int: {
+						queryResult.insert(record.fieldName(i), query.value(i).toInt());
+						break;
+					}
+					case QVariant::Date: {
+						queryResult.insert(record.fieldName(i), query.value(i).toDate().toString(Qt::ISODateWithMs));
+						break;
+					}
+					case QVariant::Time: {
+						queryResult.insert(record.fieldName(i), query.value(i).toTime().toString(Qt::ISODateWithMs));
+						break;
+					}
+					case QVariant::DateTime: {
+						s_TZ_INFO tzMap = GetTimezone();
+
+						QDateTime dt = query.value(i).toDateTime();
+
+						dt.setOffsetFromUtc(tzMap.time_zone_offset);
+
+						queryResult.insert(record.fieldName(i), dt.toUTC().toString(Qt::ISODateWithMs));
+						break;
+					}
+					default: {
+						queryResult.insert(record.fieldName(i), query.value(i).toJsonValue());
+						break;
+					}
+					}
+					//queryResult[record.fieldName(i)] = query.value(i).toString();
+				}
+				if (sqlStatements.size() > 1)
+					multi_query_results.append(queryResult);
+				else
+					localResults.append(queryResult);
+			}
+			if (multi_query_results.size() > 0)
+				localResults.append(multi_query_results);
+			query.clear();
+		}
+		query.finish();
+
+		if (!db.commit())
+			db.rollback();
+	}
+	catch (const std::exception& e) {
+		if (db.isOpen()) {
+			db.rollback();
+			//if (!db.commit())
+		}
+		ServiceHelper().WriteToError(e.what());
+		/*if (!queryResult.empty())
+			resultVector[0] = queryResult;*/
+
+	}
+
+	if (db.isOpen()) {
+		db.close();
+	}
+
+
+	if(results)
+		localResults.swap(*results);
+
+}
+
+QJsonArray QueryManager::ExecuteTargetSql_Array(const QString& sqlQuery, const QVariantMap& params)
+{
+	QMutexLocker locker(&p_thread_controller);
+
+	int successCount = 0;
+
+	//QList<QVariant> results;
+	QJsonArray results;
+	
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
+
+	try {
+		if (!db.isOpen()) {
+			if (!db.open())
+				throw HenchmanServiceException("Failed to open DB Connection");
+		}
+		db.transaction();
+			
+		QStringList sqlStatements = sqlQuery.split(';', Qt::SkipEmptyParts);
+
+		qDebug() << "SQL Statements to Execute:" << sqlStatements;
+
+		QSqlQuery query(db);
+
+#if true
+		if (!query.exec("USE " + db_info.schema + ";"))
+			throw HenchmanServiceException("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
+			//ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
+#endif
+		
 		for (QString& statement : sqlStatements)
 		{
 			if (statement.trimmed() == "")
 				continue;
 			LOG << "Executing: " << statement.toStdString();
 
-			QMap<QString, QVariant> boundValues;
+			QVariantMap boundValues;
+
+			if (statement.contains(":tz") && !params.contains("tz")) {
+				GetTimezone();
+				boundValues.insert(":tz", tz_info.time_zone);
+			}
+
 			if (!params.isEmpty()) {
+
+				for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
+					QString key = it.key();
+					QVariant value = it.value();
+					key = ":" + key;
+
+					if (value.typeId() == QVariant::DateTime) {
+						boundValues.insert(key, value.toDateTime());
+						continue;
+					}
+
+					if (value.canConvert<QString>()) {
+						boundValues.insert(key, value.toString());
+						continue;
+					}
+
+					if (value.canConvert<QJsonArray>()) {
+						QStringList values;
+						foreach(QJsonValue val, value.toJsonArray()) {
+							values << "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
+						}
+						
+						QString val = values.join(",");
+
+						QString firstSection = statement.sliced(0, statement.indexOf(key));
+						QString secondSection = statement.sliced(statement.indexOf(key) + key.size());
+						statement = firstSection + val + secondSection;
+						continue;
+					}
+
+					boundValues.insert(key, value.toString());
+				}
+			}
+
+			query.prepare(statement);
+
+			QMapIterator it(boundValues);
+
+			while (it.hasNext()) {
+				it.next();
+				query.bindValue(it.key(), it.value());
+			}
+
+			if (!query.exec())
+				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+			
+			qDebug() << query.executedQuery();
+			qDebug() << query.boundValues();
+			qDebug() << boundValues;
+
+			successCount++;
+			
+			QJsonArray multi_query_results;
+			
+			while (query.next())
+			{
+				
+				QSqlRecord record = query.record();
+
+				QJsonObject queryResult;
+
+				for (int i = 0; i < record.count(); ++i)
+				{
+
+					qDebug() << record.fieldName(i) << ": " << query.value(i);
+					switch (query.value(i).typeId()) {
+					case QVariant::String: {
+						queryResult.insert(record.fieldName(i), query.value(i).toString());
+						break;
+					}
+					case QVariant::Int: {
+						queryResult.insert(record.fieldName(i), query.value(i).toInt());
+						break;
+					}
+					case QVariant::Date: {
+						queryResult.insert(record.fieldName(i), query.value(i).toDate().toString(Qt::ISODateWithMs));
+						break;
+					}
+					case QVariant::Time: {
+						queryResult.insert(record.fieldName(i), query.value(i).toTime().toString(Qt::ISODateWithMs));
+						break;
+					}
+					case QVariant::DateTime: {
+
+						if (!query.value(i).toDateTime().isValid())
+						{
+							queryResult.insert(record.fieldName(i), "");
+							break;
+						}
+
+						s_TZ_INFO tzMap = GetTimezone();
+
+						QDateTime dt = query.value(i).toDateTime();
+							
+						dt.setOffsetFromUtc(tzMap.time_zone_offset);
+							
+						queryResult.insert(record.fieldName(i), dt.toUTC().toString(Qt::ISODateWithMs));
+						break;
+					}
+					default: {
+						queryResult.insert(record.fieldName(i), query.value(i).toJsonValue());
+						break;
+					}
+					}
+				}
+
+				qDebug() << queryResult;
+
+				if (sqlStatements.size() > 1)
+					multi_query_results.append(queryResult);
+				else
+					results.append(queryResult);
+
+			}
+			if (sqlStatements.size() > 1)
+				results.append(multi_query_results);
+		
+			query.clear();
+		}
+		query.finish();
+
+		if (!db.commit())
+			db.rollback();
+
+	} catch (const std::exception& e) {
+		if (db.isOpen()) {
+			db.rollback();
+		}
+		ServiceHelper().WriteToError(e.what());
+		/*if (!queryResult.empty())
+			resultVector[0] = queryResult;*/
+
+	}
+
+	if (db.isOpen()) {
+		db.close();
+	}
+
+	qDebug() << "Return Arr" << results;
+
+	return results;
+}
+
+QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJsonObject& params)
+{
+
+	int successCount = 0;
+
+	QJsonArray results;
+
+	QMutexLocker locker(&p_thread_controller);
+	
+	QSqlDatabase db = QSqlDatabase::database(db_info.schema);
+
+
+	try {
+		if (db.isOpen()) {
+			qDebug() << "Database Open";
+		}
+
+		if (!db.open())
+			throw HenchmanServiceException("Failed to open DB Connection");
+		db.transaction();
+
+		QStringList sqlStatements = QString::fromStdString(sqlQuery).split(';', Qt::SkipEmptyParts);
+
+		qDebug() << "SQL Statements to Execute:" << sqlStatements;
+
+		QSqlQuery query(db);
+
+#if false
+		if (!query.exec("USE " + db_info.schema + ";"))
+			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
+			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
+#endif
+		
+
+		qDebug() << "Query Valid" << query.isValid();
+		qDebug() << "Query Active" << query.isActive();
+		qDebug() << "Query Active" << db.isOpen();
+		qDebug() << "Query Active" << db.isOpenError();
+
+		for (QString& statement : sqlStatements)
+		{
+			if (statement.trimmed() == "")
+				continue;
+
+			LOG << "Executing: " << statement.toStdString();
+
+			QMap<QString, QVariant> boundValues;
+
+			if (statement.contains(":tz") && !params.contains("tz")) {
+				GetTimezone();
+				qDebug() << tz_info.time_zone;
+				qDebug() << tz_info.time_zone_offset;
+				boundValues.insert(":tz", tz_info.time_zone);
+			}
+
+			if (!params.isEmpty()) {
+
 				/*query.prepare(statement);*/
 				for (auto it = params.constBegin(); it != params.constEnd(); ++it) {
 					QString key = it.key();
@@ -744,10 +1082,12 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 					//qDebug() << key << ": " << value;
 					key = ":" + key;
 					//qDebug() << value.typeName();
-					if (key.contains("updatedAt")) {
-						qDebug() << "key";
+					
+					if (value.typeId() == QVariant::DateTime) {
 						qDebug() << value;
-						qDebug() << "statement";
+
+						boundValues.insert(key, value.toDateTime());
+						continue;
 					}
 
 					if (value.canConvert<QString>()) {
@@ -776,90 +1116,120 @@ QJsonArray QueryManager::ExecuteTargetSql(const std::string& sqlQuery, const QJs
 				}
 			}
 
+			qDebug() << "query: " << statement;
+			qDebug() << "boundVals: " << boundValues;
+
 			query.prepare(statement);
 
 			QMapIterator it(boundValues);
 			
 			while (it.hasNext()) {
 				it.next();
+				qDebug() << "binding " << it.value() << " to " << it.key();
 				query.bindValue(it.key(), it.value());
 			}
 
 			QJsonArray multi_query_results;
+			//query.setForwardOnly(true);
 
-			if (query.exec())
+			qDebug() << "Query Valid" << query.isValid();
+			qDebug() << "Query Active" << query.isActive();
+			qDebug() << "DB Is Open" << db.isOpen();
+
+			if (!query.exec())
+				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+
+			qDebug() << "Query Valid" << query.isValid();
+			qDebug() << "Query Active" << query.isActive();
+			qDebug() << "DB Is Open" << db.isOpen();
+			
+			qDebug() << query.executedQuery();
+			qDebug() << query.boundValues();
+
+			successCount++;
+
+			while (query.next())
 			{
-				//qDebug() << query.executedQuery();
-				successCount++;
-				QSqlRecord record(query.record());
+				QSqlRecord record = query.record();
+					
+				QJsonObject queryResult;
 
-				while (query.next())
+				qDebug() << "Query Valid" << query.isValid();
+				qDebug() << "Query Active" << query.isActive();
+				qDebug() << "DB Is Open" << db.isOpen();
+					
+				for (int i = 0; i < record.count(); ++i)
 				{
-					QJsonObject queryResult;
-					for (int i = 0; i <= record.count() - 1; i++)
-					{
-						qDebug() << query.value(i).typeName();
-						switch (query.value(i).typeId()) {
-						case QVariant::String: {
-							queryResult.insert(record.fieldName(i), query.value(i).toString());
-							break;
-						}
-						case QVariant::Int: {
-							queryResult.insert(record.fieldName(i), query.value(i).toInt());
-							break;
-						}
-						case QVariant::Date: {
-							queryResult.insert(record.fieldName(i), query.value(i).toDate().toString(Qt::ISODateWithMs));
-							break;
-						}
-						case QVariant::Time: {
-							queryResult.insert(record.fieldName(i), query.value(i).toTime().toString(Qt::ISODateWithMs));
-							break;
-						}
-						case QVariant::DateTime: {
-							qDebug() << "Returned Val" << query.value(i).toDateTime();
-							qDebug() << "UTC Val" << query.value(i).toDateTime().toUTC();
-							queryResult.insert(record.fieldName(i), query.value(i).toDateTime().toUTC().toString(Qt::ISODateWithMs));
-							break;
-						}
-						default: {
-							queryResult.insert(record.fieldName(i), query.value(i).toJsonValue());
-							break;
-						}
-						}
-						//queryResult[record.fieldName(i)] = query.value(i).toString();
+					qDebug() << record.fieldName(i) << ": " << query.value(i);
+					switch (query.value(i).typeId()) {
+					case QVariant::String: {
+						queryResult.insert(record.fieldName(i), query.value(i).toString());
+						break;
 					}
-					if (sqlStatements.size() > 1)
-						multi_query_results.push_back(queryResult);
-					else
-						results.push_back(queryResult);
-					qDebug() << queryResult;
+					case QVariant::Int: {
+						queryResult.insert(record.fieldName(i), query.value(i).toInt());
+						break;
+					}
+					case QVariant::Date: {
+						queryResult.insert(record.fieldName(i), query.value(i).toDate().toString(Qt::ISODateWithMs));
+						break;
+					}
+					case QVariant::Time: {
+						queryResult.insert(record.fieldName(i), query.value(i).toTime().toString(Qt::ISODateWithMs));
+						break;
+					}
+					case QVariant::DateTime: {
+						if (!query.value(i).toDateTime().isValid())
+						{
+							qDebug() << "Entry value not valid";
+							queryResult.insert(record.fieldName(i), "");
+							break;
+						}
+
+						queryResult.insert(record.fieldName(i), query.value(i).toDateTime().toUTC().toString(Qt::ISODateWithMs));
+						break;
+					}
+					default: {
+						queryResult.insert(record.fieldName(i), query.value(i).toJsonValue());
+						break;
+					}
+					}
+					//queryResult[record.fieldName(i)] = query.value(i).toString();
 				}
 				if (sqlStatements.size() > 1)
-					results.push_back(multi_query_results);
+					multi_query_results.push_back(queryResult);
+				else
+					results.push_back(queryResult);
+				qDebug() << queryResult;
 			}
-			else {
-				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
-			}
+			if (multi_query_results.size() > 1)
+				results.push_back(multi_query_results);
+			
+			query.clear();
 		}
 
 		query.finish();
 
+		qDebug() << "Query Valid" << query.isValid();
+		qDebug() << "Query Active" << query.isActive();
+		qDebug() << "DB is Open" << db.isOpen();
+
 		if (!db.commit())
 			db.rollback();
-		db.close();
 	}
-	catch (std::exception& e)
+	catch (const std::exception& e)
 	{
-		if (db.isOpen()) {
-			db.rollback();
-			//if (!db.commit())
-			db.close();
-		}
+		db.rollback();
+		
 		ServiceHelper().WriteToError(e.what());
 		/*if (!queryResult.empty())
 			resultVector[0] = queryResult;*/
 
+	}
+
+	if (db.isOpen()) {
+		//if (!db.commit())
+		db.close();
 	}
 
 	return results;
@@ -874,24 +1244,15 @@ std::vector<QStringMap> QueryManager::ExecuteTargetSql(const std::string& sqlQue
 	
 	QMutexLocker locker(&p_thread_controller);
 
-	if (!QSqlDatabase::contains(db_info.schema))
-		GetDatabaseConnection();
-
-	QSqlDatabase db = QSqlDatabase::database(db_info.schema);
-
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
 
 	try {
-		if (db.isOpen()) {
+		if (!db.isOpen()) {
 			qDebug() << "Database is open";
-		}
-		if (!db.open())
-		{
-			// HenchmanServiceException
-			throw HenchmanServiceException("Failed to open DB Connection");
+			if (!db.open())
+				throw HenchmanServiceException("Failed to open DB Connection");
 		}
 		db.transaction();
-
-		QSqlQuery query(db);
 
 		QString sql = QString::fromStdString(sqlQuery);
 
@@ -902,14 +1263,24 @@ std::vector<QStringMap> QueryManager::ExecuteTargetSql(const std::string& sqlQue
 			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
 			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
 #endif
+		QSqlQuery query(db);
 
 		for (QString& statement : sqlStatements)
 		{
 			if (statement.trimmed() == "")
 				continue;
+
+
 			LOG << "Executing: " << statement.toStdString();
 			QMap<QString, QVariant> boundValues;
+
+			if (statement.contains(":tz") && !params.contains("tz")) {
+				GetTimezone();
+				boundValues.insert(":tz", tz_info.time_zone);
+			}
+
 			if (params.size() > 0) {
+
 				/*query.prepare(statement);*/
 				for (auto it = params.cbegin(); it != params.cend(); ++it) {
 					std::string key = it->first;
@@ -953,98 +1324,16 @@ std::vector<QStringMap> QueryManager::ExecuteTargetSql(const std::string& sqlQue
 			{
 				qDebug() << query.executedQuery();
 				successCount++;
-				QSqlRecord record(query.record());
+				
 
 				queryResult["success"] = QString::number(successCount);
 				resultVector.push_back(queryResult);
 
 				while (query.next())
 				{
-					queryResult.clear();
-					for (int i = 0; i <= record.count() - 1; i++)
-					{
-						queryResult[record.fieldName(i)] = query.value(i).toString();
-					}
 
-					resultVector.push_back(queryResult);
-				}
-			}
-			else {
-				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
-			}
-			//query.clear();
-		}
-		query.finish();
-		if (!db.commit())
-			db.rollback();
-		db.close();
-	}
-	catch (std::exception& e)
-	{
-		if (db.isOpen()) {
-			db.rollback();
-			//if (!db.commit())
-			db.close();
-		}
-		ServiceHelper().WriteToError(e.what());
-		if (!queryResult.empty())
-			resultVector[0] = queryResult;
+					QSqlRecord record(query.record());
 
-	}
-
-	return resultVector;
-}
-
-std::vector<QStringMap> QueryManager::ExecuteTargetSql(const std::wstring& sqlQuery)
-{
-	int successCount = 0;
-	std::vector<QStringMap> resultVector;
-	QStringMap queryResult;
-	queryResult["success"] = "0";
-	
-
-	if (!QSqlDatabase::contains(db_info.schema))
-		GetDatabaseConnection();
-
-	QSqlDatabase db = QSqlDatabase::database(db_info.schema);
-
-	try {
-
-		if (!db.open())
-		{
-			// HenchmanServiceException
-			throw HenchmanServiceException("Failed to open DB Connection");
-		}
-		db.transaction();
-
-		QSqlQuery query(db);
-
-		QString sql = QString::fromStdWString(sqlQuery);
-		//sqlQuery.data();
-
-		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
-
-#if false
-		if (!query.exec("USE " + db_info.schema + ";"))
-			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
-			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
-#endif
-
-		for (QString& statement : sqlStatements)
-		{
-			if (statement.trimmed() == "")
-				continue;
-			LOG << "Executing: " << statement.toStdString();
-			if (query.exec(statement))
-			{
-				successCount++;
-				QSqlRecord record(query.record());
-
-				queryResult["success"] = QString::number(successCount);
-				resultVector.push_back(queryResult);
-
-				while (query.next())
-				{
 					queryResult.clear();
 					for (int i = 0; i <= record.count() - 1; i++)
 					{
@@ -1060,21 +1349,108 @@ std::vector<QStringMap> QueryManager::ExecuteTargetSql(const std::wstring& sqlQu
 			query.clear();
 		}
 		query.finish();
+		
 		if (!db.commit())
 			db.rollback();
-		db.close();
 	}
-	catch (std::exception& e)
+	catch (const std::exception& e)
 	{
 		if (db.isOpen()) {
 			db.rollback();
 			//if (!db.commit())
-			db.close();
+		}
+		ServiceHelper().WriteToError(e.what());
+		if (!queryResult.empty())
+			resultVector[0] = queryResult;
+
+	}
+
+	if (db.isOpen())
+		db.close();
+
+	return resultVector;
+}
+
+std::vector<QStringMap> QueryManager::ExecuteTargetSql(const std::wstring& sqlQuery)
+{
+	int successCount = 0;
+	std::vector<QStringMap> resultVector;
+	QStringMap queryResult;
+	queryResult["success"] = TEXT("0");
+	
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
+
+	try {
+
+		if (!db.open())
+		{
+			// HenchmanServiceException
+			throw HenchmanServiceException("Failed to open DB Connection");
+		}
+		db.transaction();
+
+		QString sql = QString::fromStdWString(sqlQuery);
+		//sqlQuery.data();
+
+		QStringList sqlStatements = sql.split(';', Qt::SkipEmptyParts);
+
+#if false
+		if (!query.exec("USE " + db_info.schema + ";"))
+			//throw HenchmanServiceException("Failed to execute DB Query: USE " + schema.toStdString() + ";");
+			ServiceHelper().WriteToError("Failed to execute DB Query: USE " + db_info.schema.toStdString() + ";");
+#endif
+		QSqlQuery query(db);
+
+		for (QString& statement : sqlStatements)
+		{
+			if (statement.trimmed() == "")
+				continue;
+
+			LOG << "Executing: " << statement.toStdString();
+			if (query.exec(statement))
+			{
+				successCount++;
+
+				queryResult["success"] = QString::number(successCount);
+				resultVector.push_back(queryResult);
+
+				while (query.next())
+				{
+					QSqlRecord record(query.record());
+					
+					queryResult.clear();
+					
+					for (int i = 0; i <= record.count() - 1; i++)
+					{
+						queryResult[record.fieldName(i)] = query.value(i).toString();
+					}
+
+					resultVector.push_back(queryResult);
+				}
+			}
+			else {
+				throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query.lastError().text().toStdString());
+			}
+			query.clear();
+		}
+		query.finish();
+
+		if (!db.commit())
+			db.rollback();
+	}
+	catch (const std::exception& e)
+	{
+		if (db.isOpen()) {
+			db.rollback();
+			//if (!db.commit())
 		}
 		ServiceHelper().WriteToError(e.what());
 		resultVector[0] = queryResult;
 
 	}
+
+	if (db.isOpen())
+		db.close();
 
 	return resultVector;
 }
@@ -1117,10 +1493,8 @@ int QueryManager::ExecuteTargetSqlScript(const std::string& filepath)
 {
 	int successCount = 0;
 
-	if (!QSqlDatabase::contains(db_info.schema))
-		GetDatabaseConnection();
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
 
-	QSqlDatabase db = QSqlDatabase::database(db_info.schema);
 	QFile file(filepath.data());
 	try {
 		// HenchmanServiceException
@@ -1138,17 +1512,19 @@ int QueryManager::ExecuteTargetSqlScript(const std::string& filepath)
 			throw HenchmanServiceException("Failed to open DB Connection");
 
 		db.transaction();
-		QSqlQuery query(db);
 
 #if false
 		if (!query.exec("USE " + db_info.schema + ";"))
 			throw HenchmanServiceException("Failed to execute initial DB Query");
 #endif
 
+		QSqlQuery query(db);
+		
 		for (QString& statement : sqlStatements)
 		{
 			if (statement.trimmed() == "")
 				continue;
+			
 			if (query.exec(statement))
 				successCount++;
 			else {
@@ -1160,22 +1536,24 @@ int QueryManager::ExecuteTargetSqlScript(const std::string& filepath)
 			}
 			query.clear();
 		}
-		query.finish();
+
 		if (!db.commit())
 			db.rollback();
-		db.close();
-		file.close();
 	}
 	catch (std::exception& e)
 	{
-		if (file.isOpen())
-			file.close();
+		
 		if (db.isOpen()) {
 			db.rollback();
 			//if (!db.commit())
-			db.close();
 		}
 		ServiceHelper().WriteToError(e.what());
 	}
+
+	if (db.isOpen())
+		db.close();
+	if (file.isOpen())
+		file.close();
+
 	return successCount;
 }
