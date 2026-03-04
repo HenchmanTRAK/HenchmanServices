@@ -84,7 +84,8 @@ namespace EventManager {
 		 *
 		 * @return The event message.
 		 */
-		DWORD EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, const LPCTSTR& buffer, const DWORD& bufferSize) const;
+		DWORD EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, LPCTSTR buffer, const DWORD& bufferSize) const;
+		DWORD EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, std::vector<TCHAR>& buffer) const;
 	};
 
 }

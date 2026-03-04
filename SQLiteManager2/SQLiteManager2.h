@@ -1,18 +1,5 @@
-#ifndef SQLITE_MANAGER_2_H
-#define SQLITE_MANAGER_2_H
 #pragma once
 
-#ifdef SQLITE_MANAGER_2_LIBRARY_EXPORTS
-#define SQLITE_MANAGER_2_LIBRARY_ __declspec(dllexport)
-#else
-#define SQLITE_MANAGER_2_LIBRARY_ __declspec(dllimport)
-#endif
-
-#if defined(SQLITE_MANAGER_2)
-#  define SQLITE_MANAGER_2_EXPORT Q_DECL_EXPORT
-#else
-#  define SQLITE_MANAGER_2_EXPORT Q_DECL_IMPORT
-#endif
 
 #include <iostream>
 #include <map>
@@ -42,6 +29,8 @@
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
 
+#include "sqlitemanager2_export.h"
+
 /**
  * @class SQLiteManager2
  *
@@ -61,7 +50,7 @@
  * @see QSqlDatabase
  * @see QSqlQuery
  */
-class SQLITE_MANAGER_2_EXPORT SQLiteManager2 : public QObject
+class SQLITEMANAGER2_EXPORT SQLiteManager2 : public QObject
 {
 	Q_OBJECT
 
@@ -245,10 +234,8 @@ public:
 	);*/
 
 private:
-	void CreateNewDatabase(QSqlDatabase* db, const QString& databaseName);
+	QSqlDatabase CreateNewDatabase(const QString& databaseName);
 
 };
 
-Q_DECLARE_METATYPE(SQLiteManager2);
-
-#endif
+//Q_DECLARE_METATYPE(SQLiteManager2);

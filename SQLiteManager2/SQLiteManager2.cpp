@@ -10,15 +10,20 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	LOG << "Fetching values from registry";
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, t2tstr("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
-	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
+	DWORD size = 0;
+	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
+	
+	std::vector<TCHAR> buffer;
+	buffer.reserve(size);
+	rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
 	//QString installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
-	QString installDir(buffer);
+	QString installDir(buffer.data());
 
-	rtManager.GetVal("DatabaseName", REG_SZ, (char*)buffer, size);
+	rtManager.GetValSize("DatabaseName", REG_SZ, &size);
+	buffer.resize(size);
+	rtManager.GetVal("DatabaseName", REG_SZ, buffer.data(), &size);
 	//std::string dbName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
-	std::string dbName(buffer);
+	std::string dbName(buffer.data());
 
 	LOG << "Fetching values from ini file";
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
@@ -51,7 +56,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 			throw HenchmanServiceException("QSQLITE database driver was not found");
 
 		LOG << "Checking if database has been previously defined";
-		CreateNewDatabase(&db, databaseName);
+		db = CreateNewDatabase(databaseName);
 		
 		LOG << "Checking if database file is hidden";
 		int attr = GetFileAttributesA(db.databaseName().toUtf8());
@@ -64,46 +69,49 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 	catch (std::exception& e)
 	//catch (const HenchmanServiceException& e)
 	{
-		if (db.isOpen())
-			db.close();
+		
 
 		ServiceHelper().WriteToError(e.what());
 	}
+
+	if (db.isOpen())
+		db.close();
 
 	//RegCloseKey(hKey);
 }
 
 SQLiteManager2::~SQLiteManager2()
 {
+	LOG << "Deconstructing SQLiteManager2";
 	/*if(QSqlDatabase::contains(databaseName))
 		QSqlDatabase::removeDatabase(databaseName);*/
 }
 
-void SQLiteManager2::CreateNewDatabase(QSqlDatabase* targetDatabase, const QString& databaseName)
+QSqlDatabase SQLiteManager2::CreateNewDatabase(const QString& databaseName)
 {
-	QSqlDatabase &db = *targetDatabase;
+	QSqlDatabase db;
 	try {
 		if (QSqlDatabase::contains(databaseName))
 			db = QSqlDatabase::database(databaseName);
 		else {
 			db = QSqlDatabase::addDatabase(databaseDriver, databaseName);
-			db.setDatabaseName(databaseName);
+			db.setDatabaseName(databaseLocation + "\\" +databaseName);
 		}
 
 		LOG << "Initializing Database";
 		if (!db.open())
 			throw HenchmanServiceException("Failed to open database");
 
-		db.close();
 	}
 	catch (const std::exception& e) {
 		if (db.isOpen())
 			db.close();
-		targetDatabase = &db;
 		throw e;
 	}
 
-	targetDatabase = &db;
+	db.close();
+
+	return db;
 }
 
 void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
@@ -116,14 +124,16 @@ void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 
 	if (!db.thread()->isCurrentThread()) {
 		QSqlDatabase::removeDatabase(databaseName);
-		CreateNewDatabase(&db, databaseName);
+		db = CreateNewDatabase(databaseName);
 
 		qDebug() << "Global Manager thread is current: " << this->thread()->isCurrentThread();
 		qDebug() << "Global QSqlDatabase thread is current: " << QSqlDatabase::database(databaseName).thread()->isCurrentThread();
 		qDebug() << "Local QSqlDatabase thread is current: " << db.thread()->isCurrentThread();
 	}
+	else {
+		db = QSqlDatabase::database(databaseName);
+	}
 
-	db = QSqlDatabase::database(databaseName);
 
 	try {
 		// HenchmanServiceException
@@ -174,20 +184,21 @@ void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 
 		if (!db.commit())
 			throw HenchmanServiceException("Failed to commit transaction");
-		db.close();
 
 	}
-	catch (std::exception& e)
+	catch (const std::exception& e)
 		//catch (const HenchmanServiceException& e)
 	{
 		ServiceHelper().WriteToError("An exception was thrown: " + (std::string)e.what());
 		if (db.isOpen())
 		{
 			db.rollback();
-			db.close();
 		}
 		//throw HenchmanServiceException("An exception was thrown: " + (std::string)e.what());
 	}
+	if(db.isOpen())
+		db.close();
+
 	if (results) {
 		resultsArray.swap(*results);
 	}
@@ -610,3 +621,5 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 	}
 	return results;
 }
+
+//#include "moc_SQLiteManager2.cpp"

@@ -6,12 +6,12 @@ INCLUDE(GenerateExportHeader)
 #)
 #message(STATUS "Checking MOC_SOURCES: " ${MOC_SOURCES})
 
-qt_add_library(NetworkManager SHARED NetworkManager.cpp NetworkManager.h)
+qt_add_library(NetworkManager SHARED NetworkManager.cpp)
 #add_library(NetworkManager SHARED "NetworkManager.cpp" "NetworkManager.h" ${MOC_SOURCES})
 qt_disable_unicode_defines(NetworkManager)
 
 #QT_WRAP_CPP(
-#	NetworkManager NetworkManager.cpp
+#	NetworkManager NetworkManager.cpp NetworkManager.h
 #)
 
 #qt_wrap_cpp(NetworkManager NetworkManager.h)
@@ -42,5 +42,7 @@ target_link_libraries(
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET NetworkManager PROPERTY CXX_STANDARD 20)
 endif()
+
+# set_property(TARGET NetworkManager PROPERTY AUTOMOC ON)
 
 GENERATE_EXPORT_HEADER(NetworkManager)

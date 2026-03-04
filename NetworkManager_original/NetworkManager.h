@@ -1,8 +1,4 @@
-
 #pragma once
-
-#ifndef NETWORK_MANAGER_LIBRARY_H
-#define NETWORK_MANAGER_LIBRARY_H
 
 
 //#ifdef NETWORK_MANAGER_EXPORTS
@@ -180,5 +176,3 @@ signals:
  //Q_DECLARE_METATYPE(NetworkManager);
 
 #include "NetworkManager.moc"
-
-#endif

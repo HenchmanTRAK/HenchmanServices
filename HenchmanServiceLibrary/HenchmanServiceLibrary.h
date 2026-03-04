@@ -1,21 +1,8 @@
 ﻿// HenchmanServiceLibrary.h : Include file for standard system include files,
 // or project specific include files.
 
-#ifndef HENCHMAN_SERVICE_LIBRARY_H
-#define HENCHMAN_SERVICE_LIBRARY_H
 #pragma once
 
-#ifdef HENCHMAN_SERVICE_EXPORTS
-#define HENCHMAN_SERVICE_ __declspec(dllexport)
-#else
-#define HENCHMAN_SERVICE_ __declspec(dllimport)
-#endif
-
-#if defined(HENCHMAN_SERVICE)
-#  define HENCHMAN_SERVICE_EXPORT Q_DECL_EXPORT
-#else
-#  define HENCHMAN_SERVICE_EXPORT Q_DECL_IMPORT
-#endif
 
 
 #include <iostream>
@@ -40,6 +27,8 @@
 #include "RegistryManager.h"
 #include "EventManager.h"
 #include "TRAKManager.h"
+
+#include "henchmanservicelibrary_export.h"
 
 
 #include <Windows.h>
@@ -99,7 +88,7 @@
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HENCHMAN_SERVICE_EXPORT HenchmanService: public QObject
+class HENCHMANSERVICELIBRARY_EXPORT HenchmanService: public QObject
 {
 
 	Q_OBJECT
@@ -156,6 +145,7 @@ public:
 	 */
 	//std::unique_ptr<SQLiteManager2> sqliteManager;
 	SQLiteManager2 sqliteManager;
+	DatabaseManager databaseManager;
 
 private:
 	/**
@@ -237,5 +227,3 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
 
 void createUniqueServiceController(const ServiceController::SService& service, bool isTesting = false);
 ServiceController::CServiceController* getServiceController();
-
-#endif

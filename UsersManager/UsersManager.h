@@ -1,7 +1,4 @@
-#ifndef USERS_MANAGER_H
-#define USERS_MANAGER_H
 #pragma once
-
 
 #include <QObject>
 #include <QString>
@@ -9,10 +6,8 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonDocument>
-#include <QFuture>
-#include <QFutureSynchronizer>
-#include <QtConcurrentMap>
-#include <QtConcurrentRun>
+#include <QSqlTableModel>
+#include <QSqlField>
 
 #include "RegistryManager.h"
 #include "SQLiteManager2.h"
@@ -24,13 +19,13 @@
 #include <WinError.h>
 
 
-
 class UsersManager : public TRAKEntriesManager
 {
+	Q_OBJECT
 
 public:
 	using TRAKEntriesManager::TRAKEntriesManager;
-	UsersManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
+	explicit UsersManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
 	~UsersManager();
 
 	int GetLocalCount(const QList<QString>& conditions = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
@@ -39,7 +34,7 @@ public:
 
 	QJsonArray GetRemote(const QJsonArray& columns = QJsonArray(), const QJsonObject& where = QJsonObject(), const QJsonObject& p_select = QJsonObject());
 
-	virtual QJsonArray GetLocal(const QString& query = QString(""), const QJsonObject& placeholders = QJsonObject());
+	QJsonArray GetLocal(const QString& query = QString(""), const QJsonObject& placeholders = QJsonObject());
 
 	QJsonArray GetGroupedRemote(const QJsonArray& columns = QJsonArray(), const QJsonArray& grouped_columns = QJsonArray(), const QJsonArray& group_by = QJsonArray(), const QString& type = QString("COUNT"), const QString& separator = QString(""), const QJsonObject& p_where = QJsonObject());
 
@@ -49,19 +44,18 @@ public:
 	int UpdateRemote(const QJsonObject& entry = QJsonObject(), const QJsonObject& data = QJsonObject());
 
 	QJsonArray UpdateLocal(const QList<QString>& update = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
-	QMap<int, QList<QVariantMap>> UpdateLocal(const QList<QString>& update = QList<QString>(), const QVariantMap& placeholders = QVariantMap());
+	QList<QVariantMap> UpdateLocal(const QList<QString>& update = QList<QString>(), const QVariantMap& placeholders = QVariantMap());
 
 	int UpdateOutdated();
 
 	int SyncWebportal();
 
-	virtual int SyncLocal();
-
-	QJsonArray GetColumns();
+	int SyncLocal();
 
 	int ClearCloudUpdate();
 
 private:
+
 	void breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values);
 	void breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values);
 
@@ -70,5 +64,3 @@ private:
 };
 
 Q_DECLARE_METATYPE(UsersManager);
-
-#endif

@@ -92,6 +92,7 @@ struct WebportalDetails {
 	QString api_url = "";
 	QString api_key = "";
 	int query_limit = 0;
+	QString base_route = "";
 };
 
 /**

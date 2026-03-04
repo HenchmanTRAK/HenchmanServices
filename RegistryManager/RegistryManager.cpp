@@ -28,7 +28,7 @@ using namespace RegistryManager;
 //}
 
 // This is the constructor of a class that has been exported.
-CRegistryManager::CRegistryManager(HKEY hRootKey, const LPCTSTR& subKey)
+CRegistryManager::CRegistryManager(HKEY hRootKey, const TCHAR* subKey)
 	:hKey(hRootKey), lpSubKey(subKey)
 {
 	DWORD lpdwDisposition;
@@ -71,7 +71,7 @@ CRegistryManager::~CRegistryManager()
 		RegCloseKey(hkRegistryKey);
 }
 
-HRESULT CRegistryManager::GetSystemError(const TCHAR* msg, const DWORD& errorCode, const LPCTSTR& buffer, const DWORD& bufferSize) const
+HRESULT CRegistryManager::GetSystemError(const TCHAR* msg, const DWORD& errorCode, const LPCTSTR& buffer, const DWORD& bufferSize)
 {
 
 	HRESULT rs = StringCchPrintf((LPTSTR)buffer,
@@ -104,7 +104,7 @@ LONG CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size
 
 DWORD CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type)
 {
-	LPDWORD size;
+	LPDWORD size = 0;
 	LONG nError = RegGetValue(hkRegistryKey, NULL, lpValue, RRF_RT_ANY | RRF_NOEXPAND | RRF_ZEROONFAILURE, &type, NULL, size);
 
 	//if (nError == ERROR_FILE_NOT_FOUND)
@@ -119,7 +119,14 @@ DWORD CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type)
 		//cout << "Error: " << nError << " Could not get data from registry value " << lpValue << "\n";
 	}
 
-	return *size;
+	DWORD retSize = *size;
+
+	return retSize;
+}
+
+LONG CRegistryManager::SetVal(const TCHAR* lpValue, DWORD type, const PVOID& data, const LPDWORD& size)
+{
+	return SetVal(lpValue, type, data, *size);
 }
 
 LONG CRegistryManager::SetVal(const TCHAR* lpValue, DWORD type, const PVOID& data, const DWORD& size)
@@ -140,10 +147,10 @@ LONG CRegistryManager::SetVal(const TCHAR* lpValue, DWORD type, const PVOID& dat
 	return nError;
 }
 
-LONG CRegistryManager::GetVal(const TCHAR* lpValue, DWORD type, const PVOID& buffer, const DWORD& size)
+LONG CRegistryManager::GetVal(const TCHAR* lpValue, DWORD type, const PVOID& buffer, LPDWORD size)
 {
 
-	LONG nError = RegGetValue(hkRegistryKey, NULL, lpValue, RRF_RT_ANY | RRF_NOEXPAND | RRF_ZEROONFAILURE, &type, buffer, (DWORD*)&size);
+	LONG nError = RegGetValue(hkRegistryKey, NULL, lpValue, RRF_RT_ANY | RRF_NOEXPAND | RRF_ZEROONFAILURE, &type, buffer, size);
 
 	//if (nError == ERROR_FILE_NOT_FOUND)
 	//	data = 0; // The value will be created and set to data next time SetVal() is called.
@@ -160,7 +167,7 @@ LONG CRegistryManager::GetVal(const TCHAR* lpValue, DWORD type, const PVOID& buf
 	return nError;
 }
 
-int CRegistryManager::RemoveTargetKey(HKEY hRootKey, LPCTSTR strKey)
+int CRegistryManager::RemoveTargetKey(const HKEY& hRootKey, const LPCTSTR& strKey)
 {
 	//LONG nError = RegDeleteKey(hRootKey, strKey);
 	LONG nError = RegDeleteTree(hRootKey, strKey);
@@ -177,7 +184,7 @@ int CRegistryManager::RemoveTargetKey(HKEY hRootKey, LPCTSTR strKey)
 	return nError;
 }
 
-int CRegistryManager::RemoveValue(LPCTSTR lpValue)
+int CRegistryManager::RemoveValue(const LPCTSTR& lpValue)
 {
 	LONG nError = RegDeleteValue(hkRegistryKey, lpValue);
 	if (nError)

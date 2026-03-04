@@ -100,7 +100,7 @@ private:
 	 *
 	 * @throws None.
 	 */
-	int exportGeneralTables(DatabaseManager* databaseManager);
+	int exportGeneralTables(DatabaseManager& databaseManager);
 
 public:
 	/**
@@ -163,7 +163,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	int UploadCurrentStateToRemote(DatabaseManager* databaseManager);
+	int UploadCurrentStateToRemote(DatabaseManager& databaseManager);
 };
 
 

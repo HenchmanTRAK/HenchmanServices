@@ -1,35 +1,19 @@
 
 #include "EmployeesManager.h"
 
-//auto EMPLOYEES_ALL_UPDATED = [](int val) { return val == EmployeesManager::NEXTSTEP::ALL_UPDATED ? 1 : 0; };
-
 EmployeesManager::EmployeesManager(QObject* parent, const TrakDetails& trakDetails, const WebportalDetails& webportalDetails, const s_DATABASE_INFO& database_info)
 	:TRAKEntriesManager(parent, trakDetails, webportalDetails, database_info)
 {	
+
+	qDebug() << "Initialized EmployeesManager";
+
 	registryEntry = "employeesChecked";
 
-	try {
-		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-
-		(void)rtManager.GetVal(registryEntry, REG_SZ, (DWORD*)&local_count, sizeof(DWORD));
-
-		QJsonArray rowCheck = queryManager.ExecuteTargetSql("SELECT COUNT(*) FROM employees WHERE userId <> '' AND userId IS NOT NULL", QJsonObject());
-		int local_emp_count = rowCheck.at(0).toObject().value("COUNT(*)").toInt();
-		if (!local_count || local_count != local_emp_count) {
-			local_count = local_emp_count;
-			(void)rtManager.SetVal(registryEntry, REG_DWORD, (DWORD*)&local_count, sizeof(DWORD));
-		}
-
-	}
-	catch (void*)
-	{
-		
-	}	
+	this->Initialize();
 }
 
 EmployeesManager::~EmployeesManager()
 {
-	//TRAKEntriesManager::~TRAKEntriesManager();
 }
 
 void EmployeesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values)
@@ -49,7 +33,7 @@ QJsonArray EmployeesManager::GetColumns()
 	QJsonObject overloader;
 	std::string colQuery =
 		"SHOW COLUMNS from employees";
-	QJsonArray colQueryResults = queryManager.ExecuteTargetSql(colQuery, overloader);
+	QJsonArray colQueryResults = queryManager.execute(colQuery, overloader);
 
 	return colQueryResults;
 }
@@ -68,7 +52,7 @@ int EmployeesManager::GetLocalCount(const QList<QString> & p_conditions, const Q
 		} else if(conditions.isEmpty())
 			throw std::exception();
 
-		QJsonArray rowCount = queryManager.ExecuteTargetSql("SELECT COUNT(*) as total FROM employees WHERE " + conditions.join(" AND "), placeholders);
+		QJsonArray rowCount = queryManager.execute("SELECT COUNT(*) as total FROM employees WHERE " + conditions.join(" AND "), placeholders);
 
 		if (rowCount.size() <= 0 || !rowCount.at(0).isObject()) {
 			throw std::exception();
@@ -197,7 +181,7 @@ QJsonArray EmployeesManager::GetRemote(const QJsonArray& columns, const QJsonObj
 
 QJsonArray EmployeesManager::GetLocal(const QString& query, const QJsonObject& placeholders)
 {
-	return queryManager.ExecuteTargetSql(query, placeholders);
+	return queryManager.execute(query, placeholders);
 }
 
 QJsonArray EmployeesManager::GetGroupedRemote(const QJsonArray& columns, const QJsonArray& grouped_columns, const QJsonArray& group_by, const QString& type, const QString& separator, const QJsonObject& p_where)
@@ -297,7 +281,7 @@ int EmployeesManager::SendToRemote(const QJsonObject& entry, const QJsonObject& 
 
 int EmployeesManager::CreateLocal(const QJsonObject& entry)
 {
-	QJsonArray results = queryManager.ExecuteTargetSql("INSERT INTO employees (" + entry.keys().join(", ") + ") VALUES (:" + entry.keys().join(",:") + ")", entry);
+	QJsonArray results = queryManager.execute("INSERT INTO employees (" + entry.keys().join(", ") + ") VALUES (:" + entry.keys().join(", :") + ")", entry);
 
 	if (results.size() == 0)
 		return 0;
@@ -338,14 +322,14 @@ int EmployeesManager::UpdateRemote(const QJsonObject& entry, const QJsonObject& 
 
 QJsonArray EmployeesManager::UpdateLocal(const QList<QString>& update, const QJsonObject& placeholders)
 {
-	return queryManager.ExecuteTargetSql("UPDATE employees SET " + update.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId", placeholders);
+	return queryManager.execute("UPDATE employees SET " + update.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId", placeholders);
 }
 
-QMap<int, QList<QVariantMap>> EmployeesManager::UpdateLocal(const QList<QString>& update, const QVariantMap& placeholders)
+QList<QVariantMap> EmployeesManager::UpdateLocal(const QList<QString>& update, const QVariantMap& placeholders)
 {
 	QString queryToExec = "UPDATE employees SET " + update.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId";
 	QVariantMap newPlaceholders = placeholders;
-	return queryManager.ExecuteTargetSql_Map(queryToExec, newPlaceholders);
+	return queryManager.execute(queryToExec, newPlaceholders);
 }
 
 void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonObject& remote)
@@ -407,7 +391,7 @@ void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJs
 		qDebug() << where;
 
 		QString queryToExec = "UPDATE employees SET " + set.join(", ") + " WHERE custId = :custId AND empId = :empId";
-		(void)queryManager.ExecuteTargetSql_Map(queryToExec, placeholders);
+		(void)queryManager.execute(queryToExec, placeholders);
 		
 		update.insert("updatedAt", currentDateTime.toString(Qt::ISODate));
 		where.insert("custId", placeholders.value("custId").toJsonValue());
@@ -442,7 +426,7 @@ void EmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJs
 		qDebug() << where;
 
 		QString queryToExec = "UPDATE employees SET " + set.join(", ") + " WHERE custId = :custId AND empId = :empId";
-		(void)queryManager.ExecuteTargetSql_Map(queryToExec, placeholders);
+		(void)queryManager.execute(queryToExec, placeholders);
 
 		update.insert("updatedAt", currentDateTime.toString(Qt::ISODate));
 		where.insert("custId", placeholders.value("custId").toJsonValue());
@@ -514,7 +498,7 @@ int EmployeesManager::SyncWebportal()
 
 	}
 
-	//std::vector sqlQueryResults = queryManager.ExecuteTargetSql(employeeSelect, vMapConditionals);
+	//std::vector sqlQueryResults = queryManager.execute(employeeSelect, vMapConditionals);
 	QJsonArray queryResults = GetLocal(employeeSelect, placeholderMap);
 
 	qDebug() << QJsonDocument(queryResults).toJson().toStdString().data();
@@ -585,7 +569,7 @@ int EmployeesManager::SyncWebportal()
 			empId = data.value("empId").toVariant();
 		}
 		else if (result.contains("empId")) {
-			QJsonArray userEmpId = queryManager.ExecuteTargetSql("SELECT empId as uuid FROM users WHERE custId = :custId AND userId = :userId", data);
+			QJsonArray userEmpId = queryManager.execute("SELECT empId as uuid FROM users WHERE custId = :custId AND userId = :userId", data);
 
 			if (userEmpId.size() >= 1) {
 				empId = userEmpId.at(0).toObject().value("uuid").toVariant();
@@ -595,7 +579,7 @@ int EmployeesManager::SyncWebportal()
 
 		if (empId.isNull())
 		{
-			QJsonArray uuidVector = queryManager.ExecuteTargetSql("SELECT REGEXP_REPLACE(UUID(), '-', '') as uuid", QJsonObject());
+			QJsonArray uuidVector = queryManager.execute("SELECT REGEXP_REPLACE(UUID(), '-', '') as uuid", QJsonObject());
 
 			empId = uuidVector.at(1).toObject().value("uuid");
 
@@ -627,7 +611,7 @@ int EmployeesManager::SyncWebportal()
 			placeholder.insert("empId", empId.toJsonValue());
 			placeholder.insert("userId", data.value("userId"));
 
-			(void)queryManager.ExecuteTargetSql("UPDATE employees SET empId = :empId WHERE userId = :userId", placeholder);
+			(void)queryManager.execute("UPDATE employees SET empId = :empId WHERE userId = :userId", placeholder);
 
 			data["empId"] = empId.toString();
 
@@ -757,7 +741,7 @@ int EmployeesManager::SyncLocal()
 
 	//}
 
-	//std::vector sqlQueryResults = queryManager.ExecuteTargetSql(employeeSelect, vMapConditionals);
+	//std::vector sqlQueryResults = queryManager.execute(employeeSelect, vMapConditionals);
 	
 
 
@@ -887,12 +871,12 @@ int EmployeesManager::UpdateOutdated()
 		(void)rtManager.GetValSize("employeesCheckedDate", REG_SZ, &size);
 	}
 	
-	TCHAR* buffer = new TCHAR[size];
+	std::vector<TCHAR> buffer;
+	buffer.reserve(size);
 
-	(void)rtManager.GetVal("employeesCheckedDate", REG_SZ, buffer, size);
+	(void)rtManager.GetVal("employeesCheckedDate", REG_SZ, buffer.data(), &size);
 
-	QString lastCheckedDateTime(buffer);
-	delete[] buffer;
+	QString lastCheckedDateTime(buffer.data());
 
 	qDebug() << "lastCheckedDateTime" << lastCheckedDateTime;
 	
@@ -906,7 +890,7 @@ int EmployeesManager::UpdateOutdated()
 
 	qDebug() << "placeholder" << placeholder;
 
-	QJsonArray outdatedLocalEmployees = queryManager.ExecuteTargetSql_Array("SELECT * FROM employees WHERE CONVERT_TZ(updatedAt, :tz, '+00:00') >= :last_checked_date", placeholder);
+	QList<QVariantMap> outdatedLocalEmployees = queryManager.execute("SELECT * FROM employees WHERE CONVERT_TZ(updatedAt, :tz, '+00:00') >= :last_checked_date", placeholder);
 
 	qDebug() << "outdatedLocalEmployees" << outdatedLocalEmployees;
 
@@ -928,9 +912,7 @@ int EmployeesManager::UpdateOutdated()
 
 		for (const auto& outdatedLocalEmployee : outdatedLocalEmployees)
 		{
-			if (!outdatedLocalEmployee.isObject())
-				continue;
-			QJsonObject localEmployee = outdatedLocalEmployee.toObject();
+			QJsonObject localEmployee = QJsonObject::fromVariantMap(outdatedLocalEmployee);
 			QJsonObject remoteEmployee;
 
 			for (const auto& outdatedRemoteEmployee : outdatedRemoteEmployees) {
@@ -975,10 +957,7 @@ int EmployeesManager::UpdateOutdated()
 			QJsonObject remoteEmployee = outdatedRemoteEmployee.toObject();
 
 			for (const auto& outdatedLocalEmployee : outdatedLocalEmployees) {
-				if (!outdatedLocalEmployee.isObject())
-					continue;
-
-				QJsonObject outdatedLocalEmployeeObject = outdatedLocalEmployee.toObject();
+				QJsonObject outdatedLocalEmployeeObject = QJsonObject::fromVariantMap(outdatedLocalEmployee);
 				if (outdatedLocalEmployeeObject.value("empId") != localEmployee.value("empId"))
 					continue;
 
@@ -1015,39 +994,14 @@ int EmployeesManager::UpdateOutdated()
 
 int EmployeesManager::ClearCloudUpdate()
 {
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-
-	DWORD size = sizeof(TCHAR);
-
-	(void)rtManager.GetValSize(std::string(registryEntry).append("Date").data(), REG_SZ, &size);
-
-	if (size == 0) {
-		QString currDate = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
-
-		if (rtManager.SetVal(std::string(registryEntry).append("Date").data(), REG_SZ, currDate.toStdString().data(), currDate.toStdString().size()))
-			throw HenchmanServiceException("Failed to store checked date in registery");
-
-		(void)rtManager.GetValSize(std::string(registryEntry).append("Date").data(), REG_SZ, &size);
-	}
-
-	TCHAR* buffer = new TCHAR[size];
-
-	LONG err = rtManager.GetVal(std::string(registryEntry).append("Date").data(), REG_SZ, buffer, size);
-
-	if (err) {
-		const TCHAR* errMsg = "%d";
-		TCHAR buffer[2048] = "\0";
-		rtManager.GetSystemError(errMsg, err, buffer, 2048);
-		throw HenchmanServiceException("Failed to fetch target stored value from registry. Error: " + std::to_string(err) + " - " + std::string(buffer));
-	}
+	QString date = TRAKEntriesManager::ClearCloudUpdate();
 
 	QJsonObject params;
-	params["date"] = QString(buffer);
+	params["date"] = date;
 	params["tz"] = time_zone;
+	qDebug() << "params" << params;
 
-	(void)queryManager.ExecuteTargetSql("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% users%' AND CONVERT_TZ(DatePosted,:tz, '+00:00') < :date AND (posted = 0 OR posted = 2)", params);
-
-	delete[] buffer;
+	(void)queryManager.execute("UPDATE cloudupdate SET posted = 4 WHERE SQLString LIKE '% employees%' AND CONVERT_TZ(DatePosted, :tz, '+00:00') < :date AND (posted = 0 OR posted = 2)", params);
 
 	return NEXTSTEP::ALL_UPDATED;
 };

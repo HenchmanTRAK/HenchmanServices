@@ -177,12 +177,14 @@ void TRAKManager::CreateDataModule()
 
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	DWORD size = 0;
+	std::vector<TCHAR> buffer(size);
 
 	//string serviceInstallDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ) + "\\service.ini";
-	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
-	std::string serviceInstallDir(buffer);
+	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
+	buffer.resize(size);
+	rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+	std::string serviceInstallDir(buffer.data());
 	serviceInstallDir.append("\\service.ini");
 	//RegCloseKey(hKey);
 	try 
@@ -211,21 +213,21 @@ void TRAKManager::CreateDataModule()
 }
 		//cout << "Connecting to Local MySQL Database" << endl;
 
-int TRAKManager::exportGeneralTables(DatabaseManager* databaseManager)
+int TRAKManager::exportGeneralTables(DatabaseManager& databaseManager)
 {
-	if (databaseManager->addEmployeesIfNotExists())
+	if (databaseManager.addEmployeesIfNotExists())
 		return 1;
-	if (databaseManager->addUsersIfNotExists())
+	if (databaseManager.addUsersIfNotExists())
 		return 1;
-	if (databaseManager->addToolsIfNotExists())
+	if (databaseManager.addToolsIfNotExists())
 		return 1;
-	if (databaseManager->addJobsIfNotExists())
+	if (databaseManager.addJobsIfNotExists())
 		return 1;
 	return 0;
 
 }
 
-int TRAKManager::UploadCurrentStateToRemote(DatabaseManager* databaseManager)
+int TRAKManager::UploadCurrentStateToRemote(DatabaseManager& databaseManager)
 {
 	/*if (!databaseManager)
 		return 1;*/
@@ -236,26 +238,26 @@ int TRAKManager::UploadCurrentStateToRemote(DatabaseManager* databaseManager)
 	switch (traktype)
 	{
 	case kabtrak: {
-		return (databaseManager->addKabsIfNotExists() |
-			databaseManager->addDrawersIfNotExists() |
-			databaseManager->addToolsInDrawersIfNotExists() |
-			databaseManager->createKabtrakTransactionsTable());
+		return (databaseManager.addKabsIfNotExists() |
+			databaseManager.addDrawersIfNotExists() |
+			databaseManager.addToolsInDrawersIfNotExists() |
+			databaseManager.createKabtrakTransactionsTable());
 	}
 	case cribtrak: {
-		return (databaseManager->addCribsIfNotExists() |
-			databaseManager->addCribToolLocationIfNotExists() |
-			databaseManager->addCribToolsIfNotExists() |
-			databaseManager->addCribConsumablesIfNotExists() |
-			databaseManager->addCribToolTransferIfNotExists() | 
-			databaseManager->addCribKitsIfNotExists() |
-			databaseManager->createCribtrakTransactionsTable());
+		return (databaseManager.addCribsIfNotExists() |
+			databaseManager.addCribToolLocationIfNotExists() |
+			databaseManager.addCribToolsIfNotExists() |
+			databaseManager.addCribConsumablesIfNotExists() |
+			databaseManager.addCribToolTransferIfNotExists() | 
+			databaseManager.addCribKitsIfNotExists() |
+			databaseManager.createCribtrakTransactionsTable());
 	}
 	case portatrak: {
-		return (databaseManager->addPortasIfNotExists() |
-			databaseManager->addItemKitsIfNotExists() |
-			databaseManager->addKitCategoryIfNotExists() |
-			databaseManager->addKitLocationIfNotExists() |
-			databaseManager->createPortatrakTransactionsTable());
+		return (databaseManager.addPortasIfNotExists() |
+			databaseManager.addItemKitsIfNotExists() |
+			databaseManager.addKitCategoryIfNotExists() |
+			databaseManager.addKitLocationIfNotExists() |
+			databaseManager.createPortatrakTransactionsTable());
 	}
 	default: {
 	

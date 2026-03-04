@@ -1,13 +1,11 @@
-
 qt_add_library(UsersManager STATIC "UsersManager.cpp" "UsersManager.h")
 qt_disable_unicode_defines(UsersManager)
 
 # target_compile_definitions(EmployeesManager PRIVATE EMPLOYEES_MANAGER)
 
-target_link_libraries(
-	UsersManager INTERFACE
-	TRAKEntriesManager
-)
+#QT_WRAP_CPP(
+#	UsersManager UsersManager.cpp
+#)
 
 target_link_libraries(
 	UsersManager PRIVATE
@@ -19,7 +17,6 @@ target_link_libraries(
 	EventManager
 	ServiceHelper
 	RegistryManager
-	Qt6::Concurrent
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

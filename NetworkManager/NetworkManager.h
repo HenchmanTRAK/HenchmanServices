@@ -39,8 +39,8 @@
 #include <QEventLoop>
 
 
-#include "ServiceHelper.h";
-#include "HenchmanServiceException.h";
+#include "ServiceHelper.h"
+#include "HenchmanServiceException.h"
 #include "networkmanager_export.h"
 
 
@@ -58,8 +58,6 @@ private:
 	 */
 	QNetworkAccessManager* netManager = nullptr;
 
-	QTcpSocket sock;
-
 	/**
 	 * @var restManager
 	 *
@@ -68,6 +66,8 @@ private:
 	 * This object is used to make RESTful network requests to the database server.
 	 */
 	QRestAccessManager* restManager = nullptr;
+
+	QTcpSocket sock;
 
 	QNetworkCookieJar cookieJar;
 
@@ -138,7 +138,7 @@ public:
 
 	int makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results = nullptr);
 
-	QRestAccessManager* getRestManager() const;
+	QRestAccessManager* getRestManager();
 
 	void execRequests();
 
@@ -175,10 +175,13 @@ public slots:
 
 signals:
 	void requestFinished(const QJsonDocument& requestResult);
+
+private slots:
+	void replyFinished(QNetworkReply* reply);
 };
 
- Q_DECLARE_METATYPE(NetworkManager);
+//Q_DECLARE_METATYPE(NetworkManager);
 
-//#include "NetworkManager.moc"
+
 
 //#endif

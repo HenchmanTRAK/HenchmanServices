@@ -5,11 +5,6 @@ qt_disable_unicode_defines(EmployeesManager)
 # target_compile_definitions(EmployeesManager PRIVATE EMPLOYEES_MANAGER)
 
 target_link_libraries(
-	EmployeesManager INTERFACE
-	TRAKEntriesManager
-)
-
-target_link_libraries(
 	EmployeesManager PRIVATE
 	TRAKEntriesManager
 	QueryManager

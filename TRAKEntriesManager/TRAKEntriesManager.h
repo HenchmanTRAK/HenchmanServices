@@ -1,5 +1,3 @@
-#ifndef TRAK_ENTRIES_MANAGER_H
-#define TRAK_ENTRIES_MANAGER_H
 #pragma once
 
 
@@ -9,10 +7,9 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonDocument>
-#include <QFuture>
-#include <QFutureSynchronizer>
-#include <QtConcurrentMap>
-#include <QtConcurrentRun>
+
+#include <QSqlTableModel>
+
 
 #include "RegistryManager.h"
 #include "SQLiteManager2.h"
@@ -26,11 +23,12 @@
 
 class TRAKEntriesManager : public QObject
 {
-	Q_OBJECT
+
+	Q_OBJECT;
 
 protected:
+	QJsonArray Columns;
 	const TCHAR* registryEntry = "";
-	const TCHAR* table = "";
 	int local_count = 0;
 	int remote_count = 0;
 	QString time_zone;
@@ -42,6 +40,7 @@ protected:
 	SQLiteManager2 sqliteManager;
 	QueryManager queryManager;
 	NetworkManager networkManager;
+	QSqlTableModel table;
 
 public:
 	enum NEXTSTEP {
@@ -52,9 +51,22 @@ public:
 		CHECK_NEXT_STEP,
 	};
 
-protected:
-	TRAKEntriesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
+
+public:
+	explicit TRAKEntriesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
+
 	~TRAKEntriesManager();
+
+	int GetCurrentState();
+
+	virtual QJsonArray GetColumns(bool reset = false);
+
+protected:
+	void Initialize();
+
+	QString ClearCloudUpdate();
+
+	virtual QSqlTableModel* GetTable();
 
 	virtual int GetLocalCount(const QList<QString>& conditions = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
 
@@ -62,17 +74,19 @@ protected:
 
 	virtual QJsonArray GetRemote(const QJsonArray& columns = QJsonArray(), const QJsonObject& where = QJsonObject(), const QJsonObject& p_select = QJsonObject());
 
-	virtual QJsonArray GetLocal(const QString& query = QString(), const QJsonObject& placeholders = QJsonObject());
+	virtual QJsonArray GetLocal(const QString& query = QString(""), const QJsonObject& placeholders = QJsonObject());
 
 	virtual QJsonArray GetGroupedRemote(const QJsonArray& columns = QJsonArray(), const QJsonArray& grouped_columns = QJsonArray(), const QJsonArray& group_by = QJsonArray(), const QString& type = QString("COUNT"), const QString& separator = QString(""), const QJsonObject& p_where = QJsonObject());
 
 	virtual int SendToRemote(const QJsonObject& entry = QJsonObject(), const QJsonObject& data = QJsonObject());
 	virtual int CreateLocal(const QJsonObject& entry = QJsonObject());
-	
+
 	virtual int UpdateRemote(const QJsonObject& entry = QJsonObject(), const QJsonObject& data = QJsonObject());
-	
+
 	virtual QJsonArray UpdateLocal(const QList<QString>& update = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
-	virtual QMap<int, QList<QVariantMap>> UpdateLocal(const QList<QString>& update = QList<QString>(), const QVariantMap& placeholders = QVariantMap());
+	virtual QList<QVariantMap> UpdateLocal(const QList<QString>& update = QList<QString>(), const QVariantMap& placeholders = QVariantMap());
+
+	virtual void HandleUpdatingEntries(const QJsonObject& local, const QJsonObject& remote);
 
 	virtual int UpdateOutdated();
 
@@ -80,30 +94,18 @@ protected:
 
 	virtual int SyncLocal();
 
-	virtual QJsonArray GetColumns();
-
-public:
-	int GetCurrentState();
-
-	int ClearCloudUpdate();
-
-protected:
 	virtual void breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values);
 	virtual void breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values);
 
-	virtual int UpdateCheckedTime();
-private:
-	
-	virtual void HandleUpdatingEntries(const QJsonObject& local, const QJsonObject& remote);
-
+	int UpdateCheckedTime();
 };
 
 #define NEXT_STEP TRAKEntriesManager::NEXTSTEP
 
-constexpr auto ENTRIES_ALL_UPDATED(int val) { return val == TRAKEntriesManager::NEXTSTEP::ALL_UPDATED; };
-constexpr auto ENTRIES_SYNC_PORTAL(int val) { return val == TRAKEntriesManager::NEXTSTEP::SYNC_PORTAL; };
-constexpr auto ENTRIES_SYNC_LOCAL(int val) { return val == TRAKEntriesManager::NEXTSTEP::SYNC_LOCAL; };
-constexpr auto ENTRIES_UPDATE_OUTDATED(int val) { return val == TRAKEntriesManager::NEXTSTEP::UPDATE_OUTDATED; };
+constexpr auto ENTRIES_ALL_UPDATED(int val) { return val == TRAKEntriesManager::NEXTSTEP::ALL_UPDATED; }
+constexpr auto ENTRIES_SYNC_PORTAL(int val) { return val == TRAKEntriesManager::NEXTSTEP::SYNC_PORTAL; }
+constexpr auto ENTRIES_SYNC_LOCAL(int val) { return val == TRAKEntriesManager::NEXTSTEP::SYNC_LOCAL; }
+constexpr auto ENTRIES_UPDATE_OUTDATED(int val) { return val == TRAKEntriesManager::NEXTSTEP::UPDATE_OUTDATED; }
 constexpr auto ENTRIES_(int val, int status) {
 	switch (status) {
 	case TRAKEntriesManager::NEXTSTEP::ALL_UPDATED: {
@@ -125,8 +127,6 @@ constexpr auto ENTRIES_(int val, int status) {
 		return false;
 	}
 	}
-};
+}
 
 Q_DECLARE_METATYPE(TRAKEntriesManager);
-
-#endif

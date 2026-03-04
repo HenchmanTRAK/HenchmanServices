@@ -360,8 +360,8 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	return ERROR_SUCCESS;
 }
 
-HenchmanService::HenchmanService(QObject *parent)
-: QObject(parent), sqliteManager(parent)
+HenchmanService::HenchmanService(QObject* parent)
+	: QObject(parent), sqliteManager(parent), databaseManager(parent)
 {
 
 	enum ini_keys_enum {
@@ -394,11 +394,14 @@ HenchmanService::HenchmanService(QObject *parent)
 	LOG << std::string("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).data();
 	
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).data());
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
 	
-	rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
-	tstring installDir(buffer);
+	DWORD size = sizeof(TCHAR);
+	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
+	
+	std::vector<TCHAR> buffer(size);
+	
+	rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+	tstring installDir(buffer.data());
 	// HenchmanServiceException
 	LOG << "Install dir: " << installDir;
 	SI_Error rc = ini.LoadFile((installDir + "\\service.ini").data());
@@ -409,7 +412,6 @@ HenchmanService::HenchmanService(QObject *parent)
 	CSimpleIniA::TNamesDepend keys;
 	ini.GetAllKeys("WAMP", keys);
 
-	
 
 	for (auto& val : keys)
 	{
@@ -481,7 +483,7 @@ HenchmanService::HenchmanService(QObject *parent)
 		}
 
 
-		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR*)value.data(), (value.length() + 1)))
+		if (rtManager.SetVal(key.data(), REG_SZ, value.data(), (value.length() + 1)))
 			throw HenchmanServiceException("Failed to set "+ key +" to registry");
 
 		key.clear();
@@ -630,7 +632,7 @@ HenchmanService::~HenchmanService()
 
 	/*if (sqliteManager != nullptr)
 		sqliteManager->deleteLater();*/
-	sqliteManager.deleteLater();
+	//sqliteManager.deleteLater();
 
 	/*if(dbManager != nullptr)
 		dbManager->deleteLater();*/
@@ -720,22 +722,22 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 			}
 #endif
 		}
-		DatabaseManager dbManager;
+		
 
-		dbManager.loadTrakDetailsFromRegistry();
+		databaseManager.loadTrakDetailsFromRegistry();
 
-		dbManager.targetApp = TrakM.appType;
+		databaseManager.targetApp = TrakM.appType;
 
-		if (!dbManager.connectToLocalDB()) {
+		if (!databaseManager.connectToLocalDB()) {
 			throw HenchmanServiceException("Failed to establish connection to local database");
 			//ServiceHelper().WriteToError("Failed to establish connection to local database");
 			//QTimer::singleShot(0, this->parent(), &QCoreApplication::quit);
 			//return 0;
 		}
 		
-		if (!TrakM.UploadCurrentStateToRemote(&dbManager))
+		if (!TrakM.UploadCurrentStateToRemote(databaseManager))
 		{
-			dbManager.connectToRemoteDB();
+			databaseManager.connectToRemoteDB();
 		}
 
 	} 
@@ -751,7 +753,7 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 		
 	
 	ServiceHelper().WriteToLog("Service sleeping for " + std::to_string(timer) + " ms...");
-	QTimer::singleShot(timer, this->parent(), &QCoreApplication::quit);
+	QTimer::singleShot(timer, this, &QCoreApplication::quit);
 	ServiceHelper().WriteToLog("Waiting for QT to finish execution...");
 	a->exec();
 	//Sleep(timer - 1);
@@ -773,11 +775,14 @@ void HenchmanService::checkStateOfMySQL()
 {
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
-	rtManager.GetVal("MySQL_DIR", REG_SZ, (TCHAR *)buffer, size);
+	DWORD size = 0;
+	std::vector<TCHAR> buffer(size);
+	rtManager.GetValSize("MySQL_DIR", REG_SZ, &size);
+	buffer.resize(size);
+
+	rtManager.GetVal("MySQL_DIR", REG_SZ, buffer.data(), &size);
 	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
-	std::string mysql_dir(buffer);
+	std::string mysql_dir(buffer.data());
 	//RegCloseKey(hKey);
 	ServiceHelper().WriteToLog("Checking for Local MYSQL service...");
 	int wampMySQLSvcStatus = svcController->GetSvcStatus("wampmysqld64");
@@ -826,11 +831,14 @@ void HenchmanService::checkStateOfApache()
 	RegCloseKey(hKey);*/
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
-	rtManager.GetVal("Apache_DIR", REG_SZ, (TCHAR*)buffer, size);
-	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
-	std::string apache_dir(buffer);
+	
+	DWORD size = 0;
+	std::vector<TCHAR> buffer(size);
+	rtManager.GetValSize("Apache_DIR", REG_SZ, &size);
+	buffer.resize(size);
+
+	rtManager.GetVal("Apache_DIR", REG_SZ, buffer.data(), &size);
+	std::string apache_dir(buffer.data());
 
 	ServiceHelper().WriteToLog("Checking for Local Apache service...");
 	int wampApacheSvcStatus = svcController->GetSvcStatus("wampapache64");

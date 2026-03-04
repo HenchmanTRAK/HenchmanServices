@@ -48,6 +48,7 @@ struct s_DATABASE_INFO {
 	QString server = "";
 	int port = 0;
 	QStringList conn_options = QStringList();
+	QString table = "";
 };
 
 // QUERY_MANAGER_EXPORT
@@ -73,7 +74,17 @@ public:
 
 	QString getSchema();
 
-	QList<QVariantMap> execute(const TCHAR* sqlQuery, const QVariantMap& placeholders);
+	QList<QVariantMap> execute(const TCHAR* sql, const QVariantMap& placeholders);
+	QList<QVariantMap> execute(const QString& sql, const QVariantMap& placeholders);
+	QList<QVariantMap> execute(const std::string& sql, const QVariantMap& placeholders);
+
+	QJsonArray execute(const TCHAR* sql, const QJsonObject& placeholders);
+	QJsonArray execute(const QString& sql, const QJsonObject& placeholders);
+	QJsonArray execute(const std::string& sql, const QJsonObject& placeholders);
+
+	std::vector<QStringMap> execute(const TCHAR* sql);
+	std::vector<QStringMap> execute(const QString& sql);
+	std::vector<QStringMap> execute(const std::string& sql);
 
 	/**
 	 * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
@@ -87,26 +98,10 @@ public:
 	 *
 	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
 	*/
-	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery, const std::map<std::string, QVariant>& params = std::map<std::string, QVariant>());
 
-	std::vector<QStringMap> ExecuteTargetSql(const std::wstring& sqlQuery);
 
-	/*std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params = QStringMap());*/
-
-	std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params = QVariantMap());
-
-	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params = std::map<const TCHAR*, const TCHAR*>());
-
-	QJsonArray ExecuteTargetSql(const std::string& sqlQuery, const QJsonObject& params);
-	QJsonArray ExecuteTargetSql(const QString& sqlQuery, const QJsonObject& params);
-	QJsonArray ExecuteTargetSql(const TCHAR* sqlQuery, const QJsonObject& params);
-
-	QJsonArray ExecuteTargetSql_Array(const QString& sqlQuery, const QVariantMap& params);
-
-	void ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params, QJsonArray* results);
-	void ExecuteTargetSql(const QString& sqlQuery, const QVariantMap& params, QList<QList<QVariantMap>>* results);
-	
-	QMap<int, QList<QVariantMap>> ExecuteTargetSql_Map(const QString& sqlQuery, const QVariantMap& params);
+	QVariantMap recordToMap(const QSqlRecord& record);
+	QVariantMap processPlaceholders(const QVariantMap& placeholders, QString& statement);
 
 	/**
 	* @brief Executes a target SQL script file on a local database.

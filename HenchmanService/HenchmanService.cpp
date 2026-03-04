@@ -440,10 +440,13 @@ int main(int argc, char* argv[])
 		try {
 			RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
 			//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-			TCHAR buffer[MAX_PATH] = "\0";
 			DWORD size = MAX_PATH;
-			rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
-			tstring installDir(buffer);
+			std::vector<TCHAR> buffer(size);
+			rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
+			buffer.resize(size);
+
+			rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+			tstring installDir(buffer.data());
 			std::cout << installDir << "\n";
 			std::string currDir = std::filesystem::current_path().string();
 			//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
@@ -468,10 +471,14 @@ int main(int argc, char* argv[])
 
 				RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, tstring("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(service->serviceName).data());
 
-				TCHAR eventBuff[1024] = "\0";
-				DWORD eventBuffSize = 1024;
-				rmEvent.GetVal("EventMessageFile", REG_SZ, (TCHAR*)eventBuff, eventBuffSize);
-				tstring eventMessageFile(eventBuff);
+				DWORD size = MAX_PATH;
+				std::vector<TCHAR> buffer(size);
+				rtManager.GetValSize("EventMessageFile", REG_SZ, &size);
+				buffer.resize(size);
+
+				rtManager.GetVal("EventMessageFile", REG_SZ, buffer.data(), &size);
+				
+				tstring eventMessageFile(buffer.data());
 
 				if (!installDir.empty() && (eventMessageFile.empty() || eventMessageFile != installDir))
 				{

@@ -12,8 +12,6 @@ endif()
 if(MSVC)
 if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
 	target_compile_options(<target> PUBLIC "/ZI")
-#else()
-#	target_compile_options(<target> PUBLIC "/ZI")
 endif(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
 	target_link_options(<target> PUBLIC "/INCREMENTAL")
 endif()
@@ -21,10 +19,6 @@ endif()
 set(MSVC_ROOT_DIR C:/Users/Willem/source/repos)
 
 # set the project version. 
-#set(PROJECT_VER_PATCH 6)
-#set(PROJECT_VER_MINOR 1)
-#set(PROJECT_VER_MAJOR 1)
-#set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 file(READ version PROJECT_VER)
 
 
@@ -48,17 +42,8 @@ set($ENV{VERSION} ${PROJECT_VERSION})
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
-
-#execute_process (
-#    COMMAND echo "${Project_Version}" >> "$ENV{VERSION}"
-#    OUTPUT_VARIABLE outVar
-#)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#set(CMAKE_C_STANDARD 17)
-#set(CMAKE_C_STANDARD_REQUIRED ON)
 message(STATUS "Using c++ standard c++ ${CMAKE_CXX_STANDARD}")
 message(STATUS "Using c standard c ${CMAKE_C_STANDARD}")
 
@@ -67,11 +52,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-#if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-#add_compile_definitions("DEBUG=$<CONFIG:Debug>")
-#	add_compile_definitions("")
-#endif()
 
 message (STATUS "CMake version: ${CMAKE_VERSION}")
 message (STATUS "Project version: ${PROJECT_VERSION}")
@@ -118,40 +98,16 @@ MESSAGE(${CMAKE_BUILD_TYPE})
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-#set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
-#set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR};${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/quazip)
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
 find_package(Qt6 REQUIRED COMPONENTS Core Sql Network Concurrent)
 qt_standard_project_setup()
 
-#INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
-#COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
 if(WIN32)
 	find_package(Doxygen REQUIRED dot)
 endif(WIN32)
 
 set(QUAZIP_QT_MAJOR_VERSION 6)
-
-# find_package(QuaZip-Qt5 REQUIRED)
-
-#file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
-#message(WARNING "root: ${OPENSSL_ROOT_DIR}")
-
-#set(mariadbcpp_Dir "C:\\Program Files\\MariaDB\\MariaDB C++ Connector 64-bit")
-#find_library(mariadbcpp PATHS ${mariadbcpp_Dir})
-#find_package(mariadbcpp)
-#include_directories(${mariadbcpp_Dir}/include)
-#link_directories(${mariadbcpp_Dir}/lib)
-
-#find_package(sqlite3 REQUIRED GLOBAL)
-#find_package(OpenSSL REQUIRED GLOBAL)
-
-#message(STATUS "mysql-concpp: " ${MYSQL_CONCPP_VERSION_NUMBER})
-
-#message(WARNING "OpenSSL_VERSION: ${OPENSSL_VERSION}")
-#message(WARNING "OpenSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
-#message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
 option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" ON)
@@ -199,6 +155,8 @@ if(${Qt6_VERSION} EQUAL "6.7.2")
 	set(QMySQL_URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip)
 elseif(${Qt6_VERSION} EQUAL "6.8.0")
 	set(QMySQL_URL https://github.com/user-attachments/files/17289450/qsqlmysql.dll_Qt_SQL_driver_6.8.0_MSVC2022_64-bit.zip)
+elseif(${Qt6_VERSION} EQUAL "6.8.3")
+	set(QMySQL_URL https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/qmysql_6.8.3/qsqlmysql.dll_Qt_SQL_driver_6.8.3_MSVC2022_64-bit.zip)
 endif()
 FetchContent_Declare(
 	QMYSQL

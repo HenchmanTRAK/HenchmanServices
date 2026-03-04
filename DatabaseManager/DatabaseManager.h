@@ -1,18 +1,16 @@
-#ifndef DATABASE_MANAGER_H
-#define DATABASE_MANAGER_H
 #pragma once
 
-#ifdef DATABASE_MANAGER_EXPORTS
-#define DATABASE_MANAGER_ __declspec(dllexport)
-#else
-#define DATABASE_MANAGER_ __declspec(dllimport)
-#endif
+//#ifdef DATABASE_MANAGER_EXPORTS
+//#define DATABASE_MANAGER_ __declspec(dllexport)
+//#else
+//#define DATABASE_MANAGER_ __declspec(dllimport)
+//#endif
 
-#if defined(DATABASE_MANAGER)
-#  define DATABASE_MANAGER_EXPORT Q_DECL_EXPORT
-#else
-#  define DATABASE_MANAGER_EXPORT Q_DECL_IMPORT
-#endif
+//#if defined(DATABASE_MANAGER)
+//#  define DATABASE_MANAGER_EXPORT Q_DECL_EXPORT
+//#else
+//#  define DATABASE_MANAGER_EXPORT Q_DECL_IMPORT
+//#endif
 
 #include <iostream>
 #include <map>
@@ -66,6 +64,8 @@
 #include "QueryManager.h"
 #include "EmployeesManager.h"
 #include "UsersManager.h"
+
+#include "databasemanager_export.h"
 
 
 //#define QT_NO_DEBUG_OUTPUT
@@ -170,12 +170,12 @@ struct s_UpdateLocalTableOptions {
  * - `~DatabaseManager()`: The destructor for the DatabaseManager class.
  * - `void performCleanup()`: Performs cleanup operations for the DatabaseManager object.
  */
-class DATABASE_MANAGER_EXPORT DatabaseManager : public QObject
+class DATABASEMANAGER_EXPORT DatabaseManager : public QObject
 {
 	Q_OBJECT
 
 private:
-	s_DATABASE_INFO db_info = s_DATABASE_INFO();
+	s_DATABASE_INFO db_info;
 	
 
 	/**
@@ -601,8 +601,7 @@ private:
 	void handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns = QStringList(), s_UpdateLocalTableOptions* options = nullptr);
 };
 
-Q_DECLARE_METATYPE(DatabaseManager);
+//Q_DECLARE_METATYPE(DatabaseManager);
 
 std::string getValidDrivers();
 
-#endif

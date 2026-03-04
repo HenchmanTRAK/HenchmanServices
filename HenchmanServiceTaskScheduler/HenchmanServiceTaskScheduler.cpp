@@ -3,8 +3,8 @@
 
 
 std::string convertWCharToStr(const TCHAR* wstr) {
-	using convert_typeX = std::codecvt_utf8<wchar_t>;
-	std::wstring_convert<convert_typeX, wchar_t> converterX;
+	using convert_typeX = std::codecvt_utf8<TCHAR>;
+	std::wstring_convert<convert_typeX, TCHAR> converterX;
 	return converterX.to_bytes(wstr);
 }
 

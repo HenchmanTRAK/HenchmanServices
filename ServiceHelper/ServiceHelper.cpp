@@ -153,15 +153,18 @@ std::string ServiceHelper::GetServicePath(std::string app_path)
 {
 
 	std::string installDir;
-	TCHAR buffer[MAX_PATH];
 	DWORD size = MAX_PATH;
+	std::vector<TCHAR> buffer(size);
 	DWORD _results;
 
 	if (app_path.empty())
 	{
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
-		rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
-		installDir = buffer;
+		
+		rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
+		buffer.resize(size);
+		rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+		installDir = buffer.data();
 		//return app_path.ends_with("\\") ? app_path.substr(0, app_path.find_last_of("/\\")) : app_path;
 	}
 	else
@@ -172,8 +175,8 @@ std::string ServiceHelper::GetServicePath(std::string app_path)
 	if (installDir.empty())
 	{
 		do {
-			_results = GetCurrentDirectory(size, buffer);
-			installDir = buffer;
+			_results = GetCurrentDirectory(size, buffer.data());
+			installDir = buffer.data();
 		} while (_results > installDir.length() && !installDir.empty());
 	}
 

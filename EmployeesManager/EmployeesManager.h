@@ -1,18 +1,4 @@
-#ifndef EMPLOYEES_MANAGER_H
-#define EMPLOYEES_MANAGER_H
 #pragma once
-
-//#ifdef EMPLOYEES_MANAGER_EXPORTS
-//#define EMPLOYEES_MANAGER_ __declspec(dllexport)
-//#else
-//#define EMPLOYEES_MANAGER_ __declspec(dllimport)
-//#endif
-
-//#if defined(EMPLOYEES_MANAGER)
-//#  define EMPLOYEES_MANAGER_EXPORT Q_DECL_EXPORT
-//#else
-//#  define EMPLOYEES_MANAGER_EXPORT Q_DECL_IMPORT
-//#endif
 
 #include <QObject>
 #include <QString>
@@ -37,10 +23,11 @@
 
 class EmployeesManager : public TRAKEntriesManager
 {
+	Q_OBJECT
 
 public:
 	using TRAKEntriesManager::TRAKEntriesManager;
-	EmployeesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
+	explicit EmployeesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
 	~EmployeesManager();
 
 	int GetLocalCount(const QList<QString>& conditions = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
@@ -59,7 +46,7 @@ public:
 	int UpdateRemote(const QJsonObject& entry = QJsonObject(), const QJsonObject& data = QJsonObject());
 	
 	QJsonArray UpdateLocal(const QList<QString>& update = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
-	QMap<int, QList<QVariantMap>> UpdateLocal(const QList<QString>& update = QList<QString>(), const QVariantMap& placeholders = QVariantMap());
+	QList<QVariantMap> UpdateLocal(const QList<QString>& update = QList<QString>(), const QVariantMap& placeholders = QVariantMap());
 
 	int UpdateOutdated();
 
@@ -81,5 +68,3 @@ private:
 };
 
 Q_DECLARE_METATYPE(EmployeesManager);
-
-#endif
