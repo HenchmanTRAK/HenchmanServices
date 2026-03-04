@@ -185,6 +185,9 @@ QVariantMap QueryManager::processPlaceholders(const QVariantMap& placeholders, Q
 		}
 
 		if (value.canConvert<QJsonArray>()) {
+			if (!statement.contains(key))
+				continue;
+
 			QStringList values;
 			foreach(QJsonValue val, value.toJsonArray()) {
 				values << "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";

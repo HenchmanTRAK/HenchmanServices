@@ -61,7 +61,25 @@ TRAKEntriesManager::TRAKEntriesManager(QObject* parent, const TrakDetails& trakD
 
 TRAKEntriesManager::~TRAKEntriesManager()
 {
+	QJsonObject placeholder;
+	placeholder.insert("schema", db_info.schema);
+	placeholder.insert("host", db_info.server);
+	placeholder.insert("username", db_info.username);
 
+	QJsonArray processes = queryManager.execute("SELECT ID FROM INFORMATION_SCHEMA.PROCESSLIST WHERE DB = :schema AND HOST = :host AND USER = :username AND COMMAND LIKE 'Sleep'", placeholder);
+
+	if (processes.size() < 3)
+		return;
+
+	for (const QJsonValue& process : processes)
+	{
+		QJsonObject processId = process.toObject();
+
+		(void)queryManager.execute("KILL :ID", processId);
+	}
+
+	if (QSqlDatabase::contains(db_info.schema))
+		QSqlDatabase::removeDatabase(db_info.schema);
 }
 
 
@@ -811,6 +829,8 @@ QString TRAKEntriesManager::ClearCloudUpdate()
 		rtManager.GetSystemError(errMsg, err, buffer, 2048);
 		throw HenchmanServiceException("Failed to fetch target stored value from registry. Error: " + std::to_string(err) + " - " + std::string(buffer));
 	}
+
+	rtManager.SetVal(registryEntry, REG_DWORD, &local_count, sizeof(local_count));
 	
 	return date;
 };

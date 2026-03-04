@@ -9,7 +9,7 @@ EmployeesManager::EmployeesManager(QObject* parent, const TrakDetails& trakDetai
 
 	registryEntry = "employeesChecked";
 
-	this->Initialize();
+	TRAKEntriesManager::Initialize();
 }
 
 EmployeesManager::~EmployeesManager()

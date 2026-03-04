@@ -458,6 +458,7 @@ int DatabaseManager::addUsersIfNotExists()
 	LOG << "Adding Users to Webportal";
 	QString targetKey = "users";
 	timeStamp = ServiceHelper().timestamp();
+	connectToLocalDB();
 
 	TrakDetails trakDetails;
 	/*trakDetails.schema = queryManager.getSchema();*/
@@ -656,6 +657,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	LOG << "Adding Employees to Webportal";
 	QString targetKey = "employees";
 	timeStamp = ServiceHelper().timestamp();
+	connectToLocalDB();
 
 	TrakDetails trakDetails;
 	/*trakDetails.schema = queryManager.getSchema();*/

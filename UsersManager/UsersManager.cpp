@@ -9,7 +9,7 @@ UsersManager::UsersManager(QObject* parent, const TrakDetails& trakDetails, cons
 
 	registryEntry = "usersChecked";
 
-	this->Initialize();
+	TRAKEntriesManager::Initialize();
 
 }
 
@@ -745,7 +745,7 @@ int UsersManager::SyncWebportal()
 		if (webportalGroupedResults.size() <= 0)
 			select = "SELECT * FROM users WHERE empId NOT IN (:empIds) AND userId NOT IN (:userIds) ORDER BY id ASC LIMIT " + QString::number(webportal_details.query_limit);
 		else {
-			select = "SELECT * FROM users WHERE (empId NOT IN (:empIds) AND userId NOT IN (:userIds)) OR CONVERT_TZ(updatedAt, :tz, '+00:00') NOT IN (:updatedAts) ORDER BY updatedAt ASC, id ASC LIMIT " + QString::number(webportal_details.query_limit);
+			select = "SELECT * FROM users WHERE (empId NOT IN (:empIds) AND userId NOT IN (:userIds)) ORDER BY updatedAt ASC, id ASC LIMIT " + QString::number(webportal_details.query_limit);
 			placeholderMap.insert("updatedAts", updatedAtDates);
 		}
 
@@ -764,7 +764,7 @@ int UsersManager::SyncWebportal()
 		QJsonObject result = queryResult.toObject();
 
 
-		if (placeholderMap.value("userIds").toArray().contains(result.value("userId")) && placeholderMap.value("empIds").toArray().contains(result.value("empId")))
+		if (placeholderMap.value("userIds").toArray().contains(result.value("userId")))
 		{
 			result[trak_details.trak_id_type] = trak_details.trak_id;
 
@@ -809,6 +809,9 @@ int UsersManager::SyncWebportal()
 
 		if (!data.contains(trak_details.trak_id_type) || data.value(trak_details.trak_id_type).toString() != trak_details.trak_id)
 			data[trak_details.trak_id_type] = trak_details.trak_id;
+
+		if (!data.contains("custId"))
+			data["custId"] = trak_details.cust_id;
 
 		QVariant empId;
 
