@@ -11,9 +11,10 @@ endif()
 
 if(MSVC)
 if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
-	target_compile_options(<target> PUBLIC "/ZI")
-endif(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
+	target_compile_options(<target> PUBLIC "/ZI" /MDd)
+else(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
 	target_link_options(<target> PUBLIC "/INCREMENTAL")
+endif(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
 endif()
 
 set(MSVC_ROOT_DIR C:/Users/Willem/source/repos)
@@ -57,6 +58,8 @@ message (STATUS "CMake version: ${CMAKE_VERSION}")
 message (STATUS "Project version: ${PROJECT_VERSION}")
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+set(CMAKE_CXX_VISIBILITY_PRESET "hidden")
+set(CMAKE_VISIBILITY_INLINES_HIDDEN TRUE)
 set(CMAKE_AUTOMOC ON)
 
 # set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} /Wall /GR)
@@ -194,7 +197,9 @@ LIST(APPEND ADDITIONAL_LIBRARIES "NetworkManager")
 add_subdirectory (QueryManager)
 add_subdirectory (TRAKEntriesManager)
 add_subdirectory (EmployeesManager)
+LIST(APPEND ADDITIONAL_LIBRARIES "EmployeesManager")
 add_subdirectory (UsersManager)
+LIST(APPEND ADDITIONAL_LIBRARIES "UsersManager")
 add_subdirectory (DatabaseManager)
 LIST(APPEND ADDITIONAL_LIBRARIES "DatabaseManager")
 add_subdirectory (TRAKManager)
@@ -331,7 +336,7 @@ install(
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}							COMPONENT Runtime
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${CMAKE_PROJECT_NAME}	COMPONENT Development
 )
-add_dependencies(HenchmanService HenchmanServiceController DatabaseManager)
+add_dependencies(HenchmanService HenchmanServiceController)
 #set_property(TARGET HenchmanService PROPERTY WIN32_EXECUTABLE TRUE)
 install (PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
 		DESTINATION ${CMAKE_INSTALL_BINDIR}	COMPONENT Runtime)

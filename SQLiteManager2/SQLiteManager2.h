@@ -77,7 +77,7 @@ private:
 	QString databaseLocation;
 
 	//QSqlDatabase db;
-	QMutex mutex;
+	//QMutex mutex;
 
 public:
 

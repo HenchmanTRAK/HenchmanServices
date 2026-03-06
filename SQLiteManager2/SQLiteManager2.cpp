@@ -118,7 +118,6 @@ void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 {
 	QJsonArray resultsArray;
 
-	QMutexLocker locket(&mutex);
 
 	QSqlDatabase db;
 

@@ -1,6 +1,6 @@
-INCLUDE(GenerateExportHeader)
+#INCLUDE(GenerateExportHeader)
 
-qt_add_library(DatabaseManager SHARED DatabaseManager.cpp)
+qt_add_library(DatabaseManager SHARED DatabaseManager.cpp DatabaseManager.h)
 qt_disable_unicode_defines(DatabaseManager)
 
 message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
@@ -32,9 +32,8 @@ target_link_libraries(
 )
 
 target_include_directories(
-	DatabaseManager PUBLIC 
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_CURRENT_BINARY_DIR}
+	DatabaseManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
+#	PUBLIC ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
@@ -43,4 +42,4 @@ endif()
 
 # set_property(TARGET DatabaseManager PROPERTY AUTOMOC ON)
 
-GENERATE_EXPORT_HEADER(DatabaseManager)
+#GENERATE_EXPORT_HEADER(DatabaseManager)

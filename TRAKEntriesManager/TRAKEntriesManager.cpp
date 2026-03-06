@@ -2,29 +2,29 @@
 #include "TRAKEntriesManager.h"
 
 //auto EMPLOYEES_ALL_UPDATED = [](int val) { return val == EmployeesManager::NEXTSTEP::ALL_UPDATED ? 1 : 0; };
-
-TRAKEntriesManager::TRAKEntriesManager(QObject* parent, const TrakDetails& trakDetails, const WebportalDetails& webportalDetails, const s_DATABASE_INFO& database_info)
-	: QObject(parent), sqliteManager(parent), queryManager(parent, database_info), networkManager(parent), table(this, QSqlDatabase::database(database_info.schema))
+using namespace TRAKEntriesManager;
+CTRAKEntriesManager::CTRAKEntriesManager(QObject* parent, const TrakDetails& trakDetails, const WebportalDetails& webportalDetails, const s_DATABASE_INFO& database_info)
+	: QObject(parent), m_sqliteManager(parent), m_queryManager(parent, database_info), m_networkManager(parent), m_table(parent, QSqlDatabase::database(database_info.schema))
 {
 	qDebug() << "Initialized TRAKEntriesManager";
 
-	registryEntry = "customersChecked";
+	m_registryEntry = "customersChecked";
 
-	trak_details = trakDetails;
-	webportal_details = webportalDetails;
-	db_info = database_info;	
+	m_trak_details = trakDetails;
+	m_webportal_details = webportalDetails;
+	m_db_info = database_info;
 
-	queryManager.set_database_details(db_info);
+	m_queryManager.set_database_details(m_db_info);
 
-	networkManager.setApiUrl(webportal_details.api_url);
-	networkManager.setApiKey(webportal_details.api_key);
-	networkManager.toggleSecureTransport(DEBUG);
+	m_networkManager.setApiUrl(m_webportal_details.api_url);
+	m_networkManager.setApiKey(m_webportal_details.api_key);
+	m_networkManager.toggleSecureTransport(DEBUG);
 
 	try {
-		if (!db_info.schema.isEmpty())
+		if (!m_db_info.schema.isEmpty())
 			throw std::exception();
 
-		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, ("SOFTWARE\\HenchmanTRAK\\" + trak_details.trak_type + "\\Database").toStdString().c_str());
+		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, ("SOFTWARE\\HenchmanTRAK\\" + m_trak_details.trak_type + "\\Database").toStdString().c_str());
 
 		DWORD size = sizeof(TCHAR);
 
@@ -36,98 +36,193 @@ TRAKEntriesManager::TRAKEntriesManager(QObject* parent, const TrakDetails& trakD
 
 		rtManager.GetVal("Schema", REG_SZ, buffer.data(), &size);
 
-		trak_details.schema = QString(buffer.data());
-		db_info.schema = trak_details.schema;
+		m_trak_details.schema = QString(buffer.data());
+		buffer.clear();
+		m_db_info.schema = m_trak_details.schema;
 
-		queryManager.setSchema(db_info.schema);
+		m_queryManager.setSchema(m_db_info.schema);
 	}
 	catch (const std::exception& e)
 	{
 		LOG << "database_info.schema was not empty, skipping setting schema manually";
 	}
 
-	s_TZ_INFO tzMap = queryManager.GetTimezone();
+	s_TZ_INFO tzMap = m_queryManager.GetTimezone();
 
-	time_zone = tzMap.time_zone;
+	m_time_zone = tzMap.time_zone;
 
 	try {
-		if (networkManager.isInternetConnected())
-			(void)networkManager.authenticateSession();
+		if (m_networkManager.isInternetConnected())
+			(void)m_networkManager.authenticateSession();
 	}
 	catch (const std::exception& e) {
 		throw e;
 	}
+
+	CleanTable();
+
+	return;
 }
 
-TRAKEntriesManager::~TRAKEntriesManager()
+CTRAKEntriesManager::~CTRAKEntriesManager()
 {
+	LOG << "Deconstructing TRAKEntriesManager";
+
+	CleanTable();
+
 	QJsonObject placeholder;
-	placeholder.insert("schema", db_info.schema);
-	placeholder.insert("host", db_info.server);
-	placeholder.insert("username", db_info.username);
+	placeholder.insert("schema", m_db_info.schema);
+	placeholder.insert("host", m_db_info.server);
+	placeholder.insert("username", m_db_info.username);
 
-	QJsonArray processes = queryManager.execute("SELECT ID FROM INFORMATION_SCHEMA.PROCESSLIST WHERE DB = :schema AND HOST = :host AND USER = :username AND COMMAND LIKE 'Sleep'", placeholder);
+	QJsonArray processes = m_queryManager.execute("SELECT ID FROM INFORMATION_SCHEMA.PROCESSLIST WHERE DB = :schema AND HOST = :host AND USER = :username AND COMMAND LIKE 'Sleep' ORDER BY TIME DESC", placeholder);
 
-	if (processes.size() < 3)
-		return;
-
-	for (const QJsonValue& process : processes)
+	for (int i = 0; i < processes.size() - 1; ++i)
 	{
+		QJsonValue process = processes.at(i);
 		QJsonObject processId = process.toObject();
 
-		(void)queryManager.execute("KILL :ID", processId);
+		(void)m_queryManager.execute("KILL :ID", processId);
 	}
 
-	if (QSqlDatabase::contains(db_info.schema))
-		QSqlDatabase::removeDatabase(db_info.schema);
+	m_sqliteManager.deleteLater();
+	m_queryManager.deleteLater();
+	m_networkManager.deleteLater();
+
+	return;
 }
 
 
-void TRAKEntriesManager::Initialize()
+void CTRAKEntriesManager::Initialize()
 {
 	try {
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
 		DWORD size = sizeof(local_count);
 
-		(void)rtManager.GetValSize(registryEntry, REG_DWORD, &size);
+		(void)rtManager.GetValSize(m_registryEntry, REG_DWORD, &size);
 
-		(void)rtManager.GetVal(registryEntry, REG_DWORD, &local_count, &size);
+		(void)rtManager.GetVal(m_registryEntry, REG_DWORD, &local_count, &size);
 
 		QJsonObject placeholders;
 
-		(void)placeholders.insert(trak_details.trak_id_type, trak_details.trak_id);
+		(void)placeholders.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 
-		QJsonArray rowCheck = queryManager.execute("SELECT COUNT(*) as " + db_info.table + " FROM users WHERE userId <> '' AND userId IS NOT NULL", placeholders);
-		int local_emp_count = rowCheck.at(0).toObject().value("total").toInt();
+		int rowCheck = GetLocalCount();
+		int local_emp_count = rowCheck;
 		if (!local_count || local_count != local_emp_count) {
 			local_count = local_emp_count;
 			size = sizeof(local_count);
-			(void)rtManager.SetVal(registryEntry, REG_DWORD, &local_count, size);
+			(void)rtManager.SetVal(m_registryEntry, REG_DWORD, &local_count, size);
 		}
 
+
+		(void)GetColumns();
 
 	}
 	catch (const std::exception& e) {
 		throw e;
 	}
-
-	if (table.database().isOpen())
-		table.database().close();
 }
 
-QSqlTableModel* TRAKEntriesManager::GetTable()
+void CTRAKEntriesManager::handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns, s_UpdateLocalTableOptions* options)
 {
-	if (!table.database().isOpen())
-		table.database().open();
+	//QueryManager queryManager(this, db_info);
+	if (!options)
+		return;
 
-	if (table.tableName() != db_info.table)
-		table.setTable(db_info.table);
+	if (options->AddCreatedAt) {
+		(void)m_queryManager.execute("ALTER TABLE " + table + " ADD createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP");
+		options->AddCreatedAt = false;
+	}
 
-	return &table;
+	if (options->UpdateCreatedAt) {
+		(void)m_queryManager.execute("ALTER TABLE " + table + " ALTER createdAt SET DEFAULT CURRENT_TIMESTAMP");
+		options->UpdateCreatedAt = false;
+	}
+
+	if (options->AddUpdatedAt) {
+		(void)m_queryManager.execute("ALTER TABLE " + table + " ADD updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+		options->AddUpdatedAt = false;
+	}
+
+	if (options->UpdateUpatedAt) {
+		(void)m_queryManager.execute("ALTER TABLE " + table + " ALTER updatedAt SET DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+		options->UpdateUpatedAt = false;
+	}
+
+	if (options->AddEmpIdSqliteOnly && !options->AddEmpId) {
+		(void)m_sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+		options->AddEmpIdSqliteOnly = false;
+	}
+	else {
+		options->AddEmpIdSqliteOnly = false;
+	}
+
+	if (options->AddEmpId) {
+		(void)m_sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+		(void)m_queryManager.execute("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
+		options->AddEmpId = false;
+	}
+
+	if (options->CreateUniqueIndex) {
+		if (unique_columns.isEmpty())
+			throw HenchmanServiceException("Cannot add unique index without providing columns");
+		(void)m_sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + unique_columns.join("_") + " ON " + table + "(" + unique_columns.join(",") + ")");
+		options->CreateUniqueIndex = false;
+	}
 }
 
-void TRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values)
+QSqlTableModel* CTRAKEntriesManager::GetTable()
+{
+	if (!m_table.database().isOpen())
+		m_table.database().open();
+
+	if (m_table.tableName() != m_db_info.table)
+		m_table.setTable(m_db_info.table);
+
+	if (m_table.editStrategy() != QSqlTableModel::OnManualSubmit)
+		m_table.setEditStrategy(QSqlTableModel::OnManualSubmit);
+
+	m_table.select();
+
+	return &m_table;
+}
+
+QSqlTableModel* CTRAKEntriesManager::CleanTable()
+{
+
+	if (!m_table.database().isOpen())
+		m_table.database().open();
+
+	if (m_table.tableName() != m_db_info.table)
+		m_table.setTable(m_db_info.table);
+
+	m_table.clear();
+
+	m_table.database().close();
+
+	return &m_table;
+}
+
+QSqlQueryModel* CTRAKEntriesManager::GetQuery()
+{
+	m_query = new QSqlQueryModel(this);
+
+	return m_query;
+}
+
+void CTRAKEntriesManager::CleanQuery()
+{
+	if (m_query) {
+		m_query->clear();
+		m_query->deleteLater();
+		m_query = nullptr;
+	}
+
+}
+
+void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QJsonObject* updated_values)
 {
 	QVariantMap temp_variantMap;
 
@@ -136,7 +231,7 @@ void TRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const 
 	updated_values->toVariantMap().swap(temp_variantMap);
 }
 
-void TRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values)
+void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values)
 {
 
 	QList<QString> excludeCols({ "id", "createdAt", "updatedAt" });
@@ -193,69 +288,89 @@ void TRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const 
 	update.swap(*updated_values);
 };
 
-QJsonArray TRAKEntriesManager::GetColumns(bool reset)
+QJsonArray CTRAKEntriesManager::GetColumns(bool reset)
 {
-	if (Columns.size() > 0 && !reset)
-		return Columns;
+	if (reset) {
+		m_Columns = QJsonArray();
+	}
 
+	if(m_Columns.size() > 0)
+		return m_Columns;
 
-	QJsonObject overloader;
-	QString colQuery =
-		"SHOW COLUMNS from " + db_info.table;
-	//QJsonArray colQueryResults = queryManager.execute(colQuery, overloader);
 
 	GetTable();
 
-	QSqlQuery query(colQuery, table.database());
+	QJsonObject overloader;
+	QString colQuery =
+		"SHOW COLUMNS from " + m_db_info.table;
+	//QJsonArray colQueryResults = queryManager.execute(colQuery, overloader);
 
-	table.setQuery(query);
+	m_table.setQuery(colQuery, m_table.database());
 
-	for (int i = 0; i < table.rowCount(); ++i)
+	qDebug() << "Returned Count" << m_table.rowCount();
+
+	for (int i = 0; i < m_table.rowCount(); ++i)
 	{
-		QVariantMap results = queryManager.recordToMap(table.record(i));
-		Columns.append(QJsonObject::fromVariantMap(results));
+		QVariantMap results = m_queryManager.recordToMap(m_table.record(i));
+		m_Columns.append(QJsonObject::fromVariantMap(results));
 	}
 
-	table.clear();
+	CleanTable();
 
-	table.database().close();
-
-	return Columns;
+	return m_Columns;
 }
 
-int TRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const QJsonObject& p_placeholders)
+QStringList CTRAKEntriesManager::GetColumnNames(bool reset)
+{
+	if (reset)
+	{
+		m_TableColumns.clear();
+	}
+
+	if(m_TableColumns.size() > 0 && m_TableColumns.size() == m_Columns.size())
+		return m_TableColumns;
+
+	QJsonArray columns = GetColumns(reset);
+
+	for (int i = 0; i < columns.size(); ++i)
+	{
+		m_TableColumns.append(columns.at(i).toObject().value("Field").toString());
+	}
+
+	return m_TableColumns;
+}
+
+int CTRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const QJsonObject& p_placeholders)
 {
 	int local = 0;
+
+	GetTable();
 
 	try {
 		QList<QString> conditions(p_conditions);
 		QJsonObject placeholders(p_placeholders);
 
-
 		if (conditions.isEmpty())
 			throw std::exception();
 
-		GetTable();
-
 		if (placeholders.isEmpty()) {
-			table.setFilter(conditions.join(" AND "));
-			table.select();
+			m_table.setFilter(conditions.join(" AND "));
+			m_table.select();
 		}
 		else {
-			QSqlQuery query(table.database());
-			query.prepare("SELECT id FROM "+db_info.table+" WHERE " + conditions.join(" AND "));
+			QSqlQuery query(m_table.database());
+			query.prepare("SELECT id FROM "+ m_db_info.table+" WHERE " + conditions.join(" AND "));
 
 			for (const auto& placeholder : placeholders.keys())
 			{
 				query.bindValue(":" + placeholder, placeholders.value(placeholder));
 			}
-			table.setQuery(query);
+			m_table.setQuery(query);
 		}
 
-		local = table.rowCount();
+		local = m_table.rowCount();
 
-		table.clear();
-		table.database().close();
+		CleanTable();
 
 		qDebug() << local;
 
@@ -273,7 +388,7 @@ int TRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const 
 	return local;
 }
 
-int TRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJsonObject& p_where, QJsonObject* p_returned_data)
+int CTRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJsonObject& p_where, QJsonObject* p_returned_data)
 {
 	int remote = 0;
 
@@ -283,10 +398,10 @@ int TRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJsonO
 		QJsonObject select(p_select);
 
 		if (!where.contains("custId"))
-			(void)where.insert("custId", QString::number(trak_details.cust_id));
+			(void)where.insert("custId", QString::number(m_trak_details.cust_id));
 
-		if (!where.contains(trak_details.trak_id_type))
-			(void)where.insert(trak_details.trak_id_type, trak_details.trak_id);
+		if (!where.contains(m_trak_details.trak_id_type))
+			(void)where.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 
 		if (!select.contains("count"))
 			(void)select.insert("count", "total");
@@ -296,7 +411,7 @@ int TRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJsonO
 
 		QJsonDocument reply;
 
-		if (!networkManager.makeGetRequest(webportal_details.api_url + "/" + webportal_details.base_route, query, &reply))
+		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
 			throw std::exception();
 		}
@@ -329,7 +444,7 @@ int TRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJsonO
 	return remote;
 }
 
-QJsonArray TRAKEntriesManager::GetRemote(const QJsonArray& columns, const QJsonObject& p_where, const QJsonObject& p_select)
+QJsonArray CTRAKEntriesManager::GetRemote(const QJsonArray& columns, const QJsonObject& p_where, const QJsonObject& p_select)
 {
 
 	QJsonArray returnedValues;
@@ -341,10 +456,10 @@ QJsonArray TRAKEntriesManager::GetRemote(const QJsonArray& columns, const QJsonO
 		QJsonObject select(p_select);
 
 		if (!where.contains("custId"))
-			(void)where.insert("custId", QString::number(trak_details.cust_id));
+			(void)where.insert("custId", QString::number(m_trak_details.cust_id));
 
-		if (!where.contains(trak_details.trak_id_type))
-			(void)where.insert(trak_details.trak_id_type, trak_details.trak_id);
+		if (!where.contains(m_trak_details.trak_id_type))
+			(void)where.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 
 		(void)query.insert("where", where);
 
@@ -363,7 +478,7 @@ QJsonArray TRAKEntriesManager::GetRemote(const QJsonArray& columns, const QJsonO
 
 		QJsonDocument reply;
 
-		if (!networkManager.makeGetRequest(webportal_details.api_url + "/" + webportal_details.base_route, query, &reply))
+		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
 			throw std::exception();
 		}
@@ -386,16 +501,16 @@ QJsonArray TRAKEntriesManager::GetRemote(const QJsonArray& columns, const QJsonO
 	return returnedValues;
 }
 
-QJsonArray TRAKEntriesManager::GetLocal(const QString& query, const QJsonObject& placeholders)
+QJsonArray CTRAKEntriesManager::GetLocal(const QString& query, const QJsonObject& placeholders)
 {
 	GetTable();
 
 	if (!placeholders.isEmpty()) {
-		QSqlQuery sqlQuery(table.database());
+		QSqlQuery sqlQuery(m_table.database());
 
 		QString query_str = query;
 
-		QVariantMap boundValues = queryManager.processPlaceholders(placeholders.toVariantMap(), query_str);
+		QVariantMap boundValues = m_queryManager.processPlaceholders(placeholders.toVariantMap(), query_str);
 
 		sqlQuery.prepare(query_str);
 
@@ -408,19 +523,19 @@ QJsonArray TRAKEntriesManager::GetLocal(const QString& query, const QJsonObject&
 			sqlQuery.bindValue(key, val);
 		}
 
-		table.setQuery(sqlQuery);
+		m_table.setQuery(sqlQuery);
 	}
 	else {
-		QSqlQuery sqlQuery(query, table.database());
+		QSqlQuery sqlQuery(query, m_table.database());
 
-		table.setQuery(sqlQuery);
+		m_table.setQuery(sqlQuery);
 	}
 
 	QJsonArray queryResults;
 
-	QString statement = table.query().executedQuery();
+	QString statement = m_table.query().executedQuery();
 
-	for (const auto& value : table.query().boundValues())
+	for (const auto& value : m_table.query().boundValues())
 	{
 		QString key = "?";
 		QString val = value.toString().trimmed();
@@ -435,34 +550,99 @@ QJsonArray TRAKEntriesManager::GetLocal(const QString& query, const QJsonObject&
 	}
 	QString where = "WHERE";
 	QString conditions = statement.sliced(statement.indexOf(where) + where.length()).trimmed();
-	table.clear();
+	m_table.clear();
 
 	GetTable();
 
 	qDebug() << "Conditions:" << conditions;
 
-	table.setFilter(conditions);
-	table.select();
+	m_table.setFilter(conditions);
+	m_table.select();
 
-	qDebug() << table.rowCount();
+	qDebug() << m_table.rowCount();
 
-	for (int i = 0; i < table.rowCount(); ++i)
+	for (int i = 0; i < m_table.rowCount(); ++i)
 	{
-		QVariantMap results = queryManager.recordToMap(table.record(i));
+		QVariantMap results = m_queryManager.recordToMap(m_table.record(i));
 		queryResults.append(QJsonObject::fromVariantMap(results));
 	}
 
 	qDebug() << queryResults;
 
-	table.clear();
-
-	table.database().close();
+	CleanTable();
 
 	return queryResults;
 	//return queryManager.execute(query, placeholders);
 }
 
-QJsonArray TRAKEntriesManager::GetGroupedRemote(const QJsonArray& columns, const QJsonArray& grouped_columns, const QJsonArray& group_by, const QString& type, const QString& separator, const QJsonObject& p_where)
+QList<QVariantMap> CTRAKEntriesManager::GetLocal(const QStringList& t_columns, const QStringList& t_conditions, const QVariantMap& t_placeholders)
+{
+
+	GetTable();
+
+	QList<QVariantMap> returnedMap;
+
+	try {
+
+		QStringList columns(t_columns);
+		QStringList conditions(t_conditions);
+
+		if (t_placeholders.isEmpty()) {
+			m_table.setFilter(conditions.join(" AND "));
+			m_table.select();
+		}
+		else {
+			QStringList queryStrList;
+			queryStrList << "SELECT" << columns.join(", ") << "FROM" << m_db_info.table;
+
+			if (!conditions.isEmpty())
+				queryStrList << "WHERE" << conditions.join(" AND ");
+
+			QString queryStr(queryStrList.join(" "));
+
+			QVariantMap valuesToBind = m_queryManager.processPlaceholders(t_placeholders, queryStr);
+
+			if (valuesToBind.isEmpty()) {
+				QString where = "WHERE";
+				m_table.setFilter(queryStr.sliced(queryStr.indexOf(where) + where.length()).trimmed());
+				m_table.select();
+			}
+			else {
+				QSqlQuery query(m_table.database());
+				query.prepare(queryStr);
+
+				m_queryManager.BindValues(valuesToBind, &query);
+
+				m_table.setQuery(query);
+
+				qDebug() << "Query To Execute:" << m_table.query().executedQuery();
+				qDebug() << "Values bound:" << m_table.query().boundValues();
+			}
+		}
+
+		qDebug() << "Fetched rows:" << m_table.rowCount();
+
+		for(int i = 0; i < m_table.rowCount(); ++i)
+		{
+			QVariantMap results = m_queryManager.recordToMap(m_table.record(i));
+
+			qDebug() << "Entry number" << i << ":" << results;
+
+			returnedMap.append(results);
+		}
+
+	}
+	catch (const std::exception* e) {
+
+	}
+
+	CleanTable();
+
+	return returnedMap;
+
+}
+
+QJsonArray CTRAKEntriesManager::GetGroupedRemote(const QJsonArray& columns, const QJsonArray& grouped_columns, const QJsonArray& group_by, const QString& type, const QString& separator, const QJsonObject& p_where)
 {
 
 	QJsonArray returnedValues;
@@ -475,10 +655,10 @@ QJsonArray TRAKEntriesManager::GetGroupedRemote(const QJsonArray& columns, const
 		QJsonObject where(p_where);
 
 		if (!where.contains("custId"))
-			(void)where.insert("custId", QString::number(trak_details.cust_id));
+			(void)where.insert("custId", QString::number(m_trak_details.cust_id));
 
-		if (!where.contains(trak_details.trak_id_type))
-			(void)where.insert(trak_details.trak_id_type, trak_details.trak_id);
+		if (!where.contains(m_trak_details.trak_id_type))
+			(void)where.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 
 		(void)query.insert("where", where);
 
@@ -502,7 +682,7 @@ QJsonArray TRAKEntriesManager::GetGroupedRemote(const QJsonArray& columns, const
 
 		QJsonDocument reply;
 
-		if (!networkManager.makeGetRequest(webportal_details.api_url + "/" + webportal_details.base_route, query, &reply))
+		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
 			throw std::exception();
 		}
@@ -525,7 +705,7 @@ QJsonArray TRAKEntriesManager::GetGroupedRemote(const QJsonArray& columns, const
 	return returnedValues;
 }
 
-int TRAKEntriesManager::SendToRemote(const QJsonObject& entry, const QJsonObject& data)
+int CTRAKEntriesManager::SendToRemote(const QJsonObject& entry, const QJsonObject& data)
 {
 
 	QJsonObject body;
@@ -535,7 +715,7 @@ int TRAKEntriesManager::SendToRemote(const QJsonObject& entry, const QJsonObject
 
 	QJsonDocument reply;
 
-	if (networkManager.makePostRequest(webportal_details.api_url + "/" + webportal_details.base_route, entry, body, &reply)) {
+	if (m_networkManager.makePostRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, entry, body, &reply)) {
 		qDebug() << reply;
 
 		if (!reply.isObject()) {
@@ -557,17 +737,45 @@ int TRAKEntriesManager::SendToRemote(const QJsonObject& entry, const QJsonObject
 	return 0;
 }
 
-int TRAKEntriesManager::CreateLocal(const QJsonObject& entry)
+int CTRAKEntriesManager::CreateLocal(const QJsonObject& entry)
 {
-	QJsonArray results = queryManager.execute("INSERT INTO "+ db_info.table +" (" + entry.keys().join(", ") + ") VALUES (:" + entry.keys().join(",:") + ")", entry);
+	/*QJsonArray results = queryManager.execute("INSERT INTO "+ db_info.table +" (" + entry.keys().join(", ") + ") VALUES (:" + entry.keys().join(",:") + ")", entry);
 
 	if (results.size() <= 0)
 		return 0;
-	return 1;
+	return 1;*/
+
+	GetTable();
+	int returnVal = 0;
+
+	try {
+		int row = m_table.rowCount();
+
+		if(!m_table.insertRows(row, 1))
+			throw std::exception();
+
+		for (const auto& key : entry.keys()) {
+			m_table.setData(m_table.index(row, m_table.fieldIndex(key)), entry.value(key));
+		}
+
+		qDebug() << "Table is dirty" << m_table.isDirty();
+
+		returnVal = m_table.submitAll();
+
+		qDebug() << "Table is dirty" << m_table.isDirty();
+
+	}
+	catch (const std::exception& e) {
+		returnVal = 0;
+	}
+
+	CleanTable();
+
+	return returnVal;
 
 }
 
-int TRAKEntriesManager::UpdateRemote(const QJsonObject& entry, const QJsonObject& data)
+int CTRAKEntriesManager::UpdateRemote(const QJsonObject& entry, const QJsonObject& data)
 {
 	QJsonObject body;
 	body["data"] = data;
@@ -576,7 +784,7 @@ int TRAKEntriesManager::UpdateRemote(const QJsonObject& entry, const QJsonObject
 
 	QJsonDocument reply;
 
-	if (networkManager.makePatchRequest(webportal_details.api_url + "/" + webportal_details.base_route, entry, body, &reply)) {
+	if (m_networkManager.makePatchRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, entry, body, &reply)) {
 		qDebug() << reply;
 
 		if (!reply.isObject()) {
@@ -597,7 +805,7 @@ int TRAKEntriesManager::UpdateRemote(const QJsonObject& entry, const QJsonObject
 	return 0;
 }
 
-QJsonArray TRAKEntriesManager::UpdateLocal(const QList<QString>& update, const QJsonObject& placeholders)
+QJsonArray CTRAKEntriesManager::UpdateLocal(const QList<QString>& update, const QJsonObject& placeholders)
 {
 	QJsonArray queryResults;
 
@@ -612,7 +820,7 @@ QJsonArray TRAKEntriesManager::UpdateLocal(const QList<QString>& update, const Q
 	return queryResults;
 }
 
-QList<QVariantMap> TRAKEntriesManager::UpdateLocal(const QList<QString>& update, const QVariantMap& placeholders)
+QList<QVariantMap> CTRAKEntriesManager::UpdateLocal(const QList<QString>& update, const QVariantMap& placeholders)
 {
 	QStringList conditions;
 	
@@ -624,12 +832,12 @@ QList<QVariantMap> TRAKEntriesManager::UpdateLocal(const QList<QString>& update,
 		conditions.append("empId = :empId");
 
 
-	QString queryToExec = "UPDATE "+ db_info.table +" SET " + update.join(", ") + " WHERE " + conditions.join(" AND ");
+	QString queryToExec = "UPDATE "+ m_db_info.table +" SET " + update.join(", ") + " WHERE " + conditions.join(" AND ");
 
-	return queryManager.execute(queryToExec, placeholders);
+	return m_queryManager.execute(queryToExec, placeholders);
 }
 
-void TRAKEntriesManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonObject& remote)
+void CTRAKEntriesManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonObject& remote)
 {
 	qDebug() << "Local: " << QJsonDocument(local).toJson().toStdString().data();
 	qDebug() << "Remote: " << QJsonDocument(remote).toJson().toStdString().data();
@@ -658,7 +866,7 @@ void TRAKEntriesManager::HandleUpdatingEntries(const QJsonObject& local, const Q
 	qDebug() << "currentDateTime" << currentDateTime;
 
 	QJsonObject where;
-	where.insert(trak_details.trak_id_type, trak_details.trak_id);
+	where.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 
 	QJsonObject body;
 	QList<QString> set;
@@ -671,12 +879,12 @@ void TRAKEntriesManager::HandleUpdatingEntries(const QJsonObject& local, const Q
 		qInfo() << "Remote is newer that Local";
 		qInfo() << "Updating Local entry to match Remote";
 
-		(void)TRAKEntriesManager::breakoutValuesToUpdate(local, remote, &set, &placeholders);
-		(void)TRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &update);
+		(void)CTRAKEntriesManager::breakoutValuesToUpdate(local, remote, &set, &placeholders);
+		(void)CTRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &update);
 
 		set.push_back("updatedAt = :updatedAt");
 		placeholders.insert("updatedAt", currentDateTime.toLocalTime());
-		placeholders.insert("tz", time_zone);
+		placeholders.insert("tz", m_time_zone);
 		placeholders.insert("custId", remote.value("custId").toInt());
 
 		qDebug() << set;
@@ -703,12 +911,12 @@ void TRAKEntriesManager::HandleUpdatingEntries(const QJsonObject& local, const Q
 	{
 		qInfo() << "Remote is older that Local";
 		qInfo() << "Updating Remote entry to match Local";
-		(void)TRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &placeholders);
-		(void)TRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &update);
+		(void)CTRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &placeholders);
+		(void)CTRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &update);
 
 		set.push_back("updatedAt = :updatedAt");
 		placeholders.insert("updatedAt", currentDateTime.toLocalTime());
-		placeholders.insert("tz", time_zone);
+		placeholders.insert("tz", m_time_zone);
 		placeholders.insert("custId", local.value("custId").toInt());
 
 		qDebug() << set;
@@ -732,32 +940,32 @@ void TRAKEntriesManager::HandleUpdatingEntries(const QJsonObject& local, const Q
 	}
 }
 
-int TRAKEntriesManager::SyncWebportal()
+int CTRAKEntriesManager::SyncWebportal()
 {
 	return 1;
 }
 
-int TRAKEntriesManager::SyncLocal()
+int CTRAKEntriesManager::SyncLocal()
 {
 	return 1;
 }
 
-int TRAKEntriesManager::UpdateOutdated()
+int CTRAKEntriesManager::UpdateOutdated()
 {
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
 	DWORD size = sizeof(TCHAR);
-	(void)rtManager.GetValSize(std::string(registryEntry).append("Date").data(), REG_SZ, &size);
+	(void)rtManager.GetValSize(std::string(m_registryEntry).append("Date").data(), REG_SZ, &size);
 
 	if (!size) {
 		(void)UpdateCheckedTime();
-		(void)rtManager.GetValSize(std::string(registryEntry).append("Date").data(), REG_SZ, &size);
+		(void)rtManager.GetValSize(std::string(m_registryEntry).append("Date").data(), REG_SZ, &size);
 	}
 
 	std::vector<TCHAR> buffer(size);
 
-	(void)rtManager.GetVal(std::string(registryEntry).append("Date").data(), REG_SZ, buffer.data(), &size);
+	(void)rtManager.GetVal(std::string(m_registryEntry).append("Date").data(), REG_SZ, buffer.data(), &size);
 
 	QString lastCheckedDateTime(buffer.data());
 
@@ -767,7 +975,7 @@ int TRAKEntriesManager::UpdateOutdated()
 }
 
 
-int TRAKEntriesManager::GetCurrentState()
+int CTRAKEntriesManager::GetCurrentState()
 {
 
 	if (local_count == 0)
@@ -788,38 +996,38 @@ int TRAKEntriesManager::GetCurrentState()
 	return NEXTSTEP::UPDATE_OUTDATED;
 }
 
-int TRAKEntriesManager::UpdateCheckedTime()
+int CTRAKEntriesManager::UpdateCheckedTime()
 {
 	QString currDate = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	
-	(void)rtManager.SetVal(std::string(registryEntry).append("Date").data(), REG_SZ, currDate.toStdString().data(), currDate.toStdString().size());
+	(void)rtManager.SetVal(std::string(m_registryEntry).append("Date").data(), REG_SZ, currDate.toStdString().data(), currDate.toStdString().size());
 	
 	return NEXTSTEP::ALL_UPDATED;
 }
 
-QString TRAKEntriesManager::ClearCloudUpdate()
+QString CTRAKEntriesManager::ClearCloudUpdate()
 {
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
 	DWORD size = sizeof(TCHAR);
 
-	(void)rtManager.GetValSize(std::string(registryEntry).append("Date").data(), REG_SZ, &size);
+	(void)rtManager.GetValSize(std::string(m_registryEntry).append("Date").data(), REG_SZ, &size);
 
 	if (size == 0) {
 		QString currDate = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
 		
-		if (rtManager.SetVal(std::string(registryEntry).append("Date").data(), REG_SZ, currDate.toStdString().data(), currDate.toStdString().size()))
+		if (rtManager.SetVal(std::string(m_registryEntry).append("Date").data(), REG_SZ, currDate.toStdString().data(), currDate.toStdString().size()))
 			throw HenchmanServiceException("Failed to store checked date in registery");
 		
-		(void)rtManager.GetValSize(std::string(registryEntry).append("Date").data(), REG_SZ, &size);
+		(void)rtManager.GetValSize(std::string(m_registryEntry).append("Date").data(), REG_SZ, &size);
 	}
 
 	std::vector<TCHAR> buffer;
 	buffer.reserve(size);
 
-	LONG err = rtManager.GetVal(std::string(registryEntry).append("Date").data(), REG_SZ, buffer.data(), &size);
+	LONG err = rtManager.GetVal(std::string(m_registryEntry).append("Date").data(), REG_SZ, buffer.data(), &size);
 	
 	QString date(buffer.data());
 	
@@ -830,7 +1038,7 @@ QString TRAKEntriesManager::ClearCloudUpdate()
 		throw HenchmanServiceException("Failed to fetch target stored value from registry. Error: " + std::to_string(err) + " - " + std::string(buffer));
 	}
 
-	rtManager.SetVal(registryEntry, REG_DWORD, &local_count, sizeof(local_count));
+	rtManager.SetVal(m_registryEntry, REG_DWORD, &local_count, sizeof(local_count));
 	
 	return date;
 };

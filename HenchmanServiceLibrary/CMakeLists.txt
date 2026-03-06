@@ -1,9 +1,9 @@
-﻿INCLUDE(GenerateExportHeader)
+﻿#INCLUDE(GenerateExportHeader)
 # CMakeList.txt : CMake project for HenchmanServices, include source and define
 # project specific logic here.
 #
 
-QT_ADD_LIBRARY(HenchmanServiceLibrary SHARED HenchmanServiceLibrary.cpp)
+QT_ADD_LIBRARY(HenchmanServiceLibrary SHARED HenchmanServiceLibrary.cpp HenchmanServiceLibrary.h)
 QT_DISABLE_UNICODE_DEFINES(HenchmanServiceLibrary)
 
 message(STATUS "OpenSSL include dir: ${OPENSSL_INCLUDE_DIR}")
@@ -41,9 +41,7 @@ target_link_libraries(
 )
 
 target_include_directories(
-	HenchmanServiceLibrary PUBLIC 
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_CURRENT_BINARY_DIR}
+	HenchmanServiceLibrary INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 set_target_properties(HenchmanServiceLibrary PROPERTIES OUTPUT_NAME "HenchmanService")
@@ -53,4 +51,4 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 # TODO: Add tests and install targets if needed.
-GENERATE_EXPORT_HEADER(HenchmanServiceLibrary)
+#GENERATE_EXPORT_HEADER(HenchmanServiceLibrary)

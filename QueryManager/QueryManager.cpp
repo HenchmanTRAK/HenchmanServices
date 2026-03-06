@@ -175,7 +175,7 @@ QVariantMap QueryManager::processPlaceholders(const QVariantMap& placeholders, Q
 		key = ":" + key;
 
 		if (value.typeId() == QVariant::DateTime) {
-			boundValues.insert(key, value.toDateTime().toString(Qt::ISODateWithMs));
+			boundValues.insert(key, value.toDateTime());
 			continue;
 		}
 
@@ -190,17 +190,20 @@ QVariantMap QueryManager::processPlaceholders(const QVariantMap& placeholders, Q
 
 			QStringList values;
 			foreach(QJsonValue val, value.toJsonArray()) {
-				values << "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
-			}
-			QString val = values.join(",");
+				QString value = "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
 
+				if (values.contains(value))
+					continue;
+				values << value;
+			}
+			
 			QString firstSection = statement.sliced(0, statement.indexOf(key));
 			QString secondSection = statement.sliced(statement.indexOf(key) + key.size());
-			statement = firstSection + val + secondSection;
+			statement = firstSection + values.join(",") + secondSection;
 			continue;
 		}
 
-		boundValues.insert(key, value);
+		boundValues.insert(key, value.toString());
 
 	};
 
@@ -209,91 +212,111 @@ QVariantMap QueryManager::processPlaceholders(const QVariantMap& placeholders, Q
 	return boundValues;
 }
 
+void QueryManager::BindValues(const QVariantMap& values, QSqlQuery* query)
+{
+	QMapIterator it(values);
+
+	while (it.hasNext()) {
+		it.next();
+		query->bindValue(it.key(), it.value());
+	}
+}
+
 QList<QVariantMap> QueryManager::execute(const TCHAR* sql, const QVariantMap& placeholders)
 {
-	QList<QVariantMap> results;
+	QList<QVariantMap> results(0);
 
-	QSqlDatabase db = QSqlDatabase::database(db_info.schema, false);
+	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
+
 
 	if(!db.open())
 		throw HenchmanServiceException("Failed to open DB Connection");
 
-	try {
+	int isSelect = false;
 
-		db.transaction();
+	try {
 
 		QString statement(sql);
 
 		if (statement.trimmed() == "")
 			throw HenchmanServiceException("No Query was provided.");
-
-		QSqlQuery *query = new QSqlQuery(db);
+				
 
 		LOG << "Executing: " << statement.toStdString();
 
 		QVariantMap boundValues = processPlaceholders(placeholders, statement);
 
-		query->prepare(statement);
+		QSqlQuery query(db);
 
-		qDebug() << statement;
-		qDebug() << boundValues;
 
-		QMapIterator it(boundValues);
+		query.prepare(statement);
 
-		while (it.hasNext()) {
-			it.next();
-			query->bindValue(it.key(), it.value());
+		BindValues(boundValues, &query);
+		
+		isSelect = query.isSelect();
+
+		if (!isSelect) {
+			db.transaction();
+		}
+		
+		if (!query.exec()) {
+
+			QSqlError err = query.lastError();
+			qWarning() << "Database Text" << err.databaseText();
+			qWarning() << "Driver Text" << err.driverText();
+			qWarning() << "Native Error Code" << err.nativeErrorCode();
+			qWarning() << "Text" << err.text();
+ 			
+			query.finish();
+			throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + err.text().toStdString());
 		}
 
-		if (!query->exec())
-			throw HenchmanServiceException("Failed executing: " + statement.toStdString() + "\nReason provided: " + query->lastError().text().toStdString());
-
-		while (query->next())
-		{
-			QSqlRecord record = query->record();
-
+		QSqlRecord record = query.record();
+		
+		while (query.next())
+		{	
 			QVariantMap queryResult;
-
-			for (int i = 0; i < record.count(); i++)
+			for (int i = 0; i < record.count(); ++i)
 			{
-				QString column = record.fieldName(i);
-				QVariant value = record.value(i);
+				const QString column = record.fieldName(i);
+				const QVariant value = query.value(i);
 
-				qDebug() << column << ": " << value;
+				//qDebug() << column << ": " << value;
+				
 				switch (value.typeId()) {
-				case QVariant::String: {
-					queryResult.insert(column, value.toString());
-					break;
+				case QVariant::ByteArray: {
+					queryResult.insert(column, QString::fromStdString(value.toByteArray().toStdString()));
+					continue;
 				}
 				case QVariant::Int: {
 					queryResult.insert(column, value.toInt());
-					break;
+					continue;
 				}
 				case QVariant::Date: {
 					if (!value.toDate().isValid())
 					{
 						queryResult.insert(column, "");
-						break;
+						continue;
 					}
 
 					queryResult.insert(column, value.toDate().toString(Qt::ISODateWithMs));
-					break;
+					continue;
 				}
 				case QVariant::Time: {
 					if (!value.toTime().isValid())
 					{
 						queryResult.insert(column, "");
-						break;
+						continue;
 					}
 
 					queryResult.insert(column, value.toTime().toString(Qt::ISODateWithMs));
-					break;
+					continue;
 				}
 				case QVariant::DateTime: {
 					if (!value.toDateTime().isValid())
 					{
 						queryResult.insert(column, "");
-						break;
+						continue;
 					}
 
 					QDateTime dt = value.toDateTime();
@@ -301,27 +324,27 @@ QList<QVariantMap> QueryManager::execute(const TCHAR* sql, const QVariantMap& pl
 					dt.setOffsetFromUtc(tz_info.time_zone_offset);
 
 					queryResult.insert(column, dt.toUTC().toString(Qt::ISODateWithMs));
-					break;
+					continue;
 				}
 				default: {
-					queryResult.insert(column, value);
-					break;
+					queryResult.insert(column, value.toString());
+					continue;
 				}
 				}
 			}
-
 			results.append(queryResult);
+
 		}
 
-		query->finish();
+		query.finish();
 
-		db.commit();
-
-		delete query;
+		if (!isSelect)
+			db.commit();
 
 	}
 	catch (const std::exception& e) {
-		db.rollback();
+		if (!isSelect)
+			db.rollback();
 
 		ServiceHelper().WriteToError(e.what());
 	}

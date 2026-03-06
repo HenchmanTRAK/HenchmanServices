@@ -24,6 +24,8 @@
 #include <userenv.h>
 #include <TlHelp32.h>
 
+#include <crtdbg.h>
+
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "Ws2_32.lib")

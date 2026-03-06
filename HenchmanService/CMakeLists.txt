@@ -23,6 +23,7 @@ qt_disable_unicode_defines(HenchmanService)
 target_include_directories(
 	HenchmanService PRIVATE 
 	${CMAKE_CURRENT_SOURCE_DIR}
+	${CMAKE_CURRENT_BINARY_DIR}
 #	${ServiceController_DIR}
 #	${OPENSSL_INCLUDE_DIR}
 #	${CMAKE_SOURCE_DIR}/resources

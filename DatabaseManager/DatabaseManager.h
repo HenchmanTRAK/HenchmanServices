@@ -53,8 +53,8 @@
 #include <QMutexLocker>
 #include <QFuture>
 #include <QFutureSynchronizer>
-#include <QtConcurrentMap>
 #include <QtConcurrentRun>
+#include <QtConcurrentMap>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -65,7 +65,9 @@
 #include "EmployeesManager.h"
 #include "UsersManager.h"
 
-#include "databasemanager_export.h"
+#include <crtdbg.h>
+
+//#include "databasemanager_export.h"
 
 
 //#define QT_NO_DEBUG_OUTPUT
@@ -139,16 +141,6 @@ static QMap<QString, table_enums> table_map = {
 	{"tblcounterid", tblcounterid}
 };
 
-struct s_UpdateLocalTableOptions {
-	bool AddEmpId = 0;
-	bool AddEmpIdSqliteOnly = 0;
-	bool AddCreatedAt = 0;
-	bool UpdateCreatedAt = 0;
-	bool AddUpdatedAt = 0;
-	bool UpdateUpatedAt = 0;
-	bool CreateUniqueIndex = 0;
-};
-
 /**
  * @class DatabaseManager
  *
@@ -170,7 +162,7 @@ struct s_UpdateLocalTableOptions {
  * - `~DatabaseManager()`: The destructor for the DatabaseManager class.
  * - `void performCleanup()`: Performs cleanup operations for the DatabaseManager object.
  */
-class DATABASEMANAGER_EXPORT DatabaseManager : public QObject
+class DatabaseManager : public QObject
 {
 	Q_OBJECT
 
@@ -288,8 +280,7 @@ public:
 
 	QString databaseDriver;
 
-	QMutex* p_thread_controller = nullptr;
-
+	
 public:
 	/**
 	 * @brief Constructs a DatabaseManager object.
@@ -339,8 +330,6 @@ public:
 	 */
 	void performCleanup();
 
-	void attachThreadController(QMutex* threadController = nullptr);
-
 	//General Table Upload
 
 	/**
@@ -366,7 +355,7 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
 	int addUsersIfNotExists();
-	int addUsersIfNotExistsOld();
+	//int addUsersIfNotExistsOld();
 
 	/**
 	 * @brief Adds employees to the database if they do not already exist.

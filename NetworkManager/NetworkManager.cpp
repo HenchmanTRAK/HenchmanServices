@@ -10,7 +10,7 @@
 //};
 
 NetworkManager::NetworkManager(QObject* parent)
-	: QObject(parent), sock(parent), cookieJar(parent), netManager(new QNetworkAccessManager(this))
+	: QObject(parent), sock(parent), cookieJar(parent), netManager(parent)
 {
 	loops = std::vector<QEventLoop*>();
 
@@ -18,13 +18,13 @@ NetworkManager::NetworkManager(QObject* parent)
 	//cookieJar = new QNetworkCookieJar(this);
 	//netManager = new QNetworkAccessManager(this);
 
-	netManager->setCookieJar(&cookieJar);
-	netManager->setStrictTransportSecurityEnabled(strict_transport);
-	netManager->setAutoDeleteReplies(true);
-	netManager->setTransferTimeout(30000);
+	netManager.setCookieJar(&cookieJar);
+	netManager.setStrictTransportSecurityEnabled(strict_transport);
+	netManager.setAutoDeleteReplies(true);
+	netManager.setTransferTimeout(30000);
 
 	if (!restManager)
-		restManager = new QRestAccessManager(netManager, this);
+		restManager = new QRestAccessManager(&netManager, this);
 }
 
 NetworkManager::~NetworkManager()
@@ -44,12 +44,15 @@ NetworkManager::~NetworkManager()
 		restManager = nullptr;
 	}
 
-	if (netManager)
+	/*if (netManager)
 	{
 		netManager->blockSignals(true);
 		netManager->deleteLater();
 		netManager = nullptr;
-	}
+	}*/
+
+	netManager.blockSignals(true);
+	netManager.deleteLater();
 
 	if (sock.isOpen())
 	{
@@ -125,8 +128,8 @@ void NetworkManager::toggleSecureTransport(const bool& secureTransport)
 	else
 		strict_transport = !strict_transport;
 
-	if(netManager)
-		netManager->setStrictTransportSecurityEnabled(strict_transport);
+	//if(netManager)
+	netManager.setStrictTransportSecurityEnabled(strict_transport);
 }
 
 bool NetworkManager::isInternetConnected()
@@ -271,7 +274,7 @@ int retryCount = 0;
 int NetworkManager::makeOptionsRequest(const QString& url, const QJsonObject& queryMap, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop loop;
+	QEventLoop loop(this);
 
 	// Generate auth header for request.
 	LOG << url;
@@ -407,7 +410,7 @@ int NetworkManager::makeGetRequest(const QString& url, const QStringMap& queryMa
 int NetworkManager::makeGetRequest(const QString& url, const QJsonObject& queryMap, QJsonDocument* results)
 {
 	int result = 0;
-	QEventLoop *loop = new QEventLoop(this);
+	QEventLoop loop(this);
 
 	// Generate auth header for request.
 	LOG << url;
@@ -430,7 +433,7 @@ int NetworkManager::makeGetRequest(const QString& url, const QJsonObject& queryM
 	ServiceHelper().WriteToCustomLog("Making query to: " + request.url().toString().toStdString(), "queries");
 	
 
-	QNetworkReply* reply = restManager->get(request, loop, [&result, &results, this](QRestReply& reply) {
+	QNetworkReply* reply = restManager->get(request, &loop, [&result, &results, this](QRestReply& reply) {
 		LOG << "networkrequested";
 		try {
 			qDebug() << reply.error();
@@ -507,12 +510,12 @@ int NetworkManager::makeGetRequest(const QString& url, const QJsonObject& queryM
 	});
 
 	//netManager->finished(reply);
-	connect(reply, &QNetworkReply::finished, loop, &QEventLoop::quit);
-	loop->exec();
+	connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+	loop.exec();
 	qDebug() << "Reply Get is finished? " << reply->isFinished();
 	/*loop.deleteLater();*/
 	reply->deleteLater();
-	loop->deleteLater();
+	//loop->deleteLater();
 	retryCount = 0;
 	//QThread::sleep(1);
 	return result;

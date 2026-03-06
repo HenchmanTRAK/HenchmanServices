@@ -83,7 +83,27 @@ HRESULT CRegistryManager::GetSystemError(const TCHAR* msg, const DWORD& errorCod
 	return rs;
 }
 
-LONG CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size)
+DWORD CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type)
+{
+	DWORD size = 0;
+	LONG nError = RegGetValue(hkRegistryKey, NULL, lpValue, RRF_RT_ANY | RRF_NOEXPAND | RRF_ZEROONFAILURE, &type, NULL, &size);
+
+	//if (nError == ERROR_FILE_NOT_FOUND)
+	//	data = 0; // The value will be created and set to data next time SetVal() is called.
+	//else
+	if (nError)
+	{
+		tstring err = "Error: ";
+		err.append(std::to_string(nError)).append(" Could not get data from registry value: ").append(lpValue).append("\n");
+		//throw std::runtime_error(err.c_str());
+		cout << err.c_str();
+		//cout << "Error: " << nError << " Could not get data from registry value " << lpValue << "\n";
+	}
+
+	return size;
+}
+
+LONG CRegistryManager::GetValSize(const TCHAR *lpValue, DWORD type, DWORD *size, std::vector<TCHAR>* buffer)
 {
 	LONG nError = RegGetValue(hkRegistryKey, NULL, lpValue, RRF_RT_ANY | RRF_NOEXPAND | RRF_ZEROONFAILURE, &type, NULL, size);
 
@@ -97,31 +117,18 @@ LONG CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size
 		//throw std::runtime_error(err.c_str());
 		cout << err.c_str();
 		//cout << "Error: " << nError << " Could not get data from registry value " << lpValue << "\n";
+	}
+
+	if (buffer) {
+
+		std::vector<TCHAR> localBuffer(*size);
+
+		buffer->swap(localBuffer);
+
+		localBuffer.clear();
 	}
 
 	return nError;
-}
-
-DWORD CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type)
-{
-	LPDWORD size = 0;
-	LONG nError = RegGetValue(hkRegistryKey, NULL, lpValue, RRF_RT_ANY | RRF_NOEXPAND | RRF_ZEROONFAILURE, &type, NULL, size);
-
-	//if (nError == ERROR_FILE_NOT_FOUND)
-	//	data = 0; // The value will be created and set to data next time SetVal() is called.
-	//else
-	if (nError)
-	{
-		tstring err = "Error: ";
-		err.append(std::to_string(nError)).append(" Could not get data from registry value: ").append(lpValue).append("\n");
-		//throw std::runtime_error(err.c_str());
-		cout << err.c_str();
-		//cout << "Error: " << nError << " Could not get data from registry value " << lpValue << "\n";
-	}
-
-	DWORD retSize = *size;
-
-	return retSize;
 }
 
 LONG CRegistryManager::SetVal(const TCHAR* lpValue, DWORD type, const PVOID& data, const LPDWORD& size)

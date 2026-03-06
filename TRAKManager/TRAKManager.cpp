@@ -90,7 +90,7 @@ void TRAKManager::conRemoteError(std::exception& e)
 }
 
 void TRAKManager::saveINIToRegistry()
-const {
+{
 	CSimpleIniA ini;
 	ini.SetUnicode();
 
@@ -117,7 +117,7 @@ const {
 }
 
 void TRAKManager::saveINIToRegistry(std::string section)
-const {
+{
 	CSimpleIniA ini;
 	ini.SetUnicode();
 

@@ -59,10 +59,11 @@ class QueryManager : public QObject
 //public:
 
 private:
-	QMutex p_thread_controller;
+	//QMutex p_thread_controller;
 
 	s_TZ_INFO tz_info;
 	s_DATABASE_INFO db_info;
+
 
 public:
 	QueryManager(QObject* parent = nullptr, const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
@@ -102,6 +103,7 @@ public:
 
 	QVariantMap recordToMap(const QSqlRecord& record);
 	QVariantMap processPlaceholders(const QVariantMap& placeholders, QString& statement);
+	void BindValues(const QVariantMap& values, QSqlQuery* query);
 
 	/**
 	* @brief Executes a target SQL script file on a local database.

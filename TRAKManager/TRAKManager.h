@@ -69,7 +69,7 @@ private:
 	 *
 	 * @throws None.
 	 */
-	void saveINIToRegistry() const;
+	void saveINIToRegistry();
 	
 	/**
 	 * @brief Saves the INI file contents to the Windows registry for a specific section.
@@ -80,7 +80,7 @@ private:
 	 *
 	 * @throws None.
 	 */
-	void saveINIToRegistry(std::string section) const;
+	void saveINIToRegistry(std::string section);
 
 	void conHenchmanAfterConnect();
 	void conHenchmanAfterDisconnect();

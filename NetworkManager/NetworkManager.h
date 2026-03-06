@@ -56,7 +56,7 @@ private:
 	 *
 	 * This object is used to make network requests to the database server.
 	 */
-	QNetworkAccessManager* netManager = nullptr;
+	QNetworkAccessManager netManager;
 
 	/**
 	 * @var restManager

@@ -28,13 +28,13 @@
 #include "EventManager.h"
 #include "TRAKManager.h"
 
-#include "henchmanservicelibrary_export.h"
-
 
 #include <Windows.h>
 #include <wtsapi32.h>
 #include <userenv.h>
 #include <TlHelp32.h>
+
+#include <crtdbg.h>
 
 
 #pragma comment(lib, "advapi32.lib")
@@ -88,7 +88,7 @@
  *
  * @throws HenchmanServiceException if there is an error in setting up the socket, getting the mail address info, or connecting to the server.
  */
-class HENCHMANSERVICELIBRARY_EXPORT HenchmanService: public QObject
+class HenchmanService: public QObject
 {
 
 	Q_OBJECT

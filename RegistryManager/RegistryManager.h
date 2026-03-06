@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include <strsafe.h>
+#include <vector>
 
 #include <windows.h>
 #include <stdio.h>
@@ -71,7 +72,8 @@ namespace RegistryManager {
 		// TODO: add your methods here.
 
 		DWORD GetValSize(const TCHAR* lpValue, DWORD type);
-		LONG GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size);
+		//LONG GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size);
+		LONG GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size, std::vector<TCHAR>* buffer = nullptr);
 
 		/**
 		 * @brief The function to set a string value of a registry key.

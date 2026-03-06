@@ -1,5 +1,6 @@
 
 #include "DatabaseManager.h"
+//#include "moc_DatabaseManager.cpp"
 
 static std::array<std::string, 2> timeStamp;
 
@@ -84,11 +85,10 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\HenchmanService"));
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	
-	DWORD size;
-	std::vector<TCHAR> buffer;
+	DWORD size = 0;
+	std::vector<TCHAR> buffer(size);
 
-	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
-	buffer.reserve(size);
+	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
 
 	rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
 	std::string installDir(buffer.data());
@@ -159,18 +159,17 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
 	DWORD size;
+	std::vector<TCHAR> buffer;
 
-	rtManager.GetValSize("APP_NAME", REG_SZ, &size);
+	rtManager.GetValSize("APP_NAME", REG_SZ, &size, &buffer);
 
-	std::vector<TCHAR> buffer(size);
 
 	rtManager.GetVal("APP_NAME", REG_SZ, buffer.data(), &size);
 	trakType = buffer.data();
 
 	RegistryManager::CRegistryManager rtManagerCustomer(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\" + trakType + "\\Customer").data());
 
-	rtManagerCustomer.GetValSize("trakID", REG_SZ, &size);
-	buffer.resize(size);
+	rtManagerCustomer.GetValSize("trakID", REG_SZ, &size, &buffer);
 
 	rtManagerCustomer.GetVal("trakID", REG_SZ, buffer.data(), &size);
 	//string trakId = RegistryManager::GetStrVal(hKey, "trakID", REG_SZ);
@@ -181,17 +180,14 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 		trakId += "Id";
 	}
 
-	rtManagerCustomer.GetValSize("ID", REG_SZ, &size);
-	buffer.resize(size);
+	rtManagerCustomer.GetValSize("ID", REG_SZ, &size, &buffer);
 
 	rtManagerCustomer.GetVal("ID", REG_SZ, buffer.data(), &size);
 	//string custId = RegistryManager::GetStrVal(hKey, "ID", REG_SZ);
 	std::string strCustId(buffer.data());
 	custId = std::stoi(strCustId);
 
-	rtManagerCustomer.GetValSize(trakId.data(), REG_SZ, &size);
-	buffer.resize(size);
-
+	rtManagerCustomer.GetValSize(trakId.data(), REG_SZ, &size, &buffer);
 	
 	rtManagerCustomer.GetVal(trakId.data(), REG_SZ, buffer.data(), &size);
 	//string idNum = RegistryManager::GetStrVal(hKey, trakId.data(), REG_SZ);
@@ -202,59 +198,6 @@ void DatabaseManager::loadTrakDetailsFromRegistry()
 	trakId.append("Id");
 
 	buffer.clear();
-}
-
-void DatabaseManager::attachThreadController(QMutex* threadController)
-{
-	p_thread_controller = threadController;
-}
-
-void DatabaseManager::handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns, s_UpdateLocalTableOptions* options)
-{
-	//QueryManager queryManager(this, db_info);
-	if (!options)
-		return;
-
-	if (options->AddCreatedAt) {
-		(void)queryManager.execute("ALTER TABLE " + table + " ADD createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP");
-		options->AddCreatedAt = false;
-	}
-
-	if (options->UpdateCreatedAt) {
-		(void)queryManager.execute("ALTER TABLE " + table + " ALTER createdAt SET DEFAULT CURRENT_TIMESTAMP");
-		options->UpdateCreatedAt = false;
-	}
-
-	if (options->AddUpdatedAt) {
-		(void)queryManager.execute("ALTER TABLE " + table + " ADD updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-		options->AddUpdatedAt = false;
-	}
-
-	if (options->UpdateUpatedAt) {
-		(void)queryManager.execute("ALTER TABLE " + table + " ALTER updatedAt SET DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-		options->UpdateUpatedAt = false;
-	}
-
-	if (options->AddEmpIdSqliteOnly && !options->AddEmpId) {
-		(void)sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
-		options->AddEmpIdSqliteOnly = false;
-	}
-	else {
-		options->AddEmpIdSqliteOnly = false;
-	}
-	
-	if (options->AddEmpId) {
-		(void)sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
-		(void)queryManager.execute("ALTER TABLE "+ table +" ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
-		options->AddEmpId = false;
-	}
-
-	if (options->CreateUniqueIndex) {
-		if (unique_columns.isEmpty())
-			throw HenchmanServiceException("Cannot add unique index without providing columns");
-		(void)sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + unique_columns.join("_") + " ON " + table + "(" + unique_columns.join(",") + ")");
-		options->CreateUniqueIndex = false;
-	}
 }
 
 // Misc Syncs
@@ -270,14 +213,12 @@ int DatabaseManager::addToolsIfNotExists()
 	DWORD size = 0;
 	std::vector<TCHAR> buffer(size);
 
-	rtManager.GetValSize((targetKey + "Checked").toUtf8(), REG_DWORD, &size);
-	buffer.resize(size);
+	rtManager.GetValSize((targetKey + "Checked").toUtf8(), REG_DWORD, &size, &buffer);
 
 	rtManager.GetVal((targetKey + "Checked").toUtf8(), REG_DWORD, &databaseTablesChecked[targetKey], &size);
 	if (rowCheck[0][rowCheck[0].firstKey()].toInt() <= databaseTablesChecked[targetKey])
 	{
-		rtManager.GetValSize((targetKey + "CheckedDate").toUtf8(), REG_SZ, &size);
-		buffer.reserve(size);
+		rtManager.GetValSize((targetKey + "CheckedDate").toUtf8(), REG_SZ, &size, &buffer);
 
 		if (rtManager.GetVal((targetKey + "CheckedDate").toUtf8(), REG_SZ, buffer.data(), &size)) {
 			size = timeStamp[0].size();
@@ -475,145 +416,9 @@ int DatabaseManager::addUsersIfNotExists()
 
 	db_info.table = "users";
 
-	UsersManager usersManager(this, trakDetails, webportalDetails, db_info);
+	UsersManager::CUsersManager usersManager(this, trakDetails, webportalDetails, db_info);
 
 	databaseTablesChecked[targetKey] = usersManager.GetLocalCount();
-
-	std::string tableName = "users";
-
-	QJsonArray tableColumns = usersManager.GetColumns();
-
-
-	QJsonArray sqliteTableColumns;
-
-	(void)sqliteManager.ExecQuery(
-		"pragma table_info(" + tableName + ")",
-		&sqliteTableColumns
-	);
-
-	QJsonArray mysqlTableColumnNames;
-	for (const auto& mysqlTableColumn : tableColumns)
-	{
-		if (!mysqlTableColumn.isObject())
-			continue;
-		QJsonObject mysqlColumn = mysqlTableColumn.toObject();
-			
-		mysqlTableColumnNames.append(mysqlColumn.value("Field").toString());
-	}
-
-	QJsonArray sqliteTableColumnNames;
-	for (const auto& sqliteTableColumn : sqliteTableColumns)
-	{
-		if (!sqliteTableColumn.isObject())
-			continue;
-		QJsonObject sqliteColumn = sqliteTableColumn.toObject();
-			
-		sqliteTableColumnNames.append(sqliteColumn.value("name").toString());
-	}
-
-
-	s_UpdateLocalTableOptions update_options;
-
-	QJsonArray columns;
-	QStringList skippedColumns;
-	QStringList uniqueIndexCols = { "custId", "userId", "kabId", "cribId", "scaleId" };
-	QJsonArray mysqlColumnNames;
-	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
-	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
-
-	update_options.AddCreatedAt = true;
-	update_options.AddUpdatedAt = true;
-	update_options.AddEmpId = true;
-
-	for(const auto & tableColumn : tableColumns)
-	{
-		if (!tableColumn.isObject())
-			continue;
-
-		QJsonObject column = tableColumn.toObject();
-
-		QString field = column.value("Field").toString();
-
-		if (field == "empId") {
-			update_options.AddEmpId = false;
-
-			if (!uniqueIndexCols.contains("empId"))
-				uniqueIndexCols.push_back("empId");
-		}
-
-		if (field == "createdAt") {
-			update_options.AddCreatedAt = false;
-			
-		}
-		if (field == "updatedAt") {
-			update_options.AddUpdatedAt = false;
-			
-		}
-
-
-		if (skipTargetCols.contains(field)) {
-			skippedColumns.push_back(field);
-			continue;
-		}
-
-
-		if (dates.contains(column.value("Type").toString().toLower()))
-			column["Type"] = "TEXT";
-
-		mysqlColumnNames.append(field);
-
-		columns.append((
-			field + " " + column.value("Type").toString().toUpper() + " " +
-			(uniqueIndexCols.contains(field)
-				? "NOT NULL DEFAULT " + QString(column.value("Type").toString().toUpper() == "INT" ? "0" : "''") + ""
-				: (column.value("Null").toString() == "NO"
-					? "NOT NULL DEFAULT " + (column.value("Default").toString() == ""
-						? "''"
-						: column.value("Default").toString())
-					: "NULL" + (column.value("Default").toString() == ""
-						? ""
-						: " DEFAULT " + column.value("Default").toString()
-						)
-					)
-				)
-			));
-	}
-
-	qDebug() << "sqliteTableColumnNames" << sqliteTableColumnNames;
-	qDebug() << "sqliteTableColumnNames" << sqliteTableColumnNames.size();
-	qDebug() << "mysqlTableColumnsNames" << mysqlTableColumnNames;
-	qDebug() << "mysqlTableColumnsNames" << mysqlTableColumnNames.size();
-
-	int performTableUpdate = mysqlTableColumnNames.size() != sqliteTableColumnNames.size();
-
-	if (!performTableUpdate)
-	{
-		for (int i = 0; i < mysqlTableColumnNames.size(); ++i)
-		{
-			if (sqliteTableColumnNames.contains(mysqlTableColumnNames.at(i)))
-				continue;
-			performTableUpdate = true;
-			break;
-		}
-	}
-	
-
-	if (performTableUpdate)
-	{
-
-		(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId_kabId_cribId_scaleId");
-
-		(void)sqliteManager.CreateTable(
-			tableName,
-			columns
-		);
-
-		update_options.CreateUniqueIndex = true;
-		update_options.AddEmpIdSqliteOnly = !sqliteTableColumnNames.contains("empId");
-
-		handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
-
-	}
 
 	int should = -1;
 
@@ -644,9 +449,7 @@ int DatabaseManager::addUsersIfNotExists()
 			returnVal = 1;
 	} while (true);
 
-
-	update_options.CreateUniqueIndex = true;
-	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
+	usersManager.deleteLater();
 
 	return returnVal;
 	//return 1;
@@ -674,7 +477,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	db_info.table = "employees";
 
-	EmployeesManager employeesManager(this, trakDetails, webportalDetails, db_info);
+	EmployeesManager::CEmployeesManager employeesManager(this, trakDetails, webportalDetails, db_info);
 
 	databaseTablesChecked[targetKey] = employeesManager.GetLocalCount();
 
@@ -698,164 +501,6 @@ int DatabaseManager::addEmployeesIfNotExists()
 	 *	- Add support for excluding entries based on single values
 	 *	- Add support for excluding entries based on list of values
 	 */
-
-	//int should = employeesManager.GetCurrentState();
-
-	std::string tableName = "employees";
-
-	QJsonArray tableColumns = employeesManager.GetColumns();
-
-	qDebug() << tableColumns;
-
-	QJsonArray sqliteTableColumns;
-
-	(void)sqliteManager.ExecQuery(
-		"pragma table_info(" + tableName + ")",
-		&sqliteTableColumns
-	);
-
-
-	//QFuture<QJsonArray> mysqlTableColumnsFuture(QtConcurrent::run([=, &tableColumns]() {
-		QJsonArray mysqlTableColumnNames;
-		for (const auto& mysqlTableColumn : tableColumns)
-		{
-			if (!mysqlTableColumn.isObject())
-				continue;
-			QJsonObject mysqlColumn = mysqlTableColumn.toObject();
-			mysqlTableColumnNames.append(mysqlColumn.value("Field").toString());
-		}
-		/*return mysqlTableColumnNames;
-		})
-	);*/
-
-	//QFuture<QJsonArray> sqliteTableColumnsFuture(QtConcurrent::run([=, &sqliteTableColumns]() {
-		QJsonArray sqliteTableColumnNames;
-		for (const auto& sqliteTableColumn : sqliteTableColumns)
-		{
-			if (!sqliteTableColumn.isObject())
-				continue;
-			QJsonObject sqliteColumn = sqliteTableColumn.toObject();
-			sqliteTableColumnNames.append(sqliteColumn.value("name").toString());
-		}
-		/*return sqliteTableColumnNames;
-		})
-	);*/
-
-	
-
-	s_UpdateLocalTableOptions update_options;
-
-	QJsonArray columns;
-	QStringList skippedColumns;
-	QStringList uniqueIndexCols = { "custId", "userId" };
-	QJsonArray mysqlColumnNames;
-	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
-	QStringList dates = { "date", "datetime", "time", "timestamp", "year" };
-
-	update_options.AddCreatedAt = true;
-	update_options.AddUpdatedAt = true;
-	update_options.AddEmpId = true;
-
-	//QMutex mutex;
-
-	/*QFuture<void> mysqlTableColumns(QtConcurrent::map(tableColumns, [=, &columns, &skippedColumns, &uniqueIndexCols, &update_options, &mysqlColumnNames, &mutex](const QJsonValueRef& tableColumn) {*/
-
-	for (const auto & tableColumn : tableColumns)
-	{
-		if (!tableColumn.isObject())
-			throw HenchmanServiceException("Failed to retrieve list of columns for employees table");
-		QJsonObject column = tableColumn.toObject();
-
-		QString field = column.value("Field").toString();
-
-		if (field == "empId") {
-			update_options.AddEmpId = false;
-
-			if (!uniqueIndexCols.contains("empId"))
-				uniqueIndexCols.push_back("empId");
-		}
-
-		if (field == "createdAt") {
-			update_options.AddCreatedAt = false;
-			/*if (!column.value("Default").toString().contains("CURRENT_TIMESTAMP"))
-				update_options.UpdateCreatedAt = true;*/
-		}
-		if (field == "updatedAt") {
-			update_options.AddUpdatedAt = false;
-			/*if (!column.value("Default").toString().contains("CURRENT_TIMESTAMP"))
-				update_options.UpdateUpatedAt = true;*/
-		}
-
-
-		if (skipTargetCols.contains(field)) {
-			skippedColumns.push_back(field);
-			continue;
-		}
-
-
-		if (dates.contains(column.value("Type").toString().toLower()))
-			column["Type"] = "TEXT";
-
-		//QMutexLocker locker(&mutex);
-
-		mysqlColumnNames.append(field);
-
-		columns.append((
-			field + " " + column.value("Type").toString().toUpper() + " " +
-			(uniqueIndexCols.contains(field)
-				? "NOT NULL DEFAULT " + QString(column.value("Type").toString().toUpper() == "INT" ? "0" : "''") + ""
-				: (column.value("Null").toString() == "NO"
-					? "NOT NULL DEFAULT " + (column.value("Default").toString() == ""
-						? "''"
-						: column.value("Default").toString())
-					: "NULL" + (column.value("Default").toString() == ""
-						? ""
-						: " DEFAULT " + column.value("Default").toString()
-						)
-					)
-				)
-			));
-	}
-		/*})
-	);*/
-
-
-	//QJsonArray sqliteTableColumnNames = sqliteTableColumnsFuture.result();
-	//QJsonArray mysqlTableColumnsNames = mysqlTableColumnsFuture.result();
-
-	int performTableUpdate = false;
-
-	if (mysqlTableColumnNames.size() == sqliteTableColumnNames.size())
-	{
-		for (int i = 0; i < mysqlTableColumnNames.size(); ++i)
-		{
-			if (sqliteTableColumnNames.contains(mysqlTableColumnNames.at(i)))
-				continue;
-			performTableUpdate = true;
-			break;
-		}
-	}
-
-	if (performTableUpdate)
-	{
-	
-
-		//mysqlTableColumns.waitForFinished();
-
-		//qDebug() << columns;
-
-		(void)sqliteManager.ExecQuery("DROP INDEX IF EXISTS unique_custId_userId");
-
-		(void)sqliteManager.CreateTable(
-			tableName,
-			columns
-		);
-	
-		update_options.CreateUniqueIndex = true;
-
-		handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
-
-	}
 	
 	int should = -1;
 
@@ -885,10 +530,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 			returnVal = 1;
 	} while (true);
 
-	//mysqlTableColumns.waitForFinished();
-
-	update_options.CreateUniqueIndex = true;
-	handleUpdatingLocalDB(QString::fromStdString(tableName), uniqueIndexCols, &update_options);
+	employeesManager.deleteLater();
 
 	return returnVal;
 	//return 1;
@@ -4053,7 +3695,7 @@ int DatabaseManager::connectToRemoteDB()
 
 		try {
 
-			QString queryText = testingDBManager && doNotRunCloudUpdate ? "SHOW TABLES" : "SELECT * FROM cloudupdate WHERE posted = 0 OR posted = 2 ORDER BY DatePosted ASC, id ASC LIMIT " + QString::number(queryLimit);
+			QString queryText = testingDBManager && doNotRunCloudUpdate ? "SHOW TABLES" : "SELECT * FROM cloudupdate WHERE posted = 0 OR posted = 2 ORDER BY DatePosted DESC, id DESC LIMIT " + QString::number(queryLimit);
 			LOG << queryText;
 			//query.prepare(queryText);
 			if (!query.exec(queryText))
@@ -6833,9 +6475,6 @@ void DatabaseManager::performCleanup()
 
 	QJsonArray processes = queryManager.execute("SELECT ID FROM INFORMATION_SCHEMA.PROCESSLIST WHERE DB = :schema AND HOST = :host AND USER = :username AND COMMAND LIKE 'Sleep'", placeholder);
 
-	if (processes.size() < 3)
-		return;
-
 	for (const QJsonValue& process : processes)
 	{
 		QJsonObject processId = process.toObject();
@@ -6849,4 +6488,3 @@ void DatabaseManager::performCleanup()
 }
 
 //#include "DatabaseManager.moc"
-//#include "moc_DatabaseManager.cpp"
