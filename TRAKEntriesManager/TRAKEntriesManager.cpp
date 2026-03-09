@@ -4,7 +4,7 @@
 //auto EMPLOYEES_ALL_UPDATED = [](int val) { return val == EmployeesManager::NEXTSTEP::ALL_UPDATED ? 1 : 0; };
 using namespace TRAKEntriesManager;
 CTRAKEntriesManager::CTRAKEntriesManager(QObject* parent, const TrakDetails& trakDetails, const WebportalDetails& webportalDetails, const s_DATABASE_INFO& database_info)
-	: QObject(parent), m_sqliteManager(parent), m_queryManager(parent, database_info), m_networkManager(parent), m_table(parent, QSqlDatabase::database(database_info.schema))
+	: QObject(parent), m_sqliteManager(parent), m_queryManager(parent, database_info), m_networkManager(new NetworkManager(parent)), m_table(parent, QSqlDatabase::database(database_info.schema))
 {
 	qDebug() << "Initialized TRAKEntriesManager";
 
@@ -14,11 +14,9 @@ CTRAKEntriesManager::CTRAKEntriesManager(QObject* parent, const TrakDetails& tra
 	m_webportal_details = webportalDetails;
 	m_db_info = database_info;
 
-	m_queryManager.set_database_details(m_db_info);
+	BindNewNetworkManager();
 
-	m_networkManager.setApiUrl(m_webportal_details.api_url);
-	m_networkManager.setApiKey(m_webportal_details.api_key);
-	m_networkManager.toggleSecureTransport(DEBUG);
+	m_queryManager.set_database_details(m_db_info);
 
 	try {
 		if (!m_db_info.schema.isEmpty())
@@ -74,7 +72,9 @@ CTRAKEntriesManager::~CTRAKEntriesManager()
 
 	m_sqliteManager.deleteLater();
 	m_queryManager.deleteLater();
-	m_networkManager.deleteLater();
+	
+	if(!m_replaced_network_manager)
+		m_networkManager->deleteLater();
 
 	return;
 }
@@ -115,6 +115,26 @@ void CTRAKEntriesManager::Initialize()
 	catch (const std::exception& e) {
 		throw e;
 	}
+}
+
+void CTRAKEntriesManager::BindNewNetworkManager(NetworkManager* t_network_manager)
+{
+	if (m_networkManager && t_network_manager) {
+		m_networkManager->deleteLater();
+		m_networkManager = nullptr;
+	}
+
+	if (t_network_manager) {
+		m_networkManager = t_network_manager;
+		m_replaced_network_manager = true;
+	}
+
+	if (m_networkManager) {
+		m_networkManager->setApiUrl(m_webportal_details.api_url);
+		m_networkManager->setApiKey(m_webportal_details.api_key);
+		m_networkManager->toggleSecureTransport(DEBUG);
+	}
+	
 }
 
 void CTRAKEntriesManager::handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns, s_UpdateLocalTableOptions* options)
@@ -407,10 +427,10 @@ int CTRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJson
 
 		QJsonDocument reply;
 
-		if (m_networkManager.isInternetConnected())
-			(void)m_networkManager.authenticateSession();
+		if (m_networkManager->isInternetConnected())
+			(void)m_networkManager->authenticateSession();
 
-		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
+		if (!m_networkManager->makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
 			throw std::exception();
 		}
@@ -473,10 +493,10 @@ QJsonArray CTRAKEntriesManager::GetRemote(const QJsonArray& columns, const QJson
 
 		QJsonDocument reply;
 
-		if (m_networkManager.isInternetConnected())
-			(void)m_networkManager.authenticateSession();
+		if (m_networkManager->isInternetConnected())
+			(void)m_networkManager->authenticateSession();
 
-		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
+		if (!m_networkManager->makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
 			throw std::exception();
 		}
@@ -678,10 +698,10 @@ QJsonArray CTRAKEntriesManager::GetGroupedRemote(const QJsonArray& columns, cons
 
 		QJsonDocument reply;
 
-		if (m_networkManager.isInternetConnected())
-			(void)m_networkManager.authenticateSession();
+		if (m_networkManager->isInternetConnected())
+			(void)m_networkManager->authenticateSession();
 
-		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
+		if (!m_networkManager->makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
 			throw std::exception();
 		}
@@ -714,10 +734,10 @@ int CTRAKEntriesManager::SendToRemote(const QJsonObject& entry, const QJsonObjec
 
 	QJsonDocument reply;
 
-	if (m_networkManager.isInternetConnected())
-		(void)m_networkManager.authenticateSession();
+	if (m_networkManager->isInternetConnected())
+		(void)m_networkManager->authenticateSession();
 
-	if (m_networkManager.makePostRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, entry, body, &reply)) {
+	if (m_networkManager->makePostRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, entry, body, &reply)) {
 		qDebug() << reply;
 
 		if (!reply.isObject()) {
@@ -786,10 +806,10 @@ int CTRAKEntriesManager::UpdateRemote(const QJsonObject& entry, const QJsonObjec
 
 	QJsonDocument reply;
 
-	if (m_networkManager.isInternetConnected())
-		(void)m_networkManager.authenticateSession();
+	if (m_networkManager->isInternetConnected())
+		(void)m_networkManager->authenticateSession();
 
-	if (m_networkManager.makePatchRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, entry, body, &reply)) {
+	if (m_networkManager->makePatchRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, entry, body, &reply)) {
 		qDebug() << reply;
 
 		if (!reply.isObject()) {

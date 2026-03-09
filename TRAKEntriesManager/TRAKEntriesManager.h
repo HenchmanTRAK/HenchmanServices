@@ -1,13 +1,15 @@
 #pragma once
 
-
+// General
 #include <QObject>
 #include <QString>
 #include <QMap>
+#include <QPointer>
+// JSON
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QJsonDocument>
-
+// SQL
 #include <QSqlTableModel>
 
 
@@ -36,6 +38,9 @@ namespace TRAKEntriesManager {
 
 		Q_OBJECT;
 
+	private:
+		bool m_replaced_network_manager = false;
+
 	protected:
 		QJsonArray m_MySQL_Columns{};
 		QJsonArray m_SQLITE_Columns{};
@@ -49,7 +54,7 @@ namespace TRAKEntriesManager {
 
 		SQLiteManager2 m_sqliteManager;
 		QueryManager m_queryManager;
-		NetworkManager m_networkManager;
+		QPointer<NetworkManager> m_networkManager;
 
 		QSqlTableModel m_table{};
 		QSqlQueryModel* m_query = nullptr;
@@ -70,6 +75,8 @@ namespace TRAKEntriesManager {
 		explicit CTRAKEntriesManager(QObject* parent = nullptr, const TrakDetails& trakDetails = TrakDetails(), const WebportalDetails& webportalDetails = WebportalDetails(), const s_DATABASE_INFO& database_info = s_DATABASE_INFO());
 
 		~CTRAKEntriesManager();
+
+		void BindNewNetworkManager(NetworkManager* t_network_manager = nullptr);
 
 		QString ClearCloudUpdate();
 

@@ -88,8 +88,8 @@ public:
 	NetworkManager(QObject* parent);
 	~NetworkManager();
 
-	void setApiKey(const QString& apiKey);
-	void setApiUrl(const QString& url);
+	void setApiKey(const QString& t_key);
+	void setApiUrl(const QString& t_url);
 	
 	void toggleSecureTransport(const bool &secureTransport);
 

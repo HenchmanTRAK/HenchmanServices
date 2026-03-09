@@ -37,6 +37,8 @@ NetworkManager::~NetworkManager()
 		//cookieJar = nullptr;
 	//}
 
+	cleanManager();
+
 	if (restManager)
 	{
 		restManager->blockSignals(true);
@@ -111,14 +113,16 @@ void NetworkManager::cleanManager()
 }
 
 
-void NetworkManager::setApiKey(const QString& apiKey)
+void NetworkManager::setApiKey(const QString& t_key)
 {
-	api_key = apiKey;
+	if(api_key != t_key)
+		api_key = t_key;
 }
 
-void NetworkManager::setApiUrl(const QString& apiKey)
+void NetworkManager::setApiUrl(const QString& t_url)
 {
-	api_url = apiKey;
+	if (api_url != t_url)
+		api_url = t_url;
 }
 
 void NetworkManager::toggleSecureTransport(const bool& secureTransport)

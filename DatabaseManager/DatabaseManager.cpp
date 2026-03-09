@@ -144,6 +144,9 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	networkManager.setApiKey(apiKey);
 	networkManager.setApiUrl(apiUrl);
 	networkManager.toggleSecureTransport(!testingDBManager);
+
+	if (networkManager.isInternetConnected())
+		(void)networkManager.authenticateSession();
 }
 
 DatabaseManager::~DatabaseManager() 
@@ -414,6 +417,7 @@ int DatabaseManager::addUsersIfNotExists()
 	webportalDetails.query_limit = queryLimit;
 
 	UsersManager::CUsersManager usersManager(this, trakDetails, webportalDetails, db_info);
+	usersManager.BindNewNetworkManager(&networkManager);
 
 	databaseTablesChecked[targetKey] = usersManager.GetLocalCount();
 
@@ -475,6 +479,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	db_info.table = "employees";*/
 
 	EmployeesManager::CEmployeesManager employeesManager(this, trakDetails, webportalDetails, db_info);
+	employeesManager.BindNewNetworkManager(&networkManager);
 
 	databaseTablesChecked[targetKey] = employeesManager.GetLocalCount();
 
