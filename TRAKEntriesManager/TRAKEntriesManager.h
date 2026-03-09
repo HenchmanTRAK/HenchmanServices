@@ -37,7 +37,8 @@ namespace TRAKEntriesManager {
 		Q_OBJECT;
 
 	protected:
-		QJsonArray m_Columns{};
+		QJsonArray m_MySQL_Columns{};
+		QJsonArray m_SQLITE_Columns{};
 		QStringList m_TableColumns{};
 		const TCHAR* m_registryEntry = "";
 		QString m_time_zone{};

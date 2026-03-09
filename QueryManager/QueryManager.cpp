@@ -175,7 +175,7 @@ QVariantMap QueryManager::processPlaceholders(const QVariantMap& placeholders, Q
 		key = ":" + key;
 
 		if (value.typeId() == QVariant::DateTime) {
-			boundValues.insert(key, value.toDateTime());
+			boundValues.insert(key, value.toDateTime().toString(Qt::ISODateWithMs));
 			continue;
 		}
 

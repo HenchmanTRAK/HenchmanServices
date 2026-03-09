@@ -412,9 +412,6 @@ int DatabaseManager::addUsersIfNotExists()
 	webportalDetails.api_url = apiUrl;
 	webportalDetails.api_key = apiKey;
 	webportalDetails.query_limit = queryLimit;
-	webportalDetails.base_route = "users";
-
-	db_info.table = "users";
 
 	UsersManager::CUsersManager usersManager(this, trakDetails, webportalDetails, db_info);
 
@@ -473,9 +470,9 @@ int DatabaseManager::addEmployeesIfNotExists()
 	webportalDetails.api_url = apiUrl;
 	webportalDetails.api_key = apiKey;
 	webportalDetails.query_limit = queryLimit;
-	webportalDetails.base_route = "employees";
+	/*webportalDetails.base_route = "employees";
 
-	db_info.table = "employees";
+	db_info.table = "employees";*/
 
 	EmployeesManager::CEmployeesManager employeesManager(this, trakDetails, webportalDetails, db_info);
 

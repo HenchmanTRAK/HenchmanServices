@@ -27,12 +27,9 @@ CTRAKEntriesManager::CTRAKEntriesManager(QObject* parent, const TrakDetails& tra
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, ("SOFTWARE\\HenchmanTRAK\\" + m_trak_details.trak_type + "\\Database").toStdString().c_str());
 
 		DWORD size = sizeof(TCHAR);
+		std::vector<TCHAR> buffer(size);
 
-		rtManager.GetValSize("Schema", REG_SZ, &size);
-
-		//TCHAR* buffer = new TCHAR[size];
-		std::vector<TCHAR> buffer;
-		buffer.reserve(size);
+		rtManager.GetValSize("Schema", REG_SZ, &size, &buffer);
 
 		rtManager.GetVal("Schema", REG_SZ, buffer.data(), &size);
 
@@ -50,16 +47,6 @@ CTRAKEntriesManager::CTRAKEntriesManager(QObject* parent, const TrakDetails& tra
 	s_TZ_INFO tzMap = m_queryManager.GetTimezone();
 
 	m_time_zone = tzMap.time_zone;
-
-	try {
-		if (m_networkManager.isInternetConnected())
-			(void)m_networkManager.authenticateSession();
-	}
-	catch (const std::exception& e) {
-		throw e;
-	}
-
-	CleanTable();
 
 	return;
 }
@@ -95,6 +82,11 @@ CTRAKEntriesManager::~CTRAKEntriesManager()
 
 void CTRAKEntriesManager::Initialize()
 {
+
+	CleanTable();
+
+	m_queryManager.set_database_details(m_db_info);
+
 	try {
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 
@@ -228,7 +220,8 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 
 	breakoutValuesToUpdate(older, newer, set_values, &temp_variantMap);
 
-	updated_values->toVariantMap().swap(temp_variantMap);
+	QJsonObject temp_jsonObject = QJsonObject::fromVariantMap(temp_variantMap);
+	updated_values->swap(temp_jsonObject);
 }
 
 void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values)
@@ -247,35 +240,38 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 		if (excludeCols.contains(key))
 			continue;
 
-		QVariant webportalValue = newer.value(key).toVariant();
-		QVariant localValue = older.value(key).toVariant();
+		QVariant newerValue = newer.value(key).toVariant();
+		QVariant olderValue = older.value(key).toVariant();
 
-		if (webportalValue.isNull())
-			webportalValue = "";
+		if (newerValue.isNull())
+			newerValue = "";
 
-		if (localValue.isNull())
-			localValue = "";
+		if (olderValue.isNull())
+			olderValue = newerValue;
 
-		if (!webportalValue.canConvert<QString>()) {
+
+		qDebug() << key;
+		qDebug() << "New" << newerValue;
+		qDebug() << "Old" << olderValue;
+
+		if (!newerValue.canConvert<QString>()) {
 			continue;
 		}
 
 
-		if (webportalValue.toString() == localValue.toString())
+		if (newerValue == olderValue)
 			continue;
 
 
 		if (dateCols.contains(key)) {
-			QDateTime webportalDate = QDateTime::fromString(webportalValue.toString());
-			QDateTime localDate = QDateTime::fromString(localValue.toString());
+			QDateTime webportalDate = QDateTime::fromString(newerValue.toString(), Qt::ISODate);
+			QDateTime localDate = QDateTime::fromString(olderValue.toString(), Qt::ISODate);
 
 			if (webportalDate == localDate)
 				continue;
 		}
 
-		qDebug() << key;
-		qDebug() << webportalValue;
-		qDebug() << localValue;
+		
 
 		set.push_back(key + " = :" + key);
 		update.insert(key, newer.value(key));
@@ -291,11 +287,11 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 QJsonArray CTRAKEntriesManager::GetColumns(bool reset)
 {
 	if (reset) {
-		m_Columns = QJsonArray();
+		m_MySQL_Columns = QJsonArray();
 	}
 
-	if(m_Columns.size() > 0)
-		return m_Columns;
+	if(m_MySQL_Columns.size() > 0)
+		return m_MySQL_Columns;
 
 
 	GetTable();
@@ -312,12 +308,12 @@ QJsonArray CTRAKEntriesManager::GetColumns(bool reset)
 	for (int i = 0; i < m_table.rowCount(); ++i)
 	{
 		QVariantMap results = m_queryManager.recordToMap(m_table.record(i));
-		m_Columns.append(QJsonObject::fromVariantMap(results));
+		m_MySQL_Columns.append(QJsonObject::fromVariantMap(results));
 	}
 
 	CleanTable();
 
-	return m_Columns;
+	return m_MySQL_Columns;
 }
 
 QStringList CTRAKEntriesManager::GetColumnNames(bool reset)
@@ -327,7 +323,7 @@ QStringList CTRAKEntriesManager::GetColumnNames(bool reset)
 		m_TableColumns.clear();
 	}
 
-	if(m_TableColumns.size() > 0 && m_TableColumns.size() == m_Columns.size())
+	if(m_TableColumns.size() > 0 && m_TableColumns.size() == m_MySQL_Columns.size())
 		return m_TableColumns;
 
 	QJsonArray columns = GetColumns(reset);
@@ -411,6 +407,9 @@ int CTRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJson
 
 		QJsonDocument reply;
 
+		if (m_networkManager.isInternetConnected())
+			(void)m_networkManager.authenticateSession();
+
 		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
 			throw std::exception();
@@ -472,11 +471,10 @@ QJsonArray CTRAKEntriesManager::GetRemote(const QJsonArray& columns, const QJson
 		if (!select.isEmpty())
 			(void)query.insert("select", select);
 
-
-
-		qDebug() << query;
-
 		QJsonDocument reply;
+
+		if (m_networkManager.isInternetConnected())
+			(void)m_networkManager.authenticateSession();
 
 		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
@@ -678,9 +676,10 @@ QJsonArray CTRAKEntriesManager::GetGroupedRemote(const QJsonArray& columns, cons
 
 		(void)query.insert("select", select);
 
-		qDebug() << query;
-
 		QJsonDocument reply;
+
+		if (m_networkManager.isInternetConnected())
+			(void)m_networkManager.authenticateSession();
 
 		if (!m_networkManager.makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
@@ -714,6 +713,9 @@ int CTRAKEntriesManager::SendToRemote(const QJsonObject& entry, const QJsonObjec
 	//networkManager.makePostRequest(apiUrl + "/employees", result, body);
 
 	QJsonDocument reply;
+
+	if (m_networkManager.isInternetConnected())
+		(void)m_networkManager.authenticateSession();
 
 	if (m_networkManager.makePostRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, entry, body, &reply)) {
 		qDebug() << reply;
@@ -783,6 +785,9 @@ int CTRAKEntriesManager::UpdateRemote(const QJsonObject& entry, const QJsonObjec
 	//networkManager.makePostRequest(apiUrl + "/employees", result, body);
 
 	QJsonDocument reply;
+
+	if (m_networkManager.isInternetConnected())
+		(void)m_networkManager.authenticateSession();
 
 	if (m_networkManager.makePatchRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, entry, body, &reply)) {
 		qDebug() << reply;
