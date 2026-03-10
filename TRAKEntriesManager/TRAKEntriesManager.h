@@ -29,6 +29,8 @@ struct s_UpdateLocalTableOptions {
 	bool AddUpdatedAt = 0;
 	bool UpdateUpatedAt = 0;
 	bool CreateUniqueIndex = 0;
+	bool AddDisabled = 0;
+	bool AddDeleted = 0;
 };
 
 namespace TRAKEntriesManager {
@@ -43,7 +45,9 @@ namespace TRAKEntriesManager {
 
 	protected:
 		QJsonArray m_MySQL_Columns{};
+		QJsonArray m_MySQL_Column_Names{};
 		QJsonArray m_SQLITE_Columns{};
+		QJsonArray m_SQLITE_Column_Names{};
 		QStringList m_TableColumns{};
 		const TCHAR* m_registryEntry = "";
 		QString m_time_zone{};

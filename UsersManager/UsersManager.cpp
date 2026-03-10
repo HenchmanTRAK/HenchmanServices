@@ -48,17 +48,20 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 	QStringList uniqueIndexCols = { "custId", "userId", "kabId", "cribId", "scaleId" };
 	s_UpdateLocalTableOptions update_options;
 
-	QJsonArray sqliteTableColumns;
-
 	(void)m_sqliteManager.ExecQuery(
 		"pragma table_info(" + m_db_info.table + ")",
-		&sqliteTableColumns
+		&m_SQLITE_Columns
 	);
 
+	QJsonArray sqliteTableColumns = m_SQLITE_Columns;
 
 	update_options.AddCreatedAt = true;
 	update_options.AddUpdatedAt = true;
 	update_options.AddEmpId = true;
+	update_options.AddDisabled = true;
+	update_options.AddDeleted = true;
+
+	//QMutex mutex;
 
 	QFuture<QJsonArray> mysqlTableColumnsFuture = QtConcurrent::run([&tableColumns]() {
 		QJsonArray colummns = tableColumns;
@@ -81,6 +84,9 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 			if (!colummn.isObject())
 				continue;
 			QJsonObject sqliteColumn = colummn.toObject();
+			
+			qDebug() << sqliteColumn.value("name").toString();
+
 			sqliteTableColumnNames.append(sqliteColumn.value("name").toString());
 		}
 		return sqliteTableColumnNames;
@@ -150,6 +156,9 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 	QJsonArray sqliteTableColumnNames = sqliteTableColumnsFuture.result();
 	QJsonArray mysqlTableColumnNames = mysqlTableColumnsFuture.result();
 
+	qDebug() << sqliteTableColumnNames;
+	qDebug() << mysqlTableColumnNames;
+
 	int performTableUpdate = mysqlTableColumnNames.size() != sqliteTableColumnNames.size();
 
 	if (!performTableUpdate)
@@ -173,14 +182,17 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 			columnsFuture.result()
 		);
 
+		update_options.AddDisabled = !sqliteTableColumnNames.contains("disabled");
+		update_options.AddDeleted = !sqliteTableColumnNames.contains("deleted");
 		update_options.CreateUniqueIndex = true;
 		update_options.AddEmpIdSqliteOnly = !sqliteTableColumnNames.contains("empId");
 
-		handleUpdatingLocalDB(m_db_info.table, uniqueIndexCols, &update_options);
 	}
 
 	columnsFuture.waitForFinished();
 
+	handleUpdatingLocalDB(m_db_info.table, uniqueIndexCols, &update_options);
+	
 	return m_MySQL_Columns;
 
 }
@@ -491,7 +503,12 @@ void CUsersManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonO
 	}
 
 	QDateTime remoteUpdate = QDateTime::fromString(remote.value("updatedAt").toString(), Qt::ISODate);
+	if (!remoteUpdate.isValid())
+		remoteUpdate = QDateTime::fromString(remote.value("updatedAt").toString(), Qt::ISODateWithMs);
+
 	QDateTime localUpdate = QDateTime::fromString(local.value("updatedAt").toString(), Qt::ISODate);
+	if (!localUpdate.isValid())
+		localUpdate = QDateTime::fromString(local.value("updatedAt").toString(), Qt::ISODateWithMs);
 	//localUpdate.setOffsetFromUtc(local_timezone_offset);
 
 	if (remoteUpdate == localUpdate) {
@@ -521,37 +538,13 @@ void CUsersManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonO
 		qInfo() << "Updating Local entry to match Remote";
 
 		(void)CTRAKEntriesManager::breakoutValuesToUpdate(local, remote, &set, &placeholders);
-		//(void)CTRAKEntriesManager::breakoutValuesToUpdate(local, remote, &set, &update);
+		//(void)CTRAKEntriesManager::breakoutValuesToUpdate(remote, local, &set, &update);
 
 		update = QJsonObject::fromVariantMap(placeholders);
 
-		set.push_back("updatedAt = CONVERT_TZ(:updatedAt, '+00:00', :tz)");
-		placeholders.insert("updatedAt", currentDateTime);
-		placeholders.insert("tz", m_time_zone);
-		placeholders.insert("custId", remote.value("custId").toInt());
-		placeholders.insert("empId", remote.value("empId").toString());
-		placeholders.insert("userId", remote.value("userId").toString());
-
-		qDebug() << set;
-		qDebug() << placeholders;
-		qDebug() << update;
-		qDebug() << where;
-
-		//QString queryToExec = "UPDATE users SET " + set.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId";
-		//(void)queryManager.execute(queryToExec, placeholders);
-		(void)UpdateLocal(set, placeholders);
-
-		update.insert("updatedAt", currentDateTime.toString(Qt::ISODateWithMs));
-		where.insert("custId", placeholders.value("custId").toJsonValue());
-		where.insert("empId", placeholders.value("empId").toJsonValue());
-		where.insert("userId", placeholders.value("userId").toJsonValue());
-
-		body.insert("update", update);
-		body.insert("where", where);
-
-		(void)UpdateRemote(local, body);
-
-		return;
+		placeholders.insert("ori_custId", remote.value("custId").toInt());
+		placeholders.insert("ori_empId", remote.value("empId").toString());
+		placeholders.insert("ori_userId", remote.value("userId").toString());
 	}
 
 	if (remoteUpdate < localUpdate)
@@ -563,39 +556,38 @@ void CUsersManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonO
 
 		update = QJsonObject::fromVariantMap(placeholders);
 
-		set.push_back("updatedAt = CONVERT_TZ(:updatedAt, '+00:00', :tz)");
-		placeholders.insert("updatedAt", currentDateTime);
-		placeholders.insert("tz", m_time_zone);
-		placeholders.insert("custId", local.value("custId").toInt());
-		placeholders.insert("empId", local.value("empId").toString());
-		placeholders.insert("userId", local.value("userId").toString());
-
-		qDebug() << set;
-		qDebug() << placeholders;
-		qDebug() << update;
-		qDebug() << where;
-
-		//QString queryToExec = "UPDATE users SET " + set.join(", ") + " WHERE custId = :custId AND userId = :userId AND empId = :empId";
-		//(void)queryManager.execute(queryToExec, placeholders);
-		(void)UpdateLocal(set, placeholders);
-
-		update.insert("updatedAt", currentDateTime.toString(Qt::ISODateWithMs));
-		where.insert("custId", placeholders.value("custId").toJsonValue());
-		where.insert("empId", placeholders.value("empId").toJsonValue());
-		where.insert("userId", placeholders.value("userId").toJsonValue());
-
-		body.insert("update", update);
-		body.insert("where", where);
-
-		(void)UpdateRemote(local, body);
-
-		return;
+		placeholders.insert("ori_custId", local.value("custId").toInt());
+		placeholders.insert("ori_empId", local.value("empId").toString());
+		placeholders.insert("ori_userId", local.value("userId").toString());
 	}
+	set.push_back("updatedAt = CONVERT_TZ(:updatedAt, '+00:00', :tz)");
+	placeholders.insert("updatedAt", currentDateTime);
+	placeholders.insert("tz", m_time_zone);
+
+	qDebug() << set;
+	qDebug() << placeholders;
+	qDebug() << update;
+	qDebug() << where;
+
+	QString queryToExec = "UPDATE users SET " + set.join(", ") + " WHERE custId = :ori_custId AND userId = :ori_userId AND (empId = :ori_empId OR empId = '')";
+	(void)m_queryManager.execute(queryToExec, placeholders);
+
+	update.insert("updatedAt", currentDateTime.toString(Qt::ISODateWithMs));
+	where.insert("custId", placeholders.value("ori_custId").toJsonValue());
+	where.insert("empId", placeholders.value("ori_empId").toJsonValue());
+	where.insert("userId", placeholders.value("ori_userId").toJsonValue());
+
+	body.insert("update", update);
+	body.insert("where", where);
+
+	(void)UpdateRemote(local, body);
+
+	return;
 }
 
 int CUsersManager::SyncWebportal()
 {
-	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	QStringList skipTargetCols = { "id", "createdAt", "updatedAt"};
 
 	//QJsonArray webportalResults = GetRemote(QJsonArray({ "custId", "userId", "empId", m_trak_details.trak_id_type, "updatedAt" }));
 	QJsonArray webportalResults = GetRemote(QJsonArray({ "custId", "userId", "empId", m_trak_details.trak_id_type, "updatedAt" }));
@@ -671,6 +663,11 @@ int CUsersManager::SyncWebportal()
 
 	qDebug() << QJsonDocument(queryResults).toJson().toStdString().data();
 
+
+	QJsonArray SQLiteColumns;
+
+	m_sqliteManager.GetTableColumnNames(m_db_info.table.toStdString().data(), &SQLiteColumns);
+
 	
 	for (const auto& queryResult : queryResults) {
 		if (!queryResult.isObject())
@@ -733,7 +730,7 @@ int CUsersManager::SyncWebportal()
 
 			if (val.isEmpty() || val == "''")
 				continue;
-			if (!skipTargetCols.contains(key))
+			if (!skipTargetCols.contains(key) && (SQLiteColumns.size() <= 0 || SQLiteColumns.contains(key)))
 				sqliteData.insert_or_assign(key.toStdString(), val.toStdString());
 			data.insert(key, val);
 		}
@@ -1077,8 +1074,11 @@ int CUsersManager::UpdateOutdated()
 				where.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 				QJsonArray targetRemote = GetRemote(QJsonArray(), where);
 
-				if (targetRemote.isEmpty())
-					throw HenchmanServiceException("Needed user instance from remote but failed to find one");
+				if (targetRemote.isEmpty()) {
+					//throw HenchmanServiceException("Needed user instance from remote but failed to find one");
+					ServiceHelper().WriteToError("Needed user instance from remote but failed to find one");
+					continue;
+				}
 
 				remote = targetRemote.at(0).toObject();
 			}
@@ -1117,8 +1117,11 @@ int CUsersManager::UpdateOutdated()
 				where.insert("userId", remote.value("userId"));
 				QJsonArray targetLocal = GetLocal("SELECT * FROM users WHERE empId = :empId AND userId = :userId", where);
 
-				if (targetLocal.isEmpty())
-					throw HenchmanServiceException("Needed user instance from local but failed to find one");
+				if (targetLocal.isEmpty()) {
+					//throw HenchmanServiceException("Needed user instance from local but failed to find one");
+					ServiceHelper().WriteToError("Needed user instance from local but failed to find one");
+					continue;
+				}
 
 				local = targetLocal.at(0).toObject();
 			}

@@ -383,9 +383,9 @@ void CEmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJ
 
 		update = QJsonObject::fromVariantMap(placeholders);
 
-		placeholders.insert("custId", remote.value("custId").toInt());
-		placeholders.insert("empId", remote.value("empId").toString());
-		placeholders.insert("userId", remote.value("userId").toString());
+		placeholders.insert("ori_custId", remote.value("custId").toInt());
+		placeholders.insert("ori_empId", remote.value("empId").toString());
+		placeholders.insert("ori_userId", remote.value("userId").toString());
 		
 	}
 
@@ -398,9 +398,9 @@ void CEmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJ
 
 		update = QJsonObject::fromVariantMap(placeholders);
 
-		placeholders.insert("custId", local.value("custId").toInt());
-		placeholders.insert("empId", local.value("empId").toString());
-		placeholders.insert("userId", local.value("userId").toString());
+		placeholders.insert("ori_custId", local.value("custId").toInt());
+		placeholders.insert("ori_empId", local.value("empId").toString());
+		placeholders.insert("ori_userId", local.value("userId").toString());
 
 	}
 	update.remove("kabId");
@@ -416,13 +416,13 @@ void CEmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJ
 	qDebug() << update;
 	qDebug() << where;
 
-	QString queryToExec = "UPDATE employees SET " + set.join(", ") + " WHERE custId = :custId AND ((empId = '' AND userId = :userId) OR empId = :empId)";
+	QString queryToExec = "UPDATE employees SET " + set.join(", ") + " WHERE custId = :ori_custId AND ((empId = '' AND userId = :ori_userId) OR empId = :ori_empId)";
 	(void)m_queryManager.execute(queryToExec, placeholders);
 
 	update.insert("updatedAt", currentDateTime.toString(Qt::ISODateWithMs));
-	where.insert("custId", placeholders.value("custId").toJsonValue());
-	where.insert("empId", placeholders.value("empId").toJsonValue());
-	where.insert("userId", placeholders.value("userId").toJsonValue());
+	where.insert("custId", placeholders.value("ori_custId").toJsonValue());
+	where.insert("empId", placeholders.value("ori_empId").toJsonValue());
+	where.insert("userId", placeholders.value("ori_userId").toJsonValue());
 
 	body.insert("update", update);
 	body.insert("where", where);

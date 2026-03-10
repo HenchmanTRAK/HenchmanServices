@@ -233,6 +233,9 @@ public:
 		QJsonArray* results = nullptr
 	);*/
 
+
+	QJsonArray GetTableColumnNames(const TCHAR * tableName, QJsonArray* results);
+
 private:
 	QSqlDatabase CreateNewDatabase(const QString& databaseName);
 

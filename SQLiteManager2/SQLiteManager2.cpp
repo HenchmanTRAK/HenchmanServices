@@ -621,4 +621,29 @@ std::vector<stringmap> SQLiteManager2::GetEntry(
 	return results;
 }
 
-//#include "moc_SQLiteManager2.cpp"
+QJsonArray SQLiteManager2::GetTableColumnNames(const TCHAR *t_table, QJsonArray* t_results) {
+
+	QJsonArray columns;
+
+	ExecQuery(
+		std::string("pragma table_info(").append(t_table).append(")"),
+		&columns
+	);
+
+	QJsonArray results;
+
+	for (const auto& column : columns)
+	{
+		if (!column.isObject())
+			continue;
+		QJsonObject sqliteColumn = column.toObject();
+
+		results.append(sqliteColumn.value("name").toString());
+	}
+
+
+	if (t_results)
+		t_results->swap(results);
+
+	return results;
+}

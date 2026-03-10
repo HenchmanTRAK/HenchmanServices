@@ -140,30 +140,38 @@ void CTRAKEntriesManager::BindNewNetworkManager(NetworkManager* t_network_manage
 void CTRAKEntriesManager::handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns, s_UpdateLocalTableOptions* options)
 {
 	//QueryManager queryManager(this, db_info);
+	qDebug() << "modifying table" << table;
+	qDebug() << "passed options" << options;
+
 	if (!options)
 		return;
 
 	if (options->AddCreatedAt) {
+		qDebug() << "Adding created at";
 		(void)m_queryManager.execute("ALTER TABLE " + table + " ADD createdAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP");
 		options->AddCreatedAt = false;
 	}
 
 	if (options->UpdateCreatedAt) {
+		qDebug() << "updating created at";
 		(void)m_queryManager.execute("ALTER TABLE " + table + " ALTER createdAt SET DEFAULT CURRENT_TIMESTAMP");
 		options->UpdateCreatedAt = false;
 	}
 
 	if (options->AddUpdatedAt) {
+		qDebug() << "Adding updated at";
 		(void)m_queryManager.execute("ALTER TABLE " + table + " ADD updatedAt timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
 		options->AddUpdatedAt = false;
 	}
 
 	if (options->UpdateUpatedAt) {
+		qDebug() << "updating updated at";
 		(void)m_queryManager.execute("ALTER TABLE " + table + " ALTER updatedAt SET DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
 		options->UpdateUpatedAt = false;
 	}
 
 	if (options->AddEmpIdSqliteOnly && !options->AddEmpId) {
+		qDebug() << "adding empid at sqlite db only";
 		(void)m_sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
 		options->AddEmpIdSqliteOnly = false;
 	}
@@ -172,12 +180,26 @@ void CTRAKEntriesManager::handleUpdatingLocalDB(const QString& table, const QStr
 	}
 
 	if (options->AddEmpId) {
+		qDebug() << "adding empid";
 		(void)m_sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
 		(void)m_queryManager.execute("ALTER TABLE " + table + " ADD empId VARCHAR(32) NOT NULL DEFAULT ''");
 		options->AddEmpId = false;
 	}
 
+	if (options->AddDisabled) {
+		qDebug() << "Adding disabled to sqlite db";
+		(void)m_sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD disabled INT NOT NULL DEFAULT 0");
+		options->AddDisabled = false;
+	}
+
+	if (options->AddDeleted) {
+		qDebug() << "Adding deleted to sqlite db";
+		(void)m_sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD deleted INT NOT NULL DEFAULT 0");
+		options->AddDeleted = false;
+	}
+
 	if (options->CreateUniqueIndex) {
+		qDebug() << "Adding unique index to sqlite db";
 		if (unique_columns.isEmpty())
 			throw HenchmanServiceException("Cannot add unique index without providing columns");
 		(void)m_sqliteManager.ExecQuery("CREATE UNIQUE INDEX IF NOT EXISTS unique_" + unique_columns.join("_") + " ON " + table + "(" + unique_columns.join(",") + ")");
@@ -422,6 +444,10 @@ int CTRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJson
 		if (!select.contains("count"))
 			(void)select.insert("count", "total");
 
+		QJsonObject options;
+		(void)options.insert("useEmpId", true);
+
+		(void)query.insert("options", options);
 		(void)query.insert("where", where);
 		(void)query.insert("select", select);
 
@@ -490,6 +516,11 @@ QJsonArray CTRAKEntriesManager::GetRemote(const QJsonArray& columns, const QJson
 
 		if (!select.isEmpty())
 			(void)query.insert("select", select);
+
+		QJsonObject options;
+		(void)options.insert("useEmpId", true);
+
+		(void)query.insert("options", options);
 
 		QJsonDocument reply;
 
@@ -692,9 +723,15 @@ QJsonArray CTRAKEntriesManager::GetGroupedRemote(const QJsonArray& columns, cons
 		if (!separator.isEmpty())
 			(void)group.insert("separator", separator);
 
+
 		(void)select.insert("group", group);
 
 		(void)query.insert("select", select);
+
+		QJsonObject options;
+		(void)options.insert("useEmpId", true);
+
+		(void)query.insert("options", options);
 
 		QJsonDocument reply;
 
