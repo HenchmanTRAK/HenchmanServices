@@ -1,5 +1,3 @@
-#ifndef TRAK_MANAGER_H
-#define TRAK_MANAGER_H
 #pragma once
 
 #include <SimpleIni.h>
@@ -165,6 +163,3 @@ public:
 	 */
 	int UploadCurrentStateToRemote(DatabaseManager& databaseManager);
 };
-
-
-#endif

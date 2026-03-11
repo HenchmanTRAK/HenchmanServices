@@ -85,20 +85,38 @@ SQLiteManager2::~SQLiteManager2()
 	LOG << "Deconstructing SQLiteManager2";
 	/*if(QSqlDatabase::contains(databaseName))
 		QSqlDatabase::removeDatabase(databaseName);*/
+
+	if (QSqlDatabase::contains(databaseName))
+	{
+		try {
+			QSqlDatabase db = QSqlDatabase::database(databaseName);
+			if (db.isOpen()) {
+				db.close();
+			}
+		}
+		catch (void*) {}
+
+		//QSqlDatabase::removeDatabase(db_info.schema);
+	}
 }
 
 QSqlDatabase SQLiteManager2::CreateNewDatabase(const QString& databaseName)
 {
 	QSqlDatabase db;
 	try {
-		if (QSqlDatabase::contains(databaseName))
+
+
+		if (QSqlDatabase::contains(databaseName)) {
+
 			db = QSqlDatabase::database(databaseName);
+			LOG << "connecting to existing database";
+		}
 		else {
 			db = QSqlDatabase::addDatabase(databaseDriver, databaseName);
 			db.setDatabaseName(databaseLocation + "\\" +databaseName);
+			LOG << "Initializing new Database";
 		}
 
-		LOG << "Initializing Database";
 		if (!db.open())
 			throw HenchmanServiceException("Failed to open database");
 
@@ -118,10 +136,9 @@ void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 {
 	QJsonArray resultsArray;
 
-
 	QSqlDatabase db;
 
-	if (!db.thread()->isCurrentThread()) {
+	/*if (!db.thread()->isCurrentThread()) {
 		QSqlDatabase::removeDatabase(databaseName);
 		db = CreateNewDatabase(databaseName);
 
@@ -131,7 +148,9 @@ void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 	}
 	else {
 		db = QSqlDatabase::database(databaseName);
-	}
+	}*/
+
+	db = CreateNewDatabase(databaseName);
 
 
 	try {
@@ -170,7 +189,7 @@ void SQLiteManager2::ExecQuery(const QString& queryText, QJsonArray* results)
 		{
 			QJsonObject queryResult;
 			//qDebug() << query.record();
-			for (int i = 0; i <= query.record().count() - 1; i++)
+			for (int i = 0; i < query.record().count(); i++)
 			{
 				QString key = query.record().fieldName(i);
 				QString value = query.value(i).toString();

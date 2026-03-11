@@ -58,8 +58,10 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 	update_options.AddCreatedAt = true;
 	update_options.AddUpdatedAt = true;
 	update_options.AddEmpId = true;
-	update_options.AddDisabled = true;
-	update_options.AddDeleted = true;
+	update_options.AddDisabledToSQLITE = true;
+	update_options.AddDisabledToSQLITE = true;
+	update_options.AddDisabledToMySQL = true;
+	update_options.AddDisabledToMySQL = true;
 
 	//QMutex mutex;
 
@@ -122,6 +124,12 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 			if (field == "updatedAt") {
 				update_options.AddUpdatedAt = false;
 			}
+			if (field == "disabled") {
+				update_options.AddDisabledToMySQL = false;
+			}
+			if (field == "deleted") {
+				update_options.AddDeletedToMySQL = false;
+			}
 
 			if (skipTargetCols.contains(field)) {
 				skippedColumns.push_back(field);
@@ -182,8 +190,8 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 			columnsFuture.result()
 		);
 
-		update_options.AddDisabled = !sqliteTableColumnNames.contains("disabled");
-		update_options.AddDeleted = !sqliteTableColumnNames.contains("deleted");
+		update_options.AddDisabledToSQLITE = !sqliteTableColumnNames.contains("disabled");
+		update_options.AddDeletedToSQLITE = !sqliteTableColumnNames.contains("deleted");
 		update_options.CreateUniqueIndex = true;
 		update_options.AddEmpIdSqliteOnly = !sqliteTableColumnNames.contains("empId");
 
@@ -210,6 +218,7 @@ int CUsersManager::GetLocalCount(const QList<QString>& p_conditions, const QJson
 		if (conditions.isEmpty()) {
 			conditions.append("userId <> ''");
 			conditions.append("userId IS NOT NULL");
+			conditions.append("userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL)");
 		}
 		
 		local_users = CTRAKEntriesManager::GetLocalCount(conditions, placeholders);
@@ -873,7 +882,7 @@ int CUsersManager::SyncLocal()
 		QJsonObject remoteResult = webportalResult.toObject();
 		qDebug() << "result" << remoteResult;
 
-		QJsonArray localResults = GetLocal("SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (userId = :userId OR empId = :empId)", remoteResult);
+		QJsonArray localResults = GetLocal("SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND userId = :userId AND (empId = :empId OR empId = '')", remoteResult);
 		
 		qDebug() << "local entry arr size" << localResults.size();
 		if(localResults.size() > 0)
@@ -886,9 +895,20 @@ int CUsersManager::SyncLocal()
 		{
 			QJsonObject localEntry = localResults.at(0).toObject();
 
+			if (localEntry.value("empId").toString().isEmpty()) {
+				QJsonArray remoteEmployees = m_queryManager.execute("SELECT empId FROM employees WHERE custId = :custId AND userId = :userId", localEntry);
+				if (!remoteEmployees.isEmpty()) {
+					localEntry["empId"] = remoteEmployees.at(0).toObject().value("empId");
+					m_queryManager.execute("UPDATE users SET empId = :empId WHERE custId = :custId AND userId = :userId AND empId = ''", localEntry);
+				}
+			}
+
 			qDebug() << "Local: " << QJsonDocument(localEntry).toJson().toStdString().data();
 			qDebug() << "Remote: " << QJsonDocument(remoteResult).toJson().toStdString().data();
 			localEntry[m_trak_details.trak_id_type] = m_trak_details.trak_id;
+
+			if (remoteResult.value("updatedAt") == localEntry.value("updatedAt"))
+				continue;
 
 			HandleUpdatingEntries(localEntry, remoteResult);
 			
@@ -1050,6 +1070,14 @@ int CUsersManager::UpdateOutdated()
 		{
 			QJsonObject local = QJsonObject::fromVariantMap(outdatedLocal);
 			QJsonObject remote;
+
+
+			if (local.value("empId").toString().isEmpty()) {
+				QJsonArray remoteEmployees = m_queryManager.execute("SELECT empId FROM employees WHERE custId = :custId AND userId = :userId", local);
+				if (!remoteEmployees.isEmpty()) {
+					local["empId"] = remoteEmployees.at(0).toObject().value("empId");
+				}
+			}
 
 			for (const auto& outdatedRemote : outdatedRemotes) {
 				if (!outdatedRemote.isObject())

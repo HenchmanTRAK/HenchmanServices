@@ -1,8 +1,6 @@
 ﻿// HenchmanServices.h : Include file for standard system include files,
 // or project specific include files.
 
-#ifndef HENCHMAN_SERVICE_H
-#define HENCHMAN_SERVICE_H
 #pragma once
 
 
@@ -62,5 +60,3 @@
 
 void WINAPI SvcMain();
 void SvcInit();
-
-#endif

@@ -5,15 +5,8 @@
 // SERVICECONTROLLER_API functions as being imported from a DLL, whereas this DLL sees symbols
 // defined with this macro as being exported.
 
-#ifndef SERVICE_CONTROLLER_LIBRARY_H
-#define SERVICE_CONTROLLER_LIBRARY_H
 #pragma once
 
-#ifdef SERVICE_CONTROLLER_LIBRARY_EXPORTS
-#define SERVICE_CONTROLLER_LIBRARY_ __declspec(dllexport)
-#else
-#define SERVICE_CONTROLLER_LIBRARY_ __declspec(dllimport)
-#endif
 
 #include <iostream>
 #include <strsafe.h>
@@ -103,4 +96,3 @@ namespace ServiceController
 //	DWORD dwWin32ExitCode,
 //	DWORD dwWaitHint
 //);
-#endif

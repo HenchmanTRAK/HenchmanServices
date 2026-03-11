@@ -1,5 +1,3 @@
-#ifndef HENCHMAN_SERVICE_EXCEPTION_H
-#define HENCHMAN_SERVICE_EXCEPTION_H
 #pragma once
 
 #include <exception>
@@ -79,4 +77,3 @@ public:
 	const TCHAR *what(EventManager::CEventManager& evntManager) const;
 };
 
-#endif // !HENCHMAN_SERVICE_EXCEPTION_H

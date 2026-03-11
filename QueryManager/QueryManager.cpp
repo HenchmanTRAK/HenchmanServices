@@ -16,21 +16,17 @@ QueryManager::~QueryManager()
 		return;
 	}
 
-
-	if (!QSqlDatabase::contains(db_info.schema))
+	if (QSqlDatabase::contains(db_info.schema))
 	{
-		qDebug() << "connection to " << db_info.schema << " doesnt exist";
-		return;
+		try {
+			QSqlDatabase db = QSqlDatabase::database(db_info.schema);
+			if (db.isOpen()) {
+				db.close();
+			}
+		}catch(void*){}
+
+		//QSqlDatabase::removeDatabase(db_info.schema);
 	}
-
-	try {
-		QSqlDatabase db = QSqlDatabase::database(db_info.schema);
-		if (db.isOpen()) {
-			db.close();
-		}
-	}catch(void*){}
-
-	//QSqlDatabase::removeDatabase(db_info.schema);
 }
 
 void QueryManager::setSchema(const QString& new_schema)
@@ -47,6 +43,39 @@ void QueryManager::set_database_details(const s_DATABASE_INFO& database_info)
 	db_info = database_info;
 }
 
+QSqlDatabase QueryManager::GetDatabaseConnection()
+{
+	QSqlDatabase db;
+	try {
+
+
+		if (QSqlDatabase::contains(db_info.schema)) {
+
+			db = QSqlDatabase::database(db_info.schema);
+			LOG << "connecting to existing database";
+		}
+		else {
+			/*db = QSqlDatabase::addDatabase(databaseDriver, databaseName);
+			db.setDatabaseName(databaseLocation + "\\" + databaseName);
+			LOG << "Initializing new Database";*/
+			throw HenchmanServiceException("Database connection does not exist, please create one before using QueryManager");
+		}
+
+		if (!db.open())
+			throw HenchmanServiceException("Failed to open database");
+
+	}
+	catch (const std::exception& e) {
+		if (db.isOpen())
+			db.close();
+		throw e;
+	}
+
+	db.close();
+
+	return db;
+}
+
 QString QueryManager::getSchema()
 {
 	return db_info.schema;
@@ -61,7 +90,7 @@ s_TZ_INFO QueryManager::GetTimezone()
 
 	qDebug() << "Schema: " << db_info.schema;
 
-	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
+	QSqlDatabase db(GetDatabaseConnection());
 
 	if (db.isOpen())
 		qDebug() << "Database Open";
@@ -226,7 +255,7 @@ QList<QVariantMap> QueryManager::execute(const TCHAR* sql, const QVariantMap& pl
 {
 	QList<QVariantMap> results(0);
 
-	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
+	QSqlDatabase db(GetDatabaseConnection());
 
 
 	if(!db.open())
@@ -354,7 +383,6 @@ QList<QVariantMap> QueryManager::execute(const TCHAR* sql, const QVariantMap& pl
 
 	return results;
 }
-
 QList<QVariantMap> QueryManager::execute(const QString& sql, const QVariantMap& placeholders)
 { 
 	return execute(sql.toStdString(), placeholders);
@@ -376,12 +404,49 @@ QJsonArray QueryManager::execute(const TCHAR* sql, const QJsonObject& placeholde
 
 	return results;
 }
-
 QJsonArray QueryManager::execute(const QString& sql, const QJsonObject& placeholders)
 {
 	return execute(sql.toStdString(), placeholders);
 }
 QJsonArray QueryManager::execute(const std::string& sql, const QJsonObject& placeholders)
+{
+	return execute(sql.data(), placeholders);
+}
+
+QList<QStringMap> QueryManager::execute(const TCHAR* sql, const QStringMap& placeholders)
+{
+
+	QList<QStringMap> results;
+	QVariantMap variant_placeholders;
+
+	QMapIterator it(placeholders);
+
+	while (it.hasNext()) {
+		it.next();
+		variant_placeholders[it.key()] = it.value();
+	}
+
+	QList<QVariantMap> queryResults = execute(sql, variant_placeholders);
+
+	for (const auto& result : queryResults) {
+		QStringMap results_map;
+		QMapIterator it(result);
+		while (it.hasNext()) {
+			it.next();
+			results_map[it.key()] = it.value().toString();
+		}
+
+		results.append(results_map);
+	}
+
+
+	return results;
+}
+QList<QStringMap> QueryManager::execute(const QString& sql, const QStringMap& placeholders)
+{
+	return execute(sql.toStdString(), placeholders);
+}
+QList<QStringMap> QueryManager::execute(const std::string& sql, const QStringMap& placeholders)
 {
 	return execute(sql.data(), placeholders);
 }
@@ -408,7 +473,6 @@ std::vector<QStringMap> QueryManager::execute(const TCHAR* sql)
 
 	return results;
 }
-
 std::vector<QStringMap> QueryManager::execute(const QString& sql)
 {
 	return execute(sql.toStdString());
@@ -422,7 +486,7 @@ int QueryManager::ExecuteTargetSqlScript(const std::string& filepath)
 {
 	int successCount = 0;
 
-	QSqlDatabase db(QSqlDatabase::database(db_info.schema));
+	QSqlDatabase db(GetDatabaseConnection());
 
 	QFile file(filepath.data());
 	try {

@@ -29,8 +29,6 @@
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
 
-#include "sqlitemanager2_export.h"
-
 /**
  * @class SQLiteManager2
  *
@@ -50,7 +48,7 @@
  * @see QSqlDatabase
  * @see QSqlQuery
  */
-class SQLITEMANAGER2_EXPORT SQLiteManager2 : public QObject
+class SQLiteManager2 : public QObject
 {
 	Q_OBJECT
 

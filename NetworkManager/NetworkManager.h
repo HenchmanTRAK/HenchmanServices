@@ -1,25 +1,6 @@
 
 #pragma once
 
-//#ifndef NETWORK_MANAGER_LIBRARY_H
-//#define NETWORK_MANAGER_LIBRARY_H
-
-
-//#ifdef NETWORK_MANAGER_EXPORTS
-//#define NETWORK_MANAGER_ __declspec(dllexport)
-//#else
-//#define NETWORK_MANAGER_ __declspec(dllimport)
-//#endif
-
-
-//#include <QtCore/QtGlobal>
-//
-//#if defined(NETWORK_MANAGER)
-//#  define NETWORK_MANAGER_EXPORT Q_DECL_EXPORT
-//#else
-//#  define NETWORK_MANAGER_EXPORT Q_DECL_IMPORT
-//#endif
-
 #include <optional>
 #include <vector>
 
@@ -38,9 +19,9 @@
 #include <QJsonObject>
 #include <QEventLoop>
 
-
 #include "ServiceHelper.h"
 #include "HenchmanServiceException.h"
+
 #include "networkmanager_export.h"
 
 
@@ -82,6 +63,11 @@ private:
 	 */
 	QString api_key;
 
+	/**
+	 * @brief The API URL.
+	 *
+	 * This is used to define the base url used for all api requests..
+	 */
 	QString api_url;
 
 public:

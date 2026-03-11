@@ -19,10 +19,14 @@
 #include <QObject>
 #include <QString>
 #include <QMap>
+#include <QThread>
+
 #include <QMutex>
 #include <QMutexLocker>
+
 #include <QJsonArray>
 #include <QJsonObject>
+
 #include <QSqlDatabase>
 #include <QSqlQuery>
 #include <QSqlRecord>
@@ -83,6 +87,10 @@ public:
 	QJsonArray execute(const QString& sql, const QJsonObject& placeholders);
 	QJsonArray execute(const std::string& sql, const QJsonObject& placeholders);
 
+	QList<QStringMap> execute(const TCHAR* sql, const QStringMap& placeholders);
+	QList<QStringMap> execute(const QString& sql, const QStringMap& placeholders);
+	QList<QStringMap> execute(const std::string& sql, const QStringMap& placeholders);
+
 	std::vector<QStringMap> execute(const TCHAR* sql);
 	std::vector<QStringMap> execute(const QString& sql);
 	std::vector<QStringMap> execute(const std::string& sql);
@@ -119,7 +127,9 @@ public:
 	int ExecuteTargetSqlScript(const std::string& filepath);
 
 	s_TZ_INFO GetTimezone();
-//private:
+private:
+
+	QSqlDatabase GetDatabaseConnection();
 
 };
 

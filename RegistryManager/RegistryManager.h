@@ -73,7 +73,7 @@ namespace RegistryManager {
 
 		DWORD GetValSize(const TCHAR* lpValue, DWORD type);
 		//LONG GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size);
-		LONG GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size, std::vector<TCHAR>* buffer = nullptr);
+		LONG GetValSize(const TCHAR* lpValue, DWORD type, DWORD* size, std::vector<TCHAR>* buffer = nullptr);
 
 		/**
 		 * @brief The function to set a string value of a registry key.

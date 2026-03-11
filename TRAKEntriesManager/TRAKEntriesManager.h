@@ -29,8 +29,10 @@ struct s_UpdateLocalTableOptions {
 	bool AddUpdatedAt = 0;
 	bool UpdateUpatedAt = 0;
 	bool CreateUniqueIndex = 0;
-	bool AddDisabled = 0;
-	bool AddDeleted = 0;
+	bool AddDisabledToSQLITE = 0;
+	bool AddDeletedToSQLITE = 0;
+	bool AddDisabledToMySQL = 0;
+	bool AddDeletedToMySQL = 0;
 };
 
 namespace TRAKEntriesManager {

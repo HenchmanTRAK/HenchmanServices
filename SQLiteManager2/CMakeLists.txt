@@ -1,5 +1,5 @@
 
-INCLUDE(GenerateExportHeader)
+# INCLUDE(GenerateExportHeader)
 
 qt_add_library(SQLiteManager2 SHARED SQLiteManager2.cpp SQLiteManager2.h)
 qt_disable_unicode_defines(SQLiteManager2)
@@ -21,13 +21,11 @@ target_link_libraries(
 )
 
 target_include_directories(
-	SQLiteManager2 PUBLIC 
-	${CMAKE_CURRENT_SOURCE_DIR}
-	${CMAKE_CURRENT_BINARY_DIR}
+	SQLiteManager2 INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET SQLiteManager2 PROPERTY CXX_STANDARD 20)
 endif()
 
-GENERATE_EXPORT_HEADER(SQLiteManager2)
+# GENERATE_EXPORT_HEADER(SQLiteManager2)

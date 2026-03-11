@@ -1,13 +1,5 @@
-#ifndef SERVICE_HELPER_H
-#define SERVICE_HELPER_H
 #pragma once
 
-
-#ifdef SERVICE_HELPER_EXPORTS
-#define SERVICE_HELPER_ __declspec(dllexport)
-#else
-#define SERVICE_HELPER_ __declspec(dllimport)
-#endif
 
 #include <iostream>
 #include <array>
@@ -331,7 +323,3 @@ private:
 	//operator std::ostream();
 
 };
-
-
-
-#endif

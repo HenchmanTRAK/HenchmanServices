@@ -73,8 +73,17 @@ CTRAKEntriesManager::~CTRAKEntriesManager()
 	m_sqliteManager.deleteLater();
 	m_queryManager.deleteLater();
 	
-	if(!m_replaced_network_manager)
+	if (!m_replaced_network_manager) {
 		m_networkManager->deleteLater();
+		m_networkManager = nullptr;
+	}
+
+	m_MySQL_Columns = QJsonArray();
+	m_MySQL_Column_Names = QJsonArray();
+	m_SQLITE_Columns = QJsonArray();
+	m_SQLITE_Column_Names = QJsonArray();
+
+	m_TableColumns.clear();
 
 	return;
 }
@@ -186,16 +195,28 @@ void CTRAKEntriesManager::handleUpdatingLocalDB(const QString& table, const QStr
 		options->AddEmpId = false;
 	}
 
-	if (options->AddDisabled) {
+	if (options->AddDisabledToSQLITE) {
 		qDebug() << "Adding disabled to sqlite db";
 		(void)m_sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD disabled INT NOT NULL DEFAULT 0");
-		options->AddDisabled = false;
+		options->AddDisabledToSQLITE = false;
 	}
 
-	if (options->AddDeleted) {
+	if (options->AddDisabledToMySQL) {
+		qDebug() << "Adding disabled to sqlite db";
+		(void)m_queryManager.execute("ALTER TABLE " + table + " ADD disabled INT NOT NULL DEFAULT 0");
+		options->AddDisabledToMySQL = false;
+	}
+
+	if (options->AddDeletedToSQLITE) {
 		qDebug() << "Adding deleted to sqlite db";
 		(void)m_sqliteManager.ExecQuery("ALTER TABLE " + table + " ADD deleted INT NOT NULL DEFAULT 0");
-		options->AddDeleted = false;
+		options->AddDeletedToSQLITE = false;
+	}
+	
+	if (options->AddDeletedToMySQL) {
+		qDebug() << "Adding deleted to sqlite db";
+		(void)m_queryManager.execute("ALTER TABLE " + table + " ADD deleted INT NOT NULL DEFAULT 0");
+		options->AddDeletedToMySQL = false;
 	}
 
 	if (options->CreateUniqueIndex) {

@@ -442,22 +442,27 @@ int main(int argc, char* argv[])
 			//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 			DWORD size = MAX_PATH;
 			std::vector<TCHAR> buffer(size);
-			rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
-			buffer.resize(size);
+			rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
+			
+			if (size <= 0) {
+				std::string currDir = std::filesystem::current_path().string();
+				if (rtManager.SetVal("INSTALL_DIR", REG_SZ, currDir.data(), currDir.size()))
+					throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
 
+				rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
+			}
 			rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
 			tstring installDir(buffer.data());
 			std::cout << installDir << "\n";
-			std::string currDir = std::filesystem::current_path().string();
 			//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-			if (installDir.empty() || installDir != currDir)
-			{
-				installDir = currDir;
-				std::cout << installDir << "\n";
-				//RegistryManager::SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
-				if (rtManager.SetVal("INSTALL_DIR", REG_SZ, (TCHAR*)installDir.c_str(), (installDir.length() + 1)))
-					throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
-			}
+			//if (installDir.empty())
+			//{
+			//	installDir = currDir;
+			//	std::cout << installDir << "\n";
+			//	//RegistryManager::SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
+			//	if (rtManager.SetVal("INSTALL_DIR", REG_SZ, (TCHAR*)installDir.c_str(), (installDir.length() + 1)))
+			//		throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
+			//}
 			//std::cout << installDir << "\n";
 			//std::cout << (installDir + "\\" + SERVICE_NAME + ".exe").c_str() << "\n";
 
