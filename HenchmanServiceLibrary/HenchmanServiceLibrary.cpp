@@ -491,7 +491,7 @@ HenchmanService::HenchmanService(QObject* parent)
 	};
 
 	ini.GetAllKeys("TRAK", keys);
-	std::string appType;
+	QString appType;
 	for (auto& val : keys)
 	{
 		tstring key = val.pItem;
@@ -499,7 +499,7 @@ HenchmanService::HenchmanService(QObject* parent)
 		ServiceHelper().removeQuotes(value);
 
 		if (value.empty()) {
-			if (appType.empty()) {
+			if (appType.isEmpty()) {
 				std::filesystem::directory_iterator dir("C:\\Program Files (x86)\\HenchmanTRAK");
 				for (const auto& entry : dir) {
 					std::string file(t2tstr(entry.path().filename().string()));
@@ -515,6 +515,18 @@ HenchmanService::HenchmanService(QObject* parent)
 						appType = "portaTRAK";
 						break;
 					}
+					if (file.ends_with("kabtrak")) {
+						appType = "kabtrak";
+						break;
+					}
+					if (file.ends_with("cribtrak")) {
+						appType = "cribtrak";
+						break;
+					}
+					if (file.ends_with("portatrak")) {
+						appType = "portatrak";
+						break;
+					}
 
 				}
 			}
@@ -524,24 +536,24 @@ HenchmanService::HenchmanService(QObject* parent)
 			{
 			case TRAK_DIR:
 			{
-				value = t2tstr("C:\\Program Files (x86)\\HenchmanTRAK\\" + appType);
+				value = t2tstr("C:\\Program Files (x86)\\HenchmanTRAK\\" + appType.toStdString());
 				break;
 			}
 			case INI_FILE:
 			{
 				const char* iniFile = "";
-				if (appType == "kabTRAK")
+				if (appType.contains("kab"))
 					iniFile = "trak.ini";
-				if (appType == "cribTRAK")
+				if (appType.contains("crib"))
 					iniFile = "crib.ini";
-				if (appType == "portaTRAK")
+				if (appType.contains("porta"))
 					iniFile = "porta.ini";
 				value = t2tstr(iniFile);
 				break;
 			}
 			case EXE_FILE:
 			{
-				std::string exe(appType);
+				std::string exe(appType.toStdString());
 				for (int i = 0; i < exe.length(); ++i) {
 					exe[i] = tolower(exe.at(i));
 				}
@@ -550,7 +562,7 @@ HenchmanService::HenchmanService(QObject* parent)
 			}
 			case APP_NAME: 
 			{
-				value = t2tstr(appType);
+				value = t2tstr(appType.toStdString());
 				break;
 			}
 			default:

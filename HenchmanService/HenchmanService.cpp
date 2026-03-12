@@ -314,12 +314,16 @@ void WINAPI SvcMain()
 		getServiceController()->mService.serviceStatus.dwServiceSpecificExitCode = 0;
 
 		getServiceController()->ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
+	
+		SvcInit();
+
+		if (getServiceController()->mService.serviceStatusHandle)
+			CloseHandle(getServiceController()->mService.serviceStatusHandle);
+	}
+	else {
+		SvcInit();
 	}
 	
-	SvcInit();
-
-	if (getServiceController()->mService.serviceStatusHandle)
-		CloseHandle(getServiceController()->mService.serviceStatusHandle);
 
 	//delete a;
 }

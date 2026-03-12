@@ -161,8 +161,7 @@ std::string ServiceHelper::GetServicePath(std::string app_path)
 	{
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
 		
-		rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
-		buffer.resize(size);
+		rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
 		rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
 		installDir = buffer.data();
 		//return app_path.ends_with("\\") ? app_path.substr(0, app_path.find_last_of("/\\")) : app_path;
@@ -233,7 +232,7 @@ void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& cont
 		return;
 #endif
 
-	QString filename("logs/");
+	QString filename(QString::fromStdString(GetLogsPath()));
 	QString message = msg;
 	switch (type)
 	{

@@ -59,9 +59,9 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 	update_options.AddUpdatedAt = true;
 	update_options.AddEmpId = true;
 	update_options.AddDisabledToSQLITE = true;
-	update_options.AddDisabledToSQLITE = true;
+	update_options.AddDeletedToSQLITE = true;
 	update_options.AddDisabledToMySQL = true;
-	update_options.AddDisabledToMySQL = true;
+	update_options.AddDeletedToMySQL = true;
 
 	//QMutex mutex;
 
@@ -73,7 +73,7 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 			if (!colummn.isObject())
 				continue;
 			QJsonObject mysqlColumn = colummn.toObject();
-			mysqlTableColumnNames.append(mysqlColumn.value("Field").toString());
+			mysqlTableColumnNames.append(mysqlColumn.value("Field").toString().trimmed());
 		}
 		return mysqlTableColumnNames;
 		});
@@ -89,7 +89,7 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 			
 			qDebug() << sqliteColumn.value("name").toString();
 
-			sqliteTableColumnNames.append(sqliteColumn.value("name").toString());
+			sqliteTableColumnNames.append(sqliteColumn.value("name").toString().trimmed());
 		}
 		return sqliteTableColumnNames;
 		});
@@ -109,7 +109,7 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 				throw HenchmanServiceException("Failed to retrieve list of columns for employees table");
 			QJsonObject column = tableColumn.toObject();
 
-			QString field = column.value("Field").toString();
+			QString field = column.value("Field").toString().trimmed();
 
 			if (field == "empId") {
 				update_options.AddEmpId = false;
@@ -164,8 +164,8 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 	QJsonArray sqliteTableColumnNames = sqliteTableColumnsFuture.result();
 	QJsonArray mysqlTableColumnNames = mysqlTableColumnsFuture.result();
 
-	qDebug() << sqliteTableColumnNames;
-	qDebug() << mysqlTableColumnNames;
+	qInfo() << sqliteTableColumnNames;
+	qInfo() << mysqlTableColumnNames;
 
 	int performTableUpdate = mysqlTableColumnNames.size() != sqliteTableColumnNames.size();
 
@@ -180,6 +180,9 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 		}
 	}
 
+	update_options.AddDisabledToSQLITE = !sqliteTableColumnNames.contains("disabled");
+	update_options.AddDeletedToSQLITE = !sqliteTableColumnNames.contains("deleted");
+
 	if (performTableUpdate)
 	{
 
@@ -190,8 +193,6 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 			columnsFuture.result()
 		);
 
-		update_options.AddDisabledToSQLITE = !sqliteTableColumnNames.contains("disabled");
-		update_options.AddDeletedToSQLITE = !sqliteTableColumnNames.contains("deleted");
 		update_options.CreateUniqueIndex = true;
 		update_options.AddEmpIdSqliteOnly = !sqliteTableColumnNames.contains("empId");
 
@@ -596,6 +597,8 @@ void CUsersManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonO
 
 int CUsersManager::SyncWebportal()
 {
+	(void)GetColumnNames(true);
+
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt"};
 
 	//QJsonArray webportalResults = GetRemote(QJsonArray({ "custId", "userId", "empId", m_trak_details.trak_id_type, "updatedAt" }));
@@ -686,7 +689,7 @@ int CUsersManager::SyncWebportal()
 
 
 
-		if (placeholderMap.value("userIds").toArray().contains(result.value("userId")) || placeholderMap.value("empIds").toArray().contains(result.value("empId")))
+		if (!result.value("empId").toString().isEmpty() && (placeholderMap.value("userIds").toArray().contains(result.value("userId")) || placeholderMap.value("empIds").toArray().contains(result.value("empId"))))
 		{
 			result[m_trak_details.trak_id_type] = m_trak_details.trak_id;
 
@@ -769,14 +772,28 @@ int CUsersManager::SyncWebportal()
 			}
 		}
 
+		qDebug() << "empId" << empId;
+
 
 		if (empId.isNull())
 		{
-			QJsonArray uuidVector = m_queryManager.execute("SELECT REGEXP_REPLACE(UUID(), '-', '') as uuid", QJsonObject());
+			/*QJsonArray uuidVector = m_queryManager.execute("SELECT REGEXP_REPLACE(UUID(), '-', '') as uuid", QJsonObject());
 
-			empId = uuidVector.at(1).toObject().value("uuid");
+			empId = uuidVector.at(0).toObject().value("uuid");
 
-			qDebug() << uuidVector;
+			qDebug() << uuidVector;*/
+
+			UUID uuid;
+
+			(void)UuidCreate(&uuid);
+
+			char* str;
+
+			(void)UuidToString(&uuid, (RPC_CSTR*)&str);
+
+			empId = QString(str).replace("-", "");
+
+			RpcStringFreeA((RPC_CSTR*)&str);
 		}
 
 		if (!webportalResults.isEmpty()) {

@@ -149,7 +149,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	tstring GetExportsPath(std::string app_path = "");
+	static tstring GetExportsPath(std::string app_path = "");
 
 	/**
 	 * @brief Returns the logs path for the given application path.
@@ -163,10 +163,10 @@ public:
 	 *
 	 * @throws None.
 	 */
-	tstring GetLogsPath(std::string app_path = "");
+	static tstring GetLogsPath(std::string app_path = "");
 
 
-	tstring GetServicePath(std::string app_path = "");
+	static tstring GetServicePath(std::string app_path = "");
 
 	/**
 	 * @brief Writes the given log message to the log file.

@@ -7,8 +7,7 @@ using namespace TRAKEntriesManager;
 CEmployeesManager::CEmployeesManager(QObject* parent, const TrakDetails& trakDetails, const WebportalDetails& webportalDetails, const s_DATABASE_INFO& database_info)
 	:CTRAKEntriesManager(parent, trakDetails, webportalDetails, database_info)
 {	
-
-	qDebug() << "Initialized EmployeesManager";
+	ServiceHelper().WriteToLog("Initialized EmployeesManager");
 
 	m_registryEntry = "employeesChecked";
 
@@ -58,6 +57,8 @@ QJsonArray CEmployeesManager::GetColumns(bool reset)
 	update_options.AddCreatedAt = true;
 	update_options.AddUpdatedAt = true;
 	update_options.AddEmpId = true;
+	update_options.AddDisabledToSQLITE = true;
+	update_options.AddDisabledToMySQL = true;
 
 	QFuture<QJsonArray> mysqlTableColumnsFuture = QtConcurrent::run([&tableColumns]() {
 		QJsonArray colummns = tableColumns;
@@ -115,6 +116,9 @@ QJsonArray CEmployeesManager::GetColumns(bool reset)
 			if (field == "updatedAt") {
 				update_options.AddUpdatedAt = false;
 			}
+			if (field == "disabled") {
+				update_options.AddDisabledToMySQL = false;
+			}
 
 			if (skipTargetCols.contains(field)) {
 				skippedColumns.push_back(field);
@@ -162,6 +166,9 @@ QJsonArray CEmployeesManager::GetColumns(bool reset)
 		}
 	}
 
+	update_options.AddDisabledToSQLITE = !sqliteTableColumnNames.contains("disabled");
+
+
 	if (performTableUpdate)
 	{
 
@@ -175,10 +182,11 @@ QJsonArray CEmployeesManager::GetColumns(bool reset)
 		update_options.CreateUniqueIndex = true;
 		update_options.AddEmpIdSqliteOnly = !sqliteTableColumnNames.contains("empId");
 
-		handleUpdatingLocalDB(m_db_info.table, uniqueIndexCols, &update_options);
 	}
 
 	columnsFuture.waitForFinished();
+
+	handleUpdatingLocalDB(m_db_info.table, uniqueIndexCols, &update_options);
 
 	return m_MySQL_Columns;
 
@@ -197,8 +205,6 @@ int CEmployeesManager::GetLocalCount(const QList<QString> & p_conditions, const 
 			conditions.append("userId <> ''");
 			conditions.append("userId IS NOT NULL");
 		}
-
-		qDebug() << conditions;
 		
 		local_employees = CTRAKEntriesManager::GetLocalCount(conditions, placeholders);
 	}catch (const std::exception& e) {
@@ -435,6 +441,7 @@ void CEmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJ
 int CEmployeesManager::SyncWebportal()
 {
 	QStringList skipTargetCols = { "id", "createdAt", "updatedAt" };
+	(void)GetColumnNames(true);
 
 	QJsonArray webportalResults = GetRemote(QJsonArray({ "custId", "userId", "empId", "updatedAt" }));
 
@@ -448,7 +455,7 @@ int CEmployeesManager::SyncWebportal()
 	qDebug() << webportalResults.empty();
 	//qDebug() << webportalEmployeeIds.empty;
 
-	ServiceHelper().WriteToLog("Exporting Employees");
+	ServiceHelper().WriteToLog("Exporting Employees to Webportal");
 
 	QString employeeSelect;
 	QJsonObject placeholderMap;
@@ -503,7 +510,7 @@ int CEmployeesManager::SyncWebportal()
 
 		
 
-		if (placeholderMap.value("empIds").toArray().contains(result.value("empId")) || placeholderMap.value("userIds").toArray().contains(result.value("userId")))
+		if (!result.value("empId").toString().isEmpty() && (placeholderMap.value("empIds").toArray().contains(result.value("empId")) || placeholderMap.value("userIds").toArray().contains(result.value("userId"))))
 		{
 			result[m_trak_details.trak_id_type] = m_trak_details.trak_id;
 
@@ -581,9 +588,18 @@ int CEmployeesManager::SyncWebportal()
 
 		if (empId.isNull())
 		{
-			std::vector uuidVector = m_queryManager.execute("SELECT REGEXP_REPLACE(UUID(), '-', '') as empId");
+			//std::vector uuidVector = m_queryManager.execute("SELECT REGEXP_REPLACE(UUID(), '-', '') as empId");
+			UUID uuid;
 
-			empId = uuidVector.at(0).value("empId");
+			(void)UuidCreate(&uuid);
+			
+			char* str;
+			
+			(void)UuidToString(&uuid, (RPC_CSTR*)&str);
+
+			empId = QString(str).replace("-", "");
+
+			RpcStringFreeA((RPC_CSTR*)&str);
 
 		}
 
@@ -672,7 +688,7 @@ int CEmployeesManager::SyncLocal()
 	qDebug() << webportalResults.empty();
 	//qDebug() << webportalEmployeeIds.empty;
 
-	ServiceHelper().WriteToLog("Exporting Employees");
+	ServiceHelper().WriteToLog("Importing Employees from Webportal");
 
 	QString employeeSelect;
 	QJsonObject placeholderMap;

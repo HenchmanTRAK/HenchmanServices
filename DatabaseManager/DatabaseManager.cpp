@@ -143,7 +143,7 @@ DatabaseManager::DatabaseManager(QObject* parent)
 
 	networkManager.setApiKey(apiKey);
 	networkManager.setApiUrl(apiUrl);
-	networkManager.toggleSecureTransport(!testingDBManager);
+	networkManager.toggleSecureTransport(!testingDBManager && apiUrl.contains("https"));
 
 	if (networkManager.isInternetConnected())
 		(void)networkManager.authenticateSession();
@@ -480,6 +480,8 @@ int DatabaseManager::addEmployeesIfNotExists()
 
 	EmployeesManager::CEmployeesManager employeesManager(this, trakDetails, webportalDetails, db_info);
 	employeesManager.BindNewNetworkManager(&networkManager);
+	UsersManager::CUsersManager usersManager(this, trakDetails, webportalDetails, db_info);
+	usersManager.BindNewNetworkManager(&networkManager);
 
 	databaseTablesChecked[targetKey] = employeesManager.GetLocalCount();
 

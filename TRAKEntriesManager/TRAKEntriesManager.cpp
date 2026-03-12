@@ -141,7 +141,12 @@ void CTRAKEntriesManager::BindNewNetworkManager(NetworkManager* t_network_manage
 	if (m_networkManager) {
 		m_networkManager->setApiUrl(m_webportal_details.api_url);
 		m_networkManager->setApiKey(m_webportal_details.api_key);
-		m_networkManager->toggleSecureTransport(DEBUG);
+#ifdef DEBUG
+		m_networkManager->toggleSecureTransport(false);
+#else // DEBUG
+		m_networkManager->toggleSecureTransport(m_webportal_details.api_url.contains("https"));
+#endif // DEBUG
+
 	}
 	
 }
@@ -293,6 +298,8 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 	QList<QString> excludeCols({ "id", "createdAt", "updatedAt" });
 	QList<QString> dateCols({ "createDate", "createTime", "createdAt", "lastvisit", "updatedAt" });
 
+	QStringList mysqlCols = GetColumnNames();
+
 	QList<QString> set;
 	QVariantMap update;
 
@@ -303,15 +310,14 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 		if (excludeCols.contains(key))
 			continue;
 
+		if (!mysqlCols.contains(key))
+			continue;
+
 		QVariant newerValue = newer.value(key).toVariant();
 		QVariant olderValue = older.value(key).toVariant();
 
 		if (newerValue.isNull())
 			newerValue = "";
-
-		if (olderValue.isNull())
-			olderValue = newerValue;
-
 
 		qDebug() << key;
 		qDebug() << "New" << newerValue;
@@ -337,7 +343,17 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 		
 
 		set.push_back(key + " = :" + key);
-		update.insert(key, newer.value(key));
+
+		if (key == "userRole" && newerValue.toInt() > 1) {
+			newerValue = 0;
+		}
+
+		if (newerValue.typeId() == QVariant::String) {
+			newerValue = newerValue.toString().trimmed();
+		}
+
+		update.insert(key, newerValue);
+
 	}
 
 	qDebug() << "seting: " << set;

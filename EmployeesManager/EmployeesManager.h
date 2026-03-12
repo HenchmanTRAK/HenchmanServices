@@ -1,5 +1,6 @@
 #pragma once
 
+#pragma comment(lib, "rpcrt4.lib")
 #include <QObject>
 #include <QString>
 #include <QMap>
@@ -17,6 +18,8 @@
 #include "NetworkManager.h"
 #include "ServiceHelper.h"
 #include "TRAKEntriesManager.h"
+
+#include <windows.h>
 
 #include <WinError.h>
 

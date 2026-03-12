@@ -374,10 +374,12 @@ int TaskScheduler::m_addNewTask(const LPCTSTR& szTaskName, const LPCTSTR& strExe
 		TASK_CREATE_OR_UPDATE,
 		//variant_t(bstr_t(pszName)),
 		//variant_t(bstr_t(pszPwd)),
-		variant_t(TEXT("Local Service")),
-		varPassword,
-		//TASK_LOGON_INTERACTIVE_TOKEN,
-		TASK_LOGON_SERVICE_ACCOUNT,
+		//variant_t(TEXT("Local Service")),
+		variant_t(),
+		//varPassword,
+		variant_t(),
+		TASK_LOGON_INTERACTIVE_TOKEN,
+		//TASK_LOGON_SERVICE_ACCOUNT,
 		variant_t(TEXT("")),
 		&pRegisteredTask);
 
@@ -663,13 +665,17 @@ HRESULT TaskScheduler::createTaskPrincipal()
 	if (FAILED(hr))
 		printf("\nCannot put the principal ID: %x", hr);*/
 
+	hr = pPrincipal->put_UserId(bstr_t(TEXT("KioskMode")));
+	if (FAILED(hr))
+		printf("\nCannot put the principal ID: %x", hr);
+
 	hr = pPrincipal->put_RunLevel(TASK_RUNLEVEL_HIGHEST);
 	if (FAILED(hr))
 		printf("\nCannot put principal run level to heightest: %x", hr);
 
 	//  Set up principal logon type to interactive logon
-	//hr = pPrincipal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
-	hr = pPrincipal->put_LogonType(TASK_LOGON_SERVICE_ACCOUNT);
+	hr = pPrincipal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
+	//hr = pPrincipal->put_LogonType(TASK_LOGON_SERVICE_ACCOUNT);
 	releaseTargetInterface(pPrincipal);
 	if (FAILED(hr))
 	{
