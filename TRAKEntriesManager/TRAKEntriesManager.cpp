@@ -316,8 +316,8 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 		QVariant newerValue = newer.value(key).toVariant();
 		QVariant olderValue = older.value(key).toVariant();
 
-		if (newerValue.isNull())
-			newerValue = "";
+		if (newerValue.isNull() && ((older.value(key).isString() && olderValue.toString().isEmpty()) || (older.value(key).isDouble() && olderValue.toInt() == 0)))
+			newerValue = olderValue;
 
 		qDebug() << key;
 		qDebug() << "New" << newerValue;

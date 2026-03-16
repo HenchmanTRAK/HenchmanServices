@@ -849,7 +849,7 @@ int CUsersManager::SyncWebportal()
 
 int CUsersManager::SyncLocal()
 {
-	QStringList skipTargetCols = { "id"};
+	QStringList skipTargetCols = { "id" };
 
 	//QJsonArray({ "custId", "userId", "empId", "updatedAt" })
 	//QJsonArray({ "custId", "userId", "empId", trak_details.trak_id_type, "updatedAt" })
@@ -1063,7 +1063,7 @@ int CUsersManager::UpdateOutdated()
 
 	qDebug() << "placeholder" << placeholder;
 
-	QList<QVariantMap> outdatedLocals(m_queryManager.execute("SELECT * FROM users WHERE updatedAt >= CONVERT_TZ(:last_checked_date, '+00:00', :tz)", placeholder));
+	QList<QVariantMap> outdatedLocals(m_queryManager.execute("SELECT * FROM users WHERE updatedAt > CONVERT_TZ(:last_checked_date, '+00:00', :tz)", placeholder));
 
 	qDebug() << "outdatedLocals" << outdatedLocals;
 
@@ -1090,9 +1090,9 @@ int CUsersManager::UpdateOutdated()
 
 
 			if (local.value("empId").toString().isEmpty()) {
-				QJsonArray remoteEmployees = m_queryManager.execute("SELECT empId FROM employees WHERE custId = :custId AND userId = :userId", local);
-				if (!remoteEmployees.isEmpty()) {
-					local["empId"] = remoteEmployees.at(0).toObject().value("empId");
+				QJsonArray localEmployees = m_queryManager.execute("SELECT empId FROM employees WHERE custId = :custId AND userId = :userId", local);
+				if (!localEmployees.isEmpty()) {
+					local["empId"] = localEmployees.at(0).toObject().value("empId");
 				}
 			}
 
@@ -1101,7 +1101,7 @@ int CUsersManager::UpdateOutdated()
 					continue;
 
 				QJsonObject outdatedRemoteObject = outdatedRemote.toObject();
-				if (outdatedRemoteObject.value("empId") != local.value("empId") && outdatedRemoteObject.value("userId") != local.value("userId"))
+				if (outdatedRemoteObject.value("empId") != local.value("empId") || outdatedRemoteObject.value("userId") != local.value("userId"))
 					continue;
 
 				remote = outdatedRemoteObject;
@@ -1145,7 +1145,7 @@ int CUsersManager::UpdateOutdated()
 			for (const auto& outdatedLocal : outdatedLocals) {
 				
 				QJsonObject outdatedLocalObject = QJsonObject::fromVariantMap(outdatedLocal);
-				if (outdatedLocalObject.value("empId") != outdatedLocalObject.value("empId") && outdatedLocalObject.value("userId") != outdatedLocalObject.value("userId"))
+				if (outdatedLocalObject.value("empId") != outdatedLocalObject.value("empId") || outdatedLocalObject.value("userId") != outdatedLocalObject.value("userId"))
 					continue;
 
 				local = outdatedLocalObject;

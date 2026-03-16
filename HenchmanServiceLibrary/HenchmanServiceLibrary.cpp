@@ -351,11 +351,13 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	
 	}
 	
+	hsService.deleteLater();
 	evntManager.ReportCustomEvent(svcController->mService.serviceName, "Service has exited", 0);
 
 	a->exit(0);
 
-	delete a;
+	a->deleteLater();
+	a = nullptr;
 
 	return ERROR_SUCCESS;
 }
@@ -897,3 +899,5 @@ void HenchmanService::checkStateOfApache()
 			ServiceHelper().WriteToLog("Apache Service uninstalled...");
 	}
 }
+
+#include "moc_HenchmanServiceLibrary.cpp"

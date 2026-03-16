@@ -37,18 +37,6 @@
 	#define QT_NO_DEBUG_OUTPUT
 #endif
 
-// TODO: Reference additional headers your program requires here.
-#define SERVICE_NAME			"HenchmanService"
-#define SERVICE_DISPLAY_NAME	"HenchmanTRAK Product Service"
-#define SERVICE_DESIRED_ACCESS	SERVICE_ALL_ACCESS
-#define SERVICE_TYPE			SERVICE_WIN32_OWN_PROCESS
-#define SERVICE_START_TYPE		SERVICE_AUTO_START
-#define SERVICE_ERROR_CONTROL	SERVICE_ERROR_NORMAL
-#define SERVICE_DEPENDENCIES	""
-//#define SERVICE_ACCOUNT			L"NT AUTHORITY\\LocalService"
-#define SERVICE_PASSWORD        NULL
-#define CRLF L"\r\n"
-
 #ifdef UNICODE
 #define tstring std::wstring
 //std::wstring installDir(buffer);

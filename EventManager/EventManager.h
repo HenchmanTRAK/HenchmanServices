@@ -58,6 +58,7 @@ namespace EventManager {
 		  //LPVOID lpDisplayBuf = nullptr;
 	public:
 		CEventManager(const LPCTSTR& source);
+		CEventManager();
 		~CEventManager();
 
 		// TODO: add your methods here.

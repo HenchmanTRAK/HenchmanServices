@@ -36,6 +36,25 @@ CEventManager::CEventManager(const LPCTSTR& source)
 
 }
 
+CEventManager::CEventManager()
+	:eventSource(SERVICE_NAME),
+	hEventSource(RegisterEventSource(NULL, SERVICE_NAME))
+{
+
+	/*RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, tstring("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME).data());
+
+	DWORD size = MAX_PATH;
+	std::vector<TCHAR> buffer(size);
+	rmEvent.GetValSize("EventMessageFile", REG_SZ, &size, &buffer);
+
+	if(size > 0)
+		rmEvent.GetVal("EventMessageFile", REG_SZ, buffer.data(), &size);
+
+	tstring eventMessageFile(buffer.data());*/
+
+
+}
+
 CEventManager::~CEventManager()
 {
 	eventSource = NULL;
@@ -81,42 +100,20 @@ DWORD CEventManager::EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lp
 {
 	// Retrieve the system error message for the last-error code
 	//DWORD dw = GetLastError();
-	//std::cout << lpszFunction << " logged with message: " << msg << std::endl;
-	//MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)
 
-	//FormatMessage(
-	//	FORMAT_MESSAGE_ALLOCATE_BUFFER |
-	//	(std::string(msg).length() ? FORMAT_MESSAGE_FROM_STRING : FORMAT_MESSAGE_FROM_SYSTEM) |
-	//	FORMAT_MESSAGE_IGNORE_INSERTS,
-	//	(std::string(msg).length() ? msg : NULL) ,
-	//	errorCode,
-	//	0,
-	//	(LPTSTR)&lpMsgBuf,
-	//	0,
-	//	NULL
-	//);
-	//
-	//// Display the error message and exit the process
-	//lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
-	//	(lstrlen((LPCTSTR)lpMsgBuf) + lstrlen(lpszFunction) + 40) * sizeof(TCHAR));
-	//StringCchPrintf((LPTSTR)lpDisplayBuf,
-	//	LocalSize(lpDisplayBuf) / sizeof(TCHAR),
-	//	TEXT("%s returned with %d: %s"),
-	//	lpszFunction, errorCode, lpMsgBuf);
-	//LPVOID lpMsgBuf = nullptr;
-	//FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS
+	DWORD size = (lstrlen(lpszFunction) + errorCode + lstrlen(lpszMsg) + 25) * sizeof(TCHAR);
 
-	buffer.resize((lstrlen(lpszMsg) + lstrlen(lpszFunction) + errorCode + 25) * sizeof(TCHAR));
+	std::vector<TCHAR> vcMsgBuffer(size);
 
-	StringCchPrintf(buffer.data(),
-		buffer.size(),
+	StringCchPrintf(vcMsgBuffer.data(),
+		vcMsgBuffer.size(),
 		TEXT("%s returned with %d: %s\0"),
 		lpszFunction, errorCode, lpszMsg
 	);
 
-	//std::wcout << (LPCTSTR)lpDisplayBuf << "\n";
+	vcMsgBuffer.swap(buffer);
 
-	//LocalFree(lpMsgBuf);
+	vcMsgBuffer.clear();
 
 	return buffer.size();
 }
@@ -128,30 +125,8 @@ DWORD CEventManager::EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lp
 	//std::cout << lpszFunction << " logged with message: " << msg << std::endl;
 	//MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)
 
-	//FormatMessage(
-	//	FORMAT_MESSAGE_ALLOCATE_BUFFER |
-	//	(std::string(msg).length() ? FORMAT_MESSAGE_FROM_STRING : FORMAT_MESSAGE_FROM_SYSTEM) |
-	//	FORMAT_MESSAGE_IGNORE_INSERTS,
-	//	(std::string(msg).length() ? msg : NULL) ,
-	//	errorCode,
-	//	0,
-	//	(LPTSTR)&lpMsgBuf,
-	//	0,
-	//	NULL
-	//);
-	//
-	//// Display the error message and exit the process
-	//lpDisplayBuf = (LPVOID)LocalAlloc(LMEM_ZEROINIT,
-	//	(lstrlen((LPCTSTR)lpMsgBuf) + lstrlen(lpszFunction) + 40) * sizeof(TCHAR));
-	//StringCchPrintf((LPTSTR)lpDisplayBuf,
-	//	LocalSize(lpDisplayBuf) / sizeof(TCHAR),
-	//	TEXT("%s returned with %d: %s"),
-	//	lpszFunction, errorCode, lpMsgBuf);
-	//LPVOID lpMsgBuf = nullptr;
-	//FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS
-
-	std::vector<TCHAR> strBuffer;
-	strBuffer.reserve((lstrlen(lpszMsg) + lstrlen(lpszFunction) + errorCode + 25) * sizeof(TCHAR));
+	std::vector<TCHAR> strBuffer(bufferSize);
+	strBuffer.resize((lstrlen(lpszMsg) + lstrlen(lpszFunction) + errorCode + 25) * sizeof(TCHAR));
 
 	StringCchPrintf(strBuffer.data(),
 		strBuffer.size(),
@@ -161,11 +136,9 @@ DWORD CEventManager::EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lp
 
 	buffer = strBuffer.data();
 
-	//std::wcout << (LPCTSTR)lpDisplayBuf << "\n";
+	strBuffer.clear();
 
-	//LocalFree(lpMsgBuf);
-
-	return strBuffer.size();
+	return lstrlen(buffer);
 }
 
 void CEventManager::ReportCustomEvent(const LPCTSTR& function, const LPCTSTR& msg, int type, DWORD errorCode)
@@ -185,7 +158,7 @@ void CEventManager::ReportCustomEvent(const LPCTSTR& function, const LPCTSTR& ms
 
 		lpszStrings[0] = eventSource;
 		const DWORD retSize = EventMessage(function, msg, errorCode ? errorCode : GetLastError(), buffer);
-		std::cout << "returned buffer" << buffer.data() << "\n";
+		//std::cout << "returned buffer" << buffer.data() << "\n";
 		tstring refVal(buffer.data());
 		lpszStrings[1] = refVal.data();
 

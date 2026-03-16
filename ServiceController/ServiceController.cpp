@@ -782,7 +782,7 @@ void CServiceController::DoDeleteSvc(const TCHAR* sService)
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
 
-	mTaskScheduler.removeTask(mService.serviceName);
+	mTaskScheduler.removeTask(mService.serviceName, false);
 
 }
 

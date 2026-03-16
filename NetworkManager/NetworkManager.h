@@ -169,5 +169,4 @@ private slots:
 //Q_DECLARE_METATYPE(NetworkManager);
 
 
-
 //#endif

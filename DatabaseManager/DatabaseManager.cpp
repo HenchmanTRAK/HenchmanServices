@@ -396,7 +396,6 @@ int DatabaseManager::addToolsIfNotExists()
 
 	return 1;
 }
-
 int DatabaseManager::addUsersIfNotExists()
 {
 	LOG << "Adding Users to Webportal";
@@ -455,7 +454,6 @@ int DatabaseManager::addUsersIfNotExists()
 	return returnVal;
 	//return 1;
 }
-
 int DatabaseManager::addEmployeesIfNotExists()
 {
 	LOG << "Adding Employees to Webportal";
@@ -481,7 +479,7 @@ int DatabaseManager::addEmployeesIfNotExists()
 	EmployeesManager::CEmployeesManager employeesManager(this, trakDetails, webportalDetails, db_info);
 	employeesManager.BindNewNetworkManager(&networkManager);
 	UsersManager::CUsersManager usersManager(this, trakDetails, webportalDetails, db_info);
-	usersManager.BindNewNetworkManager(&networkManager);
+	/*usersManager.BindNewNetworkManager(&networkManager);*/
 
 	databaseTablesChecked[targetKey] = employeesManager.GetLocalCount();
 
@@ -6450,3 +6448,4 @@ void DatabaseManager::performCleanup()
 }
 
 //#include "DatabaseManager.moc"
+#include "moc_DatabaseManager.cpp"

@@ -2,21 +2,10 @@
 #include "NetworkManager.h"
 
 
-//class NetworkManager : public QObject
-//{
-//	Q_OBJECT
-//public:
-//	NetworkManager() = default;
-//};
-
 NetworkManager::NetworkManager(QObject* parent)
-	: QObject(parent), sock(parent), cookieJar(parent), netManager(parent)
+	:QObject(parent), sock(parent), cookieJar(parent), netManager(parent)
 {
 	loops = std::vector<QEventLoop*>();
-
-	//sock = new QTcpSocket(this);
-	//cookieJar = new QNetworkCookieJar(this);
-	//netManager = new QNetworkAccessManager(this);
 
 	netManager.setCookieJar(&cookieJar);
 	netManager.setStrictTransportSecurityEnabled(strict_transport);
@@ -1082,5 +1071,4 @@ void NetworkManager::replyFinished(QNetworkReply* rep)
 	rep->deleteLater();
 }
 
-//#include "NetworkManager.moc"
-//#include "moc_NetworkManager.cpp"
+#include "moc_NetworkManager.cpp"

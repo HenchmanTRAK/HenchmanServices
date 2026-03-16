@@ -67,7 +67,7 @@
 
 #include <crtdbg.h>
 
-//#include "databasemanager_export.h"
+#include "databasemanager_export.h"
 
 
 //#define QT_NO_DEBUG_OUTPUT
@@ -162,7 +162,7 @@ static QMap<QString, table_enums> table_map = {
  * - `~DatabaseManager()`: The destructor for the DatabaseManager class.
  * - `void performCleanup()`: Performs cleanup operations for the DatabaseManager object.
  */
-class DatabaseManager : public QObject
+class DATABASEMANAGER_EXPORT DatabaseManager : public QObject
 {
 	Q_OBJECT
 

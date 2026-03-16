@@ -277,21 +277,9 @@ bool LaunchProcess(const TCHAR* process_path)
 	return true;
 }
 
-void WINAPI SvcCtrlHandler(DWORD CtrlCode)
+void WINAPI SvCtrlHandler(DWORD CtrlCode)
 {
-	switch (CtrlCode)
-	{
-	case SERVICE_CONTROL_STOP:
-		getServiceController()->ReportSvcStatus(CtrlCode, NO_ERROR, 0);
-
-		SetEvent(getServiceController()->mService.serviceStopEvent);
-		getServiceController()->ReportSvcStatus(getServiceController()->mService.serviceStatus.dwCurrentState, NO_ERROR, 0);
-		return;
-	case SERVICE_CONTROL_INTERROGATE:
-		break;
-	default:
-		break;
-	}
+	return getServiceController()->SvcCtrlHandler(CtrlCode);
 }
 
 void WINAPI SvcMain()
@@ -303,7 +291,7 @@ void WINAPI SvcMain()
 	{
 		getServiceController()->mService.serviceStatusHandle = RegisterServiceCtrlHandler(
 			(TCHAR*)service->serviceName,
-			SvcCtrlHandler
+			SvCtrlHandler
 		);
 
 		if (!getServiceController()->mService.serviceStatusHandle)
@@ -328,7 +316,7 @@ void WINAPI SvcMain()
 	//delete a;
 }
 
-void SvcInit()
+void WINAPI SvcInit()
 {
 	if (!testing)
 	{
@@ -347,7 +335,11 @@ void SvcInit()
 
 		getServiceController()->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 
-		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &getServiceController()->mService.serviceStopEvent, 0, NULL);
+		DWORD dwThreadId = 0;
+
+		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &getServiceController()->mService.serviceStopEvent, 0, &dwThreadId);
+
+		EventManager::CEventManager().ReportCustomEvent("SvcInit", std::string("Created Service Thread with id: ").append(std::to_string(dwThreadId)).data(), 1, 0);
 
 		if (hThread)
 			WaitForSingleObject(
@@ -482,8 +474,7 @@ int main(int argc, char* argv[])
 
 				DWORD size = MAX_PATH;
 				std::vector<TCHAR> buffer(size);
-				rtManager.GetValSize("EventMessageFile", REG_SZ, &size);
-				buffer.resize(size);
+				rtManager.GetValSize("EventMessageFile", REG_SZ, &size, &buffer);
 
 				rtManager.GetVal("EventMessageFile", REG_SZ, buffer.data(), &size);
 				
@@ -492,7 +483,7 @@ int main(int argc, char* argv[])
 				if (!installDir.empty() && (eventMessageFile.empty() || eventMessageFile != installDir))
 				{
 					installDir.append("\\event_log.dll");
-					rmEvent.SetVal("EventMessageFile", REG_SZ, (TCHAR*)installDir.data(), installDir.length() + 1);
+					rmEvent.SetVal("EventMessageFile", REG_SZ, (TCHAR*)installDir.data(), installDir.size());
 					DWORD typesSupported = 7;
 					rmEvent.SetVal("TypesSupported", REG_DWORD, (DWORD*)&typesSupported, sizeof(DWORD));
 				}

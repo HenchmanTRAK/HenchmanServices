@@ -10,9 +10,13 @@ qt_add_library(NetworkManager SHARED NetworkManager.cpp NetworkManager.h)
 #add_library(NetworkManager SHARED "NetworkManager.cpp" "NetworkManager.h" ${MOC_SOURCES})
 qt_disable_unicode_defines(NetworkManager)
 
+GENERATE_EXPORT_HEADER(NetworkManager)
+
 message(STATUS "Checking for MYSQL: " ${MYSQL_CONCPP_ROOT_DIR})
 message(STATUS "Checking for CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
 message(STATUS "Checking for CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
+message(STATUS "Checking AUTOGEN_BUILD_DIR: " ${AUTOGEN_BUILD_DIR})
+message(STATUS "Checking AUTOMOC_INCLUDE_DIRECTORIES: " ${AUTOMOC_INCLUDE_DIRECTORIES})
 
 # target_compile_definitions(NetworkManager PRIVATE NETWORK_MANAGER)
 
@@ -22,7 +26,7 @@ message(STATUS "Checking for CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_
 #	${CMAKE_CURRENT_BINARY_DIR}
 #)
 
-target_include_directories(NetworkManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(NetworkManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${CMAKE_CURRENT_BINARY_DIR} PRIVATE "${AUTOGEN_BUILD_DIR}/include_${CMAKE_BUILD_TYPE}")
 
 target_link_libraries(
 	NetworkManager PRIVATE
@@ -46,6 +50,4 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
 endif()
 
 # set_property(TARGET NetworkManager PROPERTY AUTOMOC ON)
-
-GENERATE_EXPORT_HEADER(NetworkManager)
 
