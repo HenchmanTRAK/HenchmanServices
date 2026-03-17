@@ -317,11 +317,12 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 		QVariant olderValue = older.value(key).toVariant();
 
 		if (newerValue.isNull() && ((older.value(key).isString() && olderValue.toString().isEmpty()) || (older.value(key).isDouble() && olderValue.toInt() == 0)))
-			newerValue = olderValue;
+			continue;
 
-		qDebug() << key;
-		qDebug() << "New" << newerValue;
-		qDebug() << "Old" << olderValue;
+		if(olderValue.isNull() && ((newer.value(key).isString() && newerValue.toString().isEmpty()) || (newer.value(key).isDouble() && newerValue.toInt() == 0)))
+			continue;
+
+		ServiceHelper().WriteToCustomLog(("Comparing values for " + key + " recent updated: " + newerValue.toString() + " oldest updated: " + olderValue.toString()).toStdString(), "trak_entries_manager");
 
 		if (!newerValue.canConvert<QString>()) {
 			continue;
@@ -596,7 +597,7 @@ QJsonArray CTRAKEntriesManager::GetLocal(const QString& query, const QJsonObject
 
 		QString query_str = query;
 
-		QVariantMap boundValues = m_queryManager.processPlaceholders(placeholders.toVariantMap(), query_str);
+		QVariantMap boundValues = m_queryManager.processPlaceholders(placeholders.toVariantMap(), &query_str);
 
 		sqlQuery.prepare(query_str);
 
@@ -686,7 +687,7 @@ QList<QVariantMap> CTRAKEntriesManager::GetLocal(const QStringList& t_columns, c
 
 			QString queryStr(queryStrList.join(" "));
 
-			QVariantMap valuesToBind = m_queryManager.processPlaceholders(t_placeholders, queryStr);
+			QVariantMap valuesToBind = m_queryManager.processPlaceholders(t_placeholders, &queryStr);
 
 			if (valuesToBind.isEmpty()) {
 				QString where = "WHERE";
@@ -1101,7 +1102,7 @@ int CTRAKEntriesManager::UpdateCheckedTime()
 
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	
-	(void)rtManager.SetVal(std::string(m_registryEntry).append("Date").data(), REG_SZ, currDate.toStdString().data(), currDate.toStdString().size());
+	(void)rtManager.SetVal((std::string(m_registryEntry) + "Date").data(), REG_SZ, currDate.toStdString().data(), currDate.toStdString().size());
 	
 	return NEXTSTEP::ALL_UPDATED;
 }

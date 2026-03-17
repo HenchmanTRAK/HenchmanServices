@@ -182,61 +182,94 @@ QVariantMap QueryManager::recordToMap(const QSqlRecord& record)
 	return queryResult;
 }
 
-QVariantMap QueryManager::processPlaceholders(const QVariantMap& placeholders, QString& statement)
+QVariantMap QueryManager::processPlaceholders(const QVariantMap& placeholders, QString* statement)
 {
 	QVariantMap boundValues;
 
-	if (statement.contains(":tz") && !placeholders.contains("tz")) {
-		GetTimezone();
-		boundValues.insert(":tz", tz_info.time_zone);
+	QString localStatement = *statement;
+	
+	ServiceHelper().WriteToCustomLog("Processing Placeholders for query: " + localStatement.toStdString(), "query_manager");
+
+	try {
+
+		if (localStatement.contains(":tz") && !placeholders.contains("tz")) {
+			GetTimezone();
+			boundValues.insert(":tz", tz_info.time_zone);
+		}
+
+		if (placeholders.isEmpty())
+			throw HenchmanServiceException("Placeholders was empty");
+
+		QMapIterator it(placeholders);
+
+		while (it.hasNext()) {
+			it.next();
+
+			QString key = it.key();
+			QVariant value = it.value();
+			key = ":" + key;
+
+			if (value.typeId() == QVariant::DateTime) {
+				boundValues.insert(key, value.toDateTime().toString(Qt::ISODateWithMs));
+				continue;
+			}
+
+			if (value.canConvert<QString>()) {
+				boundValues.insert(key, value.toString());
+				continue;
+			}
+
+			if (value.canConvert<QJsonArray>()) {
+				if (!localStatement.contains(key))
+					continue;
+
+				QStringList values;
+				foreach(QJsonValue val, value.toJsonArray()) {
+					QString value = "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
+
+					if (values.contains(value))
+						continue;
+					values << value;
+				}
+
+				QString firstSection = localStatement.sliced(0, localStatement.indexOf(key));
+				QString secondSection = localStatement.sliced(localStatement.indexOf(key) + key.size());
+				if (values.isEmpty())
+					values << "'placeholder'";
+				localStatement = firstSection + values.join(", ") + secondSection;
+				continue;
+			}
+
+			if (value.canConvert<QStringList>()) {
+				if (!localStatement.contains(key))
+					continue;
+
+				QStringList values;
+				foreach(QString val, value.toStringList()) {
+					QString value = "'" + val + "'";
+
+					if (values.contains(value))
+						continue;
+					values << value;
+				}
+
+				QString firstSection = localStatement.sliced(0, localStatement.indexOf(key));
+				QString secondSection = localStatement.sliced(localStatement.indexOf(key) + key.size());
+				if (values.isEmpty())
+					values << "''";
+				localStatement = firstSection + values.join(", ") + secondSection;
+				continue;
+			}
+
+			boundValues.insert(key, value.toString());
+
+		};
+
+	} catch (const std::exception& e) {
+		ServiceHelper().WriteToError(e.what());
 	}
 	
-	if (placeholders.isEmpty())
-		return boundValues;
-
-	QMapIterator it(placeholders);
-
-	while (it.hasNext()) {
-		it.next();
-
-		QString key = it.key();
-		QVariant value = it.value();
-		key = ":" + key;
-
-		if (value.typeId() == QVariant::DateTime) {
-			boundValues.insert(key, value.toDateTime().toString(Qt::ISODateWithMs));
-			continue;
-		}
-
-		if (value.canConvert<QString>()) {
-			boundValues.insert(key, value.toString());
-			continue;
-		}
-
-		if (value.canConvert<QJsonArray>()) {
-			if (!statement.contains(key))
-				continue;
-
-			QStringList values;
-			foreach(QJsonValue val, value.toJsonArray()) {
-				QString value = "'" + (val.isDouble() ? QString::number(val.toInt()) : val.toString()) + "'";
-
-				if (values.contains(value))
-					continue;
-				values << value;
-			}
-			
-			QString firstSection = statement.sliced(0, statement.indexOf(key));
-			QString secondSection = statement.sliced(statement.indexOf(key) + key.size());
-			statement = firstSection + values.join(",") + secondSection;
-			continue;
-		}
-
-		boundValues.insert(key, value.toString());
-
-	};
-
-	
+	statement->swap(localStatement);
 
 	return boundValues;
 }
@@ -271,12 +304,12 @@ QList<QVariantMap> QueryManager::execute(const TCHAR* sql, const QVariantMap& pl
 			throw HenchmanServiceException("No Query was provided.");
 				
 
-		LOG << "Executing: " << statement.toStdString();
 
-		QVariantMap boundValues = processPlaceholders(placeholders, statement);
+		QVariantMap boundValues = processPlaceholders(placeholders, &statement);
 
+		ServiceHelper().WriteToLog("Executing: " + statement.toStdString());
+		
 		QSqlQuery query(db);
-
 
 		query.prepare(statement);
 
@@ -406,7 +439,7 @@ QJsonArray QueryManager::execute(const TCHAR* sql, const QJsonObject& placeholde
 }
 QJsonArray QueryManager::execute(const QString& sql, const QJsonObject& placeholders)
 {
-	return execute(sql.toStdString(), placeholders);
+	return execute(sql.toStdString().data(), placeholders);
 }
 QJsonArray QueryManager::execute(const std::string& sql, const QJsonObject& placeholders)
 {

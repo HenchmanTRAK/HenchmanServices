@@ -291,7 +291,7 @@ QJsonArray CUsersManager::GetLocal(const QString& query, const QJsonObject& plac
 	
 		QString query_str = query;
 
-		QVariantMap boundValues = m_queryManager.processPlaceholders(placeholders.toVariantMap(), query_str);
+		QVariantMap boundValues = m_queryManager.processPlaceholders(placeholders.toVariantMap(), &query_str);
 	
 		sqlQuery.prepare(query_str);
 		
@@ -570,22 +570,28 @@ void CUsersManager::HandleUpdatingEntries(const QJsonObject& local, const QJsonO
 		placeholders.insert("ori_empId", local.value("empId").toString());
 		placeholders.insert("ori_userId", local.value("userId").toString());
 	}
-	set.push_back("updatedAt = CONVERT_TZ(:updatedAt, '+00:00', :tz)");
+	set.append("updatedAt = CONVERT_TZ(:updatedAt, '+00:00', :tz)");
 	placeholders.insert("updatedAt", currentDateTime);
 	placeholders.insert("tz", m_time_zone);
 
-	qDebug() << set;
-	qDebug() << placeholders;
-	qDebug() << update;
-	qDebug() << where;
+	if (local.value(m_trak_details.trak_id_type).toString().isNull() || local.value(m_trak_details.trak_id_type).toString() != m_trak_details.trak_id) {
+		set.append(m_trak_details.trak_id_type + " = :" + m_trak_details.trak_id_type);
+		placeholders.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
+		update.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
+	}
+		
+	update.insert("updatedAt", currentDateTime.toString(Qt::ISODateWithMs));
+	where.insert("custId", placeholders.value("ori_custId").toInt());
+	where.insert("empId", placeholders.value("ori_empId").toString());
+	where.insert("userId", placeholders.value("ori_userId").toString());
+
+	ServiceHelper().WriteToCustomLog("Users Setting:" + QJsonDocument(QJsonArray::fromStringList(set)).toJson().toStdString(), "user_manager");
+	ServiceHelper().WriteToCustomLog("Users Placeholder:" + QJsonDocument(QJsonObject::fromVariantMap(placeholders)).toJson().toStdString(), "user_manager");
+	ServiceHelper().WriteToCustomLog("Users Update:" + QJsonDocument(update).toJson().toStdString(), "user_manager");
+	ServiceHelper().WriteToCustomLog("Users Where:" + QJsonDocument(where).toJson().toStdString(), "user_manager");
 
 	QString queryToExec = "UPDATE users SET " + set.join(", ") + " WHERE custId = :ori_custId AND userId = :ori_userId AND (empId = :ori_empId OR empId = '')";
 	(void)m_queryManager.execute(queryToExec, placeholders);
-
-	update.insert("updatedAt", currentDateTime.toString(Qt::ISODateWithMs));
-	where.insert("custId", placeholders.value("ori_custId").toJsonValue());
-	where.insert("empId", placeholders.value("ori_empId").toJsonValue());
-	where.insert("userId", placeholders.value("ori_userId").toJsonValue());
 
 	body.insert("update", update);
 	body.insert("where", where);
@@ -751,9 +757,19 @@ int CUsersManager::SyncWebportal()
 		if (!data.contains("userId"))
 			continue;
 
-		if (!data.contains(m_trak_details.trak_id_type) || data.value(m_trak_details.trak_id_type).toString() != m_trak_details.trak_id)
+		QStringList update;
+		if (!data.contains(m_trak_details.trak_id_type)) {
 			data.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
-			//data[m_trak_details.trak_id_type] = m_trak_details.trak_id;
+			update.append(m_trak_details.trak_id_type + " = :" + m_trak_details.trak_id_type);
+		} else if (data.value(m_trak_details.trak_id_type).toString() != m_trak_details.trak_id) {
+			data[m_trak_details.trak_id_type] = m_trak_details.trak_id;
+			update.append(m_trak_details.trak_id_type + " = :" + m_trak_details.trak_id_type);
+		}
+
+		if (update.size() > 0) {
+			UpdateLocal(update, data);
+			update.clear();
+		}
 
 		if (!data.contains("custId"))
 			data.insert("custId", m_trak_details.cust_id);
@@ -1055,7 +1071,7 @@ int CUsersManager::UpdateOutdated()
 	
 	qDebug() << "lastCheckedDateTime" << lastCheckedDateTime;
 
-	QDateTime last_checked_date(QDateTime::fromString(lastCheckedDateTime, Qt::ISODate));
+	QDateTime last_checked_date(QDateTime::fromString(lastCheckedDateTime, Qt::ISODateWithMs));
 
 	QMap<QString, QVariant> placeholder;
 	placeholder.insert("last_checked_date", last_checked_date);
@@ -1072,8 +1088,8 @@ int CUsersManager::UpdateOutdated()
 
 	QJsonArray outdatedRemotes(GetRemote(QJsonArray(), QJsonObject(), select));
 
-	qDebug() << "local_that_need_updating: " << outdatedLocals.size();
-	qDebug() << "remote_that_need_updating: " << outdatedRemotes.size();
+	qInfo() << "local_that_need_updating: " << outdatedLocals.size();
+	qInfo() << "remote_that_need_updating: " << outdatedRemotes.size();
 
 	if (!outdatedLocals.size() && !outdatedRemotes.size())
 		return UpdateCheckedTime();

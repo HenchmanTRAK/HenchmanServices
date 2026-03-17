@@ -417,18 +417,18 @@ void CEmployeesManager::HandleUpdatingEntries(const QJsonObject& local, const QJ
 	placeholders.insert("updatedAt", currentDateTime);
 	placeholders.insert("tz", m_time_zone);
 
-	qDebug() << set;
-	qDebug() << placeholders;
-	qDebug() << update;
-	qDebug() << where;
+	update.insert("updatedAt", currentDateTime.toString(Qt::ISODateWithMs));
+	where.insert("custId", placeholders.value("ori_custId").toInt());
+	where.insert("empId", placeholders.value("ori_empId").toString());
+	where.insert("userId", placeholders.value("ori_userId").toString());
+	
+	ServiceHelper().WriteToCustomLog("Employees Setting:" + QJsonDocument(QJsonArray::fromStringList(set)).toJson().toStdString(), "employees_manager");
+	ServiceHelper().WriteToCustomLog("Employees Placeholder:" + QJsonDocument(QJsonObject::fromVariantMap(placeholders)).toJson().toStdString(), "employees_manager");
+	ServiceHelper().WriteToCustomLog("Employees Update:" + QJsonDocument(update).toJson().toStdString(), "employees_manager");
+	ServiceHelper().WriteToCustomLog("Employees Where:" + QJsonDocument(where).toJson().toStdString(), "employees_manager");
 
 	QString queryToExec = "UPDATE employees SET " + set.join(", ") + " WHERE custId = :ori_custId AND ((empId = '' AND userId = :ori_userId) OR empId = :ori_empId)";
 	(void)m_queryManager.execute(queryToExec, placeholders);
-
-	update.insert("updatedAt", currentDateTime.toString(Qt::ISODateWithMs));
-	where.insert("custId", placeholders.value("ori_custId").toJsonValue());
-	where.insert("empId", placeholders.value("ori_empId").toJsonValue());
-	where.insert("userId", placeholders.value("ori_userId").toJsonValue());
 
 	body.insert("update", update);
 	body.insert("where", where);
@@ -489,9 +489,10 @@ int CEmployeesManager::SyncWebportal()
 		placeholderMap.insert("userIds", userIds);
 		placeholderMap.insert("tz", m_time_zone);
 
-		if (webportalGroupedResults.size() <= 0)
+		if(employeeIds.size() > 0 && updatedAtDates.size() <= 0)
 			employeeSelect = "SELECT * FROM employees WHERE userId <> '' AND userId IS NOT NULL AND empId NOT IN (:empIds) ORDER BY id ASC";
-		else {
+		
+		if (employeeIds.size() > 0 && updatedAtDates.size() > 0) {
 			employeeSelect = "SELECT * FROM employees WHERE userId <> '' AND userId IS NOT NULL AND (empId NOT IN (:empIds) OR CONVERT_TZ(updatedAt, :tz, '+00:00') NOT IN (:updatedAts)) ORDER BY updatedAt ASC, id ASC";
 			placeholderMap.insert("updatedAts", updatedAtDates);
 		}
@@ -501,7 +502,8 @@ int CEmployeesManager::SyncWebportal()
 	//std::vector sqlQueryResults = queryManager.execute(employeeSelect, vMapConditionals);
 	QJsonArray queryResults = GetLocal(employeeSelect, placeholderMap);
 
-	qDebug() << QJsonDocument(queryResults).toJson().toStdString().data();
+	ServiceHelper().WriteToCustomLog("Fetched Employees: " + QJsonDocument(queryResults).toJson().toStdString(), "employees_manager");
+
 
 	for (const auto& queryResult : queryResults) {
 		if (!queryResult.isObject())
@@ -723,7 +725,13 @@ int CEmployeesManager::SyncLocal()
 	//QJsonArray queryResults = GetLocal(employeeSelect, placeholderMap);
 
 	QStringList conditions;
-	conditions << "userId <> ''" << "userId IS NOT NULL" << "(empId IN (:empIds) OR userId IN (:userIds))";
+	conditions << "userId <> ''" << "userId IS NOT NULL";
+	if (!employeeIds.isEmpty() && !userIds.isEmpty())
+		conditions << "(empId IN (:empIds) OR userId IN (:userIds))";
+	if(employeeIds.isEmpty() && !userIds.isEmpty())
+		conditions << "userId IN (:userIds)";
+	if (!employeeIds.isEmpty() && userIds.isEmpty())
+		conditions << "empId IN (:empIds)";
 
 	QList<QVariantMap> queryResults = CTRAKEntriesManager::GetLocal(QStringList({"*"}), conditions, placeholderMap.toVariantMap());
 	//else {
@@ -902,7 +910,7 @@ int CEmployeesManager::UpdateOutdated()
 
 	qDebug() << "lastCheckedDateTime" << lastCheckedDateTime;
 	
-	QDateTime last_checked_date(QDateTime::fromString(lastCheckedDateTime, Qt::ISODate));
+	QDateTime last_checked_date(QDateTime::fromString(lastCheckedDateTime, Qt::ISODateWithMs));
 
 	QMap<QString, QVariant> placeholder;
 	//placeholder.insert("lastCheckedDate", last_checked_date.date());
@@ -921,8 +929,8 @@ int CEmployeesManager::UpdateOutdated()
 
 	QJsonArray outdatedRemoteEmployees = GetRemote(QJsonArray(), QJsonObject(), select);
 
-	qDebug() << "local_employeees_that_need_updating: " << outdatedLocalEmployees.size();
-	qDebug() << "remote_employeees_that_need_updating: " << outdatedRemoteEmployees.size();
+	qInfo() << "local_employeees_that_need_updating: " << outdatedLocalEmployees.size();
+	qInfo() << "remote_employeees_that_need_updating: " << outdatedRemoteEmployees.size();
 
 	if (!outdatedLocalEmployees.size() && !outdatedRemoteEmployees.size())
 		return UpdateCheckedTime();
@@ -958,8 +966,11 @@ int CEmployeesManager::UpdateOutdated()
 				where.insert("empId", localEmployee.value("empId"));
 				QJsonArray targetRemoteEmployee = GetRemote(QJsonArray(), where);
 
-				if (targetRemoteEmployee.isEmpty())
-					throw HenchmanServiceException("Needed employee instance from remote but failed to find one");
+				if (targetRemoteEmployee.isEmpty()) {
+					//throw HenchmanServiceException("Needed employee instance from remote but failed to find one");
+					ServiceHelper().WriteToError("Needed employee instance from remote but failed to find one");
+					continue;
+				}
 
 				remoteEmployee = targetRemoteEmployee.at(0).toObject();
 			}
@@ -996,8 +1007,11 @@ int CEmployeesManager::UpdateOutdated()
 				where.insert("empId", remoteEmployee.value("empId"));
 				QJsonArray targetLocalEmployee = GetLocal("SELECT * FROM employees WHERE empId = :empId", where);
 
-				if (targetLocalEmployee.isEmpty())
-					throw HenchmanServiceException("Needed employee instance from local but failed to find one");
+				if (targetLocalEmployee.isEmpty()) {
+					//throw HenchmanServiceException("Needed employee instance from local but failed to find one");
+					ServiceHelper().WriteToError("Needed employee instance from local but failed to find one");
+					continue;
+				}
 
 				localEmployee = targetLocalEmployee.at(0).toObject();
 			}

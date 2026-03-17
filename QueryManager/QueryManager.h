@@ -110,7 +110,7 @@ public:
 
 
 	QVariantMap recordToMap(const QSqlRecord& record);
-	QVariantMap processPlaceholders(const QVariantMap& placeholders, QString& statement);
+	QVariantMap processPlaceholders(const QVariantMap& placeholders, QString* statement);
 	void BindValues(const QVariantMap& values, QSqlQuery* query);
 
 	/**

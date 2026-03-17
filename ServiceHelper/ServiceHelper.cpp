@@ -389,7 +389,9 @@ void ServiceHelper::WriteToCustomLog(const std::string& log, const std::string& 
 	}
 	else
 	{
+#ifdef DEBUG
 		WriteLog(log_type::CUSTOM, logDir.data(), log);
+#endif // DEBUG
 	}
 	//QLoggingCategory* category;
 	//if (logging_categories.contains(log_name)) {
