@@ -142,11 +142,16 @@ char * ServiceHelper::get_file_contents(const char* filename)
 	throw(errno);
 }
 
-char * ServiceHelper::GetFileExtension(std::string& FileName)
+std::string file_extention = "";
+const char * ServiceHelper::GetFileExtension(std::string& FileName)
 {
-	if (FileName.find_last_of(".") != std::string::npos)
-		return (char *)FileName.substr(FileName.find_last_of(".") + 1).data();
-	return (char *)"";
+	file_extention = "";
+
+	if (FileName.find_last_of(".") != std::string::npos) {
+		file_extention = FileName.substr(FileName.find_last_of(".") + 1);
+		return file_extention.data();
+	}
+	return file_extention.data();
 }
 
 std::string ServiceHelper::GetServicePath(std::string app_path)

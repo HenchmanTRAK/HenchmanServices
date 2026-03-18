@@ -267,7 +267,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static char* GetFileExtension(std::string& FileName);
+	static const char* GetFileExtension(std::string& FileName);
 
 	// String Sanatizer provided by Simple on Stackoverflow
 	// https://stackoverflow.com/a/34221488

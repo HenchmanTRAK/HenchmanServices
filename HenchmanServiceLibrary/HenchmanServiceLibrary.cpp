@@ -281,11 +281,14 @@ static bool LaunchProcess(const TCHAR* process_path)
 	return true;
 }
 
-DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
+
+using namespace HenchmanService;
+
+DWORD SvcWorkerThread()
 {
 	int argc = 0;
 	char* argv[1] = {};
-
+	
 	//EventManager::CEventManager::Init(service->serviceName);
 
 	EventManager::CEventManager evntManager(svcController->mService.serviceName);
@@ -319,38 +322,38 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	//EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
 
 	evntManager.ReportCustomEvent(svcController->mService.serviceName, "Service is running", 0);
-	
+
 	QCoreApplication* a = new QCoreApplication(argc, argv);
-	HenchmanService hsService(a);
+	CHenchmanService hsService(a);
 
 	while (testing || WaitForSingleObject(svcController->mService.serviceStopEvent, 0) != WAIT_OBJECT_0)
 	{
-		
+
 		hsService.MainFunction(a);
 #if false
 		service.sqliteManager->UpdateEntry(
 			"Test",
-			{"id = 1"},
-			{ 
-				{"string", "string + " + to_string(counter++)} 
+			{ "id = 1" },
+			{
+				{"string", "string + " + to_string(counter++)}
 			}
 		);
 
 		service.sqliteManager->RemoveEntry(
 			"Test",
-			{"updatedAt <= datetime('now', 'localtime')"}
+			{ "updatedAt <= datetime('now', 'localtime')" }
 		);
 
 		service.sqliteManager->GetEntry(
 			"TestTable",
-			{"*", "COUNT(*) count"},
-			{"updatedAt <= datetime('now', 'localtime')"}
-			);
+			{ "*", "COUNT(*) count" },
+			{ "updatedAt <= datetime('now', 'localtime')" }
+		);
 #endif
-		
-	
+
+
 	}
-	
+
 	hsService.deleteLater();
 	evntManager.ReportCustomEvent(svcController->mService.serviceName, "Service has exited", 0);
 
@@ -362,7 +365,12 @@ DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
 	return ERROR_SUCCESS;
 }
 
-HenchmanService::HenchmanService(QObject* parent)
+DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
+{
+	return SvcWorkerThread();
+}
+
+CHenchmanService::CHenchmanService(QObject* parent)
 	: QObject(parent), sqliteManager(parent), databaseManager(parent)
 {
 
@@ -639,7 +647,7 @@ HenchmanService::HenchmanService(QObject* parent)
 
 }
 
-HenchmanService::~HenchmanService()
+CHenchmanService::~CHenchmanService()
 {
 	LOG << "Deconstructing HenchmanService";
 	ServiceHelper().WriteToLog("HenchmanService has been closed");
@@ -660,7 +668,7 @@ HenchmanService::~HenchmanService()
 	//logx.clear();
 }
 
-bool HenchmanService::setMailLogin(const tstring& username, const tstring& password)
+bool CHenchmanService::setMailLogin(const tstring& username, const tstring& password)
 {
 	try {
 		if (username.length() <= 1 || password.length() <= 1) {
@@ -677,7 +685,7 @@ bool HenchmanService::setMailLogin(const tstring& username, const tstring& passw
 	return true;
 }
 
-int HenchmanService::SetRequiredParameters()
+int CHenchmanService::SetRequiredParameters()
 {
 
 #if false
@@ -697,7 +705,7 @@ int HenchmanService::SetRequiredParameters()
 	return 0;
 }
 
-int HenchmanService::MainFunction(QCoreApplication* a)
+int CHenchmanService::MainFunction(QCoreApplication* a)
 {
 	update = TRUE;
 	int timer = 30000;
@@ -761,9 +769,9 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 	}
 
 	if (!testing)
-		timer = 30000;
-	else
 		timer = 10000;
+	else
+		timer = 5000;
 		
 	
 	ServiceHelper().WriteToLog("Service sleeping for " + std::to_string(timer) + " ms...");
@@ -785,7 +793,7 @@ int HenchmanService::MainFunction(QCoreApplication* a)
 	return 0;
 }
 
-void HenchmanService::checkStateOfMySQL()
+void CHenchmanService::checkStateOfMySQL()
 {
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
@@ -838,7 +846,7 @@ void HenchmanService::checkStateOfMySQL()
 
 }
 
-void HenchmanService::checkStateOfApache()
+void CHenchmanService::checkStateOfApache()
 {
 	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
 	string apache_dir = RegistryManager::GetStrVal(hKey, "Apache_DIR", REG_SZ);

@@ -292,7 +292,7 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 	updated_values->swap(temp_jsonObject);
 }
 
-void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const QJsonObject& newer, QList<QString>* set_values, QVariantMap* updated_values)
+void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& t_older, const QJsonObject& t_newer, QList<QString>* t_set_values, QVariantMap* t_updated_values)
 {
 
 	QList<QString> excludeCols({ "id", "createdAt", "updatedAt" });
@@ -303,8 +303,15 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 	QList<QString> set;
 	QVariantMap update;
 
-	for (const QString& key : newer.keys()) {
-		if (!older.keys().contains(key))
+	auto set_values = [&update, &set](QString key, QVariant value)
+		{
+			set.push_back(key + " = :" + key);
+			update.insert(key, value);
+		};
+
+
+	for (const QString& key : t_newer.keys()) {
+		if (!t_older.keys().contains(key))
 			continue;
 
 		if (excludeCols.contains(key))
@@ -313,25 +320,30 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 		if (!mysqlCols.contains(key))
 			continue;
 
-		QVariant newerValue = newer.value(key).toVariant();
-		QVariant olderValue = older.value(key).toVariant();
+		QVariant newerValue = t_newer.value(key).toVariant();
+		QVariant olderValue = t_older.value(key).toVariant();
 
-		if (newerValue.isNull() && ((older.value(key).isString() && olderValue.toString().isEmpty()) || (older.value(key).isDouble() && olderValue.toInt() == 0)))
-			continue;
+		qDebug() << "key:" << key;
+		qDebug() << "newerValue:" << newerValue << " type:" << newerValue.type();
+		qDebug() << "olderValue:" << olderValue << " type:" << olderValue.type();
 
-		if(olderValue.isNull() && ((newer.value(key).isString() && newerValue.toString().isEmpty()) || (newer.value(key).isDouble() && newerValue.toInt() == 0)))
+		if (newerValue.isNull() && (olderValue.typeId() == QVariant::String && olderValue.toString().isEmpty()))
+			olderValue = QVariant();
+
+		if (olderValue.isNull() && (newerValue.typeId() == QVariant::String && newerValue.toString().isEmpty()))
+			newerValue = QVariant();
+
+		if (newerValue.isNull() && olderValue.isNull())
 			continue;
 
 		ServiceHelper().WriteToCustomLog(("Comparing values for " + key + " recent updated: " + newerValue.toString() + " oldest updated: " + olderValue.toString()).toStdString(), "trak_entries_manager");
 
+		if (newerValue == olderValue)
+			continue;
+		
 		if (!newerValue.canConvert<QString>()) {
 			continue;
 		}
-
-
-		if (newerValue == olderValue)
-			continue;
-
 
 		if (dateCols.contains(key)) {
 			QDateTime webportalDate = QDateTime::fromString(newerValue.toString(), Qt::ISODate);
@@ -341,10 +353,6 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 				continue;
 		}
 
-		
-
-		set.push_back(key + " = :" + key);
-
 		if (key == "userRole" && newerValue.toInt() > 1) {
 			newerValue = 0;
 		}
@@ -353,15 +361,15 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 			newerValue = newerValue.toString().trimmed();
 		}
 
-		update.insert(key, newerValue);
-
+		
+		set_values(key, newerValue);
 	}
 
 	qDebug() << "seting: " << set;
 	qDebug() << "updating: " << update;
 
-	set.swap(*set_values);
-	update.swap(*updated_values);
+	t_set_values->swap(set);
+	t_updated_values->swap(update);
 };
 
 QJsonArray CTRAKEntriesManager::GetColumns(bool reset)

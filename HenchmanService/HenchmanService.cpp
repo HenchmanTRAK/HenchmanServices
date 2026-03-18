@@ -279,7 +279,10 @@ bool LaunchProcess(const TCHAR* process_path)
 
 void WINAPI SvCtrlHandler(DWORD CtrlCode)
 {
-	return getServiceController()->SvcCtrlHandler(CtrlCode);
+	ServiceController::CServiceController* serviceController = getServiceController();
+	return serviceController->SvcCtrlHandler(CtrlCode);
+
+	delete serviceController;
 }
 
 void WINAPI SvcMain()
@@ -289,30 +292,34 @@ void WINAPI SvcMain()
 
 	if (!testing)
 	{
-		getServiceController()->mService.serviceStatusHandle = RegisterServiceCtrlHandler(
+		ServiceController::CServiceController* serviceController = getServiceController();
+
+		serviceController->mService.serviceStatusHandle = RegisterServiceCtrlHandler(
 			(TCHAR*)service->serviceName,
 			SvCtrlHandler
 		);
 
-		if (!getServiceController()->mService.serviceStatusHandle)
+		if (!serviceController->mService.serviceStatusHandle)
 			return;
 
-		ZeroMemory(&getServiceController()->mService.serviceStatus, sizeof(getServiceController()->mService.serviceStatus));
-		getServiceController()->mService.serviceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-		getServiceController()->mService.serviceStatus.dwServiceSpecificExitCode = 0;
+		ZeroMemory(&serviceController->mService.serviceStatus, sizeof(serviceController->mService.serviceStatus));
+		serviceController->mService.serviceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+		serviceController->mService.serviceStatus.dwServiceSpecificExitCode = 0;
 
-		getServiceController()->ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
+		serviceController->ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
 	
 		SvcInit();
 
-		if (getServiceController()->mService.serviceStatusHandle)
-			CloseHandle(getServiceController()->mService.serviceStatusHandle);
+		if (serviceController->mService.serviceStatusHandle)
+			CloseHandle(serviceController->mService.serviceStatusHandle);
+		
+		delete serviceController;
 	}
 	else {
 		SvcInit();
 	}
 	
-
+	
 	//delete a;
 }
 
@@ -320,39 +327,43 @@ void WINAPI SvcInit()
 {
 	if (!testing)
 	{
-		getServiceController()->mService.serviceStopEvent = CreateEvent(
+		ServiceController::CServiceController* serviceController = getServiceController();
+
+		serviceController->mService.serviceStopEvent = CreateEvent(
 			NULL,
 			TRUE,
 			FALSE,
 			NULL
 		);
 
-		if (getServiceController()->mService.serviceStopEvent == NULL)
+		if (serviceController->mService.serviceStopEvent == NULL)
 		{
-			getServiceController()->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+			serviceController->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
 			return;
 		}
 
-		getServiceController()->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+		serviceController->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 
 		DWORD dwThreadId = 0;
 
-		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &getServiceController()->mService.serviceStopEvent, 0, &dwThreadId);
+		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &serviceController->mService.serviceStopEvent, 0, &dwThreadId);
 
 		EventManager::CEventManager().ReportCustomEvent("SvcInit", std::string("Created Service Thread with id: ").append(std::to_string(dwThreadId)).data(), 1, 0);
 
 		if (hThread)
 			WaitForSingleObject(
-				getServiceController()->mService.serviceStopEvent,
+				serviceController->mService.serviceStopEvent,
 				INFINITE
 			);
 
-		getServiceController()->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
-		CloseHandle(getServiceController()->mService.serviceStopEvent);
+		serviceController->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+		CloseHandle(serviceController->mService.serviceStopEvent);
+
+		delete serviceController;
 	}
 	else {
 		std::cout << "Testing service\n";
-		SvcWorkerThread(NULL);
+		SvcWorkerThread();
 	}
 	return;
 

@@ -47,4 +47,4 @@
 
 
 void WINAPI SvcMain();
-void SvcInit();
+void WINAPI SvcInit();
