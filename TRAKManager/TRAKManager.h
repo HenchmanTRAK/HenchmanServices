@@ -1,11 +1,14 @@
 #pragma once
 
 #include <SimpleIni.h>
-#include "DatabaseManager.h"
 #include <exception>
 #include <string>
+
 #include <qobject.h>
 #include <qtmetamacros.h>
+
+#include "DatabaseManager.h"
+#include "ServiceHelper.h"
 
 enum Trak_Type {
 	unknown = 0,

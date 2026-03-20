@@ -19,6 +19,10 @@ TRAKManager::~TRAKManager()
 {
 	/*if (databaseManager)
 		databaseManager = nullptr;*/
+	appDir = "";
+	iniFile = "";
+	appName = "";
+	appType = "";
 }
 
 bool TRAKManager::TRAKExists(CSimpleIniA& ini)
@@ -215,12 +219,17 @@ void TRAKManager::CreateDataModule()
 
 int TRAKManager::exportGeneralTables(DatabaseManager& databaseManager)
 {
+
+	ServiceHelper().WriteToLog("Parsing Employees");
 	if (databaseManager.addEmployeesIfNotExists())
 		return 1;
+	ServiceHelper().WriteToLog("Parsing Users");
 	if (databaseManager.addUsersIfNotExists())
 		return 1;
+	ServiceHelper().WriteToLog("Parsing Tools");
 	if (databaseManager.addToolsIfNotExists())
 		return 1;
+	ServiceHelper().WriteToLog("Parsing Jobs");
 	if (databaseManager.addJobsIfNotExists())
 		return 1;
 	return 0;
@@ -238,12 +247,14 @@ int TRAKManager::UploadCurrentStateToRemote(DatabaseManager& databaseManager)
 	switch (traktype)
 	{
 	case kabtrak: {
+		ServiceHelper().WriteToLog("Parsing Kabtrak");
 		return (databaseManager.addKabsIfNotExists() |
 			databaseManager.addDrawersIfNotExists() |
 			databaseManager.addToolsInDrawersIfNotExists() |
 			databaseManager.createKabtrakTransactionsTable());
 	}
 	case cribtrak: {
+		ServiceHelper().WriteToLog("Parsing Cribtrak");
 		return (databaseManager.addCribsIfNotExists() |
 			databaseManager.addCribToolLocationIfNotExists() |
 			databaseManager.addCribToolsIfNotExists() |
@@ -253,6 +264,7 @@ int TRAKManager::UploadCurrentStateToRemote(DatabaseManager& databaseManager)
 			databaseManager.createCribtrakTransactionsTable());
 	}
 	case portatrak: {
+		ServiceHelper().WriteToLog("Parsing Portatrak");
 		return (databaseManager.addPortasIfNotExists() |
 			databaseManager.addItemKitsIfNotExists() |
 			databaseManager.addKitCategoryIfNotExists() |
@@ -260,7 +272,7 @@ int TRAKManager::UploadCurrentStateToRemote(DatabaseManager& databaseManager)
 			databaseManager.createPortatrakTransactionsTable());
 	}
 	default: {
-	
+		ServiceHelper().WriteToLog("Invalid Type");
 	}
 	}
 	return 1;

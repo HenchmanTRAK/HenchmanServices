@@ -59,7 +59,6 @@ target_link_libraries(
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core
-	HenchmanServiceTaskScheduler
 )
 
 set_target_properties(

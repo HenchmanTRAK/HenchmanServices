@@ -199,20 +199,22 @@ int CEmployeesManager::GetLocalCount(const QList<QString> & p_conditions, const 
 
 	try {
 		QList<QString> conditions(p_conditions);
+		QStringList group_by;
 		QJsonObject placeholders(p_placeholders);
 
 		if (conditions.isEmpty()) {
 			conditions.append("userId <> ''");
 			conditions.append("userId IS NOT NULL");
 		}
-		
-		local_employees = CTRAKEntriesManager::GetLocalCount(conditions, placeholders);
+
+		group_by.append("userId");
+		group_by.append("empId");
+				
+		local_employees = CTRAKEntriesManager::GetLocalCount(conditions, group_by, placeholders);
 	}catch (const std::exception& e) {
 		local_employees = local_count;
 	}
 	
-	m_table.database().close();
-
 	return local_employees;
 }
 
@@ -504,13 +506,13 @@ int CEmployeesManager::SyncWebportal()
 
 	ServiceHelper().WriteToCustomLog("Fetched Employees: " + QJsonDocument(queryResults).toJson().toStdString(), "employees_manager");
 
-
 	for (const auto& queryResult : queryResults) {
 		if (!queryResult.isObject())
 			continue;
-		QJsonObject result = queryResult.toObject();
 
+		QJsonObject result = queryResult.toObject();
 		
+
 
 		if (!result.value("empId").toString().isEmpty() && (placeholderMap.value("empIds").toArray().contains(result.value("empId")) || placeholderMap.value("userIds").toArray().contains(result.value("userId"))))
 		{
@@ -519,9 +521,9 @@ int CEmployeesManager::SyncWebportal()
 			QJsonObject where;
 			if(result.value("custId").toString() != "")
 				where.insert("custId", result.value("custId"));
-			if (result.value("empId").toString() != "")
+			if (placeholderMap.value("empIds").toArray().contains(result.value("empId")))
 				where.insert("empId", result.value("empId"));
-			if (result.value("userId").toString() != "")
+			if (placeholderMap.value("userIds").toArray().contains(result.value("userId")))
 				where.insert("userId", result.value("userId"));
 			where.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 			QJsonObject webportalEntry = GetRemote(QJsonArray(), where).at(0).toObject();

@@ -65,7 +65,7 @@ namespace ServiceController
 
 		~CServiceController();
 
-		void DoInstallSvc(bool disableTask = false);
+		void __stdcall DoInstallSvc(bool disableTask = false);
 
 		void __stdcall DoStartSvc(const TCHAR* mService = nullptr);
 		int __stdcall StartTargetSvc(const TCHAR* sService = nullptr);
@@ -77,7 +77,7 @@ namespace ServiceController
 			DWORD dwWaitHint
 		);
 		DWORD __stdcall GetSvcStatus(const TCHAR* mService = nullptr);
-		virtual void WINAPI SvcCtrlHandler(DWORD CtrlCode);
+		void __stdcall SvcCtrlHandler(DWORD CtrlCode);
 
 		//virtual void WINAPI SvcMain();
 		//virtual void SvcInit();

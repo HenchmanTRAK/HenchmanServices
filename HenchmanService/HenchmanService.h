@@ -37,14 +37,6 @@
 	#define QT_NO_DEBUG_OUTPUT
 #endif
 
-#ifdef UNICODE
-#define tstring std::wstring
-//std::wstring installDir(buffer);
-#else
-#define tstring std::string
-//std::string installDir(buffer);
-#endif
-
 
 void WINAPI SvcMain();
 void WINAPI SvcInit();

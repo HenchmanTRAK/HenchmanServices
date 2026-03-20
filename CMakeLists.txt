@@ -190,24 +190,24 @@ FetchContent_MakeAvailable(SimpleIni QMYSQL)
 add_subdirectory (RegistryManager)
 add_subdirectory (ServiceHelper)
 add_subdirectory (EventManager)
+# LIST(APPEND ADDITIONAL_LIBRARIES "EventManager")
 add_subdirectory (HenchmanServiceException)
 add_subdirectory (SQLiteManager2)
-# LIST(APPEND ADDITIONAL_LIBRARIES "SQLiteManager2")
+LIST(APPEND ADDITIONAL_LIBRARIES "SQLiteManager2")
 add_subdirectory (NetworkManager)
-# LIST(APPEND ADDITIONAL_LIBRARIES "NetworkManager")
+LIST(APPEND ADDITIONAL_LIBRARIES "NetworkManager")
 add_subdirectory (QueryManager)
 add_subdirectory (TRAKEntriesManager)
 add_subdirectory (EmployeesManager)
-# LIST(APPEND ADDITIONAL_LIBRARIES "EmployeesManager")
+LIST(APPEND ADDITIONAL_LIBRARIES "EmployeesManager")
 add_subdirectory (UsersManager)
-# LIST(APPEND ADDITIONAL_LIBRARIES "UsersManager")
+LIST(APPEND ADDITIONAL_LIBRARIES "UsersManager")
 add_subdirectory (DatabaseManager)
-# LIST(APPEND ADDITIONAL_LIBRARIES "DatabaseManager")
+LIST(APPEND ADDITIONAL_LIBRARIES "DatabaseManager")
 add_subdirectory (TRAKManager)
-#LIST(APPEND ADDITIONAL_LIBRARIES "TRAKManager")
 add_subdirectory (HenchmanServiceTaskScheduler)
 add_subdirectory (ServiceController)
-#LIST(APPEND ADDITIONAL_LIBRARIES "ServiceController")
+LIST(APPEND ADDITIONAL_LIBRARIES "ServiceController")
 add_subdirectory (HenchmanServiceLibrary)
 # LIST(APPEND ADDITIONAL_LIBRARIES "HenchmanService")
 add_subdirectory (HenchmanServiceController)
@@ -250,10 +250,11 @@ endif()
 set(additional_libs)
 
 foreach(lib IN LISTS ADDITIONAL_LIBRARIES)
-	LIST(APPEND additional_libs "ADDITIONAL_LIBRARIES \"\${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<TARGET_FILE_NAME:${lib}>\"")
+	LIST(APPEND additional_libs "\"\${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<TARGET_FILE_NAME:${lib}>\"")
 endforeach()
 
 LIST(JOIN additional_libs " " additional_libs)
+set(executable_controller_path "\${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<TARGET_FILE_NAME:HenchmanServiceController>")
 
 # Generate a deployment script to be executed at install time
 qt_generate_deploy_script(
@@ -263,7 +264,8 @@ qt_generate_deploy_script(
 	CONTENT "
 qt_deploy_runtime_dependencies(
 	EXECUTABLE \"${executable_path}\"
-	${additional_libs}
+	ADDITIONAL_EXECUTABLES \"${executable_controller_path}\"
+	ADDITIONAL_LIBRARIES ${additional_libs}
 	BIN_DIR \"\${CMAKE_INSTALL_BINDIR}\"
 	PRE_EXCLUDE_REGEXES \"api-ms-\" \"ext-ms-\" 
 	POST_EXCLUDE_REGEXES \".*system32/.*\\.dll\" \"api-ms-\" \"ext-ms-\"

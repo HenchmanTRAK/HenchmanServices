@@ -21,6 +21,8 @@
 #include <codecvt>
 #include <string>
 #include <sstream>
+#include <locale>
+#include <vector>
 
 
 #include <taskschd.h>

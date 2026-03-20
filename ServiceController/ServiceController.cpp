@@ -918,7 +918,7 @@ DWORD CServiceController::GetSvcStatus(const TCHAR* sService)
 	return ssStatus.dwCurrentState;
 }
 
-void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
+void CServiceController::SvcCtrlHandler(DWORD CtrlCode)
 {
 	switch (CtrlCode)
 	{
@@ -931,6 +931,7 @@ void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
 	case SERVICE_CONTROL_INTERROGATE:
 		break;
 	default:
+		ReportSvcStatus(CtrlCode, NO_ERROR, 0);
 		break;
 	}
 }

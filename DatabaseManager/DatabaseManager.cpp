@@ -155,6 +155,10 @@ DatabaseManager::~DatabaseManager()
 	ServiceHelper().WriteToLog("DatabaseManager is being unitialised");
 
 	performCleanup();
+
+	if (QSqlDatabase::contains(db_info.schema)) {
+		QSqlDatabase::removeDatabase(db_info.schema);
+	}
 }
 
 void DatabaseManager::loadTrakDetailsFromRegistry()
@@ -4005,7 +4009,6 @@ int DatabaseManager::connectToLocalDB()
 	int returnVal = 0;
 	QSqlDatabase db;
 
-	LOG << "Test Log";
 	try {
 
 		std::vector<TCHAR> buffer;
@@ -6441,10 +6444,6 @@ void DatabaseManager::performCleanup()
 
 		(void)queryManager.execute("KILL :ID", processId);
 	}
-
-	if(QSqlDatabase::contains(db_info.schema))
-		QSqlDatabase::removeDatabase(db_info.schema);
-
 }
 
 //#include "DatabaseManager.moc"

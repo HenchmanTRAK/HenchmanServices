@@ -41,11 +41,6 @@
 #pragma comment(lib, "Ws2_32.lib")
 #pragma comment(lib, "Wtsapi32.lib")
 
-
-//std::unique_ptr<ServiceController::CServiceController> svcController = nullptr;
-//std::unique_ptr<ServiceController::SService> service;
-
-
 namespace HenchmanService {
 	/**
 	 * @brief The main class for the HenchmanService application.
@@ -124,17 +119,14 @@ namespace HenchmanService {
 		 *
 		 * This variable is used to manage the database connection.
 		 */
-		 //std::unique_ptr<DatabaseManager> dbManager;
-		 //DatabaseManager dbManager = nullptr;
+		DatabaseManager databaseManager;
 
 		 /**
 		  * @brief A unique pointer to a SQLiteManager2 object.
 		  *
 		  * This variable is used to manage the SQLite database connection.
 		  */
-		  //std::unique_ptr<SQLiteManager2> sqliteManager;
 		SQLiteManager2 sqliteManager;
-		DatabaseManager databaseManager;
 
 	private:
 		/**
@@ -214,8 +206,7 @@ namespace HenchmanService {
 
 };
 
-DWORD WINAPI SvcWorkerThread(LPVOID lpParam);
-DWORD SvcWorkerThread();
+DWORD SvcWorkerThread(LPVOID lpParam = nullptr);
 
 void createUniqueServiceController(const ServiceController::SService& service, bool isTesting = false);
 ServiceController::CServiceController* getServiceController();

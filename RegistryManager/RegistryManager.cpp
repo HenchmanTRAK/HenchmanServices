@@ -3,7 +3,6 @@
 
 #include "RegistryManager.h"
 
-using namespace RegistryManager;
 
 #ifndef UNICODE
 #define cout std::cout
@@ -16,6 +15,8 @@ using namespace RegistryManager;
 #else
 #define tstring std::wstring
 #endif
+
+using namespace RegistryManager;
 
 
 // This is an example of an exported variable
@@ -31,6 +32,8 @@ using namespace RegistryManager;
 CRegistryManager::CRegistryManager(HKEY hRootKey, const TCHAR* subKey)
 	:hKey(hRootKey), lpSubKey(subKey)
 {
+
+	cout << "Opening registry key: " << lpSubKey << "\n";
 	DWORD lpdwDisposition;
 	/*LONG nError = RegCreateKeyEx(hKey, lpSubKey, NULL, NULL, REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL, &hkRegistryKey, &lpdwDisposition);
 	std::cout << lpdwDisposition << std::endl;*/
@@ -57,8 +60,6 @@ CRegistryManager::CRegistryManager(HKEY hRootKey, const TCHAR* subKey)
 
 	if (nError)
 		cout << "Error: " << nError << " Could not find or create " << lpSubKey << "\n";
-
-	return;
 }
 
 CRegistryManager::~CRegistryManager()
@@ -94,7 +95,7 @@ DWORD CRegistryManager::GetValSize(const TCHAR* lpValue, DWORD type)
 	if (nError)
 	{
 		tstring err = "Error: ";
-		err.append(std::to_string(nError)).append(" Could not get data from registry value: ").append(lpValue).append("\n");
+		err.append(std::to_string(nError)).append(" Could not get data size from registry value: ").append(lpValue).append("\n");
 		//throw std::runtime_error(err.c_str());
 		cout << err.c_str();
 		//cout << "Error: " << nError << " Could not get data from registry value " << lpValue << "\n";
@@ -111,9 +112,9 @@ LONG CRegistryManager::GetValSize(const TCHAR *lpValue, DWORD type, DWORD *size,
 	//	data = 0; // The value will be created and set to data next time SetVal() is called.
 	//else
 	if (nError)
-	{
+	{	
 		tstring err = "Error: ";
-		err.append(std::to_string(nError)).append(" Could not get data from registry value: ").append(lpValue).append("\n");
+		err.append(std::to_string(nError)).append(" Could not get data size from registry value: ").append(lpValue).append("\n");
 		//throw std::runtime_error(err.c_str());
 		cout << err.c_str();
 		//cout << "Error: " << nError << " Could not get data from registry value " << lpValue << "\n";
@@ -121,12 +122,16 @@ LONG CRegistryManager::GetValSize(const TCHAR *lpValue, DWORD type, DWORD *size,
 
 	if (buffer) {
 
-		std::vector<TCHAR> localBuffer(*size);
+		std::vector<TCHAR> localBuffer(0);
+		localBuffer.resize(*size);
 
 		buffer->swap(localBuffer);
 
 		localBuffer.clear();
+		
+		cout << "size" << *size << " buffer:" << buffer->size() << "\n";
 	}
+
 
 	return nError;
 }
@@ -138,7 +143,7 @@ LONG CRegistryManager::SetVal(const TCHAR* lpValue, DWORD type, const PVOID& dat
 
 LONG CRegistryManager::SetVal(const TCHAR* lpValue, DWORD type, const PVOID& data, const DWORD& size)
 {
-
+	
 	//std::cout << "supplied value: " << (char *)data << " with size of: " << size << "\n";
 	LPDWORD errorBuffer;
 	LONG nError = RegSetKeyValue(hkRegistryKey, NULL, lpValue, type, data, size);

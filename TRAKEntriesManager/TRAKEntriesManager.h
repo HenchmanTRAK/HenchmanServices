@@ -87,6 +87,7 @@ namespace TRAKEntriesManager {
 		QString ClearCloudUpdate();
 
 		virtual int GetLocalCount(const QList<QString>& conditions = QList<QString>(), const QJsonObject& placeholders = QJsonObject());
+		virtual int GetLocalCount(const QList<QString>& p_conditions, const QList<QString>& t_group_by, const QJsonObject& p_placeholders);
 
 		virtual int GetRemoteCount(const QJsonObject& select = QJsonObject(), const QJsonObject& where = QJsonObject(), QJsonObject* p_returned_data = nullptr);
 

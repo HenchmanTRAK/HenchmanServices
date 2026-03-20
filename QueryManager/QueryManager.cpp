@@ -18,12 +18,11 @@ QueryManager::~QueryManager()
 
 	if (QSqlDatabase::contains(db_info.schema))
 	{
-		try {
-			QSqlDatabase db = QSqlDatabase::database(db_info.schema);
-			if (db.isOpen()) {
-				db.close();
-			}
-		}catch(void*){}
+		
+		QSqlDatabase db = QSqlDatabase::database(db_info.schema);
+		if (db.isOpen()) {
+			db.close();
+		}
 
 		//QSqlDatabase::removeDatabase(db_info.schema);
 	}
@@ -51,27 +50,34 @@ QSqlDatabase QueryManager::GetDatabaseConnection()
 
 		if (QSqlDatabase::contains(db_info.schema)) {
 
-			db = QSqlDatabase::database(db_info.schema);
+			db = QSqlDatabase::database(db_info.schema, false);
 			LOG << "connecting to existing database";
 		}
 		else {
-			/*db = QSqlDatabase::addDatabase(databaseDriver, databaseName);
-			db.setDatabaseName(databaseLocation + "\\" + databaseName);
-			LOG << "Initializing new Database";*/
-			throw HenchmanServiceException("Database connection does not exist, please create one before using QueryManager");
+			db = QSqlDatabase::addDatabase(db_info.driver, db_info.schema);
+			db.setHostName(db_info.server);
+			db.setPort(db_info.port);
+			db.setUserName(db_info.username);
+			if (!db_info.password.isEmpty())
+				db.setPassword(db_info.password);
+			db.setConnectOptions(db_info.conn_options.join(";") + ";");
+			/*throw HenchmanServiceException("Database connection does not exist, please create one before using QueryManager");*/
 		}
 
 		if (!db.open())
-			throw HenchmanServiceException("Failed to open database");
+			throw HenchmanServiceException("DB Connection failed to open");
+
+		ServiceHelper().WriteToLog("DB Connection successfully opened");
 
 	}
 	catch (const std::exception& e) {
+		ServiceHelper().WriteToError(e.what());
 		if (db.isOpen())
 			db.close();
-		throw e;
 	}
 
-	db.close();
+	if(db.isOpen())
+		db.close();
 
 	return db;
 }
@@ -302,16 +308,14 @@ QList<QVariantMap> QueryManager::execute(const TCHAR* sql, const QVariantMap& pl
 
 		if (statement.trimmed() == "")
 			throw HenchmanServiceException("No Query was provided.");
-				
-
 
 		QVariantMap boundValues = processPlaceholders(placeholders, &statement);
-
-		ServiceHelper().WriteToLog("Executing: " + statement.toStdString());
 		
 		QSqlQuery query(db);
 
 		query.prepare(statement);
+
+		ServiceHelper().WriteToCustomLog("Executing: " + statement.toStdString(), "query_manager");
 
 		BindValues(boundValues, &query);
 		

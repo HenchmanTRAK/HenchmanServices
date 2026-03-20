@@ -55,21 +55,6 @@ CTRAKEntriesManager::~CTRAKEntriesManager()
 
 	CleanTable();
 
-	QJsonObject placeholder;
-	placeholder.insert("schema", m_db_info.schema);
-	placeholder.insert("host", m_db_info.server);
-	placeholder.insert("username", m_db_info.username);
-
-	QJsonArray processes = m_queryManager.execute("SELECT ID FROM INFORMATION_SCHEMA.PROCESSLIST WHERE DB = :schema AND HOST = :host AND USER = :username AND COMMAND LIKE 'Sleep' ORDER BY TIME DESC", placeholder);
-
-	for (int i = 0; i < processes.size() - 1; ++i)
-	{
-		QJsonValue process = processes.at(i);
-		QJsonObject processId = process.toObject();
-
-		(void)m_queryManager.execute("KILL :ID", processId);
-	}
-
 	m_sqliteManager.deleteLater();
 	m_queryManager.deleteLater();
 	
@@ -235,6 +220,7 @@ void CTRAKEntriesManager::handleUpdatingLocalDB(const QString& table, const QStr
 
 QSqlTableModel* CTRAKEntriesManager::GetTable()
 {
+
 	if (!m_table.database().isOpen())
 		m_table.database().open();
 
@@ -244,6 +230,9 @@ QSqlTableModel* CTRAKEntriesManager::GetTable()
 	if (m_table.editStrategy() != QSqlTableModel::OnManualSubmit)
 		m_table.setEditStrategy(QSqlTableModel::OnManualSubmit);
 
+	if (!m_table.database().isOpen())
+		m_table.database().open();
+	
 	m_table.select();
 
 	return &m_table;
@@ -251,12 +240,11 @@ QSqlTableModel* CTRAKEntriesManager::GetTable()
 
 QSqlTableModel* CTRAKEntriesManager::CleanTable()
 {
+	if (m_table.tableName() != m_db_info.table)
+		m_table.setTable(m_db_info.table);
 
 	if (!m_table.database().isOpen())
 		m_table.database().open();
-
-	if (m_table.tableName() != m_db_info.table)
-		m_table.setTable(m_db_info.table);
 
 	m_table.clear();
 
@@ -354,7 +342,7 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& t_older, con
 		}
 
 		if (key == "userRole" && newerValue.toInt() > 1) {
-			newerValue = 0;
+			newerValue = 1;
 		}
 
 		if (newerValue.typeId() == QVariant::String) {
@@ -426,37 +414,54 @@ QStringList CTRAKEntriesManager::GetColumnNames(bool reset)
 
 int CTRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const QJsonObject& p_placeholders)
 {
+	QStringList group_by;
+
+	return GetLocalCount(p_conditions, group_by, p_placeholders);
+}
+
+
+int CTRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const QList<QString>& t_group_by,  const QJsonObject& p_placeholders)
+{
 	int local = 0;
 
-	GetTable();
+	
 
 	try {
 		QList<QString> conditions(p_conditions);
+		QStringList group_by(t_group_by);
 		QJsonObject placeholders(p_placeholders);
 
 		if (conditions.isEmpty())
 			throw std::exception();
 
-		if (placeholders.isEmpty()) {
+		if (placeholders.isEmpty() && group_by.isEmpty()) {
+			GetTable();
+
 			m_table.setFilter(conditions.join(" AND "));
 			m_table.select();
+
+			local = m_table.rowCount();
+
+			CleanTable();
+
+			m_table.database().close();
 		}
 		else {
-			QSqlQuery query(m_table.database());
-			query.prepare("SELECT id FROM "+ m_db_info.table+" WHERE " + conditions.join(" AND "));
+			QStringList queryStr;
+			queryStr.append("SELECT * FROM " + m_db_info.table);
+			if(!conditions.isEmpty())
+				queryStr.append("WHERE " + conditions.join(" AND "));
+			if(!group_by.isEmpty())
+				queryStr.append("GROUP BY " + group_by.join(", "));
+			
+			queryStr.append("ORDER BY id DESC");
 
-			for (const auto& placeholder : placeholders.keys())
-			{
-				query.bindValue(":" + placeholder, placeholders.value(placeholder));
-			}
-			m_table.setQuery(query);
-		}
+			QJsonArray count = m_queryManager.execute(queryStr.join(" "), placeholders);
 
-		local = m_table.rowCount();
+			local = count.size();
+		}	
 
-		CleanTable();
-
-		qDebug() << local;
+		qInfo() << "local returned: " << local;
 
 		//QJsonArray rowCount = queryManager.execute("SELECT COUNT(*) as total FROM users WHERE " + conditions.join(" AND "), placeholders);
 
@@ -469,6 +474,9 @@ int CTRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const
 	catch (const std::exception& e) {
 		local = local_count;
 	}
+
+	
+
 	return local;
 }
 
@@ -504,6 +512,7 @@ int CTRAKEntriesManager::GetRemoteCount(const QJsonObject& p_select, const QJson
 
 		if (!m_networkManager->makeGetRequest(m_webportal_details.api_url + "/" + m_webportal_details.base_route, query, &reply))
 		{
+
 			throw std::exception();
 		}
 
@@ -1086,14 +1095,16 @@ int CTRAKEntriesManager::UpdateOutdated()
 int CTRAKEntriesManager::GetCurrentState()
 {
 
-	if (local_count == 0)
+	qInfo() << "Getting current state of " << m_db_info.table;
+
+	if (!local_count)
 		local_count = GetLocalCount();
 
-	if (remote_count == 0)
+	if (!remote_count)
 		remote_count = GetRemoteCount();
 
-	qDebug() << "local_count: " << local_count;
-	qDebug() << "remote_count: " << remote_count;
+	qInfo() << "local_count: " << local_count;
+	qInfo() << "remote_count: " << remote_count;
 
 	if (local_count > remote_count)
 		return NEXTSTEP::SYNC_PORTAL;
@@ -1123,6 +1134,8 @@ QString CTRAKEntriesManager::ClearCloudUpdate()
 
 	(void)rtManager.GetValSize(std::string(m_registryEntry).append("Date").data(), REG_SZ, &size);
 
+	try {
+
 	if (size == 0) {
 		QString currDate = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
 		
@@ -1132,8 +1145,7 @@ QString CTRAKEntriesManager::ClearCloudUpdate()
 		(void)rtManager.GetValSize(std::string(m_registryEntry).append("Date").data(), REG_SZ, &size);
 	}
 
-	std::vector<TCHAR> buffer;
-	buffer.reserve(size);
+	std::vector<TCHAR> buffer(size);
 
 	LONG err = rtManager.GetVal(std::string(m_registryEntry).append("Date").data(), REG_SZ, buffer.data(), &size);
 	
@@ -1149,5 +1161,10 @@ QString CTRAKEntriesManager::ClearCloudUpdate()
 	rtManager.SetVal(m_registryEntry, REG_DWORD, &local_count, sizeof(local_count));
 	
 	return date;
+	}
+	catch (const std::exception& e) {
+		ServiceHelper().WriteToError(e.what());
+	}
+	return QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
 };
 

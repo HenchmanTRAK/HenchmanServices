@@ -284,92 +284,38 @@ static bool LaunchProcess(const TCHAR* process_path)
 
 using namespace HenchmanService;
 
-DWORD SvcWorkerThread()
+DWORD SvcWorkerThread(LPVOID lpParam)
 {
 	int argc = 0;
 	char* argv[1] = {};
 	
 	//EventManager::CEventManager::Init(service->serviceName);
 
-	EventManager::CEventManager evntManager(svcController->mService.serviceName);
+	EventManager::CEventManager evntManager(getServiceController()->mService.serviceName);
 
-	// add registering registering application in event log and removing on exit.
-	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME));
-
-	/*RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, std::wstring(L"SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME).data());
-	RegistryManager::CRegistryManager rmSource(HKEY_LOCAL_MACHINE, std::wstring(L"SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME).data());
-
-	TCHAR eventBuff[MAX_PATH] = L"\0";
-	DWORD eventBuffSize = MAX_PATH;
-	rmEvent.GetVal(L"EventMessageFile", REG_SZ, (TCHAR *)eventBuff, eventBuffSize);
-	string eventMessageFile(eventBuff);
-
-	TCHAR sourceBuff[MAX_PATH] = L"\0";
-	DWORD sourceBuffSize = MAX_PATH;
-	rmSource.GetVal(L"INSTALL_DIR", REG_SZ, (TCHAR *)sourceBuff, sourceBuffSize);
-	string installDir(sourceBuff);
-
-	if (!installDir.empty() && (eventMessageFile.empty()  || eventMessageFile != installDir))
-	{
-		installDir.append((TCHAR *)"\\event_messages.dll");
-		rmEvent.SetVal(L"EventMessageFile", REG_SZ, (TCHAR *)installDir.data(), installDir.length());
-		DWORD typesSupported = 7;
-		rmEvent.SetVal(L"TypesSupported", REG_DWORD, (DWORD*)&typesSupported, sizeof(DWORD));
-	}
-	eventMessageFile.clear();
-	installDir.clear();*/
-
-	//EventManager(SERVICE_NAME).ReportCustomEvent(SERVICE_NAME, "Service started", 0);
-
-	evntManager.ReportCustomEvent(svcController->mService.serviceName, "Service is running", 0);
+	evntManager.ReportCustomEvent(getServiceController()->mService.serviceName, "Service is running", 0);
 
 	QCoreApplication* a = new QCoreApplication(argc, argv);
 	CHenchmanService hsService(a);
 
-	while (testing || WaitForSingleObject(svcController->mService.serviceStopEvent, 0) != WAIT_OBJECT_0)
+	while (testing || WaitForSingleObject(getServiceController()->mService.serviceStopEvent, 0) != WAIT_OBJECT_0)
 	{
 
 		hsService.MainFunction(a);
-#if false
-		service.sqliteManager->UpdateEntry(
-			"Test",
-			{ "id = 1" },
-			{
-				{"string", "string + " + to_string(counter++)}
-			}
-		);
-
-		service.sqliteManager->RemoveEntry(
-			"Test",
-			{ "updatedAt <= datetime('now', 'localtime')" }
-		);
-
-		service.sqliteManager->GetEntry(
-			"TestTable",
-			{ "*", "COUNT(*) count" },
-			{ "updatedAt <= datetime('now', 'localtime')" }
-		);
-#endif
-
 
 	}
 
+	evntManager.ReportCustomEvent(getServiceController()->mService.serviceName, "Service has exited", 0);
+
 	hsService.deleteLater();
-	evntManager.ReportCustomEvent(svcController->mService.serviceName, "Service has exited", 0);
-
+	
 	a->exit(0);
-
 	a->deleteLater();
 	a = nullptr;
+	
 
 	return ERROR_SUCCESS;
 }
-
-DWORD WINAPI SvcWorkerThread(LPVOID lpParam)
-{
-	return SvcWorkerThread();
-}
-
 CHenchmanService::CHenchmanService(QObject* parent)
 	: QObject(parent), sqliteManager(parent), databaseManager(parent)
 {
@@ -397,20 +343,24 @@ CHenchmanService::CHenchmanService(QObject* parent)
 
 	// setup message logging
 	qInstallMessageHandler(ServiceHelper().messageOutput);
-
-	//ini.SetUnicode();
-
-	/*HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));*/
-	LOG << std::string("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).data();
-	
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).data());
+		
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
 	
 	DWORD size = sizeof(TCHAR);
-	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
-	
 	std::vector<TCHAR> buffer(size);
+	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
+	if (size > 0) {
+		rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+	}
+	else {
+		std::string service_path = ServiceHelper().GetServicePath();
+		buffer.resize(service_path.size());
+
+		for (int i = 0; i < service_path.length(); ++i) {
+			buffer[i] = service_path[i];
+		}
+	}
 	
-	rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
 	tstring installDir(buffer.data());
 	// HenchmanServiceException
 	LOG << "Install dir: " << installDir;
@@ -585,7 +535,7 @@ CHenchmanService::CHenchmanService(QObject* parent)
 			ini.SetValue("TRAK", key.data(), value.data());
 		}
 
-		if (rtManager.SetVal(key.data(), REG_SZ, (TCHAR*)value.data(), (value.length() + 1)))
+		if (rtManager.SetVal(key.data(), REG_SZ, value.data(), value.size()))
 			throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
 
 		key.clear();
@@ -593,7 +543,7 @@ CHenchmanService::CHenchmanService(QObject* parent)
 
 	}
 
-	ini.SaveFile((installDir + "\\service.ini").data());
+	ini.SaveFile((installDir + "\\service.ini").c_str());
 
 
 	//RegCloseKey(hKey);
@@ -710,11 +660,10 @@ int CHenchmanService::MainFunction(QCoreApplication* a)
 	update = TRUE;
 	int timer = 30000;
 
-	checkStateOfMySQL();
-	checkStateOfApache();
-
 	try
 	{
+		checkStateOfMySQL();
+		checkStateOfApache();
 
 		//if (!dbManager.networkManager.isInternetConnected())
 		//{
@@ -727,7 +676,6 @@ int CHenchmanService::MainFunction(QCoreApplication* a)
 		//dbManager = new DatabaseManager(a);
 
 		TRAKManager TrakM;
-		
 
 		TrakM.CreateDataModule();
 
@@ -761,6 +709,8 @@ int CHenchmanService::MainFunction(QCoreApplication* a)
 		{
 			databaseManager.connectToRemoteDB();
 		}
+
+		databaseManager.performCleanup();
 
 	} 
 	catch (std::exception& e) 
@@ -908,4 +858,4 @@ void CHenchmanService::checkStateOfApache()
 	}
 }
 
-#include "moc_HenchmanServiceLibrary.cpp"
+//#include "moc_HenchmanServiceLibrary.cpp"

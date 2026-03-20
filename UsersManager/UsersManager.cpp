@@ -703,9 +703,9 @@ int CUsersManager::SyncWebportal()
 
 			if (result.value("custId").toString() != "")
 				where.insert("custId", result.value("custId"));
-			if (result.value("empId").toString() != "")
+			if (placeholderMap.value("empIds").toArray().contains(result.value("empId")))
 				where.insert("empId", result.value("empId"));
-			if (result.value("userId").toString() != "")
+			if (placeholderMap.value("userIds").toArray().contains(result.value("userId")))
 				where.insert("userId", result.value("userId"));
 
 			where.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);

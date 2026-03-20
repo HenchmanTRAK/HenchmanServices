@@ -37,8 +37,8 @@ CEventManager::CEventManager(const LPCTSTR& source)
 }
 
 CEventManager::CEventManager()
-	:eventSource(SERVICE_NAME),
-	hEventSource(RegisterEventSource(NULL, SERVICE_NAME))
+	:eventSource(TEXT("HenchmanService")),
+	hEventSource(RegisterEventSource(NULL, TEXT("HenchmanService")))
 {
 
 	/*RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, tstring("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(SERVICE_NAME).data());
@@ -96,7 +96,7 @@ CEventManager::~CEventManager()
 //	}
 //}
 
-DWORD CEventManager::EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, std::vector<TCHAR>& buffer) const
+DWORD CEventManager::EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, std::vector<TCHAR>* buffer) const
 {
 	// Retrieve the system error message for the last-error code
 	//DWORD dw = GetLastError();
@@ -111,11 +111,11 @@ DWORD CEventManager::EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lp
 		lpszFunction, errorCode, lpszMsg
 	);
 
-	vcMsgBuffer.swap(buffer);
+	buffer->swap(vcMsgBuffer);
 
 	vcMsgBuffer.clear();
 
-	return buffer.size();
+	return buffer->size();
 }
 
 DWORD CEventManager::EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, LPCTSTR buffer, const DWORD& bufferSize) const
@@ -125,8 +125,8 @@ DWORD CEventManager::EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lp
 	//std::cout << lpszFunction << " logged with message: " << msg << std::endl;
 	//MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT)
 
-	std::vector<TCHAR> strBuffer(bufferSize);
-	strBuffer.resize((lstrlen(lpszMsg) + lstrlen(lpszFunction) + errorCode + 25) * sizeof(TCHAR));
+	DWORD size = (lstrlen(lpszFunction) + errorCode + lstrlen(lpszMsg) + 25) * sizeof(TCHAR);
+	std::vector<TCHAR> strBuffer(size);
 
 	StringCchPrintf(strBuffer.data(),
 		strBuffer.size(),
@@ -154,10 +154,11 @@ void CEventManager::ReportCustomEvent(const LPCTSTR& function, const LPCTSTR& ms
 	{
 		/*TCHAR buffer[1024] = "\0";
 		DWORD buffSize = 1024;*/
-		std::vector<TCHAR> buffer;
+
+		std::vector<TCHAR> buffer(lstrlen(eventSource)*sizeof(TCHAR));
 
 		lpszStrings[0] = eventSource;
-		const DWORD retSize = EventMessage(function, msg, errorCode ? errorCode : GetLastError(), buffer);
+		const DWORD retSize = EventMessage(function, msg, errorCode ? errorCode : GetLastError(), &buffer);
 		//std::cout << "returned buffer" << buffer.data() << "\n";
 		tstring refVal(buffer.data());
 		lpszStrings[1] = refVal.data();

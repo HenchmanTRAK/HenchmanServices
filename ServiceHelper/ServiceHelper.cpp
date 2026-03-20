@@ -157,7 +157,7 @@ const char * ServiceHelper::GetFileExtension(std::string& FileName)
 std::string ServiceHelper::GetServicePath(std::string app_path)
 {
 
-	std::string installDir;
+	std::string installDir = "";
 	DWORD size = MAX_PATH;
 	std::vector<TCHAR> buffer(size);
 	DWORD _results;
@@ -167,12 +167,16 @@ std::string ServiceHelper::GetServicePath(std::string app_path)
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
 		
 		rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
-		rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
-		installDir = buffer.data();
+		if (size > 0) {
+			rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+			installDir = buffer.data();
+		}
+		else {
+			size = MAX_PATH;
+			buffer.resize(size);
+		}
 		//return app_path.ends_with("\\") ? app_path.substr(0, app_path.find_last_of("/\\")) : app_path;
-	}
-	else
-	{
+	}else{
 		installDir = app_path.ends_with("\\") ? app_path.substr(0, app_path.find_last_of("/\\")) : app_path;
 	}
 
@@ -260,13 +264,13 @@ void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& cont
 			//qDebug() << context.category;
 			filename.append(".").append(context.category);
 		}
-		filename.append(".log");
+		filename.append(".log.txt");
 		break;
 		
 	case QtWarningMsg:
 	case QtCriticalMsg:
 	case QtFatalMsg:
-		filename.append(QDate::currentDate().toString("yyyy_MM_dd.error.log"));
+		filename.append(QDate::currentDate().toString("yyyy_MM_dd.error.log.txt"));
 		break;
 	}
 
@@ -341,9 +345,15 @@ void ServiceHelper::WriteLog(log_type type, const char *targetFile, const std::s
 		qCInfo(category) << functionName.data() << ":" << log.data();
 		break;
 	}
+	case log_type::QUERY_MANAGER:
+	{
+		QLoggingCategory category("query_manager");
+		qCInfo(category) << functionName.data() << ":" << log.data();
+		break;
+	}
 	default:
 	{
-		qInfo() << functionName.data() << "" << log.data();
+		qInfo() << functionName.data() << ":" << log.data();
 		break;
 	}
 	}
@@ -392,10 +402,15 @@ void ServiceHelper::WriteToCustomLog(const std::string& log, const std::string& 
 	{
 		WriteLog(log_type::QUERIES, logDir.data(), log);
 	}
+	else if (log_name.contains("query_manager")) {
+		WriteLog(log_type::QUERY_MANAGER, logDir.data(), log);
+	}
 	else
 	{
 #ifdef DEBUG
 		WriteLog(log_type::CUSTOM, logDir.data(), log);
+#else
+		WriteToLog(log);
 #endif // DEBUG
 	}
 	//QLoggingCategory* category;
@@ -415,7 +430,11 @@ void ServiceHelper::WriteToCustomLog(const std::string& log, const std::string& 
 
 void ServiceHelper::ConsoleLog(const char* log)
 {
+#ifdef DEBUG
 	qDebug() << functionName.data() << ": " << log;
+#else
+	qInfo() << functionName.data() << ": " << log;
+#endif
 	//std::array<std::string, 2> dateTime = timestamp();
 	//std::cout << "|-- " << dateTime[0] << " " << dateTime[1] << " --| <" << functionName << "> |" << log << std::endl;
 	
@@ -554,49 +573,54 @@ std::string ServiceHelper::ws2s(const std::wstring& wstr)
 
 ServiceHelper& ServiceHelper::operator<<(const char* s) 
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(s);
-#endif
+//#endif
 	return *this;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const std::string& s)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(s.data());
-#endif
+//#endif
 	return *this;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const QString& s)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(s.toStdString().data());
-#endif
+//#endif
 	return *this;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const QByteArray& s)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(s.toStdString().data());
-#endif
+//#endif
 	return *this;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const int& s)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(std::to_string(s).data());
-#endif
+//#endif
 	return *this;
 }
 
 //template<typename T>
 ServiceHelper& ServiceHelper::operator<<(const std::vector<std::string>& s)
 {
-#ifdef DEBUG
-	qDebug() << s;
-#endif
+//#ifdef DEBUG
+	//qDebug() << s;
+	for(int i = 0; i < s.size(); i++)
+	{
+		ConsoleLog(s[i].data());
+	}
+//#endif
+	
 	return *this;
 }

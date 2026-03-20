@@ -8,28 +8,31 @@ std::string convertWCharToStr(const TCHAR* wstr) {
 	return converterX.to_bytes(wstr);
 }
 
+
+const TCHAR* retval = "";
+
 const TCHAR* convertStr(const std::string& str) {
-	using convert_typeX = std::codecvt_utf8<wchar_t>;
-	std::wstring_convert<convert_typeX, wchar_t> converterX;
-	const TCHAR* retStr;
-#ifdef UNICODE
-	retStr = converterX.from_bytes(str).c_str();
-#else
-	retStr = str.data();
-#endif
-	return retStr;
+	retval = "";
+	std::vector<TCHAR> buf(str.size());
+	std::use_facet<std::ctype<char>>(std::locale()).narrow(str.data(), str.data() + str.size(), '?', buf.data());
+	retval = buf.data();
+	return retval;
 }
 
 const TCHAR* convertStr(const std::wstring& str) {
-	using convert_typeX = std::codecvt_utf8<wchar_t>;
+	/*using convert_typeX = std::codecvt_utf8<wchar_t>;
 	std::wstring_convert<convert_typeX, wchar_t> converterX;
-	const TCHAR* retStr;
 #ifdef UNICODE
-	retStr = str.data();
+	const TCHAR* retStr = str.data();
 #else
-	retStr = converterX.to_bytes(str).c_str();
+	const TCHAR* retStr = converterX.to_bytes(str.data()).data();
 #endif
-	return retStr;
+	return retStr;*/
+	retval = "";
+	std::vector<TCHAR> buf(str.size());
+	std::use_facet<std::ctype<wchar_t>>(std::locale()).narrow(str.data(), str.data() + str.size(), '?', buf.data());
+	retval = buf.data();
+	return retval;
 }
 
 std::exception throwException(const std::string& message, HRESULT hresult = E_UNEXPECTED) {

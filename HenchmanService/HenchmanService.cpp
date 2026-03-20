@@ -279,10 +279,21 @@ bool LaunchProcess(const TCHAR* process_path)
 
 void WINAPI SvCtrlHandler(DWORD CtrlCode)
 {
-	ServiceController::CServiceController* serviceController = getServiceController();
-	return serviceController->SvcCtrlHandler(CtrlCode);
+	switch (CtrlCode)
+	{
+	case SERVICE_CONTROL_STOP:
+		getServiceController()->ReportSvcStatus(CtrlCode, NO_ERROR, 0);
 
-	delete serviceController;
+		SetEvent(getServiceController()->mService.serviceStopEvent);
+		getServiceController()->ReportSvcStatus(getServiceController()->mService.serviceStatus.dwCurrentState, NO_ERROR, 0);
+		return;
+	case SERVICE_CONTROL_INTERROGATE:
+		break;
+	default:
+		getServiceController()->ReportSvcStatus(CtrlCode, NO_ERROR, 0);
+		break;
+	}
+
 }
 
 void WINAPI SvcMain()
@@ -292,28 +303,25 @@ void WINAPI SvcMain()
 
 	if (!testing)
 	{
-		ServiceController::CServiceController* serviceController = getServiceController();
 
-		serviceController->mService.serviceStatusHandle = RegisterServiceCtrlHandler(
+		getServiceController()->mService.serviceStatusHandle = RegisterServiceCtrlHandler(
 			(TCHAR*)service->serviceName,
 			SvCtrlHandler
 		);
 
-		if (!serviceController->mService.serviceStatusHandle)
+		if (!getServiceController()->mService.serviceStatusHandle)
 			return;
 
-		ZeroMemory(&serviceController->mService.serviceStatus, sizeof(serviceController->mService.serviceStatus));
-		serviceController->mService.serviceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-		serviceController->mService.serviceStatus.dwServiceSpecificExitCode = 0;
+		ZeroMemory(&getServiceController()->mService.serviceStatus, sizeof(getServiceController()->mService.serviceStatus));
+		getServiceController()->mService.serviceStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
+		getServiceController()->mService.serviceStatus.dwServiceSpecificExitCode = 0;
 
-		serviceController->ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
+		getServiceController()->ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
 	
 		SvcInit();
 
-		if (serviceController->mService.serviceStatusHandle)
-			CloseHandle(serviceController->mService.serviceStatusHandle);
-		
-		delete serviceController;
+		if (getServiceController()->mService.serviceStatusHandle)
+			CloseHandle(getServiceController()->mService.serviceStatusHandle);
 	}
 	else {
 		SvcInit();
@@ -327,39 +335,40 @@ void WINAPI SvcInit()
 {
 	if (!testing)
 	{
-		ServiceController::CServiceController* serviceController = getServiceController();
 
-		serviceController->mService.serviceStopEvent = CreateEvent(
+		getServiceController()->mService.serviceStopEvent = CreateEvent(
 			NULL,
 			TRUE,
 			FALSE,
 			NULL
 		);
 
-		if (serviceController->mService.serviceStopEvent == NULL)
+		if (getServiceController()->mService.serviceStopEvent == NULL)
 		{
-			serviceController->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+			getServiceController()->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
 			return;
 		}
 
-		serviceController->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+		
 
 		DWORD dwThreadId = 0;
 
-		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &serviceController->mService.serviceStopEvent, 0, &dwThreadId);
+		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &getServiceController()->mService.serviceStopEvent, 0, &dwThreadId);
 
 		EventManager::CEventManager().ReportCustomEvent("SvcInit", std::string("Created Service Thread with id: ").append(std::to_string(dwThreadId)).data(), 1, 0);
 
-		if (hThread)
+		if (hThread) {
+			getServiceController()->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+
 			WaitForSingleObject(
-				serviceController->mService.serviceStopEvent,
+				getServiceController()->mService.serviceStopEvent,
 				INFINITE
 			);
+		}
 
-		serviceController->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
-		CloseHandle(serviceController->mService.serviceStopEvent);
+		getServiceController()->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
+		CloseHandle(getServiceController()->mService.serviceStopEvent);
 
-		delete serviceController;
 	}
 	else {
 		std::cout << "Testing service\n";
@@ -447,20 +456,24 @@ int main(int argc, char* argv[])
 		try {
 			RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
 			//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-			DWORD size = MAX_PATH;
-			std::vector<TCHAR> buffer(size);
-			rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
+			DWORD size = 0;
+			std::vector<TCHAR> buffer(sizeof(TCHAR));
+			std::cout << "Getting INSTALL_DIR size from registry\n";
+			LONG nError = rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
 			
-			if (size <= 0) {
+			if (nError || size <= 0) {
 				std::string currDir = std::filesystem::current_path().string();
+				std::cout << "Setting INSTALL_DIR from registry\n";
 				if (rtManager.SetVal("INSTALL_DIR", REG_SZ, currDir.data(), currDir.size()))
 					throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
-
+				std::cout << "Getting INSTALL_DIR size from registry again\n";
 				rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
 			}
+			std::cout << "Getting INSTALL_DIR value from registry again\n";
 			rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
 			tstring installDir(buffer.data());
-			std::cout << installDir << "\n";
+			
+			LOG << installDir << "\n";
 			//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
 			//if (installDir.empty())
 			//{

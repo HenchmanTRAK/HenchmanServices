@@ -23,7 +23,7 @@ target_include_directories(
 # target_compile_definitions(HenchmanServiceLibrary PRIVATE HENCHMAN_SERVICE)
 
 target_link_libraries(
-	HenchmanServiceLibrary PRIVATE 
+	HenchmanServiceLibrary PRIVATE
 	ServiceController
 	TRAKManager
 	DatabaseManager
@@ -42,7 +42,6 @@ target_link_libraries(
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core
-	HenchmanServiceTaskScheduler
 )
 
 

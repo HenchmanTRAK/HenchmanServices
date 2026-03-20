@@ -82,6 +82,7 @@ enum log_type {
 	ERRORED,
 	CUSTOM,
 	QUERIES,
+	QUERY_MANAGER
 };
 
 struct TrakDetails {

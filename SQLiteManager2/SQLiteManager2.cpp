@@ -9,21 +9,24 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 
 	LOG << "Fetching values from registry";
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
-	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, t2tstr("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
-	DWORD size = 0;
+	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, t2tstr("SOFTWARE\\HenchmanTRAK\\HenchmanService").data());
+	DWORD size = sizeof(TCHAR);
+	
 	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
 	
-	std::vector<TCHAR> buffer;
-	buffer.reserve(size);
-	rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+	LOG << "INSTALL_DIR SIZE:" << size;
+	
+	std::vector<TCHAR> buffer(size);
+	if (size > 0)
+		rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
 	//QString installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ).data();
 	QString installDir(buffer.data());
 
-	rtManager.GetValSize("DatabaseName", REG_SZ, &size);
-	buffer.resize(size);
-	rtManager.GetVal("DatabaseName", REG_SZ, buffer.data(), &size);
+	rtManager.GetValSize("DatabaseName", REG_SZ, &size, &buffer);
+	if(size > 0)
+		rtManager.GetVal("DatabaseName", REG_SZ, buffer.data(), &size);
 	//std::string dbName = RegistryManager::GetStrVal(hKey, "DatabaseName", REG_SZ);
-	std::string dbName(buffer.data());
+	std::string dbName(size > 0 ? buffer.data() : "");
 
 	LOG << "Fetching values from ini file";
 	QSettings ini(installDir+"\\service.ini", QSettings::IniFormat, this);
@@ -47,7 +50,7 @@ SQLiteManager2::SQLiteManager2(QObject *parent)
 		if(databaseName.isEmpty() && !dbName.empty())
 			databaseName = QString::fromStdString(dbName);
 		if(databaseName != dbName)
-			if (rtManager.SetVal("DatabaseName", REG_SZ, databaseName.toStdString().data(), (databaseName.length() + 1)))
+			if (rtManager.SetVal("DatabaseName", REG_SZ, databaseName.toStdString().data(), databaseName.toStdString().size()))
 				throw HenchmanServiceException("Failed to set SERVICE_NAME to registry");
 			//RegistryManager::SetVal(hKey, "DatabaseName", databaseName, REG_SZ);
 

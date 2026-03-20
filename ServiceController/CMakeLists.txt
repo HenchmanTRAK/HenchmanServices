@@ -12,7 +12,7 @@ target_link_libraries(
 	ServiceHelper
 	RegistryManager
 	Qt6::Core
-	HenchmanServiceTaskScheduler
+	PUBLIC HenchmanServiceTaskScheduler
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

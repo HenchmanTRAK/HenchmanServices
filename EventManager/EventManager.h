@@ -9,12 +9,11 @@
 #include <iostream>
 #include <strsafe.h>
 #include <string>
+#include <vector>
 
 
 //#include "event_messages.h"
 #include "event_log.h"
-#include "RegistryManager.h"
-#include "ServiceHelper.h"
 
 #include <windows.h>
 #include <stdio.h>
@@ -86,7 +85,7 @@ namespace EventManager {
 		 * @return The event message.
 		 */
 		DWORD EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, LPCTSTR buffer, const DWORD& bufferSize) const;
-		DWORD EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, std::vector<TCHAR>& buffer) const;
+		DWORD EventMessage(const LPCTSTR& lpszFunction, const LPCTSTR& lpszMsg, const DWORD& errorCode, std::vector<TCHAR>* buffer) const;
 	};
 
 }
