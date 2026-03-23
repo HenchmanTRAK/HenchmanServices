@@ -5,12 +5,18 @@ qt_disable_unicode_defines(TRAKManager)
 target_link_libraries(
 	TRAKManager PRIVATE
 	DatabaseManager
+	EmployeesManager
+	UsersManager
+	TRAKEntriesManager
+	QueryManager
+	NetworkManager
 	SQLiteManager2
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
 	RegistryManager
 	SimpleIni
+	Qt6::Concurrent
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core

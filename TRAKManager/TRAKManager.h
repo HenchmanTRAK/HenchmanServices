@@ -1,18 +1,14 @@
-#ifndef TRAK_MANAGER_H
-#define TRAK_MANAGER_H
 #pragma once
 
-#include <iostream>
-//#include <map>
-
 #include <SimpleIni.h>
+#include <exception>
+#include <string>
 
-//#include <QByteArray>
+#include <qobject.h>
+#include <qtmetamacros.h>
 
-#include "HenchmanServiceException.h"
-//#include "RegistryManager.h"
-#include "ServiceHelper.h"
 #include "DatabaseManager.h"
+#include "ServiceHelper.h"
 
 enum Trak_Type {
 	unknown = 0,
@@ -31,7 +27,9 @@ enum Trak_Type {
  * @author Willem Swanepoel
  * @version 1.0
  */
-class TRAKManager {
+class TRAKManager : public QObject
+{
+	Q_OBJECT
 private:
 
 	/**
@@ -39,7 +37,7 @@ private:
 	 *
 	 * This variable is used to manage the database connection.
 	 */
-	DatabaseManager *databaseManager = nullptr;
+	//DatabaseManager *databaseManager = nullptr;
 
 	/**
 	 * @brief The type of the TRAK application.
@@ -72,7 +70,7 @@ private:
 	 *
 	 * @throws None.
 	 */
-	void saveINIToRegistry() const;
+	void saveINIToRegistry();
 	
 	/**
 	 * @brief Saves the INI file contents to the Windows registry for a specific section.
@@ -83,7 +81,7 @@ private:
 	 *
 	 * @throws None.
 	 */
-	void saveINIToRegistry(std::string section) const;
+	void saveINIToRegistry(std::string section);
 
 	void conHenchmanAfterConnect();
 	void conHenchmanAfterDisconnect();
@@ -103,7 +101,7 @@ private:
 	 *
 	 * @throws None.
 	 */
-	int exportGeneralTables();
+	int exportGeneralTables(DatabaseManager& databaseManager);
 
 public:
 	/**
@@ -135,7 +133,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	TRAKManager(DatabaseManager *dbManager = nullptr);
+	TRAKManager();
 
 	/**
 	 * @brief Destructor for the TRAKManager class.
@@ -166,7 +164,5 @@ public:
 	 *
 	 * @throws None.
 	 */
-	int UploadCurrentStateToRemote();
+	int UploadCurrentStateToRemote(DatabaseManager& databaseManager);
 };
-
-#endif

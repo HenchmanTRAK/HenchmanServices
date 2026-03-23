@@ -3,9 +3,36 @@
 
 
 std::string convertWCharToStr(const TCHAR* wstr) {
-	using convert_typeX = std::codecvt_utf8<wchar_t>;
-	std::wstring_convert<convert_typeX, wchar_t> converterX;
+	using convert_typeX = std::codecvt_utf8<TCHAR>;
+	std::wstring_convert<convert_typeX, TCHAR> converterX;
 	return converterX.to_bytes(wstr);
+}
+
+
+const TCHAR* retval = "";
+
+const TCHAR* convertStr(const std::string& str) {
+	retval = "";
+	std::vector<TCHAR> buf(str.size());
+	std::use_facet<std::ctype<char>>(std::locale()).narrow(str.data(), str.data() + str.size(), '?', buf.data());
+	retval = buf.data();
+	return retval;
+}
+
+const TCHAR* convertStr(const std::wstring& str) {
+	/*using convert_typeX = std::codecvt_utf8<wchar_t>;
+	std::wstring_convert<convert_typeX, wchar_t> converterX;
+#ifdef UNICODE
+	const TCHAR* retStr = str.data();
+#else
+	const TCHAR* retStr = converterX.to_bytes(str.data()).data();
+#endif
+	return retStr;*/
+	retval = "";
+	std::vector<TCHAR> buf(str.size());
+	std::use_facet<std::ctype<wchar_t>>(std::locale()).narrow(str.data(), str.data() + str.size(), '?', buf.data());
+	retval = buf.data();
+	return retval;
 }
 
 std::exception throwException(const std::string& message, HRESULT hresult = E_UNEXPECTED) {
@@ -16,12 +43,12 @@ std::exception throwException(const std::string& message, HRESULT hresult = E_UN
 	return std::exception(errMessage.c_str());
 }
 
-static int releaseTargetInterface(IDispatch* pInterface)
+int releaseTargetInterface(IDispatch* pInterface)
 {
-	if (pInterface != NULL)
+	if (pInterface)
 	{
 		pInterface->Release();
-		pInterface = NULL;
+		pInterface = nullptr;
 	}
 	return 0;
 }
@@ -131,17 +158,17 @@ int TaskScheduler::releaseTask() {
 	}
 
 	return 0;*/
-	return releaseTargetInterface(pRootFolder);
+	return releaseTargetInterface(pTask);
 }
 
 int TaskScheduler::removeTask(const std::string& szTaskName, const bool& shouldThrow) {
-	return removeTask(szTaskName.c_str(), shouldThrow);
+	return m_removeTask(convertStr(szTaskName), shouldThrow);
 }
 int TaskScheduler::removeTask(const std::wstring& szTaskName, const bool& shouldThrow) {
-	return removeTask(szTaskName.c_str(), shouldThrow);
+	return m_removeTask(convertStr(szTaskName), shouldThrow);
 }
 
-int TaskScheduler::removeTask(const LPCTSTR& szTaskName, const bool& shouldThrow)
+int TaskScheduler::m_removeTask(const LPCTSTR& szTaskName, const bool& shouldThrow)
 {
 	// If the same task exists, remove it.
 	hr = pRootFolder->DeleteTask(bstr_t(szTaskName), 0);
@@ -160,15 +187,15 @@ int TaskScheduler::removeTask(const LPCTSTR& szTaskName, const bool& shouldThrow
 
 int TaskScheduler::addNewTask(const LPCSTR& szTaskName, const std::string& strExecutablePath) {
 	std::cout << "mbstring" << strExecutablePath << "\n";
-	return addNewTask(szTaskName, strExecutablePath.c_str());
+	return m_addNewTask(convertStr(szTaskName), convertStr(strExecutablePath));
 }
 
 int TaskScheduler::addNewTask(const LPCWSTR& szTaskName, const std::wstring& strExecutablePath) {
 	std::wcout << "wide string" << strExecutablePath << "";
-	return addNewTask(szTaskName, strExecutablePath.c_str());
+	return m_addNewTask(convertStr(szTaskName), convertStr(strExecutablePath));
 }
 
-int TaskScheduler::addNewTask(const LPCTSTR& szTaskName, const LPCTSTR& strExecutablePath)
+int TaskScheduler::m_addNewTask(const LPCTSTR& szTaskName, const LPCTSTR& strExecutablePath)
 {
 
 #ifdef UNICODE
@@ -212,25 +239,14 @@ int TaskScheduler::addNewTask(const LPCTSTR& szTaskName, const LPCTSTR& strExecu
 		return 1;
 	}
 
-	ITrigger* pTrigger = NULL;
-	hr = createTaskTrigger(pTrigger, TASK_TRIGGER_DAILY);
-	if (FAILED(hr))
-	{
-		releaseFolder();
-		releaseTargetInterface(pTrigger);
-		releaseTask();
-		CoUninitialize();
-		throw throwException("Cannot create Trigger for task: ", hr);
-		return 1;
-	}
+	
 
 	IDailyTrigger* pDailyTrigger = NULL;
-	hr = createDailyTask(pTrigger, pDailyTrigger);
+	hr = createDailyTask(pDailyTrigger);
 	if(FAILED(hr))
 	{
 		releaseFolder();
 		releaseTargetInterface(pDailyTrigger);
-		releaseTargetInterface(pTrigger);
 		releaseTask();
 		CoUninitialize();
 		throw throwException("Cannot create Daily Trigger for task: ", hr);
@@ -353,15 +369,20 @@ int TaskScheduler::addNewTask(const LPCTSTR& szTaskName, const LPCTSTR& strExecu
 	//  ------------------------------------------------------
 	//  Save the task in the root folder.
 	IRegisteredTask* pRegisteredTask = NULL;
+	VARIANT varPassword;
+	varPassword.vt = VT_EMPTY;
 	hr = pRootFolder->RegisterTaskDefinition(
 		bstr_t(szTaskName),
 		pTask,
 		TASK_CREATE_OR_UPDATE,
 		//variant_t(bstr_t(pszName)),
 		//variant_t(bstr_t(pszPwd)),
+		//variant_t(TEXT("Local Service")),
 		variant_t(),
+		//varPassword,
 		variant_t(),
 		TASK_LOGON_INTERACTIVE_TOKEN,
+		//TASK_LOGON_SERVICE_ACCOUNT,
 		variant_t(TEXT("")),
 		&pRegisteredTask);
 
@@ -426,7 +447,7 @@ HRESULT TaskScheduler::registerTaskRegInfo()
 	return hr;
 }
 
-HRESULT TaskScheduler::createTaskTrigger(ITrigger* pTrigger, TASK_TRIGGER_TYPE2 type)
+HRESULT TaskScheduler::createTaskTrigger(ITrigger*& pTrigger, TASK_TRIGGER_TYPE2 type)
 {
 	//  ------------------------------------------------------
 	//  Get the trigger collection to insert the time trigger.
@@ -458,8 +479,20 @@ HRESULT TaskScheduler::createTaskTrigger(ITrigger* pTrigger, TASK_TRIGGER_TYPE2 
 	return hr;
 }
 
-HRESULT TaskScheduler::createDailyTask(ITrigger* pTrigger, IDailyTrigger* pDailyTrigger) {
+HRESULT TaskScheduler::createDailyTask(IDailyTrigger*& pDailyTrigger) {
 	
+	ITrigger* pTrigger = NULL;
+	hr = createTaskTrigger(pTrigger, TASK_TRIGGER_DAILY);
+	if (FAILED(hr))
+	{
+		releaseFolder();
+		releaseTargetInterface(pTrigger);
+		releaseTask();
+		CoUninitialize();
+		throw throwException("Cannot create Trigger for task: ", hr);
+		return 1;
+	}
+
 	hr = pTrigger->QueryInterface(
 		IID_IDailyTrigger, (void**)&pDailyTrigger);
 	releaseTargetInterface(pTrigger);
@@ -497,6 +530,7 @@ HRESULT TaskScheduler::createDailyTask(ITrigger* pTrigger, IDailyTrigger* pDaily
 		//printf("\nCannot put days interval: %x", hr);
 		releaseFolder();
 		releaseTargetInterface(pDailyTrigger);
+		releaseTargetInterface(pTrigger);
 		releaseTask();
 		CoUninitialize();
 		throw throwException("Cannot put days interval: ", hr);
@@ -506,7 +540,7 @@ HRESULT TaskScheduler::createDailyTask(ITrigger* pTrigger, IDailyTrigger* pDaily
 	return hr;
 }
 
-HRESULT TaskScheduler::addRepititionToTask(IDailyTrigger* pDailyTrigger)
+HRESULT TaskScheduler::addRepititionToTask(IDailyTrigger*& pDailyTrigger)
 {
 	// Add a repetition to the trigger so that it repeats
 	// five times.
@@ -542,7 +576,7 @@ HRESULT TaskScheduler::addRepititionToTask(IDailyTrigger* pDailyTrigger)
 	return hr;
 }
 
-HRESULT TaskScheduler::createTaskAction(IAction* pAction, TASK_ACTION_TYPE type)
+HRESULT TaskScheduler::createTaskAction(IAction*& pAction, TASK_ACTION_TYPE type)
 {
 	//  ------------------------------------------------------
 	//  Add an action to the task. This task will execute the target exe.     
@@ -576,7 +610,7 @@ HRESULT TaskScheduler::createTaskAction(IAction* pAction, TASK_ACTION_TYPE type)
 	return hr;
 }
 
-HRESULT TaskScheduler::addActionDetails(IAction* pAction, const LPCTSTR& strExecutablePath)
+HRESULT TaskScheduler::addActionDetails(IAction*& pAction, const LPCTSTR& strExecutablePath)
 {
 	IExecAction* pExecAction = NULL;
 	//  QI for the executable task pointer.
@@ -630,12 +664,21 @@ HRESULT TaskScheduler::createTaskPrincipal()
 		return 1;
 	}
 
+	/*hr = pPrincipal->put_Id(bstr_t(TEXT("Administrator")));
+	if (FAILED(hr))
+		printf("\nCannot put the principal ID: %x", hr);*/
+
+	hr = pPrincipal->put_UserId(bstr_t(TEXT("KioskMode")));
+	if (FAILED(hr))
+		printf("\nCannot put the principal ID: %x", hr);
+
 	hr = pPrincipal->put_RunLevel(TASK_RUNLEVEL_HIGHEST);
 	if (FAILED(hr))
 		printf("\nCannot put principal run level to heightest: %x", hr);
 
 	//  Set up principal logon type to interactive logon
 	hr = pPrincipal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
+	//hr = pPrincipal->put_LogonType(TASK_LOGON_SERVICE_ACCOUNT);
 	releaseTargetInterface(pPrincipal);
 	if (FAILED(hr))
 	{
@@ -650,7 +693,7 @@ HRESULT TaskScheduler::createTaskPrincipal()
 	return hr;
 }
 
-HRESULT TaskScheduler::createTaskSettings(ITaskSettings* pSettings)
+HRESULT TaskScheduler::createTaskSettings(ITaskSettings*& pSettings)
 {
 	
 	hr = pTask->get_Settings(&pSettings);
@@ -695,7 +738,7 @@ HRESULT TaskScheduler::createTaskSettings(ITaskSettings* pSettings)
 	return hr;
 }
 
-HRESULT TaskScheduler::createTaskIdleSettings(ITaskSettings* pSettings)
+HRESULT TaskScheduler::createTaskIdleSettings(ITaskSettings*& pSettings)
 {
 	// Set the idle settings for the task.
 	IIdleSettings* pIdleSettings = NULL;

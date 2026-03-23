@@ -11,20 +11,15 @@ endif()
 
 if(MSVC)
 if(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
-	target_compile_options(<target> PUBLIC "/ZI")
-#else()
-#	target_compile_options(<target> PUBLIC "/ZI")
-endif(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
+	target_compile_options(<target> PUBLIC "/ZI" /MDd)
+else(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
 	target_link_options(<target> PUBLIC "/INCREMENTAL")
+endif(NOT ${CMAKE_BUILD_TYPE} STREQUAL "Release")
 endif()
 
 set(MSVC_ROOT_DIR C:/Users/Willem/source/repos)
 
 # set the project version. 
-#set(PROJECT_VER_PATCH 6)
-#set(PROJECT_VER_MINOR 1)
-#set(PROJECT_VER_MAJOR 1)
-#set(PROJECT_VER "${PROJECT_VER_MAJOR}.${PROJECT_VER_MINOR}.${PROJECT_VER_PATCH}")
 file(READ version PROJECT_VER)
 
 
@@ -48,35 +43,25 @@ set($ENV{VERSION} ${PROJECT_VERSION})
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
-
-#execute_process (
-#    COMMAND echo "${Project_Version}" >> "$ENV{VERSION}"
-#    OUTPUT_VARIABLE outVar
-#)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#set(CMAKE_C_STANDARD 17)
-#set(CMAKE_C_STANDARD_REQUIRED ON)
 message(STATUS "Using c++ standard c++ ${CMAKE_CXX_STANDARD}")
 message(STATUS "Using c standard c ${CMAKE_C_STANDARD}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/archive)
+set(AUTOGEN_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/autogen)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
-#if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-#add_compile_definitions("DEBUG=$<CONFIG:Debug>")
-#	add_compile_definitions("")
-#endif()
 
 message (STATUS "CMake version: ${CMAKE_VERSION}")
 message (STATUS "Project version: ${PROJECT_VERSION}")
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+set(CMAKE_CXX_VISIBILITY_PRESET "hidden")
+set(CMAKE_VISIBILITY_INLINES_HIDDEN TRUE)
+set(CMAKE_AUTOMOC ON)
 
 # set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} /Wall /GR)
 
@@ -117,40 +102,16 @@ MESSAGE(${CMAKE_BUILD_TYPE})
 find_package(ZLIB REQUIRED)
 find_package(OpenSSL REQUIRED)
 
-#set(Qt6_DIR "C:/Qt/OnlineInstall/6.7.2/msvc2019_64")
-#set(Qt6_DIR "C:/Qt/Qt-6.8/6.8.0/msvc2022_64")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH};$ENV{QTDIR};${QT_ROOT_DIR};${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/quazip)
 message(STATUS "CMAKE PREFEX PATH: " ${CMAKE_PREFIX_PATH})
-find_package(Qt6 REQUIRED COMPONENTS Core Sql Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Sql Network Concurrent)
 qt_standard_project_setup()
 
-#INPUT = @CMAKE_CURRENT_SOURCE_DIR@/
-#COMMAND $<$<CONFIG:Release>:${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile>
 if(WIN32)
 	find_package(Doxygen REQUIRED dot)
 endif(WIN32)
 
 set(QUAZIP_QT_MAJOR_VERSION 6)
-
-# find_package(QuaZip-Qt5 REQUIRED)
-
-#file(TO_CMAKE_PATH "C:\\Program Files\\OpenSSL-Win64" OPENSSL_ROOT_DIR)
-#message(WARNING "root: ${OPENSSL_ROOT_DIR}")
-
-#set(mariadbcpp_Dir "C:\\Program Files\\MariaDB\\MariaDB C++ Connector 64-bit")
-#find_library(mariadbcpp PATHS ${mariadbcpp_Dir})
-#find_package(mariadbcpp)
-#include_directories(${mariadbcpp_Dir}/include)
-#link_directories(${mariadbcpp_Dir}/lib)
-
-#find_package(sqlite3 REQUIRED GLOBAL)
-#find_package(OpenSSL REQUIRED GLOBAL)
-
-#message(STATUS "mysql-concpp: " ${MYSQL_CONCPP_VERSION_NUMBER})
-
-#message(WARNING "OpenSSL_VERSION: ${OPENSSL_VERSION}")
-#message(WARNING "OpenSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
-#message(WARNING "OpenSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
 
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
 option(SQLITECPP_RUN_DOXYGEN "Runs Doxygen for SQLite CPP" ON)
@@ -198,6 +159,8 @@ if(${Qt6_VERSION} EQUAL "6.7.2")
 	set(QMySQL_URL https://github.com/user-attachments/files/15905074/qsqlmysql.dll_Qt_SQL_driver_6.7.2_MSVC2019_64-bit.zip)
 elseif(${Qt6_VERSION} EQUAL "6.8.0")
 	set(QMySQL_URL https://github.com/user-attachments/files/17289450/qsqlmysql.dll_Qt_SQL_driver_6.8.0_MSVC2022_64-bit.zip)
+elseif(${Qt6_VERSION} EQUAL "6.8.3")
+	set(QMySQL_URL https://github.com/thecodemonkey86/qt_mysql_driver/releases/download/qmysql_6.8.3/qsqlmysql.dll_Qt_SQL_driver_6.8.3_MSVC2022_64-bit.zip)
 endif()
 FetchContent_Declare(
 	QMYSQL
@@ -227,18 +190,26 @@ FetchContent_MakeAvailable(SimpleIni QMYSQL)
 add_subdirectory (RegistryManager)
 add_subdirectory (ServiceHelper)
 add_subdirectory (EventManager)
+# LIST(APPEND ADDITIONAL_LIBRARIES "EventManager")
 add_subdirectory (HenchmanServiceException)
 add_subdirectory (SQLiteManager2)
 LIST(APPEND ADDITIONAL_LIBRARIES "SQLiteManager2")
+add_subdirectory (NetworkManager)
+LIST(APPEND ADDITIONAL_LIBRARIES "NetworkManager")
+add_subdirectory (QueryManager)
+add_subdirectory (TRAKEntriesManager)
+add_subdirectory (EmployeesManager)
+LIST(APPEND ADDITIONAL_LIBRARIES "EmployeesManager")
+add_subdirectory (UsersManager)
+LIST(APPEND ADDITIONAL_LIBRARIES "UsersManager")
 add_subdirectory (DatabaseManager)
 LIST(APPEND ADDITIONAL_LIBRARIES "DatabaseManager")
 add_subdirectory (TRAKManager)
-#LIST(APPEND ADDITIONAL_LIBRARIES "TRAKManager")
 add_subdirectory (HenchmanServiceTaskScheduler)
 add_subdirectory (ServiceController)
-#LIST(APPEND ADDITIONAL_LIBRARIES "ServiceController")
+LIST(APPEND ADDITIONAL_LIBRARIES "ServiceController")
 add_subdirectory (HenchmanServiceLibrary)
-LIST(APPEND ADDITIONAL_LIBRARIES "HenchmanService")
+# LIST(APPEND ADDITIONAL_LIBRARIES "HenchmanService")
 add_subdirectory (HenchmanServiceController)
 add_subdirectory (HenchmanService)
 #add_subdirectory (SQLiteManager)
@@ -279,10 +250,11 @@ endif()
 set(additional_libs)
 
 foreach(lib IN LISTS ADDITIONAL_LIBRARIES)
-	LIST(APPEND additional_libs "ADDITIONAL_LIBRARIES \"\${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<TARGET_FILE_NAME:${lib}>\"")
+	LIST(APPEND additional_libs "\"\${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<TARGET_FILE_NAME:${lib}>\"")
 endforeach()
 
 LIST(JOIN additional_libs " " additional_libs)
+set(executable_controller_path "\${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<TARGET_FILE_NAME:HenchmanServiceController>")
 
 # Generate a deployment script to be executed at install time
 qt_generate_deploy_script(
@@ -292,7 +264,8 @@ qt_generate_deploy_script(
 	CONTENT "
 qt_deploy_runtime_dependencies(
 	EXECUTABLE \"${executable_path}\"
-	${additional_libs}
+	ADDITIONAL_EXECUTABLES \"${executable_controller_path}\"
+	ADDITIONAL_LIBRARIES ${additional_libs}
 	BIN_DIR \"\${CMAKE_INSTALL_BINDIR}\"
 	PRE_EXCLUDE_REGEXES \"api-ms-\" \"ext-ms-\" 
 	POST_EXCLUDE_REGEXES \".*system32/.*\\.dll\" \"api-ms-\" \"ext-ms-\"
@@ -366,7 +339,7 @@ install(
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}							COMPONENT Runtime
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/${CMAKE_PROJECT_NAME}	COMPONENT Development
 )
-add_dependencies(HenchmanService HenchmanServiceController DatabaseManager)
+add_dependencies(HenchmanService HenchmanServiceController)
 #set_property(TARGET HenchmanService PROPERTY WIN32_EXECUTABLE TRUE)
 install (PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
 		DESTINATION ${CMAKE_INSTALL_BINDIR}	COMPONENT Runtime)

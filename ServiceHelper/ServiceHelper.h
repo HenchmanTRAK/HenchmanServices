@@ -1,13 +1,5 @@
-#ifndef SERVICE_HELPER_H
-#define SERVICE_HELPER_H
 #pragma once
 
-
-#ifdef SERVICE_HELPER_EXPORTS
-#define SERVICE_HELPER_ __declspec(dllexport)
-#else
-#define SERVICE_HELPER_ __declspec(dllimport)
-#endif
 
 #include <iostream>
 #include <array>
@@ -18,10 +10,14 @@
 #include <fstream>
 #include <locale>
 #include <codecvt>
+#include <map>
 
 #include <QString>
 #include <QList>
-#include <QDebug>
+#include <QFile>
+#include <QDate>
+#include <QtDebug>
+#include <QLoggingCategory>
 
 //#include "HenchmanServiceException.h"
 #include "RegistryManager.h"
@@ -32,7 +28,22 @@
 
 #ifdef _DEBUG
 	#define DEBUG 1
+#else
+	#define QT_NO_DEBUG_OUTPUT
 #endif // _DEBUG
+
+// TODO: Reference additional headers your program requires here.
+#define SERVICE_NAME			TEXT("HenchmanService")
+#define SERVICE_DISPLAY_NAME	TEXT("HenchmanTRAK Product Service")
+#define SERVICE_DESIRED_ACCESS	SERVICE_ALL_ACCESS
+#define SERVICE_TYPE			SERVICE_WIN32_OWN_PROCESS
+#define SERVICE_START_TYPE		SERVICE_AUTO_START
+#define SERVICE_ERROR_CONTROL	SERVICE_ERROR_NORMAL
+#define SERVICE_DEPENDENCIES	TEXT("")
+//#define SERVICE_ACCOUNT			L"NT AUTHORITY\\LocalService"
+#define SERVICE_PASSWORD		NULL
+#define CRLF					TEXT("\r\n")
+
 
 #ifdef UNICODE
 #define tstring			std::wstring
@@ -56,6 +67,8 @@
 //	#define DEBUG 1
 //#endif
 
+typedef QMap<QString, QString> QStringMap;
+
 #define LOG ServiceHelper()
 
 #ifdef UNICODE
@@ -63,6 +76,30 @@
 #else
 	typedef std::map<std::string, std::string> stringmap;
 #endif
+
+enum log_type {
+	GENERAL,
+	ERRORED,
+	CUSTOM,
+	QUERIES,
+	QUERY_MANAGER
+};
+
+struct TrakDetails {
+	int cust_id = 0;
+	QString schema = "";
+	QString trak_type = "";
+	QString trak_id_type = "";
+	QString trak_id = "";
+};
+
+struct WebportalDetails {
+	int cust_id = 0;
+	QString api_url = "";
+	QString api_key = "";
+	int query_limit = 0;
+	QString base_route = "";
+};
 
 /**
  * @class ServiceHelper
@@ -85,6 +122,11 @@ class ServiceHelper
 {
 private:
 	std::string functionName;
+	/*QLoggingCategory defaultCat = QLoggingCategory("default");
+	QLoggingCategory queries = QLoggingCategory("queries");*/
+
+	QList<const char*> logging_categories = QList<const char*>({"queries"});
+
 
 public:
 	/**
@@ -95,6 +137,7 @@ public:
 	 * @param caller The source location of the caller.
 	 */
 	ServiceHelper(const std::source_location& caller = std::source_location::current());
+	~ServiceHelper();
 
 	/**
 	 * @brief Returns a timestamp as a std::array<std::string, 2>.
@@ -120,7 +163,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	tstring GetExportsPath(std::string app_path = "");
+	static tstring GetExportsPath(std::string app_path = "");
 
 	/**
 	 * @brief Returns the logs path for the given application path.
@@ -134,10 +177,10 @@ public:
 	 *
 	 * @throws None.
 	 */
-	tstring GetLogsPath(std::string app_path = "");
+	static tstring GetLogsPath(std::string app_path = "");
 
 
-	tstring GetServicePath(std::string app_path = "");
+	static tstring GetServicePath(std::string app_path = "");
 
 	/**
 	 * @brief Writes the given log message to the log file.
@@ -148,7 +191,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	void WriteToLog(std::string log);
+	void WriteToLog(const std::string& log);
 
 	/**
 	 * @brief Writes the given error message to the error file.
@@ -159,7 +202,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	void WriteToError(std::string log);
+	void WriteToError(const std::string& log);
 
 	/**
 	 * @brief Writes the given log message to the custom log file.
@@ -171,7 +214,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	void WriteToCustomLog(std::string log, std::string logName);
+	void WriteToCustomLog(const std::string& log, const std::string& logName);
 
 	/**
 	 * @brief Returns the current time in microseconds.
@@ -225,7 +268,7 @@ public:
 	 *
 	 * @throws None.
 	 */
-	static char* GetFileExtension(std::string& FileName);
+	static const char* GetFileExtension(std::string& FileName);
 
 	// String Sanatizer provided by Simple on Stackoverflow
 	// https://stackoverflow.com/a/34221488
@@ -267,6 +310,8 @@ public:
 
 	static QList<QString> ExplodeString(QString targetString, const char *seperator, int maxLen = -1);
 
+	static void messageOutput(QtMsgType type, const QMessageLogContext& context, const QString& msg);
+
 	void ConsoleLog(const char* log);
 
 	static int ShellExecuteApp(std::string appName, std::string params);
@@ -287,12 +332,8 @@ public:
 	ServiceHelper& operator<<(const std::vector<std::string>& s);
 
 private:
-	void WriteLog(char* targetFile, const std::string& log);
+	void WriteLog(log_type type, const char* targetFile, const std::string& log);
 
 	//operator std::ostream();
 
 };
-
-
-
-#endif

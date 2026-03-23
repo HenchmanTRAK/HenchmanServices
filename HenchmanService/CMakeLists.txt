@@ -23,6 +23,7 @@ qt_disable_unicode_defines(HenchmanService)
 target_include_directories(
 	HenchmanService PRIVATE 
 	${CMAKE_CURRENT_SOURCE_DIR}
+	${CMAKE_CURRENT_BINARY_DIR}
 #	${ServiceController_DIR}
 #	${OPENSSL_INCLUDE_DIR}
 #	${CMAKE_SOURCE_DIR}/resources
@@ -43,12 +44,18 @@ target_link_libraries(
 	ServiceController
 	TRAKManager
 	DatabaseManager
+	EmployeesManager
+	UsersManager
+	TRAKEntriesManager
+	QueryManager
+	NetworkManager
 	SQLiteManager2
 	HenchmanServiceException
 	EventManager
 	ServiceHelper
 	RegistryManager
 	SimpleIni
+	Qt6::Concurrent
 	Qt6::Network
 	Qt6::Sql
 	Qt6::Core
@@ -57,7 +64,6 @@ target_link_libraries(
 set_target_properties(
 	HenchmanService PROPERTIES
 	LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator'\""
-	AUTOMOC TRUE
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)

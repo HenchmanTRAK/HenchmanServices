@@ -5,15 +5,8 @@
 // SERVICECONTROLLER_API functions as being imported from a DLL, whereas this DLL sees symbols
 // defined with this macro as being exported.
 
-#ifndef SERVICE_CONTROLLER_LIBRARY_H
-#define SERVICE_CONTROLLER_LIBRARY_H
 #pragma once
 
-#ifdef SERVICE_CONTROLLER_LIBRARY_EXPORTS
-#define SERVICE_CONTROLLER_LIBRARY_ __declspec(dllexport)
-#else
-#define SERVICE_CONTROLLER_LIBRARY_ __declspec(dllimport)
-#endif
 
 #include <iostream>
 #include <strsafe.h>
@@ -72,7 +65,7 @@ namespace ServiceController
 
 		~CServiceController();
 
-		void DoInstallSvc(bool disableTask = false);
+		void __stdcall DoInstallSvc(bool disableTask = false);
 
 		void __stdcall DoStartSvc(const TCHAR* mService = nullptr);
 		int __stdcall StartTargetSvc(const TCHAR* sService = nullptr);
@@ -84,7 +77,7 @@ namespace ServiceController
 			DWORD dwWaitHint
 		);
 		DWORD __stdcall GetSvcStatus(const TCHAR* mService = nullptr);
-		virtual void WINAPI SvcCtrlHandler(DWORD CtrlCode);
+		void __stdcall SvcCtrlHandler(DWORD CtrlCode);
 
 		//virtual void WINAPI SvcMain();
 		//virtual void SvcInit();
@@ -103,4 +96,3 @@ namespace ServiceController
 //	DWORD dwWin32ExitCode,
 //	DWORD dwWaitHint
 //);
-#endif

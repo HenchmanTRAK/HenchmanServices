@@ -133,7 +133,8 @@ add_new_task:
 	try {
 		if (disableTaskCreation)
 			return;
-		mTaskScheduler.addNewTask(ServiceHelper().s2ws(mService.serviceName).c_str(), ServiceHelper().s2ws(mService.servicePath));
+		//mTaskScheduler.addNewTask(ServiceHelper().s2ws(mService.serviceName).data(), ServiceHelper().s2ws(mService.servicePath));
+		mTaskScheduler.addNewTask(mService.serviceName, mService.servicePath);
 	}
 	catch (const std::exception& e) {
 		ServiceHelper().WriteToError(e.what());
@@ -344,7 +345,8 @@ add_new_task:
 	try {
 		if (disableTaskCreation || pTesting);
 			return;
-		mTaskScheduler.addNewTask(ServiceHelper().s2ws(mService.serviceName).c_str(), ServiceHelper().s2ws(mService.servicePath));
+			//mTaskScheduler.addNewTask(ServiceHelper().s2ws(mService.serviceName).c_str(), ServiceHelper().s2ws(mService.servicePath));
+			mTaskScheduler.addNewTask(mService.serviceName, mService.servicePath);
 	}
 	catch (const std::exception& e) {
 		ServiceHelper().WriteToError(e.what());
@@ -780,7 +782,7 @@ void CServiceController::DoDeleteSvc(const TCHAR* sService)
 	CloseServiceHandle(schService);
 	CloseServiceHandle(schSCManager);
 
-	mTaskScheduler.removeTask(std::string(mService.serviceName));
+	mTaskScheduler.removeTask(mService.serviceName, false);
 
 }
 
@@ -916,7 +918,7 @@ DWORD CServiceController::GetSvcStatus(const TCHAR* sService)
 	return ssStatus.dwCurrentState;
 }
 
-void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
+void CServiceController::SvcCtrlHandler(DWORD CtrlCode)
 {
 	switch (CtrlCode)
 	{
@@ -929,6 +931,7 @@ void WINAPI CServiceController::SvcCtrlHandler(DWORD CtrlCode)
 	case SERVICE_CONTROL_INTERROGATE:
 		break;
 	default:
+		ReportSvcStatus(CtrlCode, NO_ERROR, 0);
 		break;
 	}
 }
