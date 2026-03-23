@@ -94,7 +94,7 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 		return sqliteTableColumnNames;
 		});
 
-	QFuture<QJsonArray> columnsFuture = QtConcurrent::run([&tableColumns, &update_options, &uniqueIndexCols]() {
+	QFuture<QJsonArray> columnsFuture = QtConcurrent::run([this, &tableColumns, &update_options, &uniqueIndexCols]() {
 		QJsonArray columnsForTable = tableColumns;
 
 		QJsonArray columns;
@@ -110,6 +110,9 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 			QJsonObject column = tableColumn.toObject();
 
 			QString field = column.value("Field").toString().trimmed();
+
+			if(!this->m_MySQL_Column_Names.contains(field))
+				this->m_MySQL_Column_Names.append(field);
 
 			if (field == "empId") {
 				update_options.AddEmpId = false;
@@ -199,7 +202,7 @@ QJsonArray CUsersManager::GetColumns(bool reset)
 	}
 
 	columnsFuture.waitForFinished();
-
+	
 	handleUpdatingLocalDB(m_db_info.table, uniqueIndexCols, &update_options);
 	
 	return m_MySQL_Columns;
@@ -214,6 +217,7 @@ int CUsersManager::GetLocalCount(const QList<QString>& p_conditions, const QJson
 	try {
 		QList<QString> conditions(p_conditions);
 		QJsonObject placeholders(p_placeholders);
+		QStringList group_by;
 
 
 		if (conditions.isEmpty()) {
@@ -221,8 +225,12 @@ int CUsersManager::GetLocalCount(const QList<QString>& p_conditions, const QJson
 			conditions.append("userId IS NOT NULL");
 			conditions.append("userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL)");
 		}
+
+		group_by.append("userId");
+		if(m_MySQL_Column_Names.contains("empId"))
+			group_by.append("empId");
 		
-		local_users = CTRAKEntriesManager::GetLocalCount(conditions, placeholders);
+		local_users = CTRAKEntriesManager::GetLocalCount(conditions, group_by, placeholders);
 		//QJsonArray rowCount = queryManager.execute("SELECT COUNT(*) as total FROM users WHERE " + conditions.join(" AND "), placeholders);
 
 		/*if (rowCount.size() <= 0 || !rowCount.at(0).isObject()) {

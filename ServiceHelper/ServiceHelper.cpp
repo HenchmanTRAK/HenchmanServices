@@ -104,7 +104,7 @@ QList<QString> ServiceHelper::ExplodeString(QString targetString, const char *se
 long int ServiceHelper::microseconds()
 {
 	struct timespec tp;
-	timespec_get(&tp, TIME_UTC);
+	(void)timespec_get(&tp, TIME_UTC);
 	long int ms = tp.tv_sec * 1000 + tp.tv_nsec / 1000;
 	return ms;
 }
