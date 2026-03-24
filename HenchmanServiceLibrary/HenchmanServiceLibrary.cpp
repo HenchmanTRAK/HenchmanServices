@@ -550,6 +550,18 @@ CHenchmanService::CHenchmanService(QObject* parent)
 	//sqliteManager = make_unique<SQLiteManager2>(a);
 
 
+	/*
+	 * Get and store email credentials in local SQLite Database
+	 * 
+	 * Should exit early if not present
+	 */
+
+	tstring username = ini.GetValue("EMAIL", "Username", "");
+	tstring password = ini.GetValue("EMAIL", "Password", "");
+
+	if (username.empty())
+		return;
+
 	tstring tableName = "TestTable";
 	std::vector<tstring> columns;
 	columns.push_back("username TEXT NOT NULL");
@@ -565,8 +577,8 @@ CHenchmanService::CHenchmanService(QObject* parent)
 
 	columns.clear();
 
-	tstring username = ini.GetValue("EMAIL", "Username", "");
-	tstring password = ini.GetValue("EMAIL", "Password", "");
+	
+
 	if (password != "")
 		password = QByteArray(password.data()).toBase64();
 	//string encodedPass = base64(password);
@@ -575,7 +587,7 @@ CHenchmanService::CHenchmanService(QObject* parent)
 		stringmap data;
 		data["username"] = username;
 		data["password"] = password;
-		
+
 		sqliteManager.AddEntry(
 			tableName,
 			data

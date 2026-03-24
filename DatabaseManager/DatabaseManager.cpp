@@ -98,24 +98,26 @@ DatabaseManager::DatabaseManager(QObject* parent)
 	ini.sync();
 	testingDBManager = ini.value("DEVELOPMENT/testingDBManager", 0).toBool();
 
-	ini.beginGroup("API");
-	queryLimit = ini.value("NumberOfQueries", 10).toInt();
-	apiUsername = ini.value("Username", "").toString();
-	apiPassword = ini.value("Password", "").toString();
-	apiKey = ini.value("apiKey", "").toString();
-	ini.endGroup();
-
-	ini.beginGroup("SYSTEM");
-	databaseDriver = ini.value("databaseDriver", "").toString();
-	ini.endGroup();
-
 	if (testingDBManager)
 		apiUrl = ini.value("DEVELOPMENT/URL", "http://localhost:3000/api/service").toString();
 	else
 		apiUrl = ini.value("API/URL", "https://webportal.henchmantrak.com/api/service").toString();
 
-	shouldIgnoreDatabaseCustId = ini.value("SYSTEM/IgnoreCustId", 0).toBool();
-	shouldIgnoreDatabaseTrakId = ini.value("SYSTEM/IgnoreTrakId", 0).toBool();
+	ini.beginGroup("API");
+	queryLimit = ini.value("NumberOfQueries", 100).toInt();
+	apiKey = ini.value("apiKey", "").toString();
+	if (apiKey.isEmpty()) {
+		apiUsername = ini.value("Username", "").toString();
+		apiPassword = ini.value("Password", "").toString();
+	}
+	ini.endGroup();
+
+	ini.beginGroup("SYSTEM");
+	databaseDriver = ini.value("databaseDriver", "").toString();
+	shouldIgnoreDatabaseCustId = ini.value("IgnoreCustId", 0).toBool();
+	shouldIgnoreDatabaseTrakId = ini.value("IgnoreTrakId", 0).toBool();
+	ini.endGroup();
+
 
 	LOG << apiUrl;
 
