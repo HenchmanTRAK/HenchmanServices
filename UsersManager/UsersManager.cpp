@@ -219,18 +219,22 @@ int CUsersManager::GetLocalCount(const QList<QString>& p_conditions, const QJson
 		QJsonObject placeholders(p_placeholders);
 		QStringList group_by;
 
-
 		if (conditions.isEmpty()) {
 			conditions.append("userId <> ''");
 			conditions.append("userId IS NOT NULL");
 			conditions.append("userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL)");
+			if (m_MySQL_Column_Names.contains("empId")) {
+				conditions.append("empId IN (SELECT empId FROM employees WHERE userId <> '' AND userId IS NOT NULL)");
+			}
 		}
 
 		group_by.append("userId");
-		if(m_MySQL_Column_Names.contains("empId"))
+		if (m_MySQL_Column_Names.contains("empId")) {
 			group_by.append("empId");
+		}
 		
 		local_users = CTRAKEntriesManager::GetLocalCount(conditions, group_by, placeholders);
+
 		//QJsonArray rowCount = queryManager.execute("SELECT COUNT(*) as total FROM users WHERE " + conditions.join(" AND "), placeholders);
 
 		/*if (rowCount.size() <= 0 || !rowCount.at(0).isObject()) {
@@ -636,7 +640,7 @@ int CUsersManager::SyncWebportal()
 	//QVariantMap vMapConditionals = {};
 
 	if (webportalResults.empty())
-		select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL ORDER BY id DESC";
+		select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY id DESC";
 	else {
 		QJsonArray employeeIds;
 		QJsonArray userIds;
@@ -676,9 +680,9 @@ int CUsersManager::SyncWebportal()
 		placeholderMap.insert("tz", m_time_zone);
 
 		if (webportalGroupedResults.size() <= 0)
-			select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND userId NOT IN (:userIds) ORDER BY id ASC";
+			select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND userId NOT IN (:userIds) AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY id ASC";
 		else {
-			select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (userId NOT IN (:userIds) OR CONVERT_TZ(updatedAt, :tz, '+00:00') NOT IN (:updatedAts)) ORDER BY updatedAt ASC, id ASC";
+			select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (userId NOT IN (:userIds) OR CONVERT_TZ(updatedAt, :tz, '+00:00') NOT IN (:updatedAts)) AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY updatedAt ASC, id ASC";
 			placeholderMap.insert("updatedAts", updatedAtDates);
 		}
 

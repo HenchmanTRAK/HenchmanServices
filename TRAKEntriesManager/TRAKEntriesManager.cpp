@@ -283,8 +283,8 @@ void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& older, const
 void CTRAKEntriesManager::breakoutValuesToUpdate(const QJsonObject& t_older, const QJsonObject& t_newer, QList<QString>* t_set_values, QVariantMap* t_updated_values)
 {
 
-	QList<QString> excludeCols({ "id", "createdAt", "updatedAt" });
-	QList<QString> dateCols({ "createDate", "createTime", "createdAt", "lastvisit", "updatedAt" });
+	QList<QString> excludeCols({ "id", "createdAt", "updatedAt", "createAt", "createdDate"});
+	QList<QString> dateCols({ "createDate", "createTime", "createdAt", "lastvisit", "updatedAt", "lastAccess_kab"});
 
 	QStringList mysqlCols = GetColumnNames();
 
@@ -419,6 +419,75 @@ int CTRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const
 	return GetLocalCount(p_conditions, group_by, p_placeholders);
 }
 
+int CTRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const QString& t_group_by, const QJsonObject& p_placeholders)
+{
+	return GetLocalCount(p_conditions.join(" AND "), t_group_by, p_placeholders);
+}
+
+int CTRAKEntriesManager::GetLocalCount(const QString& p_conditions, const QList<QString>& t_group_by, const QJsonObject& p_placeholders)
+{
+	return GetLocalCount(p_conditions, t_group_by.join(", "), p_placeholders);
+}
+
+int CTRAKEntriesManager::GetLocalCount(const QString& p_conditions, const QString& t_group_by, const QJsonObject& p_placeholders)
+{
+	int local = 0;
+
+
+
+	try {
+		QString conditions(p_conditions);
+		QString group_by(t_group_by);
+		QJsonObject placeholders(p_placeholders);
+
+		if (conditions.isEmpty())
+			throw std::exception();
+
+		if (placeholders.isEmpty() && group_by.isEmpty()) {
+			GetTable();
+
+			m_table.setFilter(conditions);
+			m_table.select();
+
+			local = m_table.rowCount();
+
+			CleanTable();
+
+			m_table.database().close();
+		}
+		else {
+			QStringList queryStr;
+			queryStr.append("SELECT * FROM " + m_db_info.table);
+			if (!conditions.isEmpty())
+				queryStr.append("WHERE " + conditions);
+			if (!group_by.isEmpty())
+				queryStr.append("GROUP BY " + group_by);
+
+			queryStr.append("ORDER BY id DESC");
+
+			QJsonArray count = m_queryManager.execute(queryStr.join(" "), placeholders);
+
+			local = count.size();
+		}
+
+		qInfo() << "local returned: " << local;
+
+		//QJsonArray rowCount = queryManager.execute("SELECT COUNT(*) as total FROM users WHERE " + conditions.join(" AND "), placeholders);
+
+		/*if (rowCount.size() <= 0 || !rowCount.at(0).isObject()) {
+			throw std::exception();
+		}
+
+		local_users = rowCount.at(0).toObject().value("total").toVariant().toInt();*/
+	}
+	catch (const std::exception& e) {
+		local = local_count;
+	}
+
+
+
+	return local;
+}
 
 int CTRAKEntriesManager::GetLocalCount(const QList<QString>& p_conditions, const QList<QString>& t_group_by,  const QJsonObject& p_placeholders)
 {
