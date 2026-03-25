@@ -1,8 +1,6 @@
 ﻿// HenchmanServiceLibrary.h : Include file for standard system include files,
 // or project specific include files.
 
-#ifndef HENCHMAN_SERVICE_TASK_SCHEDULER_LIBRARY_H
-#define HENCHMAN_SERVICE_TASK_SCHEDULER_LIBRARY_H
 #pragma once
 
 //#ifdef HENCHMAN_SERVICE_TASK_SCHEDULER_LIBRARY_EXPORTS
@@ -13,6 +11,7 @@
 
 #define _WIN32_DCOM
 
+
 #include <windows.h>
 #include <exception>
 #include <iostream>
@@ -22,6 +21,8 @@
 #include <codecvt>
 #include <string>
 #include <sstream>
+#include <locale>
+#include <vector>
 
 
 #include <taskschd.h>
@@ -41,34 +42,32 @@ private:
 
 
 public:
-	__cdecl TaskScheduler();
-	__cdecl ~TaskScheduler();
+	TaskScheduler();
+	~TaskScheduler();
 
-	int __cdecl removeTask(const std::string& szTaskName, const bool& shouldThrow = true);
-	int __cdecl removeTask(const std::wstring& szTaskName, const bool& shouldThrow = true);
+	int removeTask(const std::string& szTaskName, const bool& shouldThrow = true);
+	int removeTask(const std::wstring& szTaskName, const bool& shouldThrow = true);
 	
-	int __cdecl addNewTask(const LPCSTR& szTaskName, const std::string& strExecutablePath);
-	int __cdecl addNewTask(const LPCWSTR& szTaskName, const std::wstring& strExecutablePath);
+	int addNewTask(const LPCSTR& szTaskName, const std::string& strExecutablePath);
+	int addNewTask(const LPCWSTR& szTaskName, const std::wstring& strExecutablePath);
 
 private:
-	int __cdecl removeTask(const LPCTSTR& szTaskName, const bool& shouldThrow = true);
+	int m_removeTask(const LPCTSTR& szTaskName, const bool& shouldThrow = true);
 
-	int  __cdecl addNewTask(const LPCTSTR& szTaskName, const LPCTSTR& strExecutablePath = TEXT(""));
+	int  m_addNewTask(const LPCTSTR& szTaskName, const LPCTSTR& strExecutablePath = TEXT(""));
 
-	int __cdecl releaseService();
-	int __cdecl releaseTask();
-	int __cdecl releaseFolder();
+	int releaseService();
+	int releaseTask();
+	int releaseFolder();
 
-	HRESULT __cdecl registerTaskRegInfo();
-	HRESULT __cdecl createTaskTrigger(ITrigger* pTrigger, TASK_TRIGGER_TYPE2 type);
-	HRESULT __cdecl createDailyTask(ITrigger* pTrigger, IDailyTrigger* pDailyTrigger);
-	HRESULT __cdecl addRepititionToTask(IDailyTrigger* pDailyTrigger);
-	HRESULT __cdecl createTaskAction(IAction* pAction, TASK_ACTION_TYPE type);
-	HRESULT __cdecl addActionDetails(IAction* pAction, const LPCTSTR& strExecutablePath = TEXT(""));
-	HRESULT __cdecl createTaskPrincipal();
-	HRESULT __cdecl createTaskSettings(ITaskSettings* pSettings);
-	HRESULT __cdecl createTaskIdleSettings(ITaskSettings* pSettings);
-	HRESULT __cdecl registerTask(IRegisteredTask* pRegisteredTask);
+	HRESULT registerTaskRegInfo();
+	HRESULT createTaskTrigger(ITrigger*& pTrigger, TASK_TRIGGER_TYPE2 type);
+	HRESULT createDailyTask(IDailyTrigger*& pDailyTrigger);
+	HRESULT addRepititionToTask(IDailyTrigger*& pDailyTrigger);
+	HRESULT createTaskAction(IAction*& pAction, TASK_ACTION_TYPE type);
+	HRESULT addActionDetails(IAction*& pAction, const LPCTSTR& strExecutablePath = TEXT(""));
+	HRESULT createTaskPrincipal();
+	HRESULT createTaskSettings(ITaskSettings*& pSettings);
+	HRESULT createTaskIdleSettings(ITaskSettings*& pSettings);
+	HRESULT registerTask(IRegisteredTask* pRegisteredTask);
 };
-
-#endif

@@ -1,6 +1,5 @@
-#ifndef SQLITE_MANAGER_2_H
-#define SQLITE_MANAGER_2_H
 #pragma once
+
 
 #include <iostream>
 #include <map>
@@ -18,6 +17,11 @@
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QString>
+#include <QThread>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QJsonArray>
+#include <QJsonObject>
 
 //#include <Windows.h>
 
@@ -47,6 +51,31 @@
 class SQLiteManager2 : public QObject
 {
 	Q_OBJECT
+
+private:
+	/**
+	 * @brief The database name.
+	 *
+	 * This is the name of the SQLite database file.
+	 */
+	QString databaseName;
+
+	/**
+	 * @brief The driver name.
+	 *
+	 * This is the name of the Qt SQLite driver.
+	 */
+	QString databaseDriver = "QSQLITE";
+
+	/**
+	 * @brief The location of the SQLite database.
+	 *
+	 * This is the location of the SQLite database file.
+	 */
+	QString databaseLocation;
+
+	//QSqlDatabase db;
+	//QMutex mutex;
 
 public:
 
@@ -81,6 +110,11 @@ public:
 	int CreateTable(
 		const std::string& table,
 		const std::vector<std::string>& columns
+	);
+
+	int CreateTable(
+		const std::string& table,
+		const QJsonArray& columns
 	);
 
 	/**
@@ -166,35 +200,43 @@ public:
 	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the SQLite database.
 	 */
 	void ExecQuery(
-		const std::string& query,
-		std::vector<stringmap> &results
+		const QString& query,
+		QJsonArray* results
 	);
 	void ExecQuery(
-		const std::string& query
+		const std::string& query,
+		QJsonArray* results
 	);
+	void ExecQuery(
+		const char *query,
+		QJsonArray* results
+	);
+	void ExecQuery(
+		const std::string& query,
+		std::vector<stringmap>* results
+	);
+	void ExecQuery(
+		const QString& query,
+		std::vector<stringmap>* results
+	);
+	void ExecQuery(
+		const char* query,
+		std::vector<stringmap>* results
+	);
+	void ExecQuery(const std::string& query);
+	void ExecQuery(const QString& query);
+	void ExecQuery(const char* query);
+	/*void ExecQuery(
+		const const char* query,
+		QJsonArray* results = nullptr
+	);*/
+
+
+	QJsonArray GetTableColumnNames(const TCHAR * tableName, QJsonArray* results);
 
 private:
-	/**
-	 * @brief The database name.
-	 *
-	 * This is the name of the SQLite database file.
-	 */
-	std::string databaseName;
-
-	/**
-	 * @brief The driver name.
-	 *
-	 * This is the name of the Qt SQLite driver.
-	 */
-	QString databaseDriver = "QSQLITE";
-
-	/**
-	 * @brief The location of the SQLite database.
-	 *
-	 * This is the location of the SQLite database file.
-	 */
-	QString databaseLocation;
+	QSqlDatabase CreateNewDatabase(const QString& databaseName);
 
 };
 
-#endif
+//Q_DECLARE_METATYPE(SQLiteManager2);

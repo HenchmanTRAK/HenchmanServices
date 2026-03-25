@@ -1,37 +1,34 @@
-
-
-
 #include "TRAKManager.h"
 
-
-using namespace std;
 
 //string TRAKManager::appDir = "";
 //string TRAKManager::iniFile = "";
 //string TRAKManager::appName = "";
 //string TRAKManager::appType="";
 
-TRAKManager::TRAKManager(DatabaseManager *dbManager)
+TRAKManager::TRAKManager()
 {
 	appDir = "";
 	iniFile = "";
 	appName = "";
 	appType = "";
-	if (dbManager)
-		databaseManager = dbManager;
 
 }
 
 TRAKManager::~TRAKManager()
 {
-	if (databaseManager)
-		databaseManager = nullptr;
+	/*if (databaseManager)
+		databaseManager = nullptr;*/
+	appDir = "";
+	iniFile = "";
+	appName = "";
+	appType = "";
 }
 
 bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 {
-	string AppDir32 = ini.GetValue("TRAK", "TRAK_DIR", "");
-	if (filesystem::exists(AppDir32.data())) {
+	std::string AppDir32 = ini.GetValue("TRAK", "TRAK_DIR", "");
+	if (std::filesystem::exists(AppDir32.data())) {
 		appDir = AppDir32+"\\";
 		iniFile = ini.GetValue("TRAK", "INI_FILE", "");
 		appName = ini.GetValue("TRAK", "EXE_FILE", "");
@@ -52,22 +49,22 @@ bool TRAKManager::TRAKExists(CSimpleIniA& ini)
 
 void TRAKManager::conHenchmanAfterConnect()
 {
-	ServiceHelper().WriteToLog((string)"Connected to local MYSQL database...");
+	ServiceHelper().WriteToLog((std::string)"Connected to local MYSQL database...");
 }
 
 void TRAKManager::conHenchmanAfterDisconnect()
 {
-	ServiceHelper().WriteToLog((string)"Disconnected from local MYSQL database...");
+	ServiceHelper().WriteToLog((std::string)"Disconnected from local MYSQL database...");
 }
 
 void TRAKManager::conHenchmanConnectionLost()
 {
-	ServiceHelper().WriteToLog((string)"Lost connection to local MYSQL database...\nretrying...");
+	ServiceHelper().WriteToLog((std::string)"Lost connection to local MYSQL database...\nretrying...");
 }
 
-void TRAKManager::conHenchmanError(exception& e)
+void TRAKManager::conHenchmanError(std::exception& e)
 {
-	stringstream error;
+	std::stringstream error;
 	error << "Local MYSQL database encountered an error: " << e.what() << "\n";
 	ServiceHelper().WriteToLog(error.str());
 	error.clear();
@@ -75,29 +72,29 @@ void TRAKManager::conHenchmanError(exception& e)
 
 void TRAKManager::conRemoteAfterConnect()
 {
-	ServiceHelper().WriteToLog((string)"Connected to remote database...");
+	ServiceHelper().WriteToLog((std::string)"Connected to remote database...");
 }
 
 void TRAKManager::conRemoteAfterDisconnect()
 {
-	ServiceHelper().WriteToLog((string)"Disconnected from remote database...");
+	ServiceHelper().WriteToLog((std::string)"Disconnected from remote database...");
 }
 
 void TRAKManager::conRemoteConnectionLost()
 {
-	ServiceHelper().WriteToLog((string)"Lost connection to remote database...\nretrying...");
+	ServiceHelper().WriteToLog((std::string)"Lost connection to remote database...\nretrying...");
 }
 
-void TRAKManager::conRemoteError(exception& e)
+void TRAKManager::conRemoteError(std::exception& e)
 {
-	stringstream error;
+	std::stringstream error;
 	error << "Remote database encountered an error: " << e.what() << "\n";
 	ServiceHelper().WriteToLog(error.str());
 	error.clear();
 }
 
 void TRAKManager::saveINIToRegistry()
-const {
+{
 	CSimpleIniA ini;
 	ini.SetUnicode();
 
@@ -116,15 +113,15 @@ const {
 		}
 		sections.clear();
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 		ServiceHelper().WriteToError(e.what());
 	}
 	
 }
 
-void TRAKManager::saveINIToRegistry(string section)
-const {
+void TRAKManager::saveINIToRegistry(std::string section)
+{
 	CSimpleIniA ini;
 	ini.SetUnicode();
 
@@ -141,13 +138,13 @@ const {
 
 	try
 	{
-		map<string, string> map;
+		std::map<std::string, std::string> map;
 		CSimpleIniA::TNamesDepend keys;
 		ini.GetAllKeys(section.data(), keys);
 		for (auto const& val : keys)
 		{
-			string key = val.pItem;
-			string value = ini.GetValue(section.data(), val.pItem, "");
+			std::string key = val.pItem;
+			std::string value = ini.GetValue(section.data(), val.pItem, "");
 			ServiceHelper().removeQuotes(value);
 			if (key == "Password" && value != "")
 				value = QByteArray(value.data()).toBase64();
@@ -169,7 +166,7 @@ const {
 		keys.clear();
 		map.clear();
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
 		ServiceHelper().WriteToError(e.what());
 	}
@@ -184,12 +181,14 @@ void TRAKManager::CreateDataModule()
 
 	//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, "SOFTWARE\\HenchmanTRAK\\HenchmanService");
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
-	TCHAR buffer[1024] = "\0";
-	DWORD size = sizeof(buffer);
+	DWORD size = 0;
+	std::vector<TCHAR> buffer(size);
 
 	//string serviceInstallDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ) + "\\service.ini";
-	rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
-	std::string serviceInstallDir(buffer);
+	rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size);
+	buffer.resize(size);
+	rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+	std::string serviceInstallDir(buffer.data());
 	serviceInstallDir.append("\\service.ini");
 	//RegCloseKey(hKey);
 	try 
@@ -210,7 +209,7 @@ void TRAKManager::CreateDataModule()
 		saveINIToRegistry();
 		
 	}
-	catch (exception &e)
+	catch (std::exception &e)
 	{
 		ServiceHelper().WriteToError(e.what());
 	}
@@ -218,48 +217,62 @@ void TRAKManager::CreateDataModule()
 }
 		//cout << "Connecting to Local MySQL Database" << endl;
 
-int TRAKManager::exportGeneralTables()
+int TRAKManager::exportGeneralTables(DatabaseManager& databaseManager)
 {
-	return (databaseManager->addToolsIfNotExists() |
-		databaseManager->addUsersIfNotExists() |
-		databaseManager->addEmployeesIfNotExists() |
-		databaseManager->addJobsIfNotExists());
+
+	ServiceHelper().WriteToLog("Parsing Employees");
+	if (databaseManager.addEmployeesIfNotExists())
+		return 1;
+	ServiceHelper().WriteToLog("Parsing Users");
+	if (databaseManager.addUsersIfNotExists())
+		return 1;
+	ServiceHelper().WriteToLog("Parsing Tools");
+	if (databaseManager.addToolsIfNotExists())
+		return 1;
+	ServiceHelper().WriteToLog("Parsing Jobs");
+	if (databaseManager.addJobsIfNotExists())
+		return 1;
+	return 0;
+
 }
 
-int TRAKManager::UploadCurrentStateToRemote()
+int TRAKManager::UploadCurrentStateToRemote(DatabaseManager& databaseManager)
 {
-	if (!databaseManager)
-		return 1;
+	/*if (!databaseManager)
+		return 1;*/
 	
-	if (exportGeneralTables())
+	if (exportGeneralTables(databaseManager))
 		return 1;
 
 	switch (traktype)
 	{
 	case kabtrak: {
-		return (databaseManager->addKabsIfNotExists() |
-			databaseManager->addDrawersIfNotExists() |
-			databaseManager->addToolsInDrawersIfNotExists() |
-			databaseManager->createKabtrakTransactionsTable());
+		ServiceHelper().WriteToLog("Parsing Kabtrak");
+		return (databaseManager.addKabsIfNotExists() |
+			databaseManager.addDrawersIfNotExists() |
+			databaseManager.addToolsInDrawersIfNotExists() |
+			databaseManager.createKabtrakTransactionsTable());
 	}
 	case cribtrak: {
-		return (databaseManager->addCribsIfNotExists() |
-			databaseManager->addCribToolLocationIfNotExists() |
-			databaseManager->addCribToolsIfNotExists() |
-			databaseManager->addCribConsumablesIfNotExists() |
-			databaseManager->addCribToolTransferIfNotExists() | 
-			databaseManager->addCribKitsIfNotExists() |
-			databaseManager->createCribtrakTransactionsTable());
+		ServiceHelper().WriteToLog("Parsing Cribtrak");
+		return (databaseManager.addCribsIfNotExists() |
+			databaseManager.addCribToolLocationIfNotExists() |
+			databaseManager.addCribToolsIfNotExists() |
+			databaseManager.addCribConsumablesIfNotExists() |
+			databaseManager.addCribToolTransferIfNotExists() | 
+			databaseManager.addCribKitsIfNotExists() |
+			databaseManager.createCribtrakTransactionsTable());
 	}
 	case portatrak: {
-		return (databaseManager->addPortasIfNotExists() |
-			databaseManager->addItemKitsIfNotExists() |
-			databaseManager->addKitCategoryIfNotExists() |
-			databaseManager->addKitLocationIfNotExists() |
-			databaseManager->createPortatrakTransactionsTable());
+		ServiceHelper().WriteToLog("Parsing Portatrak");
+		return (databaseManager.addPortasIfNotExists() |
+			databaseManager.addItemKitsIfNotExists() |
+			databaseManager.addKitCategoryIfNotExists() |
+			databaseManager.addKitLocationIfNotExists() |
+			databaseManager.createPortatrakTransactionsTable());
 	}
 	default: {
-	
+		ServiceHelper().WriteToLog("Invalid Type");
 	}
 	}
 	return 1;

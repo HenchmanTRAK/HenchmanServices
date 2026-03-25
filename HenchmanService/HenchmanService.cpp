@@ -277,7 +277,7 @@ bool LaunchProcess(const TCHAR* process_path)
 	return true;
 }
 
-void WINAPI SvcCtrlHandler(DWORD CtrlCode)
+void WINAPI SvCtrlHandler(DWORD CtrlCode)
 {
 	switch (CtrlCode)
 	{
@@ -290,8 +290,10 @@ void WINAPI SvcCtrlHandler(DWORD CtrlCode)
 	case SERVICE_CONTROL_INTERROGATE:
 		break;
 	default:
+		getServiceController()->ReportSvcStatus(CtrlCode, NO_ERROR, 0);
 		break;
 	}
+
 }
 
 void WINAPI SvcMain()
@@ -301,9 +303,10 @@ void WINAPI SvcMain()
 
 	if (!testing)
 	{
+
 		getServiceController()->mService.serviceStatusHandle = RegisterServiceCtrlHandler(
 			(TCHAR*)service->serviceName,
-			SvcCtrlHandler
+			SvCtrlHandler
 		);
 
 		if (!getServiceController()->mService.serviceStatusHandle)
@@ -314,20 +317,25 @@ void WINAPI SvcMain()
 		getServiceController()->mService.serviceStatus.dwServiceSpecificExitCode = 0;
 
 		getServiceController()->ReportSvcStatus(SERVICE_START_PENDING, NO_ERROR, 3000);
+	
+		SvcInit();
+
+		if (getServiceController()->mService.serviceStatusHandle)
+			CloseHandle(getServiceController()->mService.serviceStatusHandle);
+	}
+	else {
+		SvcInit();
 	}
 	
-	SvcInit();
-
-	if (getServiceController()->mService.serviceStatusHandle)
-		CloseHandle(getServiceController()->mService.serviceStatusHandle);
-
+	
 	//delete a;
 }
 
-void SvcInit()
+void WINAPI SvcInit()
 {
 	if (!testing)
 	{
+
 		getServiceController()->mService.serviceStopEvent = CreateEvent(
 			NULL,
 			TRUE,
@@ -341,22 +349,30 @@ void SvcInit()
 			return;
 		}
 
-		getServiceController()->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+		
 
-		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &getServiceController()->mService.serviceStopEvent, 0, NULL);
+		DWORD dwThreadId = 0;
 
-		if (hThread)
+		HANDLE hThread = CreateThread(NULL, 0, SvcWorkerThread, &getServiceController()->mService.serviceStopEvent, 0, &dwThreadId);
+
+		EventManager::CEventManager().ReportCustomEvent("SvcInit", std::string("Created Service Thread with id: ").append(std::to_string(dwThreadId)).data(), 1, 0);
+
+		if (hThread) {
+			getServiceController()->ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
+
 			WaitForSingleObject(
 				getServiceController()->mService.serviceStopEvent,
 				INFINITE
 			);
+		}
 
 		getServiceController()->ReportSvcStatus(SERVICE_STOPPED, NO_ERROR, 0);
 		CloseHandle(getServiceController()->mService.serviceStopEvent);
+
 	}
 	else {
 		std::cout << "Testing service\n";
-		SvcWorkerThread(NULL);
+		SvcWorkerThread();
 	}
 	return;
 
@@ -440,21 +456,33 @@ int main(int argc, char* argv[])
 		try {
 			RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(service->serviceName).c_str());
 			//HKEY hKey = RegistryManager::OpenKey(HKEY_LOCAL_MACHINE, string("SOFTWARE\\HenchmanTRAK\\").append(SERVICE_NAME));
-			TCHAR buffer[MAX_PATH] = "\0";
-			DWORD size = MAX_PATH;
-			rtManager.GetVal("INSTALL_DIR", REG_SZ, (TCHAR*)buffer, size);
-			tstring installDir(buffer);
-			std::cout << installDir << "\n";
-			std::string currDir = std::filesystem::current_path().string();
-			//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
-			if (installDir.empty() || installDir != currDir)
-			{
-				installDir = currDir;
-				std::cout << installDir << "\n";
-				//RegistryManager::SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
-				if (rtManager.SetVal("INSTALL_DIR", REG_SZ, (TCHAR*)installDir.c_str(), (installDir.length() + 1)))
+			DWORD size = 0;
+			std::vector<TCHAR> buffer(sizeof(TCHAR));
+			std::cout << "Getting INSTALL_DIR size from registry\n";
+			LONG nError = rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
+			
+			if (nError || size <= 0) {
+				std::string currDir = std::filesystem::current_path().string();
+				std::cout << "Setting INSTALL_DIR from registry\n";
+				if (rtManager.SetVal("INSTALL_DIR", REG_SZ, currDir.data(), currDir.size()))
 					throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
+				std::cout << "Getting INSTALL_DIR size from registry again\n";
+				rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
 			}
+			std::cout << "Getting INSTALL_DIR value from registry again\n";
+			rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+			tstring installDir(buffer.data());
+			
+			LOG << installDir << "\n";
+			//string installDir = RegistryManager::GetStrVal(hKey, "INSTALL_DIR", REG_SZ);
+			//if (installDir.empty())
+			//{
+			//	installDir = currDir;
+			//	std::cout << installDir << "\n";
+			//	//RegistryManager::SetVal(hKey, "INSTALL_DIR", installDir, REG_SZ);
+			//	if (rtManager.SetVal("INSTALL_DIR", REG_SZ, (TCHAR*)installDir.c_str(), (installDir.length() + 1)))
+			//		throw HenchmanServiceException("Failed to set INSTALL_DIR to registry");
+			//}
 			//std::cout << installDir << "\n";
 			//std::cout << (installDir + "\\" + SERVICE_NAME + ".exe").c_str() << "\n";
 
@@ -468,15 +496,18 @@ int main(int argc, char* argv[])
 
 				RegistryManager::CRegistryManager rmEvent(HKEY_LOCAL_MACHINE, tstring("SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\").append(service->serviceName).data());
 
-				TCHAR eventBuff[1024] = "\0";
-				DWORD eventBuffSize = 1024;
-				rmEvent.GetVal("EventMessageFile", REG_SZ, (TCHAR*)eventBuff, eventBuffSize);
-				tstring eventMessageFile(eventBuff);
+				DWORD size = MAX_PATH;
+				std::vector<TCHAR> buffer(size);
+				rtManager.GetValSize("EventMessageFile", REG_SZ, &size, &buffer);
+
+				rtManager.GetVal("EventMessageFile", REG_SZ, buffer.data(), &size);
+				
+				tstring eventMessageFile(buffer.data());
 
 				if (!installDir.empty() && (eventMessageFile.empty() || eventMessageFile != installDir))
 				{
 					installDir.append("\\event_log.dll");
-					rmEvent.SetVal("EventMessageFile", REG_SZ, (TCHAR*)installDir.data(), installDir.length() + 1);
+					rmEvent.SetVal("EventMessageFile", REG_SZ, (TCHAR*)installDir.data(), installDir.size());
 					DWORD typesSupported = 7;
 					rmEvent.SetVal("TypesSupported", REG_DWORD, (DWORD*)&typesSupported, sizeof(DWORD));
 				}

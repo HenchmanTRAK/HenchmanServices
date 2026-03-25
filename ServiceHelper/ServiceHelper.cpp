@@ -25,6 +25,18 @@ ServiceHelper::ServiceHelper(const std::source_location& caller)
 		if(i < exploded.size() - 1)
 			functionName.append("::");
 	}
+
+	//logging_categories.insert("default", defaultCat);
+	//logging_categories.insert("queries", queries);
+}
+
+ServiceHelper::~ServiceHelper()
+{
+	/*for (auto i = logging_categories.cbegin(), end = logging_categories.cend(); i != end; ++i) {
+		delete  i.value();
+	}*/
+	//logging_categories.clear();
+		
 }
 
 std::vector<std::string> ServiceHelper::ExplodeString(std::string targetString, const char *seperator, int maxLen)
@@ -92,7 +104,7 @@ QList<QString> ServiceHelper::ExplodeString(QString targetString, const char *se
 long int ServiceHelper::microseconds()
 {
 	struct timespec tp;
-	timespec_get(&tp, TIME_UTC);
+	(void)timespec_get(&tp, TIME_UTC);
 	long int ms = tp.tv_sec * 1000 + tp.tv_nsec / 1000;
 	return ms;
 }
@@ -130,38 +142,49 @@ char * ServiceHelper::get_file_contents(const char* filename)
 	throw(errno);
 }
 
-char * ServiceHelper::GetFileExtension(std::string& FileName)
+std::string file_extention = "";
+const char * ServiceHelper::GetFileExtension(std::string& FileName)
 {
-	if (FileName.find_last_of(".") != std::string::npos)
-		return (char *)FileName.substr(FileName.find_last_of(".") + 1).data();
-	return (char *)"";
+	file_extention = "";
+
+	if (FileName.find_last_of(".") != std::string::npos) {
+		file_extention = FileName.substr(FileName.find_last_of(".") + 1);
+		return file_extention.data();
+	}
+	return file_extention.data();
 }
 
 std::string ServiceHelper::GetServicePath(std::string app_path)
 {
 
-	std::string installDir;
-	TCHAR buffer[MAX_PATH];
+	std::string installDir = "";
 	DWORD size = MAX_PATH;
+	std::vector<TCHAR> buffer(size);
 	DWORD _results;
 
 	if (app_path.empty())
 	{
 		RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, std::string("SOFTWARE\\HenchmanTRAK\\HenchmanService").c_str());
-		rtManager.GetVal("INSTALL_DIR", REG_SZ, (char*)buffer, size);
-		installDir = buffer;
+		
+		rtManager.GetValSize("INSTALL_DIR", REG_SZ, &size, &buffer);
+		if (size > 0) {
+			rtManager.GetVal("INSTALL_DIR", REG_SZ, buffer.data(), &size);
+			installDir = buffer.data();
+		}
+		else {
+			size = MAX_PATH;
+			buffer.resize(size);
+		}
 		//return app_path.ends_with("\\") ? app_path.substr(0, app_path.find_last_of("/\\")) : app_path;
-	}
-	else
-	{
+	}else{
 		installDir = app_path.ends_with("\\") ? app_path.substr(0, app_path.find_last_of("/\\")) : app_path;
 	}
 
 	if (installDir.empty())
 	{
 		do {
-			_results = GetCurrentDirectory(size, buffer);
-			installDir = buffer;
+			_results = GetCurrentDirectory(size, buffer.data());
+			installDir = buffer.data();
 		} while (_results > installDir.length() && !installDir.empty());
 	}
 
@@ -204,53 +227,217 @@ std::array<std::string, 2> ServiceHelper::timestamp()
 	return { date, time };
 }
 
-void ServiceHelper::WriteLog(char *targetFile, const std::string& log)
-{
-	std::fstream fs(targetFile, std::ios::out | std::ios_base::app);
-	if (fs) {
-		std::array<std::string, 2> dateTime = timestamp();
-		fs << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << functionName << ": " << log << std::endl;
-		fs.close();
+void ServiceHelper::messageOutput(QtMsgType type, const QMessageLogContext& context, const QString& msg) {
+#ifdef QT_NO_DEBUG_OUTPUT
+	if(type == QtDebugMsg)
+		return;
+#endif
+#ifdef QT_NO_INFO_OUTPUT
+	if (type == QtInfoMsg)
+		return;
+#endif
+#ifdef QT_NO_WARNING_OUTPUT
+	if (type == QtWarningMsg)
+		return;
+#endif
+
+	QString filename(QString::fromStdString(GetLogsPath()));
+	QString message = msg;
+	switch (type)
+	{
+	case QtDebugMsg:
+	case QtInfoMsg:
+		filename.append(QDate::currentDate().toString("yyyy_MM_dd"));
+		if (msg.contains("custom-")) {
+			QString customLog = msg.sliced(msg.indexOf("-") + 2, msg.indexOf("|", msg.indexOf("-"))-msg.indexOf("-")-3);
+			message.slice(msg.indexOf("|", msg.indexOf("-"))+2);
+			if (customLog.contains("\\")) {
+				customLog.slice(customLog.lastIndexOf("\\") + 1, customLog.lastIndexOf("."));
+			}
+			if (customLog.contains(QDate::currentDate().toString("yyyy-MM-dd-"))) {
+				customLog.slice(customLog.lastIndexOf("-") + 1);
+			}
+			filename.append(".").append(customLog);
+
+		}
+		if (context.category && context.category != "default") {
+			//qDebug() << context.category;
+			filename.append(".").append(context.category);
+		}
+		filename.append(".log.txt");
+		break;
+		
+	case QtWarningMsg:
+	case QtCriticalMsg:
+	case QtFatalMsg:
+		filename.append(QDate::currentDate().toString("yyyy_MM_dd.error.log.txt"));
+		break;
+	}
+
+	QFile file(filename);
+
+	if (!file.open(QIODevice::Append | QIODevice::Text)) return;
+
+	QTextStream out(&file);
+	out << "---| " << QTime::currentTime().toString("hh:mm:ss ") << "|--- <";
+#ifdef DEBUG
+	std::cout << "---| " << QTime::currentTime().toString("hh:mm:ss ").toStdString().data() << "|--- <";
+#endif
+	switch (type)
+	{
+	case QtDebugMsg:
+		out << "DBG";
+#ifdef DEBUG
+		std::cout << "DBG";
+#endif
+		break;
+	case QtInfoMsg:     
+		out << "INF";
+#ifdef DEBUG
+		std::cout << "INF";
+#endif
+		break;
+	case QtWarningMsg:  
+		out << "WRN";
+#ifdef DEBUG
+		std::cout << "WRN";
+#endif
+		break;
+	case QtCriticalMsg: 
+		out << "CRT";
+#ifdef DEBUG
+		std::cout << "CRT";
+#endif
+		break;
+	case QtFatalMsg:    
+		out << "FTL";
+#ifdef DEBUG
+		std::cout << "FTL";
+#endif
+		break;
+	}
+
+	out << "> " << message << '\n';
+#ifdef DEBUG
+	std::cout << "> " << message.toStdString().data() << std::endl;
+#endif
+	out.flush();
+	file.close();
+}
+
+void ServiceHelper::WriteLog(log_type type, const char *targetFile, const std::string& log)
+{	
+	switch (type) {
+	case log_type::ERRORED:
+	{
+		qWarning() << functionName.data() << ":" << log.data();
+		break;
+	}
+	case log_type::CUSTOM:
+	{
+		QLoggingCategory category("custom");
+		qCInfo(category) << functionName.data() << ":" << log.data();
+		break;
+	}
+	case log_type::QUERIES:
+	{
+		QLoggingCategory category("queries");
+		qCInfo(category) << functionName.data() << ":" << log.data();
+		break;
+	}
+	case log_type::QUERY_MANAGER:
+	{
+		QLoggingCategory category("query_manager");
+		qCInfo(category) << functionName.data() << ":" << log.data();
+		break;
+	}
+	default:
+	{
+		qInfo() << functionName.data() << ":" << log.data();
+		break;
+	}
+	}
+	if (false)
+	{
+		std::string logDir = GetLogsPath();
+		logDir.append(targetFile).append(".txt");
+		std::fstream fs(logDir.c_str(), std::ios::out | std::ios_base::app);
+		if (fs) {
+			std::array<std::string, 2> dateTime = timestamp();
+			fs << "---| " << dateTime[0] << " " << dateTime[1] << " |--- " << functionName << ": " << log << std::endl;
+			fs.close();
+		}
 	}
 
 }
 
-void ServiceHelper::WriteToLog(std::string log)
+void ServiceHelper::WriteToLog(const std::string& log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-log.txt");
-	LOG << logDir << log.data();
-	WriteLog((char *)logDir.data(), log);
+	WriteLog(log_type::GENERAL, logDir.data(), log);
 	logDir.clear();
-	log.clear();
 }
 
-void ServiceHelper::WriteToError(std::string log)
+void ServiceHelper::WriteToError(const std::string& log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-error.txt");
-	LOG << logDir << log.data();
-	WriteLog((char *)logDir.data(), log);
 	WriteToLog("Logged an error");
+	WriteLog(log_type::ERRORED, logDir.data(), log);
 	logDir.clear();
-	log.clear();
 }
 
-void ServiceHelper::WriteToCustomLog(std::string log, std::string logName)
+void ServiceHelper::WriteToCustomLog(const std::string& log, const std::string& logName)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
-	LOG << logDir << log.data();
-	WriteLog((char *)logDir.data(), log);
 	WriteToLog("Logged to " + logName);
+	QString log_name = QString::fromStdString(logName);
+
+	if(log_name.contains("-"))
+		log_name.slice(log_name.lastIndexOf("-") + 1);
+
+	if (log_name.contains("queries"))
+	{
+		WriteLog(log_type::QUERIES, logDir.data(), log);
+	}
+	else if (log_name.contains("query_manager")) {
+		WriteLog(log_type::QUERY_MANAGER, logDir.data(), log);
+	}
+	else
+	{
+#ifdef DEBUG
+		WriteLog(log_type::CUSTOM, logDir.data(), log);
+#else
+		WriteToLog(log);
+#endif // DEBUG
+	}
+	//QLoggingCategory* category;
+	//if (logging_categories.contains(log_name)) {
+	//	category = new QLoggingCategory(logging_categories.at(logging_categories.indexOf(log_name)));
+	//	//qCInfo(logging_categories.value(log_name)) << functionName.data() << ": " << log.data();
+	//}
+	//else {
+	//	category = new QLoggingCategory("default");
+	//	//qCInfo(logging_categories.value("default")) << functionName.data() << ": " << log.data();
+	//}
+	//qCInfo(*category) << functionName.data() << ":" << log.data();
+	//WriteLog(log_type::CUSTOM, log_name.toStdString().data(), log);
+	//delete category;
 	logDir.clear();
-	log.clear();
 }
 
 void ServiceHelper::ConsoleLog(const char* log)
 {
-	std::array<std::string, 2> dateTime = timestamp();
-	std::cout << "|-- " << dateTime[0] << " " << dateTime[1] << " --| <" << functionName << "> |" << log << std::endl;
+#ifdef DEBUG
+	qDebug() << functionName.data() << ": " << log;
+#else
+	qInfo() << functionName.data() << ": " << log;
+#endif
+	//std::array<std::string, 2> dateTime = timestamp();
+	//std::cout << "|-- " << dateTime[0] << " " << dateTime[1] << " --| <" << functionName << "> |" << log << std::endl;
+	
 	//qDebug() << "|-- " << dateTime[0] << " " << dateTime[1] << " --| <" << functionName << "> |" << log << std::endl;
 }
 
@@ -386,49 +573,54 @@ std::string ServiceHelper::ws2s(const std::wstring& wstr)
 
 ServiceHelper& ServiceHelper::operator<<(const char* s) 
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(s);
-#endif
+//#endif
 	return *this;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const std::string& s)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(s.data());
-#endif
+//#endif
 	return *this;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const QString& s)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(s.toStdString().data());
-#endif
+//#endif
 	return *this;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const QByteArray& s)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(s.toStdString().data());
-#endif
+//#endif
 	return *this;
 }
 
 ServiceHelper& ServiceHelper::operator<<(const int& s)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
 	ConsoleLog(std::to_string(s).data());
-#endif
+//#endif
 	return *this;
 }
 
 //template<typename T>
 ServiceHelper& ServiceHelper::operator<<(const std::vector<std::string>& s)
 {
-#ifdef DEBUG
-	qDebug() << s;
-#endif
+//#ifdef DEBUG
+	//qDebug() << s;
+	for(int i = 0; i < s.size(); i++)
+	{
+		ConsoleLog(s[i].data());
+	}
+//#endif
+	
 	return *this;
 }

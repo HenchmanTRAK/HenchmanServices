@@ -8,8 +8,16 @@
 
 #include <iostream>
 #include <string>
+#include <strsafe.h>
+#include <vector>
 
 #include <windows.h>
+#include <stdio.h>
+
+
+#ifndef _WIN32_WINNT
+	#define _WIN32_WINNT 0x0600
+#endif
 
 
 // This class is exported from the dll
@@ -37,7 +45,7 @@ namespace RegistryManager {
 	private:
 		HKEY hkRegistryKey;
 		HKEY hKey;
-		LPCTSTR lpSubKey;
+		const TCHAR* lpSubKey;
 
 	public:
 		/**
@@ -50,7 +58,7 @@ namespace RegistryManager {
 		 *
 		 * @return A handle to the registry key.
 		 */
-		CRegistryManager(HKEY hRootKey, const LPCTSTR& subKey);
+		CRegistryManager(HKEY hRootKey, const TCHAR* subKey);
 
 		/**
 		 * @brief The function to remove a registry key.
@@ -62,6 +70,10 @@ namespace RegistryManager {
 		~CRegistryManager();
 
 		// TODO: add your methods here.
+
+		DWORD GetValSize(const TCHAR* lpValue, DWORD type);
+		//LONG GetValSize(const TCHAR* lpValue, DWORD type, LPDWORD size);
+		LONG GetValSize(const TCHAR* lpValue, DWORD type, DWORD* size, std::vector<TCHAR>* buffer = nullptr);
 
 		/**
 		 * @brief The function to set a string value of a registry key.
@@ -76,6 +88,7 @@ namespace RegistryManager {
 		 * @return The result of the operation.
 		 */
 		LONG SetVal(const TCHAR* lpValue, DWORD type, const PVOID& data, const DWORD& size);
+		LONG SetVal(const TCHAR* lpValue, DWORD type, const PVOID& data, const LPDWORD& size);
 		/**
 		 * @brief Gets a value of a registry key.
 		 *
@@ -87,10 +100,13 @@ namespace RegistryManager {
 		 *
 		 * @return The data of the registry value.
 		 */
-		LONG GetVal(const TCHAR* lpValue, DWORD type, const PVOID& buffer, const DWORD& size);
+		LONG GetVal(const TCHAR* lpValue, DWORD type, const PVOID& buffer, LPDWORD size);
 
-		static int RemoveTargetKey(HKEY hRootKey, LPCTSTR strKey);
+		static int RemoveTargetKey(const HKEY& hRootKey, const LPCTSTR& strKey);
 
-		int RemoveValue(LPCTSTR lpValue);
+		int RemoveValue(const LPCTSTR& lpValue);
+
+		HRESULT GetSystemError(const TCHAR* msg, const DWORD& errorCode, const LPCTSTR& buffer, const DWORD& bufferSize);
+
 	};
 }

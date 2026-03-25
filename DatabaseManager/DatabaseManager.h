@@ -1,12 +1,16 @@
-#ifndef DATABASE_MANAGER_H
-#define DATABASE_MANAGER_H
 #pragma once
 
-#ifdef DATABASE_MANAGER_EXPORTS
-#define DATABASE_MANAGER_ __declspec(dllexport)
-#else
-#define DATABASE_MANAGER_ __declspec(dllimport)
-#endif
+//#ifdef DATABASE_MANAGER_EXPORTS
+//#define DATABASE_MANAGER_ __declspec(dllexport)
+//#else
+//#define DATABASE_MANAGER_ __declspec(dllimport)
+//#endif
+
+//#if defined(DATABASE_MANAGER)
+//#  define DATABASE_MANAGER_EXPORT Q_DECL_EXPORT
+//#else
+//#  define DATABASE_MANAGER_EXPORT Q_DECL_IMPORT
+//#endif
 
 #include <iostream>
 #include <map>
@@ -14,6 +18,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <ctime>
 
 #include <QCoreApplication>
 #include <QEventLoop>
@@ -42,17 +47,30 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QList>
-#include <QThread>
+#include <QLoggingCategory>
+#include <QAtomicPointer>
+#include <QMutex>
+#include <QMutexLocker>
+#include <QFuture>
+#include <QFutureSynchronizer>
+#include <QtConcurrentRun>
+#include <QtConcurrentMap>
 
 #include "HenchmanServiceException.h"
 #include "RegistryManager.h"
 #include "ServiceHelper.h"
 #include "SQLiteManager2.h"
+#include "NetworkManager.h"
+#include "QueryManager.h"
+#include "EmployeesManager.h"
+#include "UsersManager.h"
+
+#include <crtdbg.h>
+
+#include "databasemanager_export.h"
 
 
-#define QT_NO_DEBUG_OUTPUT
-
-typedef QMap<QString, QString> QStringMap;
+//#define QT_NO_DEBUG_OUTPUT
 
 enum table_enums{
 	tools,
@@ -144,33 +162,13 @@ static QMap<QString, table_enums> table_map = {
  * - `~DatabaseManager()`: The destructor for the DatabaseManager class.
  * - `void performCleanup()`: Performs cleanup operations for the DatabaseManager object.
  */
-class DatabaseManager : public QObject
+class DATABASEMANAGER_EXPORT DatabaseManager : public QObject
 {
 	Q_OBJECT
 
 private:
-
-	/**
-	 * @var netManager
-	 *
-	 * @brief The network manager for database connections.
-	 *
-	 * This object is used to make network requests to the database server.
-	 */
-	QNetworkAccessManager* netManager = nullptr;
-
-	QTcpSocket* sock = nullptr;
-
-	/**
-	 * @var restManager
-	 *
-	 * @brief The REST manager for database operations.
-	 *
-	 * This object is used to make RESTful network requests to the database server.
-	 */
-	QRestAccessManager* restManager = nullptr;
-
-	QNetworkCookieJar* cookieJar = nullptr;
+	s_DATABASE_INFO db_info;
+	
 
 	/**
 	 * @var testingDBManager
@@ -241,16 +239,18 @@ private:
 		{"kitLocation", 0},
 	};
 
-	std::string trakType;
-	std::string trakId;
-	int custId;
-	QString trakIdNum;
+	std::string trakType = "";
+	std::string trakId = "";
+	int custId = 0;
+	QString trakIdNum = "000000";
 
 	//QNetworkRequest request;
 
 	SQLiteManager2 sqliteManager;
+	QueryManager queryManager;
 
 public:
+	NetworkManager networkManager;
 	/**
 	 * @var bool requestRunning
 	 *
@@ -280,6 +280,7 @@ public:
 
 	QString databaseDriver;
 
+	
 public:
 	/**
 	 * @brief Constructs a DatabaseManager object.
@@ -322,51 +323,6 @@ public:
 	int connectToLocalDB();
 
 	/**
-	* @brief Executes a target SQL script file on a local database.
-	* 
-	* Takes a passed SQL script path and executes it query by query on the local database.
-	*
-	* @param filepath - The path to the SQL script file.
-	*
-	* @return Returns the number of SQL statements successfully executed.
-	*
-	* @throws None
-	*/
-	int ExecuteTargetSqlScript(const std::string& filepath);
-
-	/**
-	 * @brief Executes a SQL query on a local database and returns the results as a vector of QMap objects.
-	 *
-	 * This function connects to a local database, executes the given SQL query, and returns the results as a vector of QMap objects.
-	 * Each QMap object represents a row in the query result and contains the column names as keys and the corresponding values as values.
-	 *
-	 * @param sqlQuery - The SQL query to execute.
-	 *
-	 * @return Returns a vector of QMap objects representing the query results. Each QMap object contains the column names as keys and the corresponding values as values.
-	 *
-	 * @throws Throws an exception if there is an error executing the query or if there is an error connecting to the local database.
-	*/
-	std::vector<QStringMap> ExecuteTargetSql(const std::string& sqlQuery, const stringmap& params = stringmap());
-
-	std::vector<QStringMap> ExecuteTargetSql(const std::wstring &sqlQuery);
-	
-	std::vector<QStringMap> ExecuteTargetSql(const QString& sqlQuery, const QStringMap& params = QStringMap());
-
-	std::vector<QStringMap> ExecuteTargetSql(const TCHAR* sqlQuery, const std::map<const TCHAR*, const TCHAR*>& params = std::map<const TCHAR*, const TCHAR*>());
-
-	/**
-	 * @brief Checks if the internet connection is available by attempting to connect to www.google.com on port 80.
-	 *
-	 * This function creates a QTcpSocket object, connects to www.google.com on port 80, and waits for the connection to be established.
-	 * If the connection is successful within the specified timeout, the function returns true. Otherwise, it returns false.
-	 *
-	 * @return Returns true if the internet connection is available, otherwise returns false.
-	 *
-	 * @throws None
-	*/
-	bool isInternetConnected();
-
-	/**
 	 * @brief Performs cleanup operations for the DatabaseManager object.
 	 *
 	 * This member function performs cleanup operations for the DatabaseManager object,
@@ -399,6 +355,7 @@ public:
 	 * @throws Throws an exception if there is an error executing the SQL query or if there is an error connecting to the target database.
 	 */
 	int addUsersIfNotExists();
+	//int addUsersIfNotExistsOld();
 
 	/**
 	 * @brief Adds employees to the database if they do not already exist.
@@ -592,34 +549,7 @@ public:
 
 	int createPortatrakTransactionsTable();
 
-	/**
-	 * @brief Parses a QJsonArray into a string representation.
-	 *
-	 * @param array The QJsonArray to be parsed.
-	 *
-	 * @return The string representation of the QJsonArray.
-	 *
-	 * @throws None.
-	*/
-	static std::string parseData(QJsonArray array);
-
-	/**
-	 * @brief Parses a QJsonObject and returns a formatted string.
-	 *
-	 * This function takes a QJsonObject and recursively parses its keys and values.
-	 * If a key's value is a string, the key-value pair is added to the formatted string.
-	 * If a key's value is an object, the function calls itself to parse the nested object.
-	 * If a key's value is an array, the function calls another function to parse the array.
-	 *
-	 * @param object The QJsonObject to be parsed.
-	 *
-	 * @return The formatted string representing the parsed QJsonObject.
-	 *
-	 * @throws None.
-	*/
-	static std::string parseData(QJsonObject object);
-
-public slots:
+private slots:
 
 	/**
 	 * @brief Parses the data received from a network request.
@@ -633,34 +563,9 @@ public slots:
 	 * @throws Throws an exception if there is a network or HTTP error, or if there is an error
 	 *         executing the SQL query or parsing the JSON response.
 	 */
-	void parseData(QNetworkReply* netReply);
+	//void parseData(QNetworkReply* netReply);
 
 private:
-
-	/**
-	 * @brief Sends a network request to the specified URL with the provided query data.
-	 *
-	 * Ensures the request has appropriate headers and parses the data returned before logging it, then returns the pure json through the results pointer.
-	 *
-	 * @param url The URL to send the network request to.
-	 * @param query The query data to be sent in the request.
-	 * @param results The QJsonDocument to store the response in.
-	 *
-	 * @return Returns 1 if the network request was successful, otherwise returns 0.
-	 *
-	 * @throws Throws an exception if there is a network or HTTP error, or if there is an error executing the SQL query or parsing the JSON response.
-	*/
-	int makeNetworkRequest(const QString &url, const QStringMap &query, QJsonDocument* results);
-
-	int authenticateSession(const QString& url = "");
-	
-	int makeGetRequest(const QString& url, const QStringMap &queryMap, QJsonDocument* results);
-	
-	int makePostRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
-
-	int makePatchRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
-
-	int makeDeleteRequest(const QString& url, const QStringMap& queryMap, const QJsonObject& body, QJsonDocument* results);
 
 	/**
 	 * @brief Processes the keys and values in the provided map and stores the results in the provided results array.
@@ -682,8 +587,10 @@ private:
 
 	void processDeleteStatement( QString& query, QJsonObject& data, bool& skipQuery);
 
+	void handleUpdatingLocalDB(const QString& table, const QStringList& unique_columns = QStringList(), s_UpdateLocalTableOptions* options = nullptr);
 };
+
+//Q_DECLARE_METATYPE(DatabaseManager);
 
 std::string getValidDrivers();
 
-#endif

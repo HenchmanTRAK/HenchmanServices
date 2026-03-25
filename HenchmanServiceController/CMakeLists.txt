@@ -18,8 +18,8 @@ generate_product_version(
 )
 
 #add_executable(HenchmanServices "HenchmanServices.cpp")
-add_executable(HenchmanServiceController "HenchmanServiceController.cpp" "HenchmanServiceController.h" ${VersionFilesOutputVariable})
-#qt_disable_unicode_defines(HenchmanService)
+qt_add_executable(HenchmanServiceController "HenchmanServiceController.cpp" "HenchmanServiceController.h" ${VersionFilesOutputVariable})
+qt_disable_unicode_defines(HenchmanServiceController)
 
 target_include_directories(
 	HenchmanServiceController PRIVATE 
@@ -39,7 +39,6 @@ target_link_libraries(
 set_target_properties(
 	HenchmanServiceController PROPERTIES
 	LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator'\""
-	AUTOMOC TRUE
 )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
