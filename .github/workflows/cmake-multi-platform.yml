@@ -202,7 +202,7 @@ jobs:
     - name: Build
       id: cmake_build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      run: cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }} --target PACKAGE -DCPACK_PACKAGE_FILE_NAME="HenchmanService-latest-win64" && echo "output-exe=${*.exe}" >> "$env:GITHUB_OUTPUT"
+      run: cmake -DCPACK_PACKAGE_FILE_NAME="HenchmanService-latest-win64" --build ${{ github.workspace }}/build --config ${{ matrix.build_type }} --target PACKAGE && echo "output-exe=${*.exe}" >> "$env:GITHUB_OUTPUT"
 
     - name: Release
       uses: softprops/action-gh-release@v2
