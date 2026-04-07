@@ -298,12 +298,24 @@ DWORD SvcWorkerThread(LPVOID lpParam)
 	QCoreApplication* a = new QCoreApplication(argc, argv);
 	CHenchmanService hsService(a);
 
-	while (testing || WaitForSingleObject(getServiceController()->mService.serviceStopEvent, 0) != WAIT_OBJECT_0)
-	{
+	int c = 0;
 
-		hsService.MainFunction(a);
+	if (testing) {
 
+
+		while (testing || WaitForSingleObject(getServiceController()->mService.serviceStopEvent, 0) != WAIT_OBJECT_0)
+		{
+			hsService.MainFunction(a);
+			c = getchar();
+		}
 	}
+	else {
+		while (WaitForSingleObject(getServiceController()->mService.serviceStopEvent, 0) != WAIT_OBJECT_0)
+		{
+			hsService.MainFunction(a);
+		}
+	}
+
 
 	evntManager.ReportCustomEvent(getServiceController()->mService.serviceName, "Service has exited", 0);
 
