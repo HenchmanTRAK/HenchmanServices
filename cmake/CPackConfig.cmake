@@ -14,6 +14,7 @@ set(CPACK_NSIS_MODIFY_PATH ON)
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "HenchmanTRAK\\\\HenchmanService")
 set(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\HenchmanService.exe")
 set(CPACK_NSIS_DISPLAY_NAME "HenchmanService ${PROJECT_VER}")
+SET(CPACK_PACKAGE_FILE_NAME="HenchmanService-latest-win64")
 #set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/EULA.txt")
 
 include(CPackComponent)
