@@ -223,6 +223,10 @@ int CUsersManager::GetLocalCount(const QList<QString>& p_conditions, const QJson
 			conditions.append("userId <> ''");
 			conditions.append("userId IS NOT NULL");
 			conditions.append("userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL)");
+			
+			conditions.append(QString("(%1 IS NULL OR %1 = '' OR %1 = :%1)").arg(m_trak_details.trak_id_type));
+			if (!placeholders.contains(m_trak_details.trak_id_type))
+				placeholders.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 			if (m_MySQL_Column_Names.contains("empId")) {
 				conditions.append("empId IN (SELECT empId FROM employees WHERE userId <> '' AND userId IS NOT NULL)");
 			}
@@ -638,9 +642,10 @@ int CUsersManager::SyncWebportal()
 	QJsonObject placeholderMap;
 
 	//QVariantMap vMapConditionals = {};
-
+	if (!placeholderMap.contains(m_trak_details.trak_id_type))
+		placeholderMap.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
 	if (webportalResults.empty())
-		select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY id DESC";
+		select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (%1 IS NULL OR %1 = '' OR %1 = :%1) AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY id DESC";
 	else {
 		QJsonArray employeeIds;
 		QJsonArray userIds;
@@ -680,16 +685,16 @@ int CUsersManager::SyncWebportal()
 		placeholderMap.insert("tz", m_time_zone);
 
 		if (webportalGroupedResults.size() <= 0)
-			select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND userId NOT IN (:userIds) AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY id ASC";
+			select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (%1 IS NULL OR %1 = '' OR %1 = :%1) AND userId NOT IN (:userIds) AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY id ASC";
 		else {
-			select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (userId NOT IN (:userIds) OR CONVERT_TZ(updatedAt, :tz, '+00:00') NOT IN (:updatedAts)) AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY updatedAt ASC, id ASC";
+			select = "SELECT * FROM users WHERE userId <> '' AND userId IS NOT NULL AND (%1 IS NULL OR %1 = '' OR %1 = :%1) AND (userId NOT IN (:userIds) OR CONVERT_TZ(updatedAt, :tz, '+00:00') NOT IN (:updatedAts)) AND userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL) ORDER BY updatedAt ASC, id ASC";
 			placeholderMap.insert("updatedAts", updatedAtDates);
 		}
 
 	}
 
 	//std::vector sqlQueryResults = queryManager.execute(employeeSelect, vMapConditionals);
-	QJsonArray queryResults = GetLocal(select, placeholderMap);
+	QJsonArray queryResults = GetLocal(select.arg(m_trak_details.trak_id_type), placeholderMap);
 
 	qDebug() << QJsonDocument(queryResults).toJson().toStdString().data();
 
