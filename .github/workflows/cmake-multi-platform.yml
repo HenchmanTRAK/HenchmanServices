@@ -212,6 +212,5 @@ jobs:
       with:
         tag_name: ${{needs.setup.outputs.VERSION}}
         name: Release ${{needs.setup.outputs.VERSION}}
-        # files: "${{ github.workspace }}/build/HenchmanService-${{needs.setup.outputs.VERSION}}-win64.exe"
-        files: "${{ github.workspace }}/build/HenchmanService-latest-win64.exe"
+        files: "${{ github.workspace }}/build/HenchmanService-${{needs.setup.outputs.VERSION}}-win64.exe"
         make_latest: 'true'
