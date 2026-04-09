@@ -13,6 +13,7 @@ target_include_directories(
 target_link_libraries(
 	ServiceHelper PRIVATE
 	RegistryManager
+	EventManager
 	Qt6::Core
 )
 

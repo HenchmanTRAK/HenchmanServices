@@ -383,7 +383,8 @@ void ServiceHelper::WriteToError(const std::string& log)
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(timestamp()[0] + "-error.txt");
-	WriteToLog("Logged an error");
+	//WriteToLog("Logged an error");
+	WriteLog(log_type::GENERAL, logDir.data(), log);
 	WriteLog(log_type::ERRORED, logDir.data(), log);
 	logDir.clear();
 }
@@ -392,7 +393,8 @@ void ServiceHelper::WriteToCustomLog(const std::string& log, const std::string& 
 {
 	std::string logDir = GetLogsPath();
 	logDir.append(logName + ".txt");
-	WriteToLog("Logged to " + logName);
+	//WriteToLog("Logged to " + logName);
+	WriteLog(log_type::GENERAL, logDir.data(), log);
 	QString log_name = QString::fromStdString(logName);
 
 	if(log_name.contains("-"))
@@ -512,11 +514,16 @@ int ServiceHelper::ShellExecuteApp(std::string appName, std::string params)
 		GetExitCodeProcess(SEInfo.hProcess, &ExitCode);
 		exitCodeMessage << "Target: " << exeFile << " return exit code : " << std::to_string(ExitCode);
 		ServiceHelper().WriteToLog(exitCodeMessage.str());
-		exitCodeMessage.clear();
+		//exitCodeMessage.clear();
 		//} while (ExitCode != STILL_ACTIVE);
 		return 1;
 	}
-
+	else {
+		std::stringstream msg;
+		msg << "Failed to execute target: " << exeFile << ". Returned with error: " << GetLastErrorAsString();
+		ServiceHelper().WriteToError(msg.str());
+		/*msg.clear();*/
+	}
 	return 0;
 }
 

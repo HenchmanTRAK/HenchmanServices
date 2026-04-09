@@ -16,8 +16,8 @@ target_link_libraries(
 	NetworkManager
 	SQLiteManager2
 	HenchmanServiceException
-	EventManager
 	ServiceHelper
+	EventManager
 	RegistryManager
 	Qt6::Concurrent
 	Qt6::Network

@@ -21,6 +21,7 @@
 
 //#include "HenchmanServiceException.h"
 #include "RegistryManager.h"
+#include "EventMAnager.h"
 
 //#ifdef DEBUG
 //#define _DEBUG 1

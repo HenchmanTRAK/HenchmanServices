@@ -222,7 +222,7 @@ int CUsersManager::GetLocalCount(const QList<QString>& p_conditions, const QJson
 		if (conditions.isEmpty()) {
 			conditions.append("userId <> ''");
 			conditions.append("userId IS NOT NULL");
-			conditions.append("userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL)");
+			//conditions.append("userId IN (SELECT userId FROM employees WHERE userId <> '' AND userId IS NOT NULL)");
 			
 			conditions.append(QString("(%1 IS NULL OR %1 = '' OR %1 = :%1)").arg(m_trak_details.trak_id_type));
 			if (!placeholders.contains(m_trak_details.trak_id_type))
@@ -236,7 +236,13 @@ int CUsersManager::GetLocalCount(const QList<QString>& p_conditions, const QJson
 		if (m_MySQL_Column_Names.contains("empId")) {
 			group_by.append("empId");
 		}
-		
+		group_by.append("disabled");
+		group_by.append("deleted");
+
+		qDebug() << "conditions" << conditions;
+		qDebug() << "placeholders" << placeholders;
+		qDebug() << "group_by" << group_by;
+			
 		local_users = CTRAKEntriesManager::GetLocalCount(conditions, group_by, placeholders);
 
 		//QJsonArray rowCount = queryManager.execute("SELECT COUNT(*) as total FROM users WHERE " + conditions.join(" AND "), placeholders);
@@ -1057,10 +1063,11 @@ int CUsersManager::SyncLocal()
 			++local_count;
 	}
 
-	QList<QString> conditions;
+	/*QList<QString> conditions;
 	conditions.append("userId <> ''");
-	conditions.append("userId IS NOT NULL");
-	local_count = GetLocalCount(conditions);
+	conditions.append("userId IS NOT NULL");*/
+	//local_count = GetLocalCount(conditions);
+	local_count = GetLocalCount();
 
 	return NEXTSTEP::CHECK_NEXT_STEP;
 }

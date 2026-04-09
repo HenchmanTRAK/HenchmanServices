@@ -93,6 +93,8 @@ void CTRAKEntriesManager::Initialize()
 		QJsonObject placeholders;
 
 		(void)placeholders.insert(m_trak_details.trak_id_type, m_trak_details.trak_id);
+		
+		(void)GetColumns();
 
 		int rowCheck = GetLocalCount();
 		int local_emp_count = rowCheck;
@@ -103,7 +105,6 @@ void CTRAKEntriesManager::Initialize()
 		}
 
 
-		(void)GetColumns();
 
 	}
 	catch (const std::exception& e) {
@@ -384,6 +385,7 @@ QJsonArray CTRAKEntriesManager::GetColumns(bool reset)
 	for (int i = 0; i < m_table.rowCount(); ++i)
 	{
 		QVariantMap results = m_queryManager.recordToMap(m_table.record(i));
+		m_MySQL_Column_Names.append(results.value("Field").toString().trimmed());
 		m_MySQL_Columns.append(QJsonObject::fromVariantMap(results));
 	}
 

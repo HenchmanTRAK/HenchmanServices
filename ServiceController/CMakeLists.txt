@@ -10,6 +10,7 @@ target_include_directories(
 target_link_libraries(
 	ServiceController PRIVATE
 	ServiceHelper
+	EventManager
 	RegistryManager
 	Qt6::Core
 	PUBLIC HenchmanServiceTaskScheduler
