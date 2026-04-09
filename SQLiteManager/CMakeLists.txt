@@ -5,11 +5,11 @@ target_include_directories(SQLiteManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
 	SQLiteManager PRIVATE
-	Qt6::Core
-	EventManager
 	HenchmanServiceException
-	RegistryManager
 	ServiceHelper
+	RegistryManager
+	EventManager
+	Qt6::Core
 	SQLiteCpp 
 	sqlite3
 )

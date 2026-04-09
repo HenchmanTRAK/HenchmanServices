@@ -10,8 +10,8 @@ qt_disable_unicode_defines(QueryManager)
 target_link_libraries(
 	QueryManager PRIVATE
 	HenchmanServiceException
-	EventManager
 	ServiceHelper
+	EventManager
 	RegistryManager
 	Qt6::Network
 	Qt6::Sql

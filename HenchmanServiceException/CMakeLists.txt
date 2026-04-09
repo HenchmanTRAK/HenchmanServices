@@ -4,8 +4,8 @@ qt_disable_unicode_defines(HenchmanServiceException)
 
 target_link_libraries(
 	HenchmanServiceException PRIVATE
-	EventManager
 	ServiceHelper
+	EventManager
 	RegistryManager
 	Qt6::Core
 )

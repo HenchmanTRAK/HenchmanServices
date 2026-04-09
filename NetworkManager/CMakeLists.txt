@@ -31,8 +31,8 @@ target_include_directories(NetworkManager INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} 
 target_link_libraries(
 	NetworkManager PRIVATE
 	HenchmanServiceException
-	EventManager
 	ServiceHelper
+	EventManager
 	RegistryManager
 	Qt6::Network
 	Qt6::Core

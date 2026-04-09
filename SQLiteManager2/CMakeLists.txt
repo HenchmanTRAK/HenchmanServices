@@ -13,8 +13,8 @@ qt_disable_unicode_defines(SQLiteManager2)
 target_link_libraries(
 	SQLiteManager2 PRIVATE
 	HenchmanServiceException
-	EventManager
 	ServiceHelper
+	EventManager
 	RegistryManager
 	Qt6::Sql
 	Qt6::Core

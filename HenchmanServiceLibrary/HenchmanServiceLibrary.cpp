@@ -773,10 +773,14 @@ void CHenchmanService::checkStateOfMySQL()
 	RegistryManager::CRegistryManager rtManager(HKEY_LOCAL_MACHINE, tstring("SOFTWARE\\HenchmanTRAK\\").append(svcController->mService.serviceName).c_str());
 	DWORD size = 0;
 	std::vector<TCHAR> buffer(size);
-	rtManager.GetValSize("MySQL_DIR", REG_SZ, &size);
-	buffer.resize(size);
-
-	rtManager.GetVal("MySQL_DIR", REG_SZ, buffer.data(), &size);
+	rtManager.GetValSize("MySQL_DIR", REG_SZ, &size, &buffer);
+	
+	if (size > 0)
+		rtManager.GetVal("MySQL_DIR", REG_SZ, buffer.data(), &size);
+	else {
+		ServiceHelper().WriteToError("Directory to MySQL was not set prior to attempting to start mysql service");
+		return;
+	}
 	//string mysql_dir = RegistryManager::GetStrVal(hKey, "MySQL_DIR", REG_SZ);
 	std::string mysql_dir(buffer.data());
 	//RegCloseKey(hKey);
@@ -787,7 +791,8 @@ void CHenchmanService::checkStateOfMySQL()
 		switch (wampMySQLSvcStatus) {
 		case -1: {
 			ServiceHelper().WriteToError("MySQL Service errored with unknown error");
-			if (!ServiceHelper::ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install-manual wampmysqld64"))
+			//if (!ServiceHelper::ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install-manual wampmysqld64"))
+			if (!ServiceHelper::ShellExecuteApp(mysql_dir + "\\mysqld.exe", " --install wampmysqld64"))
 				throw HenchmanServiceException("Failed to install Local MYSQL service");
 			ServiceHelper().WriteToLog("Local MYSQL service installed...");
 			if (!svcController->StartTargetSvc("wampmysqld64"))
